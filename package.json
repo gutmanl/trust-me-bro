@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "generate:schema": "tsx scripts/generate-schema.ts"
+    "generate:schema": "tsx scripts/generate-schema.ts",
+    "tmb": "tsx cli/tmb.ts"
   },
   "dependencies": {
     "next": "16.3.0",
