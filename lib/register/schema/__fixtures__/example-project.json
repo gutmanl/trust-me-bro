@@ -1,0 +1,141 @@
+{
+  "schema_version": "1.0.0",
+  "project": {
+    "id": "proj_llm-code-review-2026",
+    "research_question": "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
+    "created_at": "2026-07-28T08:00:00Z",
+    "source_set_revision": 1,
+    "briefing_import": {
+      "imported_at": "2026-07-28T08:02:40Z",
+      "sha256": "1d40be0000000000000000000000000000000000000000000000000000000000",
+      "blob_path": "blobs/1d/1d40be0000000000000000000000000000000000000000000000000000000000.md",
+      "tool": "deep-research-x"
+    }
+  },
+  "config": {
+    "rubric_version": "se-evidenz-rubrik-v1",
+    "adjudication_sample_rate": 0.1,
+    "backends": {
+      "primary": {
+        "cli": "claude",
+        "model_family": "anthropic"
+      },
+      "secondary": {
+        "cli": "codex",
+        "model_family": "openai"
+      }
+    }
+  },
+  "sources": [
+    {
+      "id": "src_meyer2025",
+      "type": "article-journal",
+      "title": "Effects of AI Assistants on Code Review Duration",
+      "author": [
+        {
+          "family": "Meyer",
+          "given": "A."
+        }
+      ],
+      "issued": {
+        "date-parts": [[2025, 11]]
+      },
+      "container-title": "IEEE Transactions on Software Engineering",
+      "DOI": "10.1109/TSE.2025.3489012",
+      "custom": {
+        "source_type": "begutachtete_publikation",
+        "identifier_verified": {
+          "status": true,
+          "at": "2026-07-28T08:05:44Z"
+        },
+        "snapshot": {
+          "retrieved_at": "2026-07-28T08:05:12Z",
+          "sha256": "9f2b7c1e00000000000000000000000000000000000000000000000000000000",
+          "blob_path": "blobs/9f/9f2b7c1e00000000000000000000000000000000000000000000000000000000.pdf",
+          "text_blob_path": "blobs/4c/4c81aa0200000000000000000000000000000000000000000000000000000000.txt",
+          "revision": 1
+        }
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "clm_0001",
+      "text": "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
+      "claim_type": "quantitativer_einzelbefund",
+      "status": "bestaetigt",
+      "support_degree": "supported",
+      "briefing_anchor": "p12",
+      "provenance": {
+        "tool": "deep-research-x",
+        "model": "deep-research-x-1",
+        "extracted_at": "2026-07-28T08:12:30Z",
+        "search_path": "Suchlauf 3, Abschnitt Produktivitaetswirkung"
+      },
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_meyer2025",
+          "locator": {
+            "page": 6,
+            "section": "4.2"
+          },
+          "verbatim_excerpt": "…median review time dropped from 42 to 19 minutes (-55%)…",
+          "existence_check": {
+            "status": "bestanden",
+            "at": "2026-07-28T09:12:03Z"
+          },
+          "relation_type": "stuetzt",
+          "judgments": [
+            {
+              "backend": "claude",
+              "model": "claude-sonnet-5",
+              "relation_type": "stuetzt",
+              "confidence": 0.92,
+              "reasoning": "Zahlenwert und Richtung stimmen mit dem Auszug ueberein.",
+              "at": "2026-07-28T09:20:11Z"
+            }
+          ]
+        }
+      ],
+      "history": [
+        {
+          "seq": 2,
+          "at": "2026-07-28T08:12:30Z",
+          "actor": "system:extraction",
+          "from_status": null,
+          "to_status": "erfasst",
+          "reason": "Aus Briefing-Absatz p12 extrahiert.",
+          "prev_hash": "c41d8a0000000000000000000000000000000000000000000000000000000000",
+          "hash": "77e0b30000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "seq": 9,
+          "at": "2026-08-01T14:03:55Z",
+          "actor": "human:lg",
+          "from_status": "zur_adjudikation",
+          "to_status": "bestaetigt",
+          "reason": "Stichprobenkontrolle: Fundstelle und Zahlenwert im Snapshot verifiziert.",
+          "decision": {
+            "category": null,
+            "reviewed_evidence_ids": ["ev_0001"],
+            "duration_s": 96
+          },
+          "prev_hash": "b12f090000000000000000000000000000000000000000000000000000000000",
+          "hash": "5ac2d70000000000000000000000000000000000000000000000000000000000"
+        }
+      ]
+    }
+  ],
+  "project_events": [
+    {
+      "seq": 1,
+      "at": "2026-07-28T08:05:12Z",
+      "actor": "human:lg",
+      "event": "source_set_frozen",
+      "reason": "Initialer Import, 1 Quelle, Revision 1.",
+      "prev_hash": "e3a1c00000000000000000000000000000000000000000000000000000000000",
+      "hash": "c41d8a0000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

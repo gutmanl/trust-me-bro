@@ -2,3 +2,5 @@
 node_modules/
 workspace/
 package-lock.json
+# generated artifact, owned by npm run generate:schema
+schema/claims.schema.json

@@ -1,0 +1,610 @@
+{
+  "$defs": {
+    "__schema0": {
+      "pattern": "^proj_[a-z0-9][a-z0-9._-]*$",
+      "type": "string"
+    },
+    "__schema1": {
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+      "type": "string"
+    },
+    "__schema10": {},
+    "__schema11": {
+      "enum": [
+        "erfasst",
+        "existenzgeprueft",
+        "vorgeprueft",
+        "automatisch_bestaetigt",
+        "zur_adjudikation",
+        "bestaetigt",
+        "beanstandet",
+        "ueberarbeitet",
+        "verworfen"
+      ],
+      "type": "string"
+    },
+    "__schema12": {
+      "pattern": "^ev_[a-z0-9][a-z0-9_-]*$",
+      "type": "string"
+    },
+    "__schema13": {
+      "enum": [
+        "stuetzt",
+        "stuetzt_teilweise",
+        "widerspricht",
+        "nicht_einschlaegig"
+      ],
+      "type": "string"
+    },
+    "__schema14": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/__schema16"
+        },
+        "at": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "decision": {
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "wortlaut_nicht_in_quelle",
+                    "leitsatz_nicht_herleitbar",
+                    "aus_dem_kontext_gerissen",
+                    "quelle_nicht_vertrauenswuerdig",
+                    "quelle_veraltet",
+                    "sonstiges"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "duration_s": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "reviewed_evidence_ids": {
+              "items": {
+                "$ref": "#/$defs/__schema12"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "category",
+            "reviewed_evidence_ids",
+            "duration_s"
+          ],
+          "type": "object"
+        },
+        "from_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema11"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hash": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "prev_hash": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "$ref": "#/$defs/__schema15"
+        },
+        "to_status": {
+          "$ref": "#/$defs/__schema11"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "actor",
+        "from_status",
+        "to_status",
+        "reason",
+        "prev_hash",
+        "hash"
+      ],
+      "type": "object"
+    },
+    "__schema15": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "__schema16": {
+      "pattern": "^(human|system):[a-z0-9][a-z0-9_-]*$",
+      "type": "string"
+    },
+    "__schema2": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "__schema3": {
+      "pattern": "^blobs\\/[0-9a-f]{2}\\/[0-9a-f]{64}\\.[a-z0-9]+$",
+      "type": "string"
+    },
+    "__schema4": {
+      "additionalProperties": false,
+      "properties": {
+        "cli": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_family": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "cli",
+        "model_family"
+      ],
+      "type": "object"
+    },
+    "__schema5": {
+      "pattern": "^src_[a-z0-9][a-z0-9_-]*$",
+      "type": "string"
+    },
+    "__schema6": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema7": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier_verified": {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "status": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "status",
+            "at"
+          ],
+          "type": "object"
+        },
+        "snapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "blob_path": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "retrieved_at": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "revision": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "sha256": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "text_blob_path": {
+              "$ref": "#/$defs/__schema8"
+            }
+          },
+          "required": [
+            "retrieved_at",
+            "sha256",
+            "blob_path",
+            "revision"
+          ],
+          "type": "object"
+        },
+        "source_type": {
+          "enum": [
+            "begutachtete_publikation",
+            "preprint",
+            "grauliteratur",
+            "herstellerdokumentation"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type"
+      ],
+      "type": "object"
+    },
+    "__schema8": {
+      "$ref": "#/$defs/__schema3"
+    },
+    "__schema9": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "claims": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "briefing_anchor": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "claim_type": {
+            "enum": [
+              "quantitativer_einzelbefund",
+              "vergleichende_aussage",
+              "wirksamkeitsaussage",
+              "empfehlung"
+            ],
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "existence_check": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "status": {
+                      "enum": [
+                        "bestanden",
+                        "nicht_bestanden"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "at"
+                  ],
+                  "type": "object"
+                },
+                "id": {
+                  "$ref": "#/$defs/__schema12"
+                },
+                "judgments": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "at": {
+                        "$ref": "#/$defs/__schema1"
+                      },
+                      "backend": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "maximum": 1,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "model": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reasoning": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "relation_type": {
+                        "$ref": "#/$defs/__schema13"
+                      }
+                    },
+                    "required": [
+                      "backend",
+                      "model",
+                      "relation_type",
+                      "confidence",
+                      "reasoning",
+                      "at"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "locator": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "page": {
+                      "maximum": 9007199254740991,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "section": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "relation_type": {
+                  "$ref": "#/$defs/__schema13"
+                },
+                "source_id": {
+                  "$ref": "#/$defs/__schema5"
+                },
+                "verbatim_excerpt": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "source_id",
+                "locator",
+                "verbatim_excerpt",
+                "judgments"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^clm_[a-z0-9][a-z0-9_-]*$",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "properties": {
+              "extracted_at": {
+                "$ref": "#/$defs/__schema1"
+              },
+              "model": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "origin_project_id": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "search_path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "tool": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool",
+              "model",
+              "extracted_at",
+              "search_path"
+            ],
+            "type": "object"
+          },
+          "status": {
+            "$ref": "#/$defs/__schema11"
+          },
+          "support_degree": {
+            "enum": [
+              "supported",
+              "partially_supported",
+              "unsupported",
+              "uncertain"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "claim_type",
+          "status",
+          "briefing_anchor",
+          "provenance",
+          "evidence",
+          "history"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "config": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudication_sample_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "backends": {
+          "additionalProperties": false,
+          "properties": {
+            "primary": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "secondary": {
+              "$ref": "#/$defs/__schema4"
+            }
+          },
+          "required": [
+            "primary"
+          ],
+          "type": "object"
+        },
+        "rubric_version": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "rubric_version",
+        "adjudication_sample_rate",
+        "backends"
+      ],
+      "type": "object"
+    },
+    "project": {
+      "additionalProperties": false,
+      "properties": {
+        "briefing_import": {
+          "additionalProperties": false,
+          "properties": {
+            "blob_path": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "imported_at": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "sha256": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "tool": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "imported_at",
+            "sha256",
+            "blob_path",
+            "tool"
+          ],
+          "type": "object"
+        },
+        "created_at": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "research_question": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_set_revision": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "research_question",
+        "created_at",
+        "source_set_revision"
+      ],
+      "type": "object"
+    },
+    "project_events": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "$ref": "#/$defs/__schema16"
+          },
+          "at": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "event": {
+            "enum": [
+              "project_created",
+              "briefing_imported",
+              "source_set_frozen",
+              "source_set_revised",
+              "batch_run_started",
+              "batch_run_completed"
+            ],
+            "type": "string"
+          },
+          "hash": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "prev_hash": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "seq": {
+            "$ref": "#/$defs/__schema15"
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "actor",
+          "event",
+          "reason",
+          "prev_hash",
+          "hash"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "additionalProperties": {
+          "$ref": "#/$defs/__schema10"
+        },
+        "description": "CSL-JSON item with workshop extension in `custom`",
+        "properties": {
+          "custom": {
+            "$ref": "#/$defs/__schema7"
+          },
+          "id": {
+            "$ref": "#/$defs/__schema5"
+          },
+          "type": {
+            "$ref": "#/$defs/__schema6"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "custom"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "project",
+    "config",
+    "sources",
+    "claims",
+    "project_events"
+  ],
+  "type": "object"
+}
