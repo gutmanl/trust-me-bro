@@ -36,6 +36,8 @@ export {
   RubricOutput,
 } from "./schema";
 export { CURRENT_PROMPT_VERSION, renderPromptForJob } from "./prompts";
+export { createClaudeBackend } from "./backends/claude/claude-backend";
+export type { ClaudeBackendOptions } from "./backends/claude/claude-backend";
 export { createMockBackend } from "./backends/mock/mock-backend";
 export type {
   MockBackend,

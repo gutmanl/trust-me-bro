@@ -33,3 +33,30 @@ export interface Clock {
   /** ISO-8601 timestamp with offset (register IsoDateTime format). */
   now(): string;
 }
+
+export interface ProcessRunOptions {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  /** Written to the child's stdin, which is then closed. */
+  readonly input?: string;
+  readonly timeoutMs: number;
+}
+
+export interface ProcessRunResult {
+  readonly exitCode: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly timedOut: boolean;
+}
+
+/**
+ * Dumb child-process port: resolves with captured output and never throws or
+ * interprets exit codes — mapping them to adapter errors is the concrete
+ * backend's job ("no CLI-specific code outside the concrete adapters").
+ * Portable spawn and timeout-kill semantics live in exactly one
+ * implementation (runtime/node-process-runner).
+ */
+export interface ProcessRunner {
+  run(options: ProcessRunOptions): Promise<ProcessRunResult>;
+}
