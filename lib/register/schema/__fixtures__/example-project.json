@@ -65,6 +65,7 @@
       "claim_type": "quantitativer_einzelbefund",
       "status": "bestaetigt",
       "support_degree": "supported",
+      "calibration_result": "lizenziert",
       "briefing_anchor": "p12",
       "provenance": {
         "tool": "deep-research-x",
