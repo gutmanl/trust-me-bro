@@ -12,7 +12,11 @@ import os from "node:os";
 import path from "node:path";
 
 import type { Backend, JobKind, JobRequest } from "../lib/adapters";
-import { createClaudeBackend, renderPromptForJob } from "../lib/adapters";
+import {
+  createClaudeBackend,
+  createCodexBackend,
+  renderPromptForJob,
+} from "../lib/adapters";
 
 const TIMEOUT_MS = 300_000;
 
@@ -20,7 +24,10 @@ function buildBackend(id: string): Backend {
   if (id === "claude") {
     return createClaudeBackend();
   }
-  throw new Error(`unknown backend "${id}" (expected: claude)`);
+  if (id === "codex") {
+    return createCodexBackend();
+  }
+  throw new Error(`unknown backend "${id}" (expected: claude or codex)`);
 }
 
 function makeExampleProject(): string {

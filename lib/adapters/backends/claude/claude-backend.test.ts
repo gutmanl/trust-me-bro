@@ -222,6 +222,19 @@ describe("createClaudeBackend", () => {
     );
   });
 
+  it("reads the model from modelUsage when the envelope has no model field (observed with claude 2.1.223)", async () => {
+    const backend = createClaudeBackend({
+      processRunner: fakeRunner({
+        stdout: envelope({
+          model: undefined,
+          modelUsage: { "claude-sonnet-4-5-20250929": { inputTokens: 100 } },
+        }),
+      }),
+    });
+    const result = await backend.invoke(attributionJob());
+    expect(result.model).toBe("claude-sonnet-4-5-20250929");
+  });
+
   it("falls back to the backend id when the envelope reports no model", async () => {
     const backend = createClaudeBackend({
       processRunner: fakeRunner({ stdout: envelope({ model: undefined }) }),

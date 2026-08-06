@@ -25,6 +25,7 @@ export {
   AdapterRateLimitError,
   AdapterTimeoutError,
   AdapterValidationError,
+  UnknownBackendError,
 } from "./core/errors";
 export type { AdapterErrorKind } from "./core/errors";
 export {
@@ -38,6 +39,10 @@ export {
 export { CURRENT_PROMPT_VERSION, renderPromptForJob } from "./prompts";
 export { createClaudeBackend } from "./backends/claude/claude-backend";
 export type { ClaudeBackendOptions } from "./backends/claude/claude-backend";
+export { createCodexBackend } from "./backends/codex/codex-backend";
+export type { CodexBackendOptions } from "./backends/codex/codex-backend";
+export { resolveConfiguredBackends } from "./registry";
+export type { ConfiguredBackends, RegistryOptions } from "./registry";
 export { createMockBackend } from "./backends/mock/mock-backend";
 export type {
   MockBackend,

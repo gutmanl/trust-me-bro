@@ -9,6 +9,7 @@ import {
 import type { JobKind, JobRequest } from "../../core/jobs";
 import { validateJobOutput } from "../../core/validate";
 import { nodeProcessRunner } from "../../runtime/node-process-runner";
+import { RATE_LIMIT_PATTERN } from "../rate-limit-signal";
 
 const BACKEND_ID = "claude";
 
@@ -18,20 +19,30 @@ const BACKEND_ID = "claude";
  */
 const READ_ONLY_TOOLS = "Read,Glob,Grep";
 
-/**
- * Signals that the subscription quota, not the request, is the problem.
- * Deliberately broad: a missed rate limit escalates a claim spuriously,
- * while a false positive merely pauses the run resumably.
- */
-const RATE_LIMIT_PATTERN =
-  /rate.?limit|usage limit|too many requests|quota|overloaded|429|resets at/i;
-
 /** The relevant subset of the `claude -p --output-format json` envelope. */
 interface ClaudeEnvelope {
   readonly is_error?: boolean;
   readonly result?: unknown;
   readonly model?: unknown;
+  readonly modelUsage?: unknown;
   readonly structured_output?: unknown;
+}
+
+/**
+ * The envelope's model field has moved across CLI versions; current versions
+ * (observed with 2.1.223) report per-model usage under `modelUsage` instead.
+ */
+function modelOf(envelope: ClaudeEnvelope): string {
+  if (typeof envelope.model === "string" && envelope.model !== "") {
+    return envelope.model;
+  }
+  if (typeof envelope.modelUsage === "object" && envelope.modelUsage !== null) {
+    const [first] = Object.keys(envelope.modelUsage);
+    if (first !== undefined && first !== "") {
+      return first;
+    }
+  }
+  return BACKEND_ID;
 }
 
 export interface ClaudeBackendOptions {
@@ -103,10 +114,7 @@ export function createClaudeBackend(
         );
       }
 
-      const model =
-        typeof envelope.model === "string" && envelope.model !== ""
-          ? envelope.model
-          : BACKEND_ID;
+      const model = modelOf(envelope);
 
       if (envelope.is_error === true) {
         const detail =

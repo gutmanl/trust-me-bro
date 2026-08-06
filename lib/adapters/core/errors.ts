@@ -81,6 +81,20 @@ export class AdapterValidationError extends AdapterError {
   }
 }
 
+/**
+ * Configuration error, not an invoke failure: claims.json names a backend
+ * cli this build has no adapter for. Deliberately outside the AdapterError
+ * hierarchy — it must never be retried or traced as an attempt.
+ */
+export class UnknownBackendError extends Error {
+  constructor(readonly cli: string) {
+    super(
+      `no adapter is registered for backend cli "${cli}" (known: claude, codex)`,
+    );
+    this.name = "UnknownBackendError";
+  }
+}
+
 export class AdapterRateLimitError extends AdapterError {
   readonly kind = "rate_limited" as const;
   constructor(
