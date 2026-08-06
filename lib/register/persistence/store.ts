@@ -23,6 +23,11 @@ import {
 } from "./errors";
 import { withProjectLock } from "./lock";
 import { findIntegrityProblems } from "./validate";
+import { applyTransition, createClaim } from "../statemachine/engine";
+import type { TransitionRequest } from "../statemachine/engine";
+import type { Evidence, Judgment } from "../schema/evidence";
+import type { RelationType, SupportDegree } from "../schema/enums";
+import type { HistoryEntry } from "../schema/history";
 
 import type { z } from "zod";
 
@@ -50,6 +55,41 @@ export interface RegisterTransaction {
     actor: ActorId;
     at?: string;
   }): ProjectEvent;
+  /**
+   * Creates a claim through the extraction gate: initial status is decided by
+   * the Nachweisvollständigkeits-Gate (evidence → erfasst, none → zur
+   * Adjudikation), never by the caller.
+   */
+  addClaim(input: {
+    claim: Omit<Claim, "status" | "history">;
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): Claim;
+  /**
+   * The sole status-changing capability: checks edge, gate and decision
+   * requirement, then appends exactly one chain-linked history entry.
+   */
+  transitionClaim(claimId: string, request: TransitionRequest): HistoryEntry;
+  /** Adds evidence to a claim (repair: alternative Fundstelle). */
+  addEvidence(claimId: string, evidence: Evidence): void;
+  /** Records the stage-1 existence result for one piece of evidence. */
+  setExistenceCheck(
+    claimId: string,
+    evidenceId: string,
+    result: { status: "bestanden" | "nicht_bestanden"; at: string },
+  ): void;
+  /** Appends a backend judgment; existing judgments are never overwritten. */
+  appendJudgment(claimId: string, evidenceId: string, judgment: Judgment): void;
+  /** Sets the resolved relation of one piece of evidence (stage 2 result or
+   * adjudication resolution on divergence). */
+  setResolvedRelation(
+    claimId: string,
+    evidenceId: string,
+    relation: RelationType,
+  ): void;
+  /** Sets the claim's aggregated support degree (stage 2/3 result). */
+  setSupportDegree(claimId: string, degree: SupportDegree): void;
 }
 
 export interface CreateProjectParams {
@@ -217,6 +257,25 @@ function createTransaction(
   internals: TransactionInternals,
 ): RegisterTransaction {
   const { draft, chain } = internals;
+
+  const mutableClaim = (claimId: string): Claim => {
+    const claim = draft.claims.find((candidate) => candidate.id === claimId);
+    if (!claim) {
+      throw new Error(`unknown claim ${claimId}`);
+    }
+    return claim;
+  };
+
+  const mutableEvidence = (claimId: string, evidenceId: string): Evidence => {
+    const evidence = mutableClaim(claimId).evidence.find(
+      (candidate) => candidate.id === evidenceId,
+    );
+    if (!evidence) {
+      throw new Error(`unknown evidence ${evidenceId} on claim ${claimId}`);
+    }
+    return evidence;
+  };
+
   return {
     getProject: () => structuredClone(draft.project),
     getConfig: () => structuredClone(draft.config),
@@ -241,6 +300,31 @@ function createTransaction(
       }) as ProjectEvent;
       draft.project_events.push(entry);
       return entry;
+    },
+    addClaim(input) {
+      return structuredClone(createClaim(draft, chain, input));
+    },
+    transitionClaim(claimId, request) {
+      return structuredClone(
+        applyTransition(mutableClaim(claimId), chain, request),
+      );
+    },
+    addEvidence(claimId, evidence) {
+      mutableClaim(claimId).evidence.push(structuredClone(evidence));
+    },
+    setExistenceCheck(claimId, evidenceId, result) {
+      mutableEvidence(claimId, evidenceId).existence_check = { ...result };
+    },
+    appendJudgment(claimId, evidenceId, judgment) {
+      mutableEvidence(claimId, evidenceId).judgments.push(
+        structuredClone(judgment),
+      );
+    },
+    setResolvedRelation(claimId, evidenceId, relation) {
+      mutableEvidence(claimId, evidenceId).relation_type = relation;
+    },
+    setSupportDegree(claimId, degree) {
+      mutableClaim(claimId).support_degree = degree;
     },
   };
 }
