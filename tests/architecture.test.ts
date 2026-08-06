@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import * as adaptersPublic from "../lib/adapters";
 import * as registerPublic from "../lib/register";
 import { TRANSITIONS } from "../lib/register/statemachine/transitions";
 
@@ -48,6 +49,27 @@ describe("public surface of lib/register", () => {
     expect(surface.createClaim).toBeUndefined();
     expect(surface.withProjectLock).toBeUndefined();
     expect(surface.writeFileAtomic).toBeUndefined();
+  });
+});
+
+describe("public surface of lib/adapters", () => {
+  it("exposes the orchestrator, backends and errors but never the internals", () => {
+    const surface = adaptersPublic as Record<string, unknown>;
+    expect(surface.Orchestrator).toBeDefined();
+    expect(surface.createProjectOrchestrator).toBeDefined();
+    expect(surface.resolveConfiguredBackends).toBeDefined();
+    expect(surface.createClaudeBackend).toBeDefined();
+    expect(surface.createCodexBackend).toBeDefined();
+    expect(surface.createMockBackend).toBeDefined();
+    expect(surface.renderPromptForJob).toBeDefined();
+    expect(surface.AdapterRateLimitError).toBeDefined();
+    // Internals stay internal: prompt loading/interpolation, the raw spawn
+    // site, the output validator and the trace writer are reachable only
+    // through the orchestrator/backend path.
+    expect(surface.substitute).toBeUndefined();
+    expect(surface.loadPromptTemplate).toBeUndefined();
+    expect(surface.nodeProcessRunner).toBeUndefined();
+    expect(surface.validateJobOutput).toBeUndefined();
   });
 });
 
@@ -98,6 +120,37 @@ describe("module boundaries", () => {
       }
       expect(read(file), file).not.toMatch(
         /fs\.(writeFileSync|appendFileSync|createWriteStream)\(/,
+      );
+    }
+  });
+
+  it("confines child-process spawning to the adapter process runner", () => {
+    const allowed = path.join(
+      "lib",
+      "adapters",
+      "runtime",
+      "node-process-runner.ts",
+    );
+    for (const file of domainFiles) {
+      if (file === allowed) {
+        continue;
+      }
+      expect(read(file), file).not.toMatch(/["']node:child_process["']/);
+    }
+  });
+
+  it("keeps the adapter layer off the register's write internals", () => {
+    // The trace sink's atomic-write deep import is the single ratified
+    // exception (TMB-20): reusing the one sanctioned raw-write site instead
+    // of duplicating it. Everything else in lib/adapters may only use the
+    // register's public schema surface.
+    const allowed = path.join("lib", "adapters", "runtime", "trace-sink.ts");
+    for (const file of sourceFiles(path.join("lib", "adapters"))) {
+      if (file === allowed) {
+        continue;
+      }
+      expect(read(file), file).not.toMatch(
+        /register\/(persistence|statemachine|chain)\//,
       );
     }
   });

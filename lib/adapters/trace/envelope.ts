@@ -39,13 +39,13 @@ export const TraceEnvelope = z
       .optional(),
   })
   .superRefine((envelope, ctx) => {
-    if (envelope.error === undefined && !("result" in envelope)) {
+    if (envelope.error === undefined && envelope.result === undefined) {
       ctx.addIssue({
         code: "custom",
         message: "an envelope carries either a result or an error",
       });
     }
-    if (envelope.error !== undefined && "result" in envelope) {
+    if (envelope.error !== undefined && envelope.result !== undefined) {
       ctx.addIssue({
         code: "custom",
         message: "result and error are mutually exclusive",

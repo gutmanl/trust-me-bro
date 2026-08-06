@@ -31,8 +31,15 @@ export { decideNextAttempt } from "./core/retry";
 export type { AttemptDecision, RetryPolicy } from "./core/retry";
 export { Orchestrator } from "./orchestrator/orchestrator";
 export type { OrchestratorOptions } from "./orchestrator/orchestrator";
+export { createProjectOrchestrator } from "./orchestrator/factory";
+export type { ProjectOrchestratorOptions } from "./orchestrator/factory";
 export type { RunOutcome, StampedOutput } from "./orchestrator/types";
 export { TraceEnvelope } from "./trace/envelope";
+export { fileTraceSink } from "./runtime/trace-sink";
+export {
+  createConcurrencyGate,
+  getGlobalConcurrencyGate,
+} from "./runtime/concurrency-gate";
 export {
   AdapterError,
   AdapterOutputError,

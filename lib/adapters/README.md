@@ -18,4 +18,21 @@ Layout (ports-and-adapters):
   included in Next's file tracing.
 - `backends/` — concrete backends. Each performs exactly one stateless
   attempt and throws typed `AdapterError`s; retry, tracing and
-  concurrency live in the orchestrator (later tickets of this epic).
+  concurrency live in the orchestrator.
+- `orchestrator/` — the impure shell: retry loop (rate limits pause,
+  everything else retries then escalates), output re-validation,
+  provenance stamping, one trace envelope per attempt, plus the
+  production wiring factory `createProjectOrchestrator`.
+- `trace/` — JSON-RPC-like trace envelope schema. Traces are written as
+  one immutable JSON file per adapter call to `<project>/traces/`
+  (ratified TMB-20 decision) and travel with the export bundle; a
+  successful attribution envelope's `finished_at` equals the merged
+  judgment's `at` — the register↔trace correlation.
+- `runtime/` — impure port implementations: child-process runner (the
+  only spawn site), system clock, file trace sink (the single ratified
+  deep import of the register's atomic-write helper), concurrency gate
+  (global CLI cap, protects the subscription quota).
+
+Manual real-CLI verification: `npx tsx scripts/adapter-smoke.ts
+<claude|codex>` (spends subscription quota; CI never invokes real
+CLIs).
