@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Judgment } from "../../register";
+import { jobFor } from "../__fixtures__/jobs";
 import { createMockBackend } from "../backends/mock/mock-backend";
 import type { ConcurrencyGate, TraceSink } from "../core/contracts";
 import {
@@ -9,53 +10,8 @@ import {
   AdapterTimeoutError,
   UnknownBackendError,
 } from "../core/errors";
-import type { JobKind, JobRequest } from "../core/jobs";
-import { renderPromptForJob } from "../prompts";
 import { TraceEnvelope } from "../trace/envelope";
 import { Orchestrator } from "./orchestrator";
-
-const claim = {
-  id: "clm_0001",
-  text: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
-  claim_type: "quantitativer_einzelbefund",
-  briefing_anchor: "p12",
-} as const;
-
-const evidence = {
-  id: "ev_0001",
-  source_id: "src_meyer2025",
-  locator: { page: 6 },
-  verbatim_excerpt: "…median review time dropped…",
-} as const;
-
-function jobFor<K extends JobKind>(kind: K): JobRequest<K> {
-  const inputs = {
-    extraction: {
-      research_question: "Frage?",
-      briefing_text: "Briefing",
-      sources: [{ id: "src_meyer2025", citation: "Meyer (2025)" }],
-    },
-    attribution: { claim, evidence },
-    rubric: {
-      claim,
-      evidence: [evidence],
-      rubric_version: "se-evidenz-rubrik-v1",
-    },
-    repair: {
-      claim,
-      evidence: [evidence],
-      complaint: { category: null, reason: "Zu stark formuliert." },
-    },
-  } as const;
-  const input = inputs[kind] as JobRequest<K>["input"];
-  return {
-    kind,
-    projectDir: "C:/tmp/proj_x",
-    input,
-    prompt: renderPromptForJob(kind, input),
-    timeoutMs: 1_000,
-  };
-}
 
 function capturingSink(): TraceSink & { envelopes: TraceEnvelope[] } {
   const envelopes: TraceEnvelope[] = [];
@@ -208,5 +164,52 @@ describe("Orchestrator.run", () => {
     await expect(orchestrator.run("gemini", jobFor("rubric"))).rejects.toThrow(
       UnknownBackendError,
     );
+  });
+
+  it("does not lose a successful result when the trace sink fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const throwingSink: TraceSink = {
+      write: async () => {
+        throw new Error("ENOSPC: no space left on device");
+      },
+    };
+    const orchestrator = new Orchestrator({
+      backends: [createMockBackend()],
+      traceSink: throwingSink,
+      gate: { run: (fn) => fn() },
+      policy: { maxAttempts: 3, retryBaseDelayMs: 1 },
+      sleep: async () => undefined,
+    });
+    const outcome = await orchestrator.run("mock", jobFor("rubric"));
+    expect(outcome.status).toBe("ok");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("trace"),
+      expect.anything(),
+    );
+    warn.mockRestore();
+  });
+
+  it("keeps the retry loop alive when the trace sink fails on a failed attempt", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const throwingSink: TraceSink = {
+      write: async () => {
+        throw new Error("EACCES: locked by antivirus");
+      },
+    };
+    const backend = createMockBackend({
+      script: [new AdapterTimeoutError("mock", "rubric", 1), "ok"],
+    });
+    const orchestrator = new Orchestrator({
+      backends: [backend],
+      traceSink: throwingSink,
+      gate: { run: (fn) => fn() },
+      policy: { maxAttempts: 3, retryBaseDelayMs: 1 },
+      sleep: async () => undefined,
+    });
+    const outcome = await orchestrator.run("mock", jobFor("rubric"));
+    expect(outcome.status).toBe("ok");
+    if (outcome.status !== "ok") throw new Error("unreachable");
+    expect(outcome.attempts).toBe(2);
+    warn.mockRestore();
   });
 });

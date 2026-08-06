@@ -1,58 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { renderPromptForJob } from "../../prompts";
+import { jobFor } from "../../__fixtures__/jobs";
 import {
   AttributionOutput,
   ExtractionOutput,
   RepairOutput,
   RubricOutput,
 } from "../../schema";
-import type { JobKind, JobRequest } from "../../core/jobs";
+import type { JobKind } from "../../core/jobs";
 import { AdapterTimeoutError } from "../../core/errors";
 import { createMockBackend } from "./mock-backend";
-
-const claim = {
-  id: "clm_0001",
-  text: "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
-  claim_type: "quantitativer_einzelbefund",
-  briefing_anchor: "p12",
-} as const;
-
-const evidence = {
-  id: "ev_0001",
-  source_id: "src_meyer2025",
-  locator: { page: 6 },
-  verbatim_excerpt: "…median review time dropped from 42 to 19 minutes (-55%)…",
-} as const;
-
-function jobFor<K extends JobKind>(kind: K): JobRequest<K> {
-  const inputs = {
-    extraction: {
-      research_question: "Reduzieren LLM-Werkzeuge die Reviewzeit?",
-      briefing_text: "Briefing …",
-      sources: [{ id: "src_meyer2025", citation: "Meyer (2025)" }],
-    },
-    attribution: { claim, evidence },
-    rubric: {
-      claim,
-      evidence: [evidence],
-      rubric_version: "se-evidenz-rubrik-v1",
-    },
-    repair: {
-      claim,
-      evidence: [evidence],
-      complaint: { category: "leitsatz_nicht_herleitbar", reason: "Zu stark." },
-    },
-  } as const;
-  const input = inputs[kind] as JobRequest<K>["input"];
-  return {
-    kind,
-    projectDir: "/tmp/proj",
-    input,
-    prompt: renderPromptForJob(kind, input),
-    timeoutMs: 1_000,
-  };
-}
 
 const outputSchemas = {
   extraction: ExtractionOutput,

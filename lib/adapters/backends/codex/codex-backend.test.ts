@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ProcessRunOptions,
-  ProcessRunResult,
-  ProcessRunner,
-} from "../../core/contracts";
+import { attributionJob, fakeRunner } from "../../__fixtures__/jobs";
 import {
   AdapterOutputError,
   AdapterProcessError,
@@ -12,34 +8,7 @@ import {
   AdapterTimeoutError,
   AdapterValidationError,
 } from "../../core/errors";
-import type { AttributionInput, JobRequest } from "../../core/jobs";
-import { renderPromptForJob } from "../../prompts";
 import { createCodexBackend } from "./codex-backend";
-
-const attributionInput: AttributionInput = {
-  claim: {
-    id: "clm_0001",
-    text: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
-    claim_type: "quantitativer_einzelbefund",
-    briefing_anchor: "p12",
-  },
-  evidence: {
-    id: "ev_0001",
-    source_id: "src_meyer2025",
-    locator: { page: 6 },
-    verbatim_excerpt: "…median review time dropped…",
-  },
-};
-
-function attributionJob(): JobRequest<"attribution"> {
-  return {
-    kind: "attribution",
-    projectDir: "C:/tmp/proj_x",
-    input: attributionInput,
-    prompt: renderPromptForJob("attribution", attributionInput),
-    timeoutMs: 90_000,
-  };
-}
 
 const validPayload = {
   relation_type: "stuetzt",
@@ -73,25 +42,6 @@ function modernJsonl(payload: string = JSON.stringify(validPayload)): string {
     }),
     JSON.stringify({ type: "turn.completed" }),
   ].join("\n");
-}
-
-function fakeRunner(
-  result: Partial<ProcessRunResult>,
-): ProcessRunner & { calls: ProcessRunOptions[] } {
-  const calls: ProcessRunOptions[] = [];
-  return {
-    calls,
-    run: async (options) => {
-      calls.push(options);
-      return {
-        exitCode: 0,
-        stdout: "",
-        stderr: "",
-        timedOut: false,
-        ...result,
-      };
-    },
-  };
 }
 
 describe("createCodexBackend", () => {

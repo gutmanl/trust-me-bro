@@ -12,6 +12,7 @@ import {
 import type { JobKind, JobRequest } from "../../core/jobs";
 import { validateJobOutput } from "../../core/validate";
 import { nodeProcessRunner } from "../../runtime/node-process-runner";
+import { parseFencedJson } from "../fenced-json";
 import { RATE_LIMIT_PATTERN } from "../rate-limit-signal";
 
 const BACKEND_ID = "codex";
@@ -176,10 +177,8 @@ function findModel(events: CodexEvent[]): string | undefined {
 }
 
 function parsePayload(kind: JobKind, message: string): unknown {
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(message.trim());
-  const text = fenced ? fenced[1] : message.trim();
   try {
-    return JSON.parse(text);
+    return parseFencedJson(message);
   } catch (cause) {
     throw new AdapterOutputError(
       BACKEND_ID,

@@ -116,6 +116,12 @@ export class Orchestrator {
     }
   }
 
+  /**
+   * Trace persistence must never decide a claim's fate: a failing sink
+   * (full disk, locked traces/ directory) is reported loudly but neither
+   * discards a successful result nor abandons the retry loop — that would
+   * be exactly the silent claim loss the escalation design forbids.
+   */
   private async writeTrace<K extends JobKind>(
     job: JobRequest<K>,
     backend: string,
@@ -146,7 +152,14 @@ export class Orchestrator {
             },
           }),
     };
-    await this.options.traceSink.write(job.projectDir, envelope);
+    try {
+      await this.options.traceSink.write(job.projectDir, envelope);
+    } catch (error) {
+      console.warn(
+        `adapter trace for ${job.kind} attempt ${attempt} could not be persisted`,
+        error,
+      );
+    }
   }
 }
 

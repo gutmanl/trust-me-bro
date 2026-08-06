@@ -9,6 +9,7 @@ import {
 import type { JobKind, JobRequest } from "../../core/jobs";
 import { validateJobOutput } from "../../core/validate";
 import { nodeProcessRunner } from "../../runtime/node-process-runner";
+import { parseFencedJson } from "../fenced-json";
 import { RATE_LIMIT_PATTERN } from "../rate-limit-signal";
 
 const BACKEND_ID = "claude";
@@ -145,11 +146,6 @@ export function createClaudeBackend(
   };
 }
 
-/**
- * The prompt demands a bare JSON object in the result text; a markdown fence
- * around it is tolerated (models add one despite instructions often enough
- * that failing the whole attempt over it would waste quota).
- */
 function parseResultPayload(kind: JobKind, result: unknown): unknown {
   if (typeof result !== "string") {
     throw new AdapterOutputError(
@@ -159,10 +155,8 @@ function parseResultPayload(kind: JobKind, result: unknown): unknown {
       JSON.stringify(result),
     );
   }
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(result.trim());
-  const text = fenced ? fenced[1] : result.trim();
   try {
-    return JSON.parse(text);
+    return parseFencedJson(result);
   } catch (cause) {
     throw new AdapterOutputError(
       BACKEND_ID,

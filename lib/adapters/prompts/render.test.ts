@@ -1,51 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  AttributionInput,
-  ExtractionInput,
-  JobKind,
-  RepairInput,
-  RubricInput,
-} from "../core/jobs";
+import {
+  exampleClaim as claim,
+  exampleEvidence as evidence,
+  exampleInputs as inputs,
+} from "../__fixtures__/jobs";
+import type { AttributionInput, JobKind } from "../core/jobs";
 import { CURRENT_PROMPT_VERSION, renderPromptForJob } from "./index";
 import { substitute } from "./render";
-
-const claim = {
-  id: "clm_0001",
-  text: "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
-  claim_type: "quantitativer_einzelbefund",
-  briefing_anchor: "p12",
-} as const;
-
-const evidence = {
-  id: "ev_0001",
-  source_id: "src_meyer2025",
-  locator: { page: 6, section: "4.2" },
-  verbatim_excerpt: "…median review time dropped from 42 to 19 minutes (-55%)…",
-} as const;
-
-const inputs: { [K in JobKind]: unknown } = {
-  extraction: {
-    research_question:
-      "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
-    briefing_text: "Briefing-Absatz p12 …",
-    sources: [{ id: "src_meyer2025", citation: "Meyer (2025), IEEE TSE" }],
-  } satisfies ExtractionInput,
-  attribution: { claim, evidence } satisfies AttributionInput,
-  rubric: {
-    claim,
-    evidence: [evidence],
-    rubric_version: "se-evidenz-rubrik-v1",
-  } satisfies RubricInput,
-  repair: {
-    claim,
-    evidence: [evidence],
-    complaint: {
-      category: "leitsatz_nicht_herleitbar",
-      reason: "Der Auszug trägt die Verallgemeinerung nicht.",
-    },
-  } satisfies RepairInput,
-};
 
 describe("substitute", () => {
   it("replaces every placeholder with its variable", () => {

@@ -16,6 +16,7 @@ export default defineConfig({
       exclude: [
         "**/*.test.ts",
         "tests/**",
+        "**/__fixtures__/**",
         // Type-only modules: erased at compile time (import type), so v8
         // can never observe them executing. Excluding them corrects the
         // denominator; it does not lower the ratchet on executable code.
