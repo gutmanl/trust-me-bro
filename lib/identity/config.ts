@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { IdentityConfig } from "./types";
+import type { AdapterConfig, IdentityConfig } from "./types";
 
 const DEFAULT_WORKSPACE = "./workspace";
 const DEFAULT_KUERZEL = "user";
@@ -29,5 +29,61 @@ export function loadIdentityConfig(
   return {
     actorKuerzel: kuerzel,
     workspaceRoot: path.resolve(env.TMB_WORKSPACE ?? DEFAULT_WORKSPACE),
+  };
+}
+
+const ADAPTER_DEFAULTS: AdapterConfig = {
+  timeoutMs: 300_000,
+  maxAttempts: 3,
+  retryBaseDelayMs: 2_000,
+  maxConcurrency: 2,
+};
+
+function positiveInt(
+  name: string,
+  raw: string | undefined,
+  fallback: number,
+): number {
+  if (raw === undefined) {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(
+      `${name} "${raw}" is invalid: expected a positive integer.`,
+    );
+  }
+  return value;
+}
+
+/**
+ * Reads the adapter layer's runtime configuration (timeout, bounded retries,
+ * CLI concurrency cap) from the environment, with code defaults. Lives here
+ * because lib/identity is the single environment reader of the domain core.
+ */
+export function loadAdapterConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): AdapterConfig {
+  return {
+    timeoutMs: positiveInt(
+      "TMB_ADAPTER_TIMEOUT_MS",
+      env.TMB_ADAPTER_TIMEOUT_MS,
+      ADAPTER_DEFAULTS.timeoutMs,
+    ),
+    maxAttempts: positiveInt(
+      "TMB_ADAPTER_MAX_ATTEMPTS",
+      env.TMB_ADAPTER_MAX_ATTEMPTS,
+      ADAPTER_DEFAULTS.maxAttempts,
+    ),
+    retryBaseDelayMs: positiveInt(
+      "TMB_ADAPTER_RETRY_BASE_DELAY_MS",
+      env.TMB_ADAPTER_RETRY_BASE_DELAY_MS,
+      ADAPTER_DEFAULTS.retryBaseDelayMs,
+    ),
+    maxConcurrency: positiveInt(
+      "TMB_ADAPTER_MAX_CONCURRENCY",
+      env.TMB_ADAPTER_MAX_CONCURRENCY,
+      ADAPTER_DEFAULTS.maxConcurrency,
+    ),
   };
 }

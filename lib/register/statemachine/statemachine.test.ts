@@ -190,6 +190,30 @@ describe("gate conditions re-derive from persisted state", () => {
     expect(register.claims[0].status).toBe("zur_adjudikation");
   });
 
+  it("escalates existenzgeprueft → zur_adjudikation when adapter retries are exhausted (TMB-19, ratified edge)", async () => {
+    await store.transaction((tx) => {
+      tx.setExistenceCheck("clm_0001", "ev_0001", {
+        status: "bestanden",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_0001", {
+        to: "existenzgeprueft",
+        actor: "system:existence_check",
+        reason: "Wortlaut im Snapshot verifiziert.",
+      });
+      const entry = tx.transitionClaim("clm_0001", {
+        to: "zur_adjudikation",
+        actor: "system:adapter",
+        reason:
+          "LLM-Prüfaufrufe endgültig gescheitert (3 Versuche, timeout) — Eskalation statt stillem Verwerfen.",
+      });
+      expect(entry.from_status).toBe("existenzgeprueft");
+      expect(entry.to_status).toBe("zur_adjudikation");
+    });
+    const register = await store.read();
+    expect(register.claims[0].status).toBe("zur_adjudikation");
+  });
+
   it("walks the happy path to automatic confirmation", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {

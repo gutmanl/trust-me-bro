@@ -5,11 +5,12 @@ import type { HumanActorId } from "./types";
 
 export type {
   ActorId,
+  AdapterConfig,
   HumanActorId,
   SystemActorId,
   IdentityConfig,
 } from "./types";
-export { loadIdentityConfig } from "./config";
+export { loadAdapterConfig, loadIdentityConfig } from "./config";
 
 /**
  * Project directory names double as path segments below the workspace root,

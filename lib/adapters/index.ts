@@ -17,7 +17,22 @@ export type {
   RubricInput,
   SourceContext,
 } from "./core/jobs";
-export type { Backend, Clock, InvokeResult } from "./core/contracts";
+export type {
+  Backend,
+  Clock,
+  ConcurrencyGate,
+  InvokeResult,
+  ProcessRunner,
+  ProcessRunOptions,
+  ProcessRunResult,
+  TraceSink,
+} from "./core/contracts";
+export { decideNextAttempt } from "./core/retry";
+export type { AttemptDecision, RetryPolicy } from "./core/retry";
+export { Orchestrator } from "./orchestrator/orchestrator";
+export type { OrchestratorOptions } from "./orchestrator/orchestrator";
+export type { RunOutcome, StampedOutput } from "./orchestrator/types";
+export { TraceEnvelope } from "./trace/envelope";
 export {
   AdapterError,
   AdapterOutputError,

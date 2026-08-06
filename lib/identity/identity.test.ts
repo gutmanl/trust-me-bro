@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getCurrentActor,
   getWorkspaceRoot,
+  loadAdapterConfig,
   loadIdentityConfig,
   resolveProjectDir,
 } from "./index";
@@ -40,6 +41,41 @@ describe("getCurrentActor", () => {
   it("formats the actor id as human:<kuerzel>", () => {
     vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
     expect(getCurrentActor()).toBe("human:lg");
+  });
+});
+
+describe("loadAdapterConfig", () => {
+  it("falls back to code defaults when nothing is configured", () => {
+    const config = loadAdapterConfig();
+    expect(config).toEqual({
+      timeoutMs: 300_000,
+      maxAttempts: 3,
+      retryBaseDelayMs: 2_000,
+      maxConcurrency: 2,
+    });
+  });
+
+  it("reads every TMB_ADAPTER_* variable from the environment", () => {
+    vi.stubEnv("TMB_ADAPTER_TIMEOUT_MS", "60000");
+    vi.stubEnv("TMB_ADAPTER_MAX_ATTEMPTS", "1");
+    vi.stubEnv("TMB_ADAPTER_RETRY_BASE_DELAY_MS", "500");
+    vi.stubEnv("TMB_ADAPTER_MAX_CONCURRENCY", "4");
+    expect(loadAdapterConfig()).toEqual({
+      timeoutMs: 60_000,
+      maxAttempts: 1,
+      retryBaseDelayMs: 500,
+      maxConcurrency: 4,
+    });
+  });
+
+  it.each([
+    ["TMB_ADAPTER_TIMEOUT_MS", "0"],
+    ["TMB_ADAPTER_TIMEOUT_MS", "-5"],
+    ["TMB_ADAPTER_MAX_ATTEMPTS", "none"],
+    ["TMB_ADAPTER_MAX_CONCURRENCY", "1.5"],
+  ])("rejects an invalid %s=%s", (name, value) => {
+    vi.stubEnv(name, value);
+    expect(() => loadAdapterConfig()).toThrow(new RegExp(name));
   });
 });
 

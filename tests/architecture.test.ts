@@ -137,6 +137,14 @@ describe("status model transition table", () => {
         actorKind: "system",
         decision: null,
       },
+      // Ratified with TMB-19: adapter-failure escalation instead of a claim
+      // stuck in existenzgeprueft (see transitions.ts for the rationale).
+      {
+        from: "existenzgeprueft",
+        to: "zur_adjudikation",
+        actorKind: "system",
+        decision: null,
+      },
       {
         from: "vorgeprueft",
         to: "automatisch_bestaetigt",

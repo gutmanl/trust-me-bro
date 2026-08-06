@@ -182,6 +182,18 @@ export const TRANSITIONS: TransitionDef[] = [
     actorKind: "system",
     gate: preCheckComplete,
   },
+  // Adapter-failure escalation (TMB-19, ratified 06.08.2026): stage-2/3 LLM
+  // calls that exhaust their bounded retries would otherwise leave the claim
+  // stuck in existenzgeprueft. Escalation to adjudication replaces silent
+  // dropping; the reason of the history entry documents the failure. The
+  // gate only checks shape — WHEN the edge is taken is the caller's
+  // (pipeline/job runner) decision, mirroring the sample-draw edge.
+  {
+    from: "existenzgeprueft",
+    to: "zur_adjudikation",
+    actorKind: "system",
+    gate: always,
+  },
   // Adjudication gate after pre-checking.
   {
     from: "vorgeprueft",

@@ -60,3 +60,16 @@ export interface ProcessRunResult {
 export interface ProcessRunner {
   run(options: ProcessRunOptions): Promise<ProcessRunResult>;
 }
+
+/** Persists one trace envelope for the given project (TMB-20). */
+export interface TraceSink {
+  write(
+    projectDir: string,
+    envelope: import("../trace/envelope").TraceEnvelope,
+  ): Promise<void>;
+}
+
+/** Limits how many backend invocations run concurrently (epic TMB-2). */
+export interface ConcurrencyGate {
+  run<T>(fn: () => Promise<T>): Promise<T>;
+}
