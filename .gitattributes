@@ -1,0 +1,3 @@
+# Keep LF everywhere (repo and working tree): the briefing.md projection
+# must be byte-identical across regenerations, so line endings are pinned.
+* text=auto eol=lf
