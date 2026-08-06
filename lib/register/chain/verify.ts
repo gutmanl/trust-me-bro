@@ -8,7 +8,13 @@ export type ChainVerificationError =
   | { type: "duplicate_seq"; seq: number }
   | { type: "gap"; expectedSeq: number; foundSeq: number }
   | { type: "prev_hash_mismatch"; seq: number }
-  | { type: "hash_mismatch"; seq: number };
+  | { type: "hash_mismatch"; seq: number }
+  | {
+      type: "status_mismatch";
+      claimId: string;
+      status: string;
+      lastHistoryStatus: string;
+    };
 
 export interface ChainVerificationResult {
   ok: boolean;
@@ -19,11 +25,19 @@ export interface ChainVerificationResult {
 /**
  * Verifies the project-wide hash chain: collects all history entries and
  * project events, orders them by seq, and checks gaplessness and chain
- * closure back to the genesis hash of the project identity. Pure and
- * I/O-free so the standalone CLI `tmb verify` can reuse it unchanged.
+ * closure back to the genesis hash of the project identity, plus the
+ * consistency of every claim's `status` field with its chained history.
+ * Pure and I/O-free so the standalone CLI `tmb verify` can reuse it
+ * unchanged.
  *
- * Any after-the-fact modification or removal of an entry — including
- * deleting an entire claim with its history — breaks the chain detectably.
+ * Detects after-the-fact modification or interior removal of entries —
+ * including deleting an entire claim with its history — and status fields
+ * diverging from the recorded transitions. NOT detected: truncation of the
+ * chain's tail (removing the entries with the highest seq values leaves an
+ * internally consistent chain). Guarding against that requires an external
+ * commitment to the chain head — the export bundle's manifest checksums
+ * (export epic) and the git history provide it; within a working directory
+ * the chain alone cannot.
  */
 export function verifyChain(register: ClaimsRegister): ChainVerificationResult {
   const entries = [...allChainEntries(register)].sort((a, b) => a.seq - b.seq);
@@ -63,6 +77,21 @@ export function verifyChain(register: ClaimsRegister): ChainVerificationResult {
     }
     expectedPrevHash = hash;
     previousSeq = entry.seq;
+  }
+
+  // A claim's status is derived state: it must equal the to_status of its
+  // latest (highest-seq) history entry, otherwise the plain field was edited
+  // past the chain.
+  for (const claim of register.claims) {
+    const latest = [...claim.history].sort((a, b) => a.seq - b.seq).at(-1);
+    if (latest && latest.to_status !== claim.status) {
+      errors.push({
+        type: "status_mismatch",
+        claimId: claim.id,
+        status: claim.status,
+        lastHistoryStatus: latest.to_status,
+      });
+    }
   }
 
   return { ok: errors.length === 0, entryCount: entries.length, errors };

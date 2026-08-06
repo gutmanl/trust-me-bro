@@ -65,8 +65,10 @@ export type ExistenceCheckStatus = z.infer<typeof ExistenceCheckStatus>;
 
 /**
  * Complaint categories of the adjudication dialog, translating the error
- * taxonomy into reviewer language (concept chapter, Adjudikations-Interface);
- * "sonstiges" requires a substantive reason on the history entry.
+ * taxonomy into reviewer language (concept chapter, Adjudikations-Interface).
+ * The mandatory free-text justification for "sonstiges" is enforced by the
+ * adjudication dialog (later epic); the register only requires the generic
+ * non-empty reason.
  */
 export const ComplaintCategory = z.enum([
   "wortlaut_nicht_in_quelle",
@@ -77,6 +79,20 @@ export const ComplaintCategory = z.enum([
   "sonstiges",
 ]);
 export type ComplaintCategory = z.infer<typeof ComplaintCategory>;
+
+/**
+ * Outcome of the stage-3 calibration check (SE-Evidenz-Rubrik): is the
+ * strength of the formulation licensed by the evidence? The concept chapter
+ * names a rubric complaint as a routing condition to adjudication; the field
+ * schema of the format appendix left the outcome unmodeled, so this enum is
+ * a documented extension introduced with the register core.
+ */
+export const CalibrationResult = z.enum([
+  "lizenziert",
+  "abschwaechen",
+  "zur_adjudikation",
+]);
+export type CalibrationResult = z.infer<typeof CalibrationResult>;
 
 /** Project-wide events without a claim reference (file format appendix). */
 export const ProjectEventType = z.enum([

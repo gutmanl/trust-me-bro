@@ -9,6 +9,7 @@ export {
   SourceId,
 } from "./primitives";
 export {
+  CalibrationResult,
   ClaimStatus,
   ClaimType,
   ComplaintCategory,

@@ -4,9 +4,11 @@ import { sha256Hex } from "../chain/hash";
 import { writeFileAtomic } from "../persistence/atomic-write";
 import { blobRelativePath, resolveBlobPath, sha256FromBlobPath } from "./paths";
 
+/** Transient result of storing a blob; `blobPath` is the relative path that
+ * claims.json fields (blob_path, text_blob_path) reference. */
 export interface BlobRef {
   sha256: string;
-  relative_path: string;
+  blobPath: string;
 }
 
 /**
@@ -40,12 +42,12 @@ export function createBlobStore(projectDir: string): BlobStore {
       const buffer =
         typeof content === "string" ? Buffer.from(content, "utf8") : content;
       const sha256 = sha256Hex(buffer);
-      const relative_path = blobRelativePath(sha256, ext);
-      const absolute = resolve(relative_path);
+      const blobPath = blobRelativePath(sha256, ext);
+      const absolute = resolve(blobPath);
       if (!fs.existsSync(absolute)) {
         writeFileAtomic(absolute, buffer);
       }
-      return { sha256, relative_path };
+      return { sha256, blobPath };
     },
     resolve,
     exists(relativePath) {

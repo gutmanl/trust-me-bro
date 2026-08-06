@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { ClaimStatus, ClaimType, SupportDegree } from "./enums";
+import {
+  CalibrationResult,
+  ClaimStatus,
+  ClaimType,
+  SupportDegree,
+} from "./enums";
 import { Evidence } from "./evidence";
 import { HistoryEntry } from "./history";
 import { ClaimId, IsoDateTime, ProjectId } from "./primitives";
@@ -30,6 +35,7 @@ export const Claim = z.strictObject({
   claim_type: ClaimType,
   status: ClaimStatus,
   support_degree: SupportDegree.optional(),
+  calibration_result: CalibrationResult.optional(),
   briefing_anchor: z.string().min(1),
   provenance: Provenance,
   evidence: z.array(Evidence),

@@ -60,6 +60,7 @@ function newClaim(id = "clm_0001", evidence: Evidence[] = [newEvidence()]) {
 function judgment(
   backend: string,
   relation: Judgment["relation_type"],
+  at = "2026-08-06T09:00:00Z",
 ): Judgment {
   return {
     backend,
@@ -67,7 +68,7 @@ function judgment(
     relation_type: relation,
     confidence: 0.9,
     reasoning: "Auszug deckt die Aussage.",
-    at: "2026-08-06T09:00:00Z",
+    at,
   };
 }
 
@@ -204,6 +205,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "stuetzt"));
       tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
       tx.setSupportDegree("clm_0001", "supported");
+      tx.setCalibrationResult("clm_0001", "lizenziert");
       tx.transitionClaim("clm_0001", {
         to: "vorgeprueft",
         actor: "system:attribution",
@@ -243,6 +245,7 @@ describe("gate conditions re-derive from persisted state", () => {
         "ev_0001",
         judgment("codex", "stuetzt_teilweise"),
       );
+      tx.setCalibrationResult("clm_0001", "lizenziert");
       tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
       tx.setSupportDegree("clm_0001", "supported");
       tx.transitionClaim("clm_0001", {
@@ -268,6 +271,86 @@ describe("gate conditions re-derive from persisted state", () => {
       });
     });
     expect((await store.read()).claims[0].status).toBe("zur_adjudikation");
+  });
+
+  it("does not read a backend's own revision as divergence (latest judgment counts)", async () => {
+    await store.transaction((tx) => {
+      tx.setExistenceCheck("clm_0001", "ev_0001", {
+        status: "bestanden",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_0001", {
+        to: "existenzgeprueft",
+        actor: "system:existence_check",
+        reason: "Fundstelle nachgewiesen.",
+      });
+      // claude first judged stuetzt_teilweise, then revised to stuetzt after
+      // a re-run; codex agrees with the current position.
+      tx.appendJudgment(
+        "clm_0001",
+        "ev_0001",
+        judgment("claude", "stuetzt_teilweise", "2026-08-06T09:00:00Z"),
+      );
+      tx.appendJudgment(
+        "clm_0001",
+        "ev_0001",
+        judgment("claude", "stuetzt", "2026-08-06T10:00:00Z"),
+      );
+      tx.appendJudgment(
+        "clm_0001",
+        "ev_0001",
+        judgment("codex", "stuetzt", "2026-08-06T10:05:00Z"),
+      );
+      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.setSupportDegree("clm_0001", "supported");
+      tx.setCalibrationResult("clm_0001", "lizenziert");
+      tx.transitionClaim("clm_0001", {
+        to: "vorgeprueft",
+        actor: "system:attribution",
+        reason: "Stufe 2 und 3 abgeschlossen.",
+      });
+      tx.transitionClaim("clm_0001", {
+        to: "automatisch_bestaetigt",
+        actor: "system:adjudication_gate",
+        reason: "Aktuelle Urteile beider Backends stimmen überein.",
+      });
+    });
+    expect((await store.read()).claims[0].status).toBe(
+      "automatisch_bestaetigt",
+    );
+  });
+
+  it("blocks automatic confirmation on a rubric complaint (Stufe 3)", async () => {
+    await store.transaction((tx) => {
+      tx.setExistenceCheck("clm_0001", "ev_0001", {
+        status: "bestanden",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_0001", {
+        to: "existenzgeprueft",
+        actor: "system:existence_check",
+        reason: "Fundstelle nachgewiesen.",
+      });
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "stuetzt"));
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "stuetzt"));
+      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.setSupportDegree("clm_0001", "supported");
+      tx.setCalibrationResult("clm_0001", "abschwaechen");
+      tx.transitionClaim("clm_0001", {
+        to: "vorgeprueft",
+        actor: "system:attribution",
+        reason: "Stufe 2 und 3 abgeschlossen.",
+      });
+    });
+    await expect(
+      store.transaction((tx) =>
+        tx.transitionClaim("clm_0001", {
+          to: "automatisch_bestaetigt",
+          actor: "system:adjudication_gate",
+          reason: "sollte an der Rubrik scheitern",
+        }),
+      ),
+    ).rejects.toThrow(/lizenziert/);
   });
 });
 

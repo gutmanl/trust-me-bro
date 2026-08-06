@@ -151,7 +151,7 @@ describe("RegisterStore.renderBriefingFile", () => {
     register.project.briefing_import = {
       imported_at: "2026-08-06T08:01:00Z",
       sha256: blob.sha256,
-      blob_path: blob.relative_path,
+      blob_path: blob.blobPath,
       tool: "deep-research-x",
     };
     fs.writeFileSync(

@@ -27,8 +27,16 @@ import { renderBriefing } from "../projection/render-briefing";
 import { applyTransition, createClaim } from "../statemachine/engine";
 import type { TransitionRequest } from "../statemachine/engine";
 import type { Evidence, Judgment } from "../schema/evidence";
-import type { RelationType, SupportDegree } from "../schema/enums";
+import type {
+  CalibrationResult,
+  RelationType,
+  SupportDegree,
+} from "../schema/enums";
 import type { HistoryEntry } from "../schema/history";
+import {
+  buildRegisterJsonSchema,
+  serializeJsonSchema,
+} from "../schema/json-schema";
 
 import type { z } from "zod";
 
@@ -89,8 +97,10 @@ export interface RegisterTransaction {
     evidenceId: string,
     relation: RelationType,
   ): void;
-  /** Sets the claim's aggregated support degree (stage 2/3 result). */
+  /** Sets the claim's aggregated support degree (stage 2 result). */
   setSupportDegree(claimId: string, degree: SupportDegree): void;
+  /** Sets the claim's stage-3 calibration outcome (SE-Evidenz-Rubrik). */
+  setCalibrationResult(claimId: string, result: CalibrationResult): void;
 }
 
 export interface CreateProjectParams {
@@ -102,9 +112,9 @@ export interface CreateProjectParams {
   at?: string;
 }
 
-/** Internal shape shared by transaction capabilities and (later) the status
- * machine wiring: the mutable draft plus the transaction's chain appender. */
-export interface TransactionInternals {
+/** Internal shape of a running transaction: the mutable draft plus the
+ * transaction's chain appender. Never leaves this module. */
+interface TransactionInternals {
   draft: z.infer<typeof ClaimsRegister>;
   chain: ChainAppender;
 }
@@ -181,6 +191,13 @@ export class RegisterStore {
       );
       const validated = this.validate(draft);
       writeFileAtomic(this.claimsPath, serializeRegister(validated));
+      // The project directory carries the JSON Schema of its schema_version
+      // (file format appendix: schema/claims.schema.json is part of every
+      // project directory).
+      writeFileAtomic(
+        path.join(this.projectDir, "schema", "claims.schema.json"),
+        serializeJsonSchema(buildRegisterJsonSchema()),
+      );
       return validated;
     });
   }
@@ -223,7 +240,7 @@ export class RegisterStore {
     mutator: (tx: RegisterTransaction) => T | Promise<T>,
   ): Promise<T> {
     return withProjectLock(this.projectDir, async () => {
-      const draft = this.readFromDiskSync();
+      const draft = this.readFromDisk();
       const internals: TransactionInternals = {
         draft,
         chain: new ChainAppender(draft),
@@ -251,7 +268,7 @@ export class RegisterStore {
     return parsed.data;
   }
 
-  private readFromDiskSync(): ClaimsRegister {
+  private readFromDisk(): ClaimsRegister {
     let raw: unknown;
     try {
       raw = JSON.parse(fs.readFileSync(this.claimsPath, "utf8"));
@@ -266,10 +283,6 @@ export class RegisterStore {
       );
     }
     return parsed.data;
-  }
-
-  private async readFromDisk(): Promise<ClaimsRegister> {
-    return this.readFromDiskSync();
   }
 }
 
@@ -345,6 +358,9 @@ function createTransaction(
     },
     setSupportDegree(claimId, degree) {
       mutableClaim(claimId).support_degree = degree;
+    },
+    setCalibrationResult(claimId, result) {
+      mutableClaim(claimId).calibration_result = result;
     },
   };
 }

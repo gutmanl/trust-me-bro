@@ -248,6 +248,14 @@
             "minLength": 1,
             "type": "string"
           },
+          "calibration_result": {
+            "enum": [
+              "lizenziert",
+              "abschwaechen",
+              "zur_adjudikation"
+            ],
+            "type": "string"
+          },
           "claim_type": {
             "enum": [
               "quantitativer_einzelbefund",

@@ -57,6 +57,8 @@ function buildValidRegister(): ClaimsRegister {
       reason: "Bestand eingefroren.",
     }) as ClaimsRegister["project_events"][number],
   );
+  // Keep the derived status field consistent with the minted history.
+  base.claims[0].status = "existenzgeprueft";
   return base;
 }
 
@@ -197,5 +199,18 @@ describe("verifyChain", () => {
     expect(result.errors.map((error) => error.type)).toContain(
       "missing_seq_start",
     );
+  });
+
+  it("detects a status field edited past the chained history", () => {
+    const register = buildValidRegister();
+    register.claims[0].status = "bestaetigt";
+    const result = verifyChain(register);
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContainEqual({
+      type: "status_mismatch",
+      claimId: register.claims[0].id,
+      status: "bestaetigt",
+      lastHistoryStatus: "existenzgeprueft",
+    });
   });
 });

@@ -88,25 +88,37 @@ const preCheckComplete: Gate = (claim) => {
     );
   }
   if (!claim.support_degree) {
-    return fail("support_degree not set (Stufe 2/3 incomplete)");
+    return fail("support_degree not set (Stufe 2 incomplete)");
+  }
+  if (!claim.calibration_result) {
+    return fail("calibration_result not set (Stufe 3 incomplete)");
   }
   return ok;
 };
 
-/** Judgments of different backends disagreeing on any evidence — the
- * divergence rule routes such claims to adjudication. */
+/**
+ * The divergence rule compares the CURRENT position of each backend: only
+ * the latest judgment per backend counts (judgments accumulate and are never
+ * overwritten, so a backend revising its own earlier judgment — e.g. after a
+ * repair re-run — must not read as divergence).
+ */
 function hasBackendDivergence(claim: Claim): boolean {
   return claim.evidence.some((evidence) => {
-    const byBackend = new Map<string, Set<string>>();
+    const latestByBackend = new Map<string, { at: string; relation: string }>();
     for (const judgment of evidence.judgments) {
-      const set = byBackend.get(judgment.backend) ?? new Set<string>();
-      set.add(judgment.relation_type);
-      byBackend.set(judgment.backend, set);
+      const current = latestByBackend.get(judgment.backend);
+      // Later array position wins ties, matching append order.
+      if (!current || judgment.at >= current.at) {
+        latestByBackend.set(judgment.backend, {
+          at: judgment.at,
+          relation: judgment.relation_type,
+        });
+      }
     }
-    const latestPerBackend = [...byBackend.values()]
-      .map((set) => [...set])
-      .flat();
-    return new Set(latestPerBackend).size > 1;
+    return (
+      new Set([...latestByBackend.values()].map((entry) => entry.relation))
+        .size > 1
+    );
   });
 }
 
@@ -114,6 +126,11 @@ const autoConfirmable: Gate = (claim) => {
   if (claim.support_degree !== "supported") {
     return fail(
       `support_degree is ${claim.support_degree ?? "unset"}, not supported`,
+    );
+  }
+  if (claim.calibration_result !== "lizenziert") {
+    return fail(
+      `calibration_result is ${claim.calibration_result ?? "unset"}, not lizenziert (Rubrik)`,
     );
   }
   if (hasBackendDivergence(claim)) {
@@ -193,16 +210,12 @@ export const TRANSITIONS: TransitionDef[] = [
     gate: always,
     decision: "category_null",
   },
+  // Discarding is deliberately NOT possible directly from adjudication: the
+  // concept routes every negative decision through beanstandet (repair is
+  // offered first); verworfen is reached only from the repair loop.
   {
     from: "zur_adjudikation",
     to: "beanstandet",
-    actorKind: "human",
-    gate: always,
-    decision: "category_required",
-  },
-  {
-    from: "zur_adjudikation",
-    to: "verworfen",
     actorKind: "human",
     gate: always,
     decision: "category_required",
