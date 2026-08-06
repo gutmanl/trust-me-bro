@@ -23,6 +23,7 @@ export {
 } from "./statemachine/errors";
 export { TRANSITIONS } from "./statemachine/transitions";
 export type { TransitionRequest } from "./statemachine/engine";
+export { renderBriefing } from "./projection/render-briefing";
 export { verifyChain } from "./chain/verify";
 export type {
   ChainVerificationError,

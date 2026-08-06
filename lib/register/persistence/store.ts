@@ -23,6 +23,7 @@ import {
 } from "./errors";
 import { withProjectLock } from "./lock";
 import { findIntegrityProblems } from "./validate";
+import { renderBriefing } from "../projection/render-briefing";
 import { applyTransition, createClaim } from "../statemachine/engine";
 import type { TransitionRequest } from "../statemachine/engine";
 import type { Evidence, Judgment } from "../schema/evidence";
@@ -193,6 +194,25 @@ export class RegisterStore {
   /** Verifies the persisted register's hash chain. */
   async verify(): Promise<ChainVerificationResult> {
     return verifyChain(await this.readFromDisk());
+  }
+
+  /**
+   * Regenerates briefing.md from the frozen briefing blob and the current
+   * register state and writes it atomically next to claims.json. The file is
+   * a projection: deterministic, regenerable, carrying no truth of its own.
+   */
+  async renderBriefingFile(): Promise<string> {
+    const register = await this.readFromDisk();
+    const briefingImport = register.project.briefing_import;
+    if (!briefingImport) {
+      throw new Error(
+        `project ${register.project.id} has no imported briefing to render`,
+      );
+    }
+    const original = this.blobs().readText(briefingImport.blob_path);
+    const rendered = renderBriefing(original, register);
+    writeFileAtomic(path.join(this.projectDir, "briefing.md"), rendered);
+    return rendered;
   }
 
   /**
