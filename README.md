@@ -23,13 +23,43 @@ npm run dev
 
 ## Scripts
 
-| Script              | Purpose                                       |
-| ------------------- | --------------------------------------------- |
-| `npm run dev`       | Start the web app in development mode         |
-| `npm test`          | Run the domain-core test suite (Vitest)       |
-| `npm run typecheck` | TypeScript strict check without emit          |
-| `npm run lint`      | ESLint (includes architecture boundary rules) |
-| `npm run format`    | Prettier over the repository                  |
+| Script                  | Purpose                                           |
+| ----------------------- | ------------------------------------------------- |
+| `npm run dev`           | Start the web app in development mode             |
+| `npm test`              | Run all test suites (unit, guard, E2E)            |
+| `npm run test:coverage` | Tests with enforced coverage thresholds           |
+| `npm run check`         | Everything CI runs: lint, format, types, coverage |
+| `npm run typecheck`     | TypeScript strict check without emit              |
+| `npm run lint`          | ESLint (includes architecture boundary rules)     |
+| `npm run format`        | Prettier over the repository                      |
+
+## Testing
+
+The suite has four layers, and all of them run in CI (Ubuntu **and**
+Windows, since the register's rename/lock semantics are OS-sensitive):
+
+1. **Unit tests** next to each module (`lib/**/*.test.ts`) — schema
+   validation, RFC 8785 vectors, chain tampering, gates, projection
+   golden file.
+2. **Architecture guards** (`tests/architecture.test.ts`) — fail when a
+   change erodes a structural invariant: the public barrel leaking the
+   chain minter or raw engine, `app/` imports in the domain core,
+   `process.env` outside `lib/identity`, filesystem access in the pure
+   chain/projection modules, raw writes outside the atomic-write
+   helper, or any edit to the status transition table (which must be
+   changed consciously in code _and_ test).
+3. **End-to-end** (`tests/e2e/lifecycle.e2e.test.ts`) — one project
+   walked from creation through freezing, all verification stages,
+   sampling, adjudication and repair to the rendered `briefing.md`,
+   validated against the committed JSON Schema and verified by the
+   real `tmb verify` CLI as a separate OS process (including a
+   tamper-detection case).
+4. **Cross-process concurrency**
+   (`tests/e2e/multiprocess.e2e.test.ts`) — three OS processes write
+   the same project concurrently; the chain must come out gapless.
+
+Coverage thresholds (`vitest.config.ts`) are a ratchet: raise them
+when coverage grows, never lower them to make a change pass.
 
 ## Structure
 

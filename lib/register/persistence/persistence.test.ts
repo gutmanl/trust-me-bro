@@ -201,6 +201,37 @@ describe("RegisterStore.transaction", () => {
   });
 });
 
+describe("RegisterTransaction.recordBriefingImport", () => {
+  it("freezes the briefing reference once and records the event", async () => {
+    await store.transaction((tx) => {
+      tx.recordBriefingImport({
+        sha256: "a".repeat(64),
+        blob_path: `blobs/aa/${"a".repeat(64)}.md`,
+        tool: "deep-research-x",
+        actor: "human:lg",
+        at: "2026-08-06T09:00:00Z",
+      });
+    });
+    const register = await store.read();
+    expect(register.project.briefing_import?.sha256).toBe("a".repeat(64));
+    expect(register.project_events.map((event) => event.event)).toContain(
+      "briefing_imported",
+    );
+    expect((await store.verify()).ok).toBe(true);
+
+    await expect(
+      store.transaction((tx) =>
+        tx.recordBriefingImport({
+          sha256: "b".repeat(64),
+          blob_path: `blobs/bb/${"b".repeat(64)}.md`,
+          tool: "deep-research-x",
+          actor: "human:lg",
+        }),
+      ),
+    ).rejects.toThrow(/already has an imported briefing/);
+  });
+});
+
 describe("RegisterStore.read", () => {
   it("throws CorruptRegisterError on unparseable JSON", async () => {
     fs.writeFileSync(store.claimsPath, "{ kaputt");

@@ -142,22 +142,15 @@ describe("RegisterStore.renderBriefingFile", () => {
       at: "2026-08-06T08:00:00Z",
     });
     const blob = store.blobs().put(BRIEFING, "md");
-    // Attach the briefing import via a raw file edit is not possible through
-    // the capability surface (import flow is a later epic), so write the
-    // project field through a fresh create-like path: read, patch, re-write
-    // via the transaction-free test seam — here we simply re-create the file
-    // with the briefing_import set, keeping the chain intact.
-    const register = await store.read();
-    register.project.briefing_import = {
-      imported_at: "2026-08-06T08:01:00Z",
-      sha256: blob.sha256,
-      blob_path: blob.blobPath,
-      tool: "deep-research-x",
-    };
-    fs.writeFileSync(
-      store.claimsPath,
-      `${JSON.stringify(register, null, 2)}\n`,
-    );
+    await store.transaction((tx) => {
+      tx.recordBriefingImport({
+        sha256: blob.sha256,
+        blob_path: blob.blobPath,
+        tool: "deep-research-x",
+        actor: "human:lg",
+        at: "2026-08-06T08:01:00Z",
+      });
+    });
 
     const first = await store.renderBriefingFile();
     const briefingPath = path.join(projectDir, "briefing.md");

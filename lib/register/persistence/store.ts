@@ -65,6 +65,19 @@ export interface RegisterTransaction {
     at?: string;
   }): ProjectEvent;
   /**
+   * Records the one-time briefing import: freezes the reference to the
+   * original briefing blob and appends the briefing_imported event. The
+   * original is the input extraction is measured against, so re-import is
+   * rejected (a revision workflow is a later epic).
+   */
+  recordBriefingImport(input: {
+    sha256: string;
+    blob_path: string;
+    tool: string;
+    actor: ActorId;
+    at?: string;
+  }): void;
+  /**
    * Creates a claim through the extraction gate: initial status is decided by
    * the Nachweisvollständigkeits-Gate (evidence → erfasst, none → zur
    * Adjudikation), never by the caller.
@@ -333,6 +346,23 @@ function createTransaction(
       }) as ProjectEvent;
       draft.project_events.push(entry);
       return entry;
+    },
+    recordBriefingImport({ sha256, blob_path, tool, actor, at }) {
+      if (draft.project.briefing_import) {
+        throw new Error(
+          `project ${draft.project.id} already has an imported briefing (re-import is not supported)`,
+        );
+      }
+      const imported_at = at ?? new Date().toISOString();
+      draft.project.briefing_import = { imported_at, sha256, blob_path, tool };
+      draft.project_events.push(
+        chain.append({
+          at: imported_at,
+          actor,
+          event: "briefing_imported",
+          reason: `Briefing eingefroren (${tool}).`,
+        }) as ProjectEvent,
+      );
     },
     addClaim(input) {
       return structuredClone(createClaim(draft, chain, input));
