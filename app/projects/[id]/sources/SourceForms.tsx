@@ -2,14 +2,17 @@
 
 import { useActionState, useState } from "react";
 
+import {
+  ErrorBanner,
+  fileInputClass,
+  inputClass,
+  primaryButtonClass,
+  SuccessBanner,
+} from "@/app/components/ui";
 import type { SourceFormState } from "./actions";
 import { captureSourceAction, freezeSourceSetAction } from "./actions";
 
 const initialState: SourceFormState = { error: null };
-
-const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-slate-500 focus:outline-none";
 
 const KIND_TABS = [
   { kind: "doi", label: "DOI" },
@@ -180,7 +183,7 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
               type="file"
               required={kind === "upload"}
               accept=".pdf,.html,.htm,.txt,.md,application/pdf,text/html,text/plain"
-              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium"
+              className={fileInputClass}
             />
           </div>
         ) : null}
@@ -211,23 +214,15 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
           </select>
         </div>
 
-        {state.error ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {state.error}
-          </p>
-        ) : null}
+        <ErrorBanner message={state.error} />
         {state.captured ? (
-          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          <SuccessBanner>
             Quelle <span className="font-mono">{state.captured}</span> erfasst
             und Snapshot eingefroren.
-          </p>
+          </SuccessBanner>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-        >
+        <button type="submit" disabled={pending} className={primaryButtonClass}>
           {pending ? "Wird erfasst …" : "Quelle erfassen und einfrieren"}
         </button>
       </form>
@@ -253,11 +248,7 @@ export function FreezeSourceSetForm({
         Das Einfrieren schließt die Erfassung ab: Alle Prüfungen beziehen sich
         danach auf genau diesen Bestand ({sourceCount} Quelle(n)).
       </p>
-      {state.error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      ) : null}
+      <ErrorBanner message={state.error} />
       <button
         type="submit"
         disabled={pending || sourceCount === 0}

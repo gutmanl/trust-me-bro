@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { PipelineError, startExtraction } from "@/lib/pipeline";
+import { runPipelineAction } from "@/app/lib/pipeline-action";
+import { startExtraction } from "@/lib/pipeline";
 
 export interface ExtractionFormState {
   error: string | null;
@@ -14,14 +15,10 @@ export async function startExtractionAction(
   _previous: ExtractionFormState,
   _formData: FormData,
 ): Promise<ExtractionFormState> {
-  try {
-    await startExtraction(projectId);
-    revalidatePath(`/projects/${projectId}/extraction`);
-    return { error: null, started: true };
-  } catch (error) {
-    if (error instanceof PipelineError) {
-      return { error: error.message };
-    }
-    throw error;
+  const result = await runPipelineAction(() => startExtraction(projectId));
+  if (result.error !== null) {
+    return { error: result.error };
   }
+  revalidatePath(`/projects/${projectId}/extraction`);
+  return { error: null, started: true };
 }

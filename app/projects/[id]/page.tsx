@@ -1,26 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
-import { getProjectSummary, UnknownProjectError } from "@/lib/pipeline";
-import type { ProjectSummary } from "@/lib/pipeline";
+import { loadProjectOrNotFound } from "@/app/lib/load-project";
+import { getProjectSummary } from "@/lib/pipeline";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "../status-labels";
 
 export const dynamic = "force-dynamic";
 
-async function loadSummary(id: string): Promise<ProjectSummary> {
-  try {
-    return await getProjectSummary(id);
-  } catch (error) {
-    if (error instanceof UnknownProjectError) {
-      notFound();
-    }
-    throw error;
-  }
-}
-
 export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   const { id } = await props.params;
-  const summary = await loadSummary(id);
+  const summary = await loadProjectOrNotFound(() => getProjectSummary(id));
 
   return (
     <div className="space-y-6">

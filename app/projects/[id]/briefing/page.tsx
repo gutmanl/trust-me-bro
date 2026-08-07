@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-
-import { getBriefing, UnknownProjectError } from "@/lib/pipeline";
+import { loadProjectOrNotFound } from "@/app/lib/load-project";
+import { SubpageHeader } from "@/app/components/ui";
+import { getBriefing } from "@/lib/pipeline";
 import { formatTimestamp } from "../../status-labels";
 import { BriefingForm } from "./BriefingForm";
 
@@ -11,27 +10,11 @@ export default async function BriefingPage(
   props: PageProps<"/projects/[id]/briefing">,
 ) {
   const { id } = await props.params;
-  let briefing;
-  try {
-    briefing = await getBriefing(id);
-  } catch (error) {
-    if (error instanceof UnknownProjectError) {
-      notFound();
-    }
-    throw error;
-  }
+  const briefing = await loadProjectOrNotFound(() => getBriefing(id));
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={`/projects/${id}`}
-          className="text-sm text-slate-500 hover:text-slate-700"
-        >
-          ← Zurück zum Projekt
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Briefing</h1>
-      </div>
+      <SubpageHeader projectId={id} title="Briefing" />
 
       {briefing ? (
         <div className="space-y-4">

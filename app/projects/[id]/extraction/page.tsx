@@ -1,12 +1,6 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-
-import {
-  getExtractionState,
-  readProject,
-  UnknownProjectError,
-} from "@/lib/pipeline";
-import type { ClaimsRegister } from "@/lib/register";
+import { loadProjectOrNotFound } from "@/app/lib/load-project";
+import { SubpageHeader } from "@/app/components/ui";
+import { getExtractionState, readProject } from "@/lib/pipeline";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
 import { ExtractionPanel } from "./ExtractionPanel";
 
@@ -46,28 +40,14 @@ export default async function ExtractionPage(
   props: PageProps<"/projects/[id]/extraction">,
 ) {
   const { id } = await props.params;
-  let register: ClaimsRegister;
-  try {
-    register = await readProject(id);
-  } catch (error) {
-    if (error instanceof UnknownProjectError) {
-      notFound();
-    }
-    throw error;
-  }
+  const register = await loadProjectOrNotFound(() => readProject(id));
   const state = getExtractionState(register);
   const badge = STATE_BADGES[state.status];
 
   return (
     <div className="space-y-6">
       <div>
-        <Link
-          href={`/projects/${id}`}
-          className="text-sm text-slate-500 hover:text-slate-700"
-        >
-          ← Zurück zum Projekt
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Claim-Extraktion</h1>
+        <SubpageHeader projectId={id} title="Claim-Extraktion" />
         <p className="mt-1 text-sm text-slate-600">
           Der Adapter zerlegt das eingefrorene Briefing in atomare Claims mit
           Fundstellen. Unbelegte oder gebündelte Aussagen gehen sichtbar zur

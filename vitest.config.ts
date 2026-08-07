@@ -24,6 +24,8 @@ export default defineConfig({
         "lib/adapters/core/contracts.ts",
         "lib/adapters/orchestrator/types.ts",
         "lib/identity/types.ts",
+        "lib/pipeline/sources/fetch-port.ts",
+        "lib/pipeline/runs/types.ts",
       ],
       // Guard rail: new domain-core code must arrive tested. Raise, never
       // lower, these thresholds.

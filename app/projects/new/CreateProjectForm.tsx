@@ -2,15 +2,16 @@
 
 import { useActionState, useState } from "react";
 
+import {
+  ErrorBanner,
+  inputClass,
+  primaryButtonClass,
+} from "@/app/components/ui";
 import { mintProjectId } from "@/lib/pipeline/ids";
 import type { CreateProjectFormState } from "./actions";
 import { createProjectAction } from "./actions";
 
 const initialState: CreateProjectFormState = { error: null };
-
-const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-slate-500 focus:outline-none";
 
 /**
  * Creation form. The id is suggested live from the research question but
@@ -112,17 +113,9 @@ export function CreateProjectForm() {
         </div>
       </fieldset>
 
-      {state.error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      ) : null}
+      <ErrorBanner message={state.error} />
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-      >
+      <button type="submit" disabled={pending} className={primaryButtonClass}>
         {pending ? "Wird angelegt …" : "Projekt anlegen"}
       </button>
     </form>

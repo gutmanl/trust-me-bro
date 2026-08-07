@@ -1,13 +1,6 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-
-import {
-  formatCitation,
-  isSourceSetFrozen,
-  readProject,
-  UnknownProjectError,
-} from "@/lib/pipeline";
-import type { ClaimsRegister } from "@/lib/register";
+import { loadProjectOrNotFound } from "@/app/lib/load-project";
+import { SubpageHeader } from "@/app/components/ui";
+import { formatCitation, isSourceSetFrozen, readProject } from "@/lib/pipeline";
 import { formatTimestamp } from "../../status-labels";
 import { CaptureSourceForm, FreezeSourceSetForm } from "./SourceForms";
 
@@ -24,28 +17,12 @@ export default async function SourcesPage(
   props: PageProps<"/projects/[id]/sources">,
 ) {
   const { id } = await props.params;
-  let register: ClaimsRegister;
-  try {
-    register = await readProject(id);
-  } catch (error) {
-    if (error instanceof UnknownProjectError) {
-      notFound();
-    }
-    throw error;
-  }
+  const register = await loadProjectOrNotFound(() => readProject(id));
   const frozen = isSourceSetFrozen(register);
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href={`/projects/${id}`}
-          className="text-sm text-slate-500 hover:text-slate-700"
-        >
-          ← Zurück zum Projekt
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Quellen</h1>
-      </div>
+      <SubpageHeader projectId={id} title="Quellen" />
 
       {frozen ? (
         <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">

@@ -2,14 +2,16 @@
 
 import { useActionState } from "react";
 
+import {
+  ErrorBanner,
+  fileInputClass,
+  inputClass,
+  primaryButtonClass,
+} from "@/app/components/ui";
 import type { ImportBriefingFormState } from "./actions";
 import { importBriefingAction } from "./actions";
 
 const initialState: ImportBriefingFormState = { error: null };
-
-const inputClass =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-slate-500 focus:outline-none";
 
 export function BriefingForm({ projectId }: { projectId: string }) {
   const [state, formAction, pending] = useActionState(
@@ -44,7 +46,7 @@ export function BriefingForm({ projectId }: { projectId: string }) {
           name="file"
           type="file"
           accept=".md,.markdown,.txt,text/markdown,text/plain"
-          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium"
+          className={fileInputClass}
         />
       </div>
 
@@ -66,17 +68,9 @@ export function BriefingForm({ projectId }: { projectId: string }) {
         </p>
       </div>
 
-      {state.error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      ) : null}
+      <ErrorBanner message={state.error} />
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-      >
+      <button type="submit" disabled={pending} className={primaryButtonClass}>
         {pending ? "Wird eingefroren …" : "Briefing importieren und einfrieren"}
       </button>
     </form>

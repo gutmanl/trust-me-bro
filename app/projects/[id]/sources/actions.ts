@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { captureSource, freezeSourceSet, PipelineError } from "@/lib/pipeline";
+import { runPipelineAction } from "@/app/lib/pipeline-action";
+import { captureSource, freezeSourceSet } from "@/lib/pipeline";
 import type { CaptureKind, CaptureSourceInput } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 
@@ -65,16 +66,12 @@ export async function captureSourceAction(
     };
   }
 
-  try {
-    const source = await captureSource(input);
-    revalidatePath(`/projects/${projectId}/sources`);
-    return { error: null, captured: source.id };
-  } catch (error) {
-    if (error instanceof PipelineError) {
-      return { error: error.message };
-    }
-    throw error;
+  const result = await runPipelineAction(() => captureSource(input));
+  if (result.error !== null) {
+    return { error: result.error };
   }
+  revalidatePath(`/projects/${projectId}/sources`);
+  return { error: null, captured: result.value.id };
 }
 
 export async function freezeSourceSetAction(
@@ -82,14 +79,10 @@ export async function freezeSourceSetAction(
   _previous: SourceFormState,
   _formData: FormData,
 ): Promise<SourceFormState> {
-  try {
-    await freezeSourceSet(projectId);
-    revalidatePath(`/projects/${projectId}/sources`);
-    return { error: null };
-  } catch (error) {
-    if (error instanceof PipelineError) {
-      return { error: error.message };
-    }
-    throw error;
+  const result = await runPipelineAction(() => freezeSourceSet(projectId));
+  if (result.error !== null) {
+    return { error: result.error };
   }
+  revalidatePath(`/projects/${projectId}/sources`);
+  return { error: null };
 }

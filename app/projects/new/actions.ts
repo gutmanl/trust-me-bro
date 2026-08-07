@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 
-import { createProject, PipelineError } from "@/lib/pipeline";
+import { runPipelineAction } from "@/app/lib/pipeline-action";
+import { createProject } from "@/lib/pipeline";
 import type { BackendCli } from "@/lib/pipeline";
 
 export interface CreateProjectFormState {
@@ -27,13 +28,11 @@ export async function createProjectAction(
   if (!primaryCli) {
     return { error: "Bitte eine primäre Modellfamilie wählen." };
   }
-  try {
-    await createProject({ id, research_question, primaryCli, secondaryCli });
-  } catch (error) {
-    if (error instanceof PipelineError) {
-      return { error: error.message };
-    }
-    throw error;
+  const result = await runPipelineAction(() =>
+    createProject({ id, research_question, primaryCli, secondaryCli }),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
   }
   redirect(`/projects/${id}`);
 }

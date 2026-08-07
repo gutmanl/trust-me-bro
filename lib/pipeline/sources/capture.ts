@@ -54,12 +54,15 @@ function extFromFilename(filename: string): string {
   return ext === "htm" ? "html" : ext;
 }
 
+/** The one place that knows how "frozen" is encoded in the event log. */
+function hasFreezeEvent(events: readonly { event: string }[]): boolean {
+  return events.some((event) => event.event === "source_set_frozen");
+}
+
 /** True once the source_set_frozen event exists — every verification then
  * references exactly this corpus state. */
 export function isSourceSetFrozen(register: ClaimsRegister): boolean {
-  return register.project_events.some(
-    (event) => event.event === "source_set_frozen",
-  );
+  return hasFreezeEvent(register.project_events);
 }
 
 function requireManual(manual: ManualMetadata | undefined): ManualMetadata {
@@ -193,7 +196,7 @@ export async function captureSource(
   const now = new Date().toISOString();
 
   return store.transaction((tx) => {
-    if (tx.listProjectEvents().some((e) => e.event === "source_set_frozen")) {
+    if (hasFreezeEvent(tx.listProjectEvents())) {
       throw new SourceSetFrozenError(input.projectId);
     }
     const existing = new Set(tx.listSources().map((source) => source.id));
@@ -243,7 +246,7 @@ export async function captureSource(
 export async function freezeSourceSet(projectId: string): Promise<void> {
   const store = requireProjectStore(projectId);
   await store.transaction((tx) => {
-    if (tx.listProjectEvents().some((e) => e.event === "source_set_frozen")) {
+    if (hasFreezeEvent(tx.listProjectEvents())) {
       throw new SourceSetFrozenError(projectId);
     }
     const sources = tx.listSources();

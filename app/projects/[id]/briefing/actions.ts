@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 
-import { importBriefing, PipelineError } from "@/lib/pipeline";
+import { runPipelineAction } from "@/app/lib/pipeline-action";
+import { importBriefing } from "@/lib/pipeline";
 
 export interface ImportBriefingFormState {
   error: string | null;
@@ -22,13 +23,11 @@ export async function importBriefingAction(
     content = await file.text();
   }
 
-  try {
-    await importBriefing({ projectId, content, tool });
-  } catch (error) {
-    if (error instanceof PipelineError) {
-      return { error: error.message };
-    }
-    throw error;
+  const result = await runPipelineAction(() =>
+    importBriefing({ projectId, content, tool }),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
   }
   redirect(`/projects/${projectId}`);
 }
