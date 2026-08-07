@@ -1,0 +1,22 @@
+{
+  "rubric_version": "se-evidenz-rubrik-v1",
+  "prompt_template_sha256": "2cab9f80f618f2584232fff5e1ae14833c243cfb7593edcc8637aced03f28085",
+  "claim_types": {
+    "quantitativer_einzelbefund": {
+      "min_pertinent_sources": 1,
+      "required_source_types_any": ["begutachtete_publikation"]
+    },
+    "vergleichende_aussage": {
+      "min_pertinent_sources": 2,
+      "insufficient_if_only": ["herstellerdokumentation"]
+    },
+    "wirksamkeitsaussage": {
+      "min_pertinent_sources": 1
+    },
+    "empfehlung": {
+      "min_pertinent_sources": 2,
+      "min_source_type_diversity": 2,
+      "insufficient_if_only": ["herstellerdokumentation"]
+    }
+  }
+}
