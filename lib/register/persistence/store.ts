@@ -53,6 +53,9 @@ export interface RegisterTransaction {
   getConfig(): ProjectConfig;
   listSources(): Source[];
   listClaims(): Claim[];
+  /** Read-only snapshot of the project events, e.g. for workflow gates
+   * (source_set_frozen) that must be checked inside the transaction. */
+  listProjectEvents(): ProjectEvent[];
   getClaim(claimId: string): Claim;
   /** Adds a source entry (CSL-JSON item with `custom` block). Validated with
    * everything else at commit. */
@@ -327,6 +330,7 @@ function createTransaction(
     getConfig: () => structuredClone(draft.config),
     listSources: () => structuredClone(draft.sources),
     listClaims: () => structuredClone(draft.claims),
+    listProjectEvents: () => structuredClone(draft.project_events),
     getClaim(claimId) {
       const claim = draft.claims.find((candidate) => candidate.id === claimId);
       if (!claim) {

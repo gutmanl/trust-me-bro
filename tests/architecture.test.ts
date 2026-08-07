@@ -87,6 +87,14 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.mintProjectId).toBeDefined();
     expect(surface.importBriefing).toBeDefined();
     expect(surface.getBriefing).toBeDefined();
+    expect(surface.captureSource).toBeDefined();
+    expect(surface.freezeSourceSet).toBeDefined();
+    expect(surface.isSourceSetFrozen).toBeDefined();
+    expect(surface.formatCitation).toBeDefined();
+    expect(surface.toPlainCsl).toBeDefined();
+    // Network access stays behind the fetcher port; the production fetcher
+    // is wired internally, not part of the public surface.
+    expect(surface.nodeHttpFetcher).toBeUndefined();
   });
 });
 
@@ -138,6 +146,24 @@ describe("module boundaries", () => {
       expect(read(file), file).not.toMatch(
         /fs\.(writeFileSync|appendFileSync|createWriteStream)\(/,
       );
+    }
+  });
+
+  it("confines network access to the pipeline's http fetcher", () => {
+    const allowed = [
+      // The one production implementation …
+      path.join("lib", "pipeline", "sources", "node-http-fetcher.ts"),
+      // … its port declaration (interface method named fetch) …
+      path.join("lib", "pipeline", "sources", "fetch-port.ts"),
+    ];
+    for (const file of domainFiles) {
+      // … and test doubles implementing the port.
+      if (allowed.includes(file) || file.includes("__fixtures__")) {
+        continue;
+      }
+      // Bare global fetch(...) only; calls through the HttpFetcher port
+      // (fetcher.fetch(...)) are exactly the sanctioned indirection.
+      expect(read(file), file).not.toMatch(/(?<![.\w])fetch\(/);
     }
   });
 

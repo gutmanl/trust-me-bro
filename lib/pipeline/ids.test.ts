@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ProjectId } from "../register";
-import { mintProjectId, slugify } from "./ids";
+import { ProjectId, SourceId } from "../register";
+import { mintProjectId, mintSourceId, slugify } from "./ids";
 
 describe("slugify", () => {
   it("lowercases and hyphenates free text", () => {
@@ -40,5 +40,30 @@ describe("mintProjectId", () => {
 
   it("falls back to a generic slug for unusable questions", () => {
     expect(mintProjectId("???")).toBe("proj_projekt");
+  });
+});
+
+describe("mintSourceId", () => {
+  it("prefers author family plus year", () => {
+    const id = mintSourceId(
+      { family: "Meyer", year: 2025, title: "Effects" },
+      new Set(),
+    );
+    expect(id).toBe("src_meyer2025");
+    expect(SourceId.safeParse(id).success).toBe(true);
+  });
+
+  it("falls back to the title, then a generic slug", () => {
+    expect(mintSourceId({ title: "Großer Bericht" }, new Set())).toBe(
+      "src_grosser-bericht",
+    );
+    expect(mintSourceId({}, new Set())).toBe("src_quelle");
+  });
+
+  it("suffixes collisions deterministically", () => {
+    const existing = new Set(["src_meyer2025", "src_meyer2025-2"]);
+    expect(mintSourceId({ family: "Meyer", year: 2025 }, existing)).toBe(
+      "src_meyer2025-3",
+    );
   });
 });

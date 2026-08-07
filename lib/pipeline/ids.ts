@@ -36,3 +36,28 @@ export function mintProjectId(researchQuestion: string): string {
   const slug = slugify(researchQuestion);
   return `proj_${slug || "projekt"}`;
 }
+
+/**
+ * Mints a source id ("src_meyer2025") from author/year, falling back to the
+ * title. Collisions get a numeric suffix — ids must be unique per register
+ * (referential integrity check of the persistence layer).
+ */
+export function mintSourceId(
+  hint: { family?: string; year?: number; title?: string },
+  existing: ReadonlySet<string>,
+): string {
+  const base =
+    hint.family && hint.family.trim().length > 0
+      ? `${slugify(hint.family)}${hint.year ?? ""}`
+      : slugify(hint.title ?? "") || "quelle";
+  const candidate = `src_${base}`;
+  if (!existing.has(candidate)) {
+    return candidate;
+  }
+  for (let suffix = 2; ; suffix += 1) {
+    const next = `${candidate}-${suffix}`;
+    if (!existing.has(next)) {
+      return next;
+    }
+  }
+}

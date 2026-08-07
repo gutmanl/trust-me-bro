@@ -29,6 +29,36 @@ export class UnknownProjectError extends PipelineError {
 /** Input of the briefing import is unusable (empty content, missing tool). */
 export class InvalidBriefingInputError extends PipelineError {}
 
+/** Input of the source capture is unusable. */
+export class InvalidSourceInputError extends PipelineError {}
+
+/** DOI/arXiv resolution failed (network, unknown id, malformed answer). */
+export class IdentifierResolutionError extends PipelineError {}
+
+/** The source document could not be downloaded. */
+export class DocumentFetchError extends PipelineError {}
+
+/** The source set is frozen; captures/changes need a revision workflow
+ * (later epic) instead of silently mutating the frozen corpus. */
+export class SourceSetFrozenError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(
+      `Der Quellenbestand von Projekt "${projectId}" ist eingefroren – ` +
+        "alle Prüfungen beziehen sich auf diesen Stand.",
+    );
+  }
+}
+
+/** Freezing needs at least one captured source. */
+export class EmptySourceSetError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(
+      `Projekt "${projectId}" hat noch keine Quellen – ` +
+        "ein leerer Quellenbestand kann nicht eingefroren werden.",
+    );
+  }
+}
+
 /** One briefing per project: the original is the input extraction is
  * measured against; re-import would silently change that baseline. */
 export class BriefingAlreadyImportedError extends PipelineError {

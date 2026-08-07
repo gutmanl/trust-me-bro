@@ -8,6 +8,14 @@ export { getBriefing, importBriefing } from "./briefing";
 export type { ImportBriefingInput } from "./briefing";
 export { mintProjectId, slugify } from "./ids";
 export {
+  captureSource,
+  freezeSourceSet,
+  isSourceSetFrozen,
+} from "./sources/capture";
+export type { CaptureKind, CaptureSourceInput } from "./sources/capture";
+export { formatCitation, toPlainCsl } from "./sources/csl";
+export type { ManualMetadata } from "./sources/csl";
+export {
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
   DEFAULT_RUBRIC_VERSION,

@@ -43,6 +43,17 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Server actions keep the (state, formData) signature useActionState
+    // expects even when a parameter is unused; the underscore prefix marks
+    // that deliberately.
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
   prettier,
   // Override default ignores of eslint-config-next.
   globalIgnores([

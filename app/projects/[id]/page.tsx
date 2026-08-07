@@ -89,7 +89,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             >
               {summary.source_count > 0 ? "✓" : "○"}
             </span>
-            <span>Quellen erfassen und einfrieren (folgt in TMB-23)</span>
+            <Link
+              href={`/projects/${summary.id}/sources`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Quellen erfassen und einfrieren
+            </Link>
           </li>
           <li className="flex items-center gap-2">
             <span
