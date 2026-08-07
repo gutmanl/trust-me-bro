@@ -22,6 +22,7 @@ export {
   InvalidTransitionError,
 } from "./statemachine/errors";
 export { TRANSITIONS } from "./statemachine/transitions";
+export { isAtomicClaimText } from "./statemachine/atomicity";
 export type { TransitionRequest } from "./statemachine/engine";
 export { renderBriefing } from "./projection/render-briefing";
 export { countClaimsByStatus } from "./projection/counts";

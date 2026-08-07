@@ -1,5 +1,6 @@
 import type { Claim } from "../schema/claim";
 import type { ClaimStatus } from "../schema/enums";
+import { isAtomicClaimText } from "./atomicity";
 
 /**
  * Transition table of the claim status model. It is normative for the
@@ -31,13 +32,24 @@ export interface TransitionDef {
 const ok: GateResult = { ok: true };
 const fail = (reason: string): GateResult => ({ ok: false, reason });
 
-const hasEvidence: Gate = (claim) =>
-  claim.evidence.length > 0
-    ? ok
-    : fail("claim has no evidence (unbelegter Claim)");
+/**
+ * Admission into "erfasst" (creation and repair re-entry): evidence must
+ * exist (Fundstellen-Gate) AND the wording must be one atomic statement
+ * (Atomaritäts-Gate, TMB-25). Both violations route to adjudication —
+ * visible, never dropped.
+ */
+const hasEvidence: Gate = (claim) => {
+  if (claim.evidence.length === 0) {
+    return fail("claim has no evidence (unbelegter Claim)");
+  }
+  if (!isAtomicClaimText(claim.text)) {
+    return fail("claim text bundles multiple statements (Atomaritätsgate)");
+  }
+  return ok;
+};
 
 const hasNoEvidence: Gate = (claim) =>
-  claim.evidence.length === 0
+  claim.evidence.length === 0 || !isAtomicClaimText(claim.text)
     ? ok
     : fail("claim has evidence and belongs in erfasst");
 

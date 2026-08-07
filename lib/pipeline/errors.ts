@@ -38,6 +38,30 @@ export class IdentifierResolutionError extends PipelineError {}
 /** The source document could not be downloaded. */
 export class DocumentFetchError extends PipelineError {}
 
+/** A run is already active for this project (per-project sequential). */
+export class RunActiveError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(
+      `Für Projekt "${projectId}" läuft bereits ein Lauf – ` +
+        "je Projekt wird sequenziell gearbeitet (Einzelschreiber).",
+    );
+  }
+}
+
+/** Preconditions of the extraction run are not met. */
+export class ExtractionPreconditionError extends PipelineError {}
+
+/** Extraction already produced claims; re-extraction is a later epic
+ * (warm runs, TMB-7) — guarding now avoids claim-id ambiguity. */
+export class ExtractionAlreadyRanError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(
+      `Projekt "${projectId}" hat bereits extrahierte Claims – ` +
+        "eine erneute Extraktion ist im Prototyp nicht vorgesehen.",
+    );
+  }
+}
+
 /** Full-text extraction of a snapshot failed; recorded at the source
  * entry (custom.snapshot.text_extraction_error), never silently dropped. */
 export class FullTextExtractionError extends PipelineError {}

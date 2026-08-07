@@ -104,7 +104,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             >
               {summary.total_claims > 0 ? "✓" : "○"}
             </span>
-            <span>Claims extrahieren (folgt in TMB-25)</span>
+            <Link
+              href={`/projects/${summary.id}/extraction`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Claims extrahieren
+            </Link>
           </li>
         </ol>
       </section>

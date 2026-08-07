@@ -45,6 +45,10 @@ describe("public surface of lib/register", () => {
     expect(surface.createBlobStore).toBeDefined();
     expect(surface.countClaimsByStatus).toBeDefined();
     expect(surface.lastActivityAt).toBeDefined();
+    // Exposed so the pipeline can CLASSIFY why a claim was routed to
+    // adjudication without re-implementing the heuristic; admission itself
+    // still happens only inside the creation gate.
+    expect(surface.isAtomicClaimText).toBeDefined();
     // Chain links and status changes must only be producible inside a
     // RegisterStore transaction (single-writer invariant).
     expect(surface.ChainAppender).toBeUndefined();
@@ -92,9 +96,16 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.isSourceSetFrozen).toBeDefined();
     expect(surface.formatCitation).toBeDefined();
     expect(surface.toPlainCsl).toBeDefined();
+    expect(surface.startExtraction).toBeDefined();
+    expect(surface.getExtractionState).toBeDefined();
+    expect(surface.getExtractionRun).toBeDefined();
     // Network access stays behind the fetcher port; the production fetcher
     // is wired internally, not part of the public surface.
     expect(surface.nodeHttpFetcher).toBeUndefined();
+    // Runs start only through the use-cases, never by driving the runner
+    // or the orchestrator wiring directly from the web layer.
+    expect(surface.getGlobalJobRunner).toBeUndefined();
+    expect(surface.createJobRunner).toBeUndefined();
   });
 });
 

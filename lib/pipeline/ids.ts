@@ -37,6 +37,24 @@ export function mintProjectId(researchQuestion: string): string {
   return `proj_${slug || "projekt"}`;
 }
 
+/** Next sequential claim id ("clm_0001", "clm_0002", …). */
+export function nextClaimId(existingIds: readonly string[]): string {
+  let max = 0;
+  for (const id of existingIds) {
+    const match = /^clm_(\d+)$/.exec(id);
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  }
+  return `clm_${String(max + 1).padStart(4, "0")}`;
+}
+
+/** Evidence id within one claim ("ev_0001", …) — evidence ids are only
+ * required to be unique per claim (persistence integrity check). */
+export function evidenceIdAt(index: number): string {
+  return `ev_${String(index + 1).padStart(4, "0")}`;
+}
+
 /**
  * Mints a source id ("src_meyer2025") from author/year, falling back to the
  * title. Collisions get a numeric suffix — ids must be unique per register

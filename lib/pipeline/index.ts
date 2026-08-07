@@ -16,6 +16,20 @@ export type { CaptureKind, CaptureSourceInput } from "./sources/capture";
 export { formatCitation, toPlainCsl } from "./sources/csl";
 export type { ManualMetadata } from "./sources/csl";
 export {
+  getExtractionRun,
+  getExtractionState,
+  startExtraction,
+} from "./extraction/run-extraction";
+export type {
+  ExtractionDependencies,
+  ExtractionRunSummary,
+} from "./extraction/run-extraction";
+export type {
+  ExtractionState,
+  ExtractionStatus,
+} from "./extraction/derive-state";
+export type { RunHandle, RunItemOutcome, RunProgressEvent } from "./runs/types";
+export {
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
   DEFAULT_RUBRIC_VERSION,

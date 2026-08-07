@@ -122,6 +122,22 @@ describe("claim creation (extraction gate)", () => {
     expect(claim.status).toBe("zur_adjudikation");
   });
 
+  it("routes bundled statements to adjudication despite evidence (Atomaritätsgate)", async () => {
+    const bundled = newClaim("clm_0004");
+    bundled.text =
+      "Die Reviewzeit sinkt um 55 %. Zudem steigt die Codequalität langfristig.";
+    const claim = await store.transaction((tx) =>
+      tx.addClaim({
+        claim: bundled,
+        actor: "system:extraction",
+        reason:
+          "Atomaritätsgate: Extraktionsergebnis bündelt mehrere Aussagen.",
+      }),
+    );
+    expect(claim.status).toBe("zur_adjudikation");
+    expect(claim.history[0].to_status).toBe("zur_adjudikation");
+  });
+
   it("rejects human actors as claim creators", async () => {
     await expect(
       store.transaction((tx) =>

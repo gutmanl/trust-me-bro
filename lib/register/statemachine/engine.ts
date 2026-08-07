@@ -3,6 +3,7 @@ import type { ChainAppender } from "../chain/appender";
 import type { Claim } from "../schema/claim";
 import type { ClaimStatus } from "../schema/enums";
 import type { Decision, HistoryEntry } from "../schema/history";
+import { isAtomicClaimText } from "./atomicity";
 import {
   DecisionRequiredError,
   GateRejectedError,
@@ -120,6 +121,7 @@ export function applyTransition(
 /**
  * Creates a claim through the extraction gate: the initial status is decided
  * by the Nachweisvollständigkeits-Gate (evidence present → erfasst, none →
+ * zur_adjudikation) and the Atomaritäts-Gate (bundled statements →
  * zur_adjudikation), never by the caller.
  */
 export function createClaim(
@@ -141,7 +143,9 @@ export function createClaim(
     );
   }
   const to: ClaimStatus =
-    input.claim.evidence.length > 0 ? "erfasst" : "zur_adjudikation";
+    input.claim.evidence.length > 0 && isAtomicClaimText(input.claim.text)
+      ? "erfasst"
+      : "zur_adjudikation";
   // The claim starts with from_status null; applyTransition performs the
   // creation edge so it gets its gate check and chain link exactly like
   // every later transition.
