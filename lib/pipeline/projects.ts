@@ -24,6 +24,13 @@ const MODEL_FAMILY: Record<BackendCli, string> = {
 
 export const DEFAULT_RUBRIC_VERSION = "se-evidenz-rubrik-v1";
 export const DEFAULT_ADJUDICATION_SAMPLE_RATE = 0.1;
+/** Second-opinion criteria (Divergenzregel): request the secondary backend's
+ * judgment when the primary confidence is below the threshold or the primary
+ * relation is not `stuetzt`. */
+export const DEFAULT_SECOND_OPINION = {
+  confidence_threshold: 0.8,
+  on_relation_not_stuetzt: true,
+} as const;
 
 export interface CreateProjectInput {
   id: string;
@@ -63,6 +70,9 @@ function buildProjectConfig(input: CreateProjectInput): ProjectConfig {
           }
         : {}),
     },
+    // Auto-enabled exactly when a second model family exists; single-backend
+    // projects stay valid and simply never trigger second opinions.
+    ...(input.secondaryCli ? { second_opinion: DEFAULT_SECOND_OPINION } : {}),
   };
 }
 

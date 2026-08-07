@@ -1,6 +1,7 @@
 import type { Claim } from "../schema/claim";
 import type { ClaimStatus } from "../schema/enums";
 import { isAtomicClaimText } from "./atomicity";
+import { evaluateAutoConfirmation } from "./auto-confirmation";
 
 /**
  * Transition table of the claim status model. It is normative for the
@@ -109,47 +110,12 @@ const preCheckComplete: Gate = (claim) => {
 };
 
 /**
- * The divergence rule compares the CURRENT position of each backend: only
- * the latest judgment per backend counts (judgments accumulate and are never
- * overwritten, so a backend revising its own earlier judgment — e.g. after a
- * repair re-run — must not read as divergence).
+ * The auto-confirmation rule (supported + lizenziert + no divergence among
+ * the latest judgments per backend) lives in auto-confirmation.ts so the
+ * verification pipeline can consult the same predicate; this gate remains
+ * the authority at commit time.
  */
-function hasBackendDivergence(claim: Claim): boolean {
-  return claim.evidence.some((evidence) => {
-    const latestByBackend = new Map<string, { at: string; relation: string }>();
-    for (const judgment of evidence.judgments) {
-      const current = latestByBackend.get(judgment.backend);
-      // Later array position wins ties, matching append order.
-      if (!current || judgment.at >= current.at) {
-        latestByBackend.set(judgment.backend, {
-          at: judgment.at,
-          relation: judgment.relation_type,
-        });
-      }
-    }
-    return (
-      new Set([...latestByBackend.values()].map((entry) => entry.relation))
-        .size > 1
-    );
-  });
-}
-
-const autoConfirmable: Gate = (claim) => {
-  if (claim.support_degree !== "supported") {
-    return fail(
-      `support_degree is ${claim.support_degree ?? "unset"}, not supported`,
-    );
-  }
-  if (claim.calibration_result !== "lizenziert") {
-    return fail(
-      `calibration_result is ${claim.calibration_result ?? "unset"}, not lizenziert (Rubrik)`,
-    );
-  }
-  if (hasBackendDivergence(claim)) {
-    return fail("backend judgments diverge (Divergenzregel)");
-  }
-  return ok;
-};
+const autoConfirmable: Gate = (claim) => evaluateAutoConfirmation(claim);
 
 const notAutoConfirmable: Gate = (claim) =>
   autoConfirmable(claim).ok

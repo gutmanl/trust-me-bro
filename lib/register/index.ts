@@ -22,7 +22,16 @@ export {
   InvalidTransitionError,
 } from "./statemachine/errors";
 export { TRANSITIONS } from "./statemachine/transitions";
+export type { GateResult } from "./statemachine/transitions";
 export { isAtomicClaimText } from "./statemachine/atomicity";
+// Exposed so the verification pipeline can decide WHICH edge to take and
+// WHICH relation to persist without re-implementing the rules; the gates in
+// the transition table remain the sole authority at commit time.
+export { evaluateAutoConfirmation } from "./statemachine/auto-confirmation";
+export {
+  latestJudgmentPerBackend,
+  resolveEvidenceRelation,
+} from "./statemachine/divergence";
 export type { TransitionRequest } from "./statemachine/engine";
 export { renderBriefing } from "./projection/render-briefing";
 export { countClaimsByStatus } from "./projection/counts";

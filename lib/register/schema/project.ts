@@ -37,17 +37,41 @@ export const BackendRef = z.strictObject({
 });
 
 /**
+ * Criteria under which the attribution check requests a second judgment from
+ * the secondary backend (Divergenzregel, TMB-29): primary confidence below
+ * the threshold, or — when enabled — a primary relation other than
+ * `stuetzt`. Documented extension of the ratified format (additive,
+ * optional); absence means the pipeline's code defaults apply.
+ */
+export const SecondOpinionConfig = z.strictObject({
+  confidence_threshold: z.number().min(0).max(1),
+  on_relation_not_stuetzt: z.boolean(),
+});
+export type SecondOpinionConfig = z.infer<typeof SecondOpinionConfig>;
+
+/**
  * Project configuration: rubric version, adjudication sample rate and the
  * configured backends. `secondary` is absent when only one model family is
  * available; the pipeline then runs with the divergence rule disabled and
  * this absence is the visible record of that (Grobentwurf).
  */
-export const ProjectConfig = z.strictObject({
-  rubric_version: z.string().min(1),
-  adjudication_sample_rate: z.number().min(0).max(1),
-  backends: z.strictObject({
-    primary: BackendRef,
-    secondary: BackendRef.optional(),
-  }),
-});
+export const ProjectConfig = z
+  .strictObject({
+    rubric_version: z.string().min(1),
+    adjudication_sample_rate: z.number().min(0).max(1),
+    backends: z.strictObject({
+      primary: BackendRef,
+      secondary: BackendRef.optional(),
+    }),
+    second_opinion: SecondOpinionConfig.optional(),
+  })
+  .refine(
+    (config) =>
+      config.second_opinion === undefined ||
+      config.backends.secondary !== undefined,
+    {
+      message: "second_opinion requires a configured secondary backend",
+      path: ["second_opinion"],
+    },
+  );
 export type ProjectConfig = z.infer<typeof ProjectConfig>;

@@ -28,7 +28,13 @@ export {
 export { Evidence, ExistenceCheck, Judgment, Locator } from "./evidence";
 export { ChainFields, Decision, HistoryEntry, ProjectEvent } from "./history";
 export { Claim, Provenance } from "./claim";
-export { BackendRef, BriefingImport, Project, ProjectConfig } from "./project";
+export {
+  BackendRef,
+  BriefingImport,
+  Project,
+  ProjectConfig,
+  SecondOpinionConfig,
+} from "./project";
 export { ClaimsRegister, SCHEMA_VERSION } from "./register";
 export {
   buildEvidenceJsonSchema,

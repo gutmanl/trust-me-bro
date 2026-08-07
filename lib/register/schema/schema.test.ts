@@ -49,6 +49,25 @@ describe("ClaimsRegister", () => {
     expect(ClaimsRegister.safeParse(invalid).success).toBe(false);
   });
 
+  it("accepts second_opinion with, and rejects it without, a secondary backend", () => {
+    const valid = clone(exampleProject) as {
+      config: {
+        second_opinion?: object;
+        backends: { secondary?: object };
+      };
+    };
+    valid.config.second_opinion = {
+      confidence_threshold: 0.8,
+      on_relation_not_stuetzt: true,
+    };
+    expect(ClaimsRegister.safeParse(valid).success).toBe(true);
+
+    delete valid.config.backends.secondary;
+    const result = ClaimsRegister.safeParse(valid);
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain("second_opinion");
+  });
+
   it("rejects a snapshot carrying text blob and extraction error at once", () => {
     const invalid = clone(exampleProject);
     const snapshot = invalid.sources[0].custom.snapshot as {
