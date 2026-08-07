@@ -10,19 +10,29 @@ import type { RunHandle, RunItemOutcome, RunProgressEvent } from "./types";
  * layer's global CLI gate. Progress lives in memory only; the durable truth
  * (batch events, claim statuses) is always in the register, so a server
  * restart loses nothing but the live progress feed.
+ *
+ * Runs carry an optional `kind` ("extraction", "verification"): exclusivity
+ * stays project-wide across kinds (single writer), but each feature's state
+ * derivation and SSE stream can address ITS runs — without the kind filter,
+ * the extraction page would replay a verification run and vice versa.
  */
 
 export interface JobRunner {
-  isRunning(projectId: string): boolean;
-  /** The active run, or the most recently finished one (for late viewers). */
-  currentRun(projectId: string): RunHandle | undefined;
+  isRunning(projectId: string, kind?: string): boolean;
+  /** The active run, or the most recently finished one (for late viewers);
+   * with `kind`, both are filtered to runs of that kind. */
+  currentRun(projectId: string, kind?: string): RunHandle | undefined;
   submit<TItem, TResult>(
     projectId: string,
     items: readonly TItem[],
     itemId: (item: TItem) => string,
     step: (item: TItem, context: { runId: string }) => Promise<TResult>,
+    options?: { kind?: string },
   ): RunHandle<TResult>;
 }
+
+const lastKey = (projectId: string, kind: string): string =>
+  `${projectId}\n${kind}`;
 
 export function createJobRunner(options?: {
   generateRunId?: () => string;
@@ -32,22 +42,31 @@ export function createJobRunner(options?: {
   const last = new Map<string, RunHandle>();
 
   return {
-    isRunning(projectId) {
-      return active.has(projectId);
+    isRunning(projectId, kind) {
+      const run = active.get(projectId);
+      return run !== undefined && (kind === undefined || run.kind === kind);
     },
-    currentRun(projectId) {
-      return active.get(projectId) ?? last.get(projectId);
+    currentRun(projectId, kind) {
+      const activeRun = active.get(projectId);
+      if (activeRun && (kind === undefined || activeRun.kind === kind)) {
+        return activeRun;
+      }
+      return last.get(
+        kind === undefined ? projectId : lastKey(projectId, kind),
+      );
     },
     submit<TItem, TResult>(
       projectId: string,
       items: readonly TItem[],
       itemId: (item: TItem) => string,
       step: (item: TItem, context: { runId: string }) => Promise<TResult>,
+      submitOptions?: { kind?: string },
     ): RunHandle<TResult> {
       if (active.has(projectId)) {
         throw new RunActiveError(projectId);
       }
       const runId = generateRunId();
+      const kind = submitOptions?.kind;
       const events: RunProgressEvent<TResult>[] = [];
       const listeners = new Set<(event: RunProgressEvent<TResult>) => void>();
       let activeFlag = true;
@@ -98,6 +117,7 @@ export function createJobRunner(options?: {
       const handle: RunHandle<TResult> = {
         runId,
         projectId,
+        kind,
         isActive: () => activeFlag,
         eventsSoFar: () => [...events],
         subscribe(listener) {
@@ -108,6 +128,9 @@ export function createJobRunner(options?: {
       };
       active.set(projectId, handle);
       last.set(projectId, handle);
+      if (kind !== undefined) {
+        last.set(lastKey(projectId, kind), handle);
+      }
       return handle;
     },
   };

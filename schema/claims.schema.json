@@ -10,12 +10,87 @@
       "type": "string"
     },
     "__schema10": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema11": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier_verified": {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "status": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "status",
+            "at"
+          ],
+          "type": "object"
+        },
+        "snapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "blob_path": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "retrieved_at": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "revision": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "sha256": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "text_blob_path": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "text_extraction_error": {
+              "$ref": "#/$defs/__schema13"
+            }
+          },
+          "required": [
+            "retrieved_at",
+            "sha256",
+            "blob_path",
+            "revision"
+          ],
+          "type": "object"
+        },
+        "source_type": {
+          "enum": [
+            "begutachtete_publikation",
+            "preprint",
+            "grauliteratur",
+            "herstellerdokumentation"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type"
+      ],
+      "type": "object"
+    },
+    "__schema12": {
+      "$ref": "#/$defs/__schema3"
+    },
+    "__schema13": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema14": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema11": {},
-    "__schema12": {
+    "__schema15": {},
+    "__schema16": {
       "enum": [
         "erfasst",
         "existenzgeprueft",
@@ -29,11 +104,11 @@
       ],
       "type": "string"
     },
-    "__schema13": {
+    "__schema17": {
       "pattern": "^ev_[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     },
-    "__schema14": {
+    "__schema18": {
       "enum": [
         "stuetzt",
         "stuetzt_teilweise",
@@ -42,11 +117,11 @@
       ],
       "type": "string"
     },
-    "__schema15": {
+    "__schema19": {
       "additionalProperties": false,
       "properties": {
         "actor": {
-          "$ref": "#/$defs/__schema17"
+          "$ref": "#/$defs/__schema21"
         },
         "at": {
           "$ref": "#/$defs/__schema1"
@@ -78,7 +153,7 @@
             },
             "reviewed_evidence_ids": {
               "items": {
-                "$ref": "#/$defs/__schema13"
+                "$ref": "#/$defs/__schema17"
               },
               "type": "array"
             }
@@ -93,7 +168,7 @@
         "from_status": {
           "anyOf": [
             {
-              "$ref": "#/$defs/__schema12"
+              "$ref": "#/$defs/__schema16"
             },
             {
               "type": "null"
@@ -111,10 +186,10 @@
           "type": "string"
         },
         "seq": {
-          "$ref": "#/$defs/__schema16"
+          "$ref": "#/$defs/__schema20"
         },
         "to_status": {
-          "$ref": "#/$defs/__schema12"
+          "$ref": "#/$defs/__schema16"
         }
       },
       "required": [
@@ -129,17 +204,17 @@
       ],
       "type": "object"
     },
-    "__schema16": {
+    "__schema2": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "__schema20": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema17": {
+    "__schema21": {
       "pattern": "^(human|system):[a-z0-9][a-z0-9_-]*$",
-      "type": "string"
-    },
-    "__schema2": {
-      "pattern": "^[0-9a-f]{64}$",
       "type": "string"
     },
     "__schema3": {
@@ -147,6 +222,30 @@
       "type": "string"
     },
     "__schema4": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema5": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "__schema6": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "secondary": {
+          "$ref": "#/$defs/__schema7"
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "type": "object"
+    },
+    "__schema7": {
       "additionalProperties": false,
       "properties": {
         "cli": {
@@ -164,83 +263,26 @@
       ],
       "type": "object"
     },
-    "__schema5": {
-      "pattern": "^src_[a-z0-9][a-z0-9_-]*$",
-      "type": "string"
-    },
-    "__schema6": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "__schema7": {
+    "__schema8": {
       "additionalProperties": false,
       "properties": {
-        "identifier_verified": {
-          "additionalProperties": false,
-          "properties": {
-            "at": {
-              "$ref": "#/$defs/__schema1"
-            },
-            "status": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "status",
-            "at"
-          ],
-          "type": "object"
+        "confidence_threshold": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
         },
-        "snapshot": {
-          "additionalProperties": false,
-          "properties": {
-            "blob_path": {
-              "$ref": "#/$defs/__schema3"
-            },
-            "retrieved_at": {
-              "$ref": "#/$defs/__schema1"
-            },
-            "revision": {
-              "$ref": "#/$defs/__schema10"
-            },
-            "sha256": {
-              "$ref": "#/$defs/__schema2"
-            },
-            "text_blob_path": {
-              "$ref": "#/$defs/__schema8"
-            },
-            "text_extraction_error": {
-              "$ref": "#/$defs/__schema9"
-            }
-          },
-          "required": [
-            "retrieved_at",
-            "sha256",
-            "blob_path",
-            "revision"
-          ],
-          "type": "object"
-        },
-        "source_type": {
-          "enum": [
-            "begutachtete_publikation",
-            "preprint",
-            "grauliteratur",
-            "herstellerdokumentation"
-          ],
-          "type": "string"
+        "on_relation_not_stuetzt": {
+          "type": "boolean"
         }
       },
       "required": [
-        "source_type"
+        "confidence_threshold",
+        "on_relation_not_stuetzt"
       ],
       "type": "object"
     },
-    "__schema8": {
-      "$ref": "#/$defs/__schema3"
-    },
     "__schema9": {
-      "minLength": 1,
+      "pattern": "^src_[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     }
   },
@@ -297,7 +339,7 @@
                   "type": "object"
                 },
                 "id": {
-                  "$ref": "#/$defs/__schema13"
+                  "$ref": "#/$defs/__schema17"
                 },
                 "judgments": {
                   "items": {
@@ -324,7 +366,7 @@
                         "type": "string"
                       },
                       "relation_type": {
-                        "$ref": "#/$defs/__schema14"
+                        "$ref": "#/$defs/__schema18"
                       }
                     },
                     "required": [
@@ -354,10 +396,10 @@
                   "type": "object"
                 },
                 "relation_type": {
-                  "$ref": "#/$defs/__schema14"
+                  "$ref": "#/$defs/__schema18"
                 },
                 "source_id": {
-                  "$ref": "#/$defs/__schema5"
+                  "$ref": "#/$defs/__schema9"
                 },
                 "verbatim_excerpt": {
                   "minLength": 1,
@@ -377,7 +419,7 @@
           },
           "history": {
             "items": {
-              "$ref": "#/$defs/__schema15"
+              "$ref": "#/$defs/__schema19"
             },
             "minItems": 1,
             "type": "array"
@@ -417,7 +459,7 @@
             "type": "object"
           },
           "status": {
-            "$ref": "#/$defs/__schema12"
+            "$ref": "#/$defs/__schema16"
           },
           "support_degree": {
             "enum": [
@@ -451,28 +493,16 @@
       "additionalProperties": false,
       "properties": {
         "adjudication_sample_rate": {
-          "maximum": 1,
-          "minimum": 0,
-          "type": "number"
+          "$ref": "#/$defs/__schema5"
         },
         "backends": {
-          "additionalProperties": false,
-          "properties": {
-            "primary": {
-              "$ref": "#/$defs/__schema4"
-            },
-            "secondary": {
-              "$ref": "#/$defs/__schema4"
-            }
-          },
-          "required": [
-            "primary"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/__schema6"
         },
         "rubric_version": {
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/__schema4"
+        },
+        "second_opinion": {
+          "$ref": "#/$defs/__schema8"
         }
       },
       "required": [
@@ -539,7 +569,7 @@
         "additionalProperties": false,
         "properties": {
           "actor": {
-            "$ref": "#/$defs/__schema17"
+            "$ref": "#/$defs/__schema21"
           },
           "at": {
             "$ref": "#/$defs/__schema1"
@@ -551,7 +581,9 @@
               "source_set_frozen",
               "source_set_revised",
               "batch_run_started",
-              "batch_run_completed"
+              "batch_run_completed",
+              "verification_run_started",
+              "verification_run_completed"
             ],
             "type": "string"
           },
@@ -566,7 +598,7 @@
             "type": "string"
           },
           "seq": {
-            "$ref": "#/$defs/__schema16"
+            "$ref": "#/$defs/__schema20"
           }
         },
         "required": [
@@ -589,18 +621,18 @@
     "sources": {
       "items": {
         "additionalProperties": {
-          "$ref": "#/$defs/__schema11"
+          "$ref": "#/$defs/__schema15"
         },
         "description": "CSL-JSON item with workshop extension in `custom`",
         "properties": {
           "custom": {
-            "$ref": "#/$defs/__schema7"
+            "$ref": "#/$defs/__schema11"
           },
           "id": {
-            "$ref": "#/$defs/__schema5"
+            "$ref": "#/$defs/__schema9"
           },
           "type": {
-            "$ref": "#/$defs/__schema6"
+            "$ref": "#/$defs/__schema10"
           }
         },
         "required": [

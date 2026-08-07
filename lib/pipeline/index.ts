@@ -30,9 +30,24 @@ export type {
 } from "./extraction/derive-state";
 export type { RunHandle, RunItemOutcome, RunProgressEvent } from "./runs/types";
 export {
+  getVerificationRun,
+  getVerificationState,
+  startVerification,
+} from "./verification/run-verification";
+export type {
+  VerificationDependencies,
+  VerificationItemOutcome,
+  VerificationItemResult,
+} from "./verification/run-verification";
+export type {
+  VerificationState,
+  VerificationStatus,
+} from "./verification/derive-state";
+export {
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
   DEFAULT_RUBRIC_VERSION,
+  DEFAULT_SECOND_OPINION,
   getProjectSummary,
   listProjects,
   readProject,

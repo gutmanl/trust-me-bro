@@ -49,6 +49,12 @@ describe("public surface of lib/register", () => {
     // adjudication without re-implementing the heuristic; admission itself
     // still happens only inside the creation gate.
     expect(surface.isAtomicClaimText).toBeDefined();
+    // Same escape-hatch pattern for TMB-4: the verification pipeline decides
+    // WHICH edge to take / WHICH relation to persist via these predicates;
+    // the transition gates remain the authority at commit time.
+    expect(surface.evaluateAutoConfirmation).toBeDefined();
+    expect(surface.resolveEvidenceRelation).toBeDefined();
+    expect(surface.latestJudgmentPerBackend).toBeDefined();
     // Chain links and status changes must only be producible inside a
     // RegisterStore transaction (single-writer invariant).
     expect(surface.ChainAppender).toBeUndefined();
@@ -99,6 +105,18 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.startExtraction).toBeDefined();
     expect(surface.getExtractionState).toBeDefined();
     expect(surface.getExtractionRun).toBeDefined();
+    expect(surface.startVerification).toBeDefined();
+    expect(surface.getVerificationState).toBeDefined();
+    expect(surface.getVerificationRun).toBeDefined();
+    // Verification internals stay internal: stage checkers, rubric rules,
+    // aggregation and the sample draw are reachable only through the run.
+    expect(surface.pickUnfinishedClaims).toBeUndefined();
+    expect(surface.checkClaimExistence).toBeUndefined();
+    expect(surface.runAttributionAndRubric).toBeUndefined();
+    expect(surface.aggregateSupportDegree).toBeUndefined();
+    expect(surface.loadRubricRuleSet).toBeUndefined();
+    expect(surface.evaluateMechanicalRubric).toBeUndefined();
+    expect(surface.drawSample).toBeUndefined();
     // Network access stays behind the fetcher port; the production fetcher
     // is wired internally, not part of the public surface.
     expect(surface.nodeHttpFetcher).toBeUndefined();

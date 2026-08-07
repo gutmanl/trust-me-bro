@@ -92,6 +92,7 @@ export async function startExtraction(
         timeoutMs,
         runId,
       }),
+    { kind: "extraction" },
   );
 }
 
@@ -101,7 +102,10 @@ export function getExtractionState(
   deps: { runner?: JobRunner } = {},
 ): ExtractionState {
   const runner = deps.runner ?? getGlobalJobRunner();
-  return deriveExtractionState(register, runner.isRunning(register.project.id));
+  return deriveExtractionState(
+    register,
+    runner.isRunning(register.project.id, "extraction"),
+  );
 }
 
 /** The live (or latest) run handle of a project, for the SSE stream. */
@@ -109,7 +113,10 @@ export function getExtractionRun(
   projectId: string,
   deps: { runner?: JobRunner } = {},
 ): RunHandle | undefined {
-  return (deps.runner ?? getGlobalJobRunner()).currentRun(projectId);
+  return (deps.runner ?? getGlobalJobRunner()).currentRun(
+    projectId,
+    "extraction",
+  );
 }
 
 interface RunContext {

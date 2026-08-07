@@ -66,6 +66,10 @@ export class ExtractionAlreadyRanError extends PipelineError {
  * entry (custom.snapshot.text_extraction_error), never silently dropped. */
 export class FullTextExtractionError extends PipelineError {}
 
+/** Preconditions of the verification run are not met (no claims, nothing
+ * left to verify, unknown rubric version). */
+export class VerificationPreconditionError extends PipelineError {}
+
 /** The source set is frozen; captures/changes need a revision workflow
  * (later epic) instead of silently mutating the frozen corpus. */
 export class SourceSetFrozenError extends PipelineError {

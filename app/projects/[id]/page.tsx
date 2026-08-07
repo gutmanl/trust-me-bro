@@ -99,6 +99,31 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
               Claims extrahieren
             </Link>
           </li>
+          <li className="flex items-center gap-2">
+            <span
+              className={
+                summary.total_claims > 0 &&
+                summary.claim_counts.erfasst +
+                  summary.claim_counts.existenzgeprueft ===
+                  0
+                  ? "text-green-600"
+                  : "text-slate-400"
+              }
+            >
+              {summary.total_claims > 0 &&
+              summary.claim_counts.erfasst +
+                summary.claim_counts.existenzgeprueft ===
+                0
+                ? "✓"
+                : "○"}
+            </span>
+            <Link
+              href={`/projects/${summary.id}/verification`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Claims prüfen (Existenz, Attribution, Kalibrierung)
+            </Link>
+          </li>
         </ol>
       </section>
     </div>

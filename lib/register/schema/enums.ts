@@ -94,7 +94,13 @@ export const CalibrationResult = z.enum([
 ]);
 export type CalibrationResult = z.infer<typeof CalibrationResult>;
 
-/** Project-wide events without a claim reference (file format appendix). */
+/**
+ * Project-wide events without a claim reference (file format appendix).
+ * `verification_run_started`/`verification_run_completed` bracket a
+ * TMB-4 verification run; the extraction bracket keeps its own pair so each
+ * feature's run state derives from its own events structurally instead of
+ * sniffing reason strings (documented extension, additive).
+ */
 export const ProjectEventType = z.enum([
   "project_created",
   "briefing_imported",
@@ -102,5 +108,7 @@ export const ProjectEventType = z.enum([
   "source_set_revised",
   "batch_run_started",
   "batch_run_completed",
+  "verification_run_started",
+  "verification_run_completed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

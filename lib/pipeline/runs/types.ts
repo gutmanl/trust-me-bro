@@ -34,6 +34,9 @@ export type RunProgressEvent<TResult = unknown> =
 export interface RunHandle<TResult = unknown> {
   readonly runId: string;
   readonly projectId: string;
+  /** Feature that started the run ("extraction", "verification"); lets each
+   * feature address its own runs on the shared per-project runner. */
+  readonly kind?: string;
   /** True until run_completed was emitted. */
   isActive(): boolean;
   /** All events so far — replayed to late subscribers (SSE reconnect). */
