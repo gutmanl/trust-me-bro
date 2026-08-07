@@ -24,6 +24,8 @@ export {
 export { TRANSITIONS } from "./statemachine/transitions";
 export type { TransitionRequest } from "./statemachine/engine";
 export { renderBriefing } from "./projection/render-briefing";
+export { countClaimsByStatus } from "./projection/counts";
+export { lastActivityAt } from "./projection/activity";
 export { verifyChain } from "./chain/verify";
 export type {
   ChainVerificationError,

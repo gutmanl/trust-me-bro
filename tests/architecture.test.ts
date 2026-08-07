@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import * as adaptersPublic from "../lib/adapters";
+import * as pipelinePublic from "../lib/pipeline";
 import * as registerPublic from "../lib/register";
 import { TRANSITIONS } from "../lib/register/statemachine/transitions";
 
@@ -42,6 +43,8 @@ describe("public surface of lib/register", () => {
     expect(surface.verifyChain).toBeDefined();
     expect(surface.renderBriefing).toBeDefined();
     expect(surface.createBlobStore).toBeDefined();
+    expect(surface.countClaimsByStatus).toBeDefined();
+    expect(surface.lastActivityAt).toBeDefined();
     // Chain links and status changes must only be producible inside a
     // RegisterStore transaction (single-writer invariant).
     expect(surface.ChainAppender).toBeUndefined();
@@ -70,6 +73,18 @@ describe("public surface of lib/adapters", () => {
     expect(surface.loadPromptTemplate).toBeUndefined();
     expect(surface.nodeProcessRunner).toBeUndefined();
     expect(surface.validateJobOutput).toBeUndefined();
+  });
+});
+
+describe("public surface of lib/pipeline", () => {
+  it("exposes the use-cases the web layer calls", () => {
+    const surface = pipelinePublic as Record<string, unknown>;
+    expect(surface.createProject).toBeDefined();
+    expect(surface.listProjects).toBeDefined();
+    expect(surface.getProjectSummary).toBeDefined();
+    expect(surface.readProject).toBeDefined();
+    expect(surface.slugify).toBeDefined();
+    expect(surface.mintProjectId).toBeDefined();
   });
 });
 

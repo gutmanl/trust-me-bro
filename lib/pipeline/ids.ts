@@ -1,0 +1,38 @@
+/**
+ * Pure id helpers of the pipeline layer. The register validates id shape
+ * (schema/primitives.ts) but never invents ids — minting is pipeline
+ * responsibility. This module is free of Node APIs so client components may
+ * import it directly for live id suggestions.
+ */
+
+const MAX_SLUG_LENGTH = 40;
+
+const TRANSLITERATIONS: Record<string, string> = {
+  ä: "ae",
+  ö: "oe",
+  ü: "ue",
+  ß: "ss",
+};
+
+/**
+ * Reduces free text (typically the research question) to the id-safe ASCII
+ * subset of the register's id patterns: lowercase, German transliterations,
+ * hyphen-separated. Returns an empty string when nothing survives.
+ */
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[äöüß]/g, (char) => TRANSLITERATIONS[char])
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, MAX_SLUG_LENGTH)
+    .replace(/-+$/, "");
+}
+
+/** Suggests a project id ("proj_<slug>") from the research question. */
+export function mintProjectId(researchQuestion: string): string {
+  const slug = slugify(researchQuestion);
+  return `proj_${slug || "projekt"}`;
+}

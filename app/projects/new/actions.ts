@@ -1,0 +1,39 @@
+"use server";
+
+import { redirect } from "next/navigation";
+
+import { createProject, PipelineError } from "@/lib/pipeline";
+import type { BackendCli } from "@/lib/pipeline";
+
+export interface CreateProjectFormState {
+  error: string | null;
+}
+
+function parseCli(value: FormDataEntryValue | null): BackendCli | undefined {
+  return value === "claude" || value === "codex" ? value : undefined;
+}
+
+export async function createProjectAction(
+  _previous: CreateProjectFormState,
+  formData: FormData,
+): Promise<CreateProjectFormState> {
+  const id = String(formData.get("id") ?? "").trim();
+  const research_question = String(
+    formData.get("research_question") ?? "",
+  ).trim();
+  const primaryCli = parseCli(formData.get("primary_cli"));
+  const secondaryCli = parseCli(formData.get("secondary_cli"));
+
+  if (!primaryCli) {
+    return { error: "Bitte eine primäre Modellfamilie wählen." };
+  }
+  try {
+    await createProject({ id, research_question, primaryCli, secondaryCli });
+  } catch (error) {
+    if (error instanceof PipelineError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+  redirect(`/projects/${id}`);
+}
