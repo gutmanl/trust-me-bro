@@ -85,6 +85,8 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.readProject).toBeDefined();
     expect(surface.slugify).toBeDefined();
     expect(surface.mintProjectId).toBeDefined();
+    expect(surface.importBriefing).toBeDefined();
+    expect(surface.getBriefing).toBeDefined();
   });
 });
 

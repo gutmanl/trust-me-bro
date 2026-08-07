@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getProjectSummary, UnknownProjectError } from "@/lib/pipeline";
@@ -73,7 +74,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             >
               {summary.briefing_imported ? "✓" : "○"}
             </span>
-            <span>Briefing importieren (folgt in TMB-22)</span>
+            <Link
+              href={`/projects/${summary.id}/briefing`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Briefing importieren
+            </Link>
           </li>
           <li className="flex items-center gap-2">
             <span

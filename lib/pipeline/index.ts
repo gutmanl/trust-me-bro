@@ -4,6 +4,8 @@
  * internals stay internal.
  */
 export * from "./errors";
+export { getBriefing, importBriefing } from "./briefing";
+export type { ImportBriefingInput } from "./briefing";
 export { mintProjectId, slugify } from "./ids";
 export {
   createProject,

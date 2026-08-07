@@ -25,3 +25,17 @@ export class UnknownProjectError extends PipelineError {
     super(`Projekt "${projectId}" existiert nicht.`);
   }
 }
+
+/** Input of the briefing import is unusable (empty content, missing tool). */
+export class InvalidBriefingInputError extends PipelineError {}
+
+/** One briefing per project: the original is the input extraction is
+ * measured against; re-import would silently change that baseline. */
+export class BriefingAlreadyImportedError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(
+      `Projekt "${projectId}" hat bereits ein importiertes Briefing – ` +
+        "der Original-Import ist unveränderlich (ein Briefing je Projekt).",
+    );
+  }
+}

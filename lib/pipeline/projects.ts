@@ -161,7 +161,9 @@ export async function listProjects(): Promise<ProjectSummary[]> {
   );
 }
 
-function requireProjectStore(projectId: string): RegisterStore {
+/** Store of an existing project; UnknownProjectError otherwise. Shared by
+ * the pipeline's use-case modules, not part of the public barrel. */
+export function requireProjectStore(projectId: string): RegisterStore {
   let store: RegisterStore;
   try {
     store = RegisterStore.forProject(projectId);

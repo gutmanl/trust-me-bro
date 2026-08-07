@@ -12,6 +12,7 @@ export const BriefingImport = z.strictObject({
   blob_path: BlobPath,
   tool: z.string().min(1),
 });
+export type BriefingImport = z.infer<typeof BriefingImport>;
 
 /**
  * Project identity and state. `id`, `research_question` and `created_at` are
