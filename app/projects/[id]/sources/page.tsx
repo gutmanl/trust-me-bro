@@ -101,9 +101,19 @@ export default async function SourcesPage(
                         <span className="font-mono">
                           {snapshot.sha256.slice(0, 12)}…
                         </span>
+                        {snapshot.text_blob_path ? (
+                          <span className="text-green-600">
+                            ✓ Volltext extrahiert
+                          </span>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
+                  {snapshot?.text_extraction_error ? (
+                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      ⚠ {snapshot.text_extraction_error}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

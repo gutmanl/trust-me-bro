@@ -14,6 +14,7 @@ import {
   issuedYear,
   type ManualMetadata,
 } from "./csl";
+import { extractFullText } from "../fulltext/extract";
 import type { HttpFetcher } from "./fetch-port";
 import { isHttpUrl, normalizeArxivId, normalizeDoi } from "./identifiers";
 import { nodeHttpFetcher } from "./node-http-fetcher";
@@ -176,6 +177,19 @@ export async function captureSource(
 
   const { resolved, verified } = await resolveMetadata(input, fetcher);
   const document = await acquireDocument(input, resolved, fetcher);
+  // TMB-24: the extracted full text is what stage 1 and the agent CLIs
+  // read. Extraction failures are recorded at the source entry — a source
+  // without text layer is captured visibly, not rejected.
+  let extraction: { text: string } | { error: string };
+  try {
+    extraction = {
+      text: await extractFullText(document.content, document.ext),
+    };
+  } catch (error) {
+    extraction = {
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
   const now = new Date().toISOString();
 
   return store.transaction((tx) => {
@@ -206,6 +220,12 @@ export async function captureSource(
           retrieved_at: now,
           sha256: blob.sha256,
           blob_path: blob.blobPath,
+          ...("text" in extraction
+            ? {
+                text_blob_path: store.blobs().put(extraction.text, "txt")
+                  .blobPath,
+              }
+            : { text_extraction_error: extraction.error }),
           revision: 1,
         },
       },

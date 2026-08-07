@@ -49,6 +49,31 @@ describe("ClaimsRegister", () => {
     expect(ClaimsRegister.safeParse(invalid).success).toBe(false);
   });
 
+  it("rejects a snapshot carrying text blob and extraction error at once", () => {
+    const invalid = clone(exampleProject);
+    const snapshot = invalid.sources[0].custom.snapshot as {
+      text_extraction_error?: string;
+    };
+    // The fixture snapshot has a text_blob_path; the error must exclude it.
+    snapshot.text_extraction_error = "Gescanntes PDF ohne Textebene.";
+    const result = ClaimsRegister.safeParse(invalid);
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain(
+      "text_extraction_error",
+    );
+  });
+
+  it("accepts a snapshot with a recorded extraction error and no text blob", () => {
+    const valid = clone(exampleProject);
+    const snapshot = valid.sources[0].custom.snapshot as {
+      text_blob_path?: string;
+      text_extraction_error?: string;
+    };
+    delete snapshot.text_blob_path;
+    snapshot.text_extraction_error = "Gescanntes PDF ohne Textebene.";
+    expect(ClaimsRegister.safeParse(valid).success).toBe(true);
+  });
+
   it("rejects a snapshot whose blob path does not match its checksum", () => {
     const invalid = clone(exampleProject);
     const snapshot = invalid.sources[0].custom.snapshot as {

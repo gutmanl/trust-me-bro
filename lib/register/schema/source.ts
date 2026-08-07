@@ -14,12 +14,23 @@ export const SourceSnapshot = z
     sha256: Sha256Hex,
     blob_path: BlobPath,
     text_blob_path: BlobPath.optional(),
+    /** Why no text blob exists (TMB-24): the extraction failure, made
+     * durable at the source entry instead of living only in UI state. */
+    text_extraction_error: z.string().min(1).optional(),
     revision: z.int().min(1),
   })
   .refine((snapshot) => snapshot.blob_path.includes(snapshot.sha256), {
     message: "blob_path must address the snapshot's own sha256 checksum",
     path: ["blob_path"],
-  });
+  })
+  .refine(
+    (snapshot) => !(snapshot.text_blob_path && snapshot.text_extraction_error),
+    {
+      message:
+        "text_blob_path and text_extraction_error are mutually exclusive",
+      path: ["text_extraction_error"],
+    },
+  );
 
 /** Result of resolving the source identifier (DOI, arXiv id, URL). */
 export const IdentifierVerification = z.strictObject({

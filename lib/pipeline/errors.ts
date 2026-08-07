@@ -38,6 +38,10 @@ export class IdentifierResolutionError extends PipelineError {}
 /** The source document could not be downloaded. */
 export class DocumentFetchError extends PipelineError {}
 
+/** Full-text extraction of a snapshot failed; recorded at the source
+ * entry (custom.snapshot.text_extraction_error), never silently dropped. */
+export class FullTextExtractionError extends PipelineError {}
+
 /** The source set is frozen; captures/changes need a revision workflow
  * (later epic) instead of silently mutating the frozen corpus. */
 export class SourceSetFrozenError extends PipelineError {

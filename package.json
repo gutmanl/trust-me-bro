@@ -18,11 +18,14 @@
     "tmb": "tsx cli/tmb.ts"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "fast-xml-parser": "^5.10.1",
+    "linkedom": "^0.18.13",
     "next": "16.3.0",
     "proper-lockfile": "^4.1.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "unpdf": "^1.8.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

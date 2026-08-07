@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,9 +18,19 @@ import {
   CSL_JSON_RESPONSE,
   fakeFetcher,
 } from "./__fixtures__/fake-fetcher";
+import { containsNormalized } from "../text/normalize";
 import { captureSource, freezeSourceSet, isSourceSetFrozen } from "./capture";
 
 const PDF_BYTES = Buffer.from("%PDF-1.7 fake");
+const REAL_PDF = fs.readFileSync(
+  path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "fulltext",
+    "__fixtures__",
+    "sample.pdf",
+  ),
+);
 
 let workspace: string;
 
@@ -234,6 +245,52 @@ describe("captureSource via URL and upload", () => {
     );
     expect(first.id).toBe("src_meyer2026");
     expect(second.id).toBe("src_meyer2026-2");
+  });
+});
+
+describe("full-text extraction at capture (TMB-24)", () => {
+  it("stores the extracted text as its own blob next to the snapshot", async () => {
+    const source = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "upload",
+        sourceType: "begutachtete_publikation",
+        manual: { title: "Studie zur Reviewzeit" },
+        upload: { content: REAL_PDF, filename: "studie.pdf" },
+      },
+      { fetcher: defaultFetcher() },
+    );
+    const snapshot = source.custom.snapshot;
+    expect(snapshot?.text_extraction_error).toBeUndefined();
+    expect(snapshot?.text_blob_path?.endsWith(".txt")).toBe(true);
+    const store = RegisterStore.forProject("proj_quellen");
+    const text = store.blobs().readText(snapshot?.text_blob_path as string);
+    expect(containsNormalized(text, "Reviewzeit sank von 42 auf 19")).toBe(
+      true,
+    );
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("records extraction failures durably at the source entry", async () => {
+    const source = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "upload",
+        sourceType: "grauliteratur",
+        manual: { title: "Kaputtes PDF" },
+        upload: { content: PDF_BYTES, filename: "kaputt.pdf" },
+      },
+      { fetcher: defaultFetcher() },
+    );
+    const snapshot = source.custom.snapshot;
+    expect(snapshot?.text_blob_path).toBeUndefined();
+    expect(snapshot?.text_extraction_error).toMatch(/Volltextextraktion/);
+
+    // The failure is persisted, not UI state: it survives a re-read.
+    const register = await RegisterStore.forProject("proj_quellen").read();
+    expect(register.sources[0].custom.snapshot?.text_extraction_error).toMatch(
+      /Volltextextraktion/,
+    );
   });
 });
 

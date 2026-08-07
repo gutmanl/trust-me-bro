@@ -124,6 +124,9 @@ describe("module boundaries", () => {
     const pureDirs = [
       path.join("lib", "register", "chain"),
       path.join("lib", "register", "projection"),
+      // Shared normal form of TMB-24's extraction and TMB-4's stage 1 —
+      // trustworthy exactly because it stays pure.
+      path.join("lib", "pipeline", "text"),
     ];
     for (const file of domainFiles) {
       if (pureDirs.some((dir) => file.startsWith(dir))) {
