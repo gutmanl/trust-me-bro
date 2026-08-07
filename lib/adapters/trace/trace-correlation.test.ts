@@ -92,6 +92,7 @@ describe("judgment ↔ trace correlation", () => {
       evidence: {
         id: "ev_0001",
         source_id: "src_meyer2025",
+        source_type: "begutachtete_publikation",
         locator: { page: 6 },
         verbatim_excerpt: "…median review time dropped…",
       },

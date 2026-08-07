@@ -33,6 +33,7 @@ export const exampleClaim: ClaimContext = {
 export const exampleEvidence: EvidenceContext = {
   id: "ev_0001",
   source_id: "src_meyer2025",
+  source_type: "begutachtete_publikation",
   locator: { page: 6, section: "4.2" },
   verbatim_excerpt: "…median review time dropped from 42 to 19 minutes (-55%)…",
 };

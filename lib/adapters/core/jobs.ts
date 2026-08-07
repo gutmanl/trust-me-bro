@@ -1,6 +1,11 @@
 import type { z } from "zod";
 
-import type { ClaimType, ComplaintCategory, Locator } from "../../register";
+import type {
+  ClaimType,
+  ComplaintCategory,
+  Locator,
+  SourceType,
+} from "../../register";
 import type { AttributionOutput } from "../schema/attribution";
 import type { ExtractionOutput } from "../schema/extraction";
 import type { RepairOutput } from "../schema/repair";
@@ -25,10 +30,13 @@ export interface ClaimContext {
   readonly briefing_anchor: string;
 }
 
-/** Evidence fields a job needs, incl. the frozen verbatim excerpt. */
+/** Evidence fields a job needs, incl. the frozen verbatim excerpt. The
+ * source type travels along so rubric jobs stay self-contained (the rubric
+ * weighs source types) instead of relying on the CLI reading claims.json. */
 export interface EvidenceContext {
   readonly id: string;
   readonly source_id: string;
+  readonly source_type: SourceType;
   readonly locator: LocatorValue;
   readonly verbatim_excerpt: string;
 }
