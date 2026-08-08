@@ -133,6 +133,13 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.discardClaim).toBeDefined();
     expect(surface.getProjectBlob).toBeDefined();
     expect(surface.getChainVerification).toBeDefined();
+    // TMB-41: derived export accessors; the pure builders stay internal.
+    expect(surface.getReferencesCsl).toBeDefined();
+    expect(surface.getProvDocument).toBeDefined();
+    expect(surface.getTracesAggregate).toBeDefined();
+    expect(surface.buildReferencesCsl).toBeUndefined();
+    expect(surface.buildProvDocument).toBeUndefined();
+    expect(surface.buildTracesAggregate).toBeUndefined();
     // Repair internals stay internal: the re-entry rule and cycle count are
     // reachable only through applyRepair.
     expect(surface.decideReEntry).toBeUndefined();

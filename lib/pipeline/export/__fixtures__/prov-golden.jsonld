@@ -1,0 +1,168 @@
+{
+  "@context": {
+    "prov": "http://www.w3.org/ns/prov#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "tmb": "urn:trustmebro:",
+    "id": "@id",
+    "type": "@type",
+    "startedAtTime": {
+      "@id": "prov:startedAtTime",
+      "@type": "xsd:dateTime"
+    },
+    "endedAtTime": {
+      "@id": "prov:endedAtTime",
+      "@type": "xsd:dateTime"
+    },
+    "wasGeneratedBy": {
+      "@id": "prov:wasGeneratedBy",
+      "@type": "@id"
+    },
+    "wasAttributedTo": {
+      "@id": "prov:wasAttributedTo",
+      "@type": "@id"
+    },
+    "wasAssociatedWith": {
+      "@id": "prov:wasAssociatedWith",
+      "@type": "@id"
+    },
+    "wasDerivedFrom": {
+      "@id": "prov:wasDerivedFrom",
+      "@type": "@id"
+    },
+    "used": {
+      "@id": "prov:used",
+      "@type": "@id"
+    }
+  },
+  "id": "tmb:project/proj_llm-code-review-2026",
+  "type": "prov:Bundle",
+  "tmb:researchQuestion": "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
+  "tmb:documentedSimplifications": [
+    "Keine separaten Reasoning-Knoten: Schlussfolgerung und Kantenaussage fallen in einem judgments[]-Eintrag zusammen, die Begruendung ist ein Literalattribut (tmb:reasoning) der urteilenden Aktivitaet.",
+    "Statusuebergaenge sind punktuelle Aktivitaeten (startedAtTime = endedAtTime); die Bearbeitungsdauer menschlicher Entscheidungen steht als tmb:duration_s an der Aktivitaet.",
+    "Die typisierte Claim-Quelle-Kante verlaeuft ueber den Evidenz-Knoten (wasDerivedFrom zur Quelle, tmb:evidenceOf zum Claim, tmb:relationType als Kantenaussage)."
+  ],
+  "@graph": [
+    {
+      "id": "tmb:source/src_meyer2025",
+      "type": "prov:Entity",
+      "tmb:role": "source",
+      "tmb:sourceType": "begutachtete_publikation",
+      "tmb:title": "Effects of AI Assistants on Code Review Duration"
+    },
+    {
+      "id": "tmb:claim/clm_0001",
+      "type": "prov:Entity",
+      "tmb:role": "claim",
+      "tmb:text": "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
+      "tmb:claimType": "quantitativer_einzelbefund",
+      "tmb:status": "bestaetigt",
+      "tmb:supportDegree": "supported",
+      "wasGeneratedBy": "tmb:activity/transition/clm_0001/2",
+      "wasAttributedTo": "tmb:agent/system/extraction"
+    },
+    {
+      "id": "tmb:evidence/clm_0001/ev_0001",
+      "type": "prov:Entity",
+      "tmb:role": "evidence",
+      "wasDerivedFrom": "tmb:source/src_meyer2025",
+      "tmb:evidenceOf": "tmb:claim/clm_0001",
+      "tmb:excerpt": "…median review time dropped from 42 to 19 minutes (-55%)…",
+      "tmb:locator": {
+        "page": 6,
+        "section": "4.2"
+      },
+      "tmb:relationType": "stuetzt"
+    },
+    {
+      "id": "tmb:activity/existence-check/clm_0001/ev_0001",
+      "type": "prov:Activity",
+      "startedAtTime": "2026-07-28T09:12:03Z",
+      "endedAtTime": "2026-07-28T09:12:03Z",
+      "used": "tmb:evidence/clm_0001/ev_0001",
+      "tmb:result": "bestanden"
+    },
+    {
+      "id": "tmb:activity/judgment/clm_0001/ev_0001/1",
+      "type": "prov:Activity",
+      "startedAtTime": "2026-07-28T09:19:48Z",
+      "endedAtTime": "2026-07-28T09:20:11Z",
+      "used": "tmb:evidence/clm_0001/ev_0001",
+      "wasAssociatedWith": "tmb:agent/backend/claude",
+      "tmb:model": "claude-sonnet-5",
+      "tmb:relationType": "stuetzt",
+      "tmb:confidence": 0.92,
+      "tmb:reasoning": "Zahlenwert und Richtung stimmen mit dem Auszug ueberein.",
+      "tmb:traceId": "3f2b41a8-7c15-4e0d-9a2b-5d8f13c07a61"
+    },
+    {
+      "id": "tmb:activity/transition/clm_0001/2",
+      "type": "prov:Activity",
+      "startedAtTime": "2026-07-28T08:12:30Z",
+      "endedAtTime": "2026-07-28T08:12:30Z",
+      "used": "tmb:claim/clm_0001",
+      "wasAssociatedWith": "tmb:agent/system/extraction",
+      "tmb:seq": 2,
+      "tmb:fromStatus": null,
+      "tmb:toStatus": "erfasst",
+      "tmb:reason": "Aus Briefing-Absatz p12 extrahiert."
+    },
+    {
+      "id": "tmb:activity/transition/clm_0001/8",
+      "type": "prov:Activity",
+      "startedAtTime": "2026-08-01T13:59:12Z",
+      "endedAtTime": "2026-08-01T13:59:12Z",
+      "used": "tmb:claim/clm_0001",
+      "wasAssociatedWith": "tmb:agent/system/stichprobe",
+      "tmb:seq": 8,
+      "tmb:fromStatus": "automatisch_bestaetigt",
+      "tmb:toStatus": "zur_adjudikation",
+      "tmb:reason": "Stichprobenkontrolle (Lauf run_0001, Seed run_0001, Rate 0.1).",
+      "tmb:routing": "stichprobe"
+    },
+    {
+      "id": "tmb:activity/transition/clm_0001/9",
+      "type": "prov:Activity",
+      "startedAtTime": "2026-08-01T14:03:55Z",
+      "endedAtTime": "2026-08-01T14:03:55Z",
+      "used": "tmb:claim/clm_0001",
+      "wasAssociatedWith": "tmb:agent/human/lg",
+      "tmb:seq": 9,
+      "tmb:fromStatus": "zur_adjudikation",
+      "tmb:toStatus": "bestaetigt",
+      "tmb:reason": "Stichprobenkontrolle: Fundstelle und Zahlenwert im Snapshot verifiziert.",
+      "tmb:decisionCategories": [],
+      "tmb:duration_s": 96
+    },
+    {
+      "id": "tmb:activity/project-event/1",
+      "type": "prov:Activity",
+      "startedAtTime": "2026-07-28T08:05:12Z",
+      "endedAtTime": "2026-07-28T08:05:12Z",
+      "wasAssociatedWith": "tmb:agent/human/lg",
+      "tmb:event": "source_set_frozen",
+      "tmb:seq": 1,
+      "tmb:reason": "Initialer Import, 1 Quelle, Revision 1."
+    },
+    {
+      "id": "tmb:agent/backend/claude",
+      "type": "prov:SoftwareAgent",
+      "tmb:cli": "claude"
+    },
+    {
+      "id": "tmb:agent/human/lg",
+      "type": "prov:Person",
+      "tmb:actor": "human:lg"
+    },
+    {
+      "id": "tmb:agent/system/extraction",
+      "type": "prov:SoftwareAgent",
+      "tmb:actor": "system:extraction"
+    },
+    {
+      "id": "tmb:agent/system/stichprobe",
+      "type": "prov:SoftwareAgent",
+      "tmb:actor": "system:stichprobe"
+    }
+  ]
+}

@@ -103,6 +103,13 @@ export {
   listProjects,
   readProject,
 } from "./projects";
+// TMB-41: the three derived export files, standalone AND inside the bundle
+// from the same builders (no drift possible). The pure build functions stay
+// internal; the web layer sees only the per-project accessors.
+export { getReferencesCsl } from "./export/references";
+export { getProvDocument } from "./export/prov";
+export { getTracesAggregate } from "./export/traces";
+export type { TracesAggregate } from "./export/traces";
 export type { ChainVerificationResult } from "../register";
 export type {
   BackendCli,
