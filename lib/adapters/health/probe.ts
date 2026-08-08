@@ -130,10 +130,12 @@ export async function probePresenceAndVersion(
  * Stage 3: one real minimal call through the given backend. Success and
  * schema-deviant-but-produced output both prove a working login; only
  * process failures/timeouts read as "not logged in / not responding", and
- * a rate limit is reported distinctly (the login itself works).
+ * a rate limit is reported distinctly (the login itself works). Takes only
+ * the login hint so the API backend (which has no CLI probe spec) can reuse
+ * the same probe (TMB-51).
  */
 export async function probeLogin(
-  spec: CliProbeSpec,
+  spec: Pick<CliProbeSpec, "loginHint">,
   backend: Backend,
 ): Promise<ProbeResult> {
   const checkedAt = new Date().toISOString();

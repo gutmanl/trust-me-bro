@@ -84,9 +84,11 @@ vier Nahtstellen — entworfen, punktuell belegt, nicht gebaut:
    ein API-Backend ist ein weiterer Adapter und besteht denselben
    Vertragstest (`lib/adapters/__fixtures__/contract-suite.ts`) wie die
    CLI-Adapter — ohne Änderung an Pipeline oder Register. Der Spike ist
-   doppelt verriegelt (`TMB_ENABLE_API_BACKEND=1` + `ANTHROPIC_API_KEY`)
-   und implementiert nur den Auftragstyp Attributionsurteil; ohne
-   Schlüssel läuft der Prototyp unverändert.
+   doppelt verriegelt (`TMB_ENABLE_API_BACKEND=1` + `ANTHROPIC_API_KEY`),
+   implementiert nur den Auftragstyp Attributionsurteil und ist deshalb
+   ausschließlich als sekundäres Backend wählbar; die Statusseite prüft
+   ihn über Flag/Schlüssel statt Suchpfad/Version. Ohne Schlüssel läuft
+   der Prototyp unverändert.
 2. **Identität** (`lib/identity`): siehe oben — eine Anmeldung ersetzt
    allein die Auflösung in `loadIdentityConfig` (sitzungs- statt
    dateigebunden); alle Aufrufer behalten ihre Signaturen.

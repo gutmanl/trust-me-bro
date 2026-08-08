@@ -100,6 +100,44 @@ describe("createProject", () => {
     ).rejects.toBeInstanceOf(InvalidProjectInputError);
   });
 
+  it("rejects the API spike backend as primary and as same-family second opinion (TMB-51)", async () => {
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "1");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    await expect(
+      createProject({
+        id: "proj_api_primary",
+        research_question: "Wirkt X?",
+        primaryCli: "anthropic-api",
+      }),
+    ).rejects.toThrow(/nur als sekundäres Backend/);
+    await expect(
+      createProject({
+        id: "proj_api_family",
+        research_question: "Wirkt X?",
+        primaryCli: "claude",
+        secondaryCli: "anthropic-api",
+      }),
+    ).rejects.toThrow(/Modellfamilie/);
+    // The valid spike pairing: codex primary, anthropic-api secondary.
+    const register = await createProject({
+      id: "proj_api_ok",
+      research_question: "Wirkt X?",
+      primaryCli: "codex",
+      secondaryCli: "anthropic-api",
+    });
+    expect(register.config.backends.secondary?.cli).toBe("anthropic-api");
+    // Gate closed: the id is rejected like an unknown backend.
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", undefined);
+    await expect(
+      createProject({
+        id: "proj_api_gated",
+        research_question: "Wirkt X?",
+        primaryCli: "codex",
+        secondaryCli: "anthropic-api",
+      }),
+    ).rejects.toThrow(/Unbekanntes Backend/);
+  });
+
   it("rejects a second creation under the same id", async () => {
     const input = {
       id: "proj_dup",

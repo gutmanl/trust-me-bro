@@ -50,11 +50,6 @@ export function SettingsForm({
           >
             <option value="claude">claude (Modellfamilie anthropic)</option>
             <option value="codex">codex (Modellfamilie openai)</option>
-            {apiBackendEnabled ? (
-              <option value="anthropic-api">
-                anthropic-api (Spike, Modellfamilie anthropic)
-              </option>
-            ) : null}
           </select>
         </div>
         <div>

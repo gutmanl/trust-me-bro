@@ -96,11 +96,6 @@ export function CreateProjectForm({
           >
             <option value="claude">Claude Code (Anthropic)</option>
             <option value="codex">Codex CLI (OpenAI)</option>
-            {apiBackendEnabled ? (
-              <option value="anthropic-api">
-                Anthropic API (Spike, Familie anthropic)
-              </option>
-            ) : null}
           </select>
         </div>
         <div>

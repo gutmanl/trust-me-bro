@@ -20,8 +20,10 @@ const controlButtonClass =
 export type RunControlPhase = "running" | "pausing" | "paused" | "cancelling";
 
 /**
- * Pause/resume/cancel buttons of a live run (TMB-50), shared by the three
- * run panels. Cooperative semantics: a request takes effect between items,
+ * Pause/resume/cancel buttons of a live run (TMB-50), shared by the
+ * verification and relevance panels (extraction stays without controls —
+ * its run has a single item, so a between-items pause can never take
+ * effect). Cooperative semantics: a request takes effect between items,
  * the in-flight CLI call always finishes — the phase labels make that wait
  * visible instead of pretending an instant stop.
  */

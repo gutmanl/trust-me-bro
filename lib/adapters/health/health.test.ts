@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Backend, ProcessRunner } from "../core/contracts";
+import { fakeRunner } from "../__fixtures__/jobs";
+import type { Backend } from "../core/contracts";
 import {
   AdapterProcessError,
   AdapterRateLimitError,
@@ -19,22 +20,6 @@ import {
   probePresenceAndVersion,
 } from "./probe";
 import { CLI_PROBE_SPECS } from "./specs";
-
-function fakeRunner(result: {
-  exitCode: number | null;
-  stdout?: string;
-  stderr?: string;
-  timedOut?: boolean;
-}): ProcessRunner {
-  return {
-    run: async () => ({
-      exitCode: result.exitCode,
-      stdout: result.stdout ?? "",
-      stderr: result.stderr ?? "",
-      timedOut: result.timedOut ?? false,
-    }),
-  };
-}
 
 function fakeBackend(behavior: () => Promise<{ model: string }>): Backend {
   return {
@@ -55,6 +40,10 @@ function fakeBackend(behavior: () => Promise<{ model: string }>): Backend {
 
 beforeEach(() => {
   __resetLoginProbeCacheForTests();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("probePresenceAndVersion", () => {
@@ -226,6 +215,44 @@ describe("checkCliHealth / runCliLoginProbe", () => {
     });
     expect(later.stages[2].status).toBe("ok");
     expect(later.stages[2].checkedAt).toBeDefined();
+  });
+
+  it("reports the API spike backend by its flag/key gate, not by PATH (TMB-51)", async () => {
+    // Gate closed: both stages fail with targeted hints, no probe runs.
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", undefined);
+    vi.stubEnv("ANTHROPIC_API_KEY", undefined);
+    const closed = await checkCliHealth("anthropic-api");
+    expect(closed.usable).toBe(false);
+    expect(closed.stages[0].hint).toContain("TMB_ENABLE_API_BACKEND");
+    expect(closed.stages[1].hint).toContain("ANTHROPIC_API_KEY");
+    expect(closed.stages[0].title).toContain("Feature-Flag");
+
+    // Gate open: usable without any CLI on the PATH.
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "1");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    const open = await checkCliHealth("anthropic-api");
+    expect(open.usable).toBe(true);
+    expect(open.stages[2].status).toBe("unknown");
+  });
+
+  it("login-probes the API spike backend through the injected backend", async () => {
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "1");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    const probed = await runCliLoginProbe("anthropic-api", {
+      backend: fakeBackend(async () => ({ model: "claude-opus-5" })),
+    });
+    expect(probed.stages[2].status).toBe("ok");
+    // The result is cached for later health checks.
+    const later = await checkCliHealth("anthropic-api");
+    expect(later.stages[2].status).toBe("ok");
+  });
+
+  it("does not probe the API spike backend while the gate is closed", async () => {
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", undefined);
+    vi.stubEnv("ANTHROPIC_API_KEY", undefined);
+    const result = await runCliLoginProbe("anthropic-api");
+    expect(result.usable).toBe(false);
+    expect(result.stages[2].status).toBe("unknown");
   });
 
   it("usable requires stage 1 ok and stage 2 not failed", () => {

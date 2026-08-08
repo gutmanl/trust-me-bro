@@ -162,6 +162,13 @@ export async function createProject(
       throw new InvalidProjectInputError(`Unbekanntes Backend "${cli}".`);
     }
   }
+  if (input.primaryCli === "anthropic-api") {
+    // The spike implements only the attribution job kind (TMB-51) — as
+    // primary it could never run extraction; secondary-only by design.
+    throw new InvalidProjectInputError(
+      'Das Spike-Backend "anthropic-api" ist nur als sekundäres Backend nutzbar.',
+    );
+  }
   if (
     input.secondaryCli &&
     modelFamilyOf(input.secondaryCli) === modelFamilyOf(input.primaryCli)

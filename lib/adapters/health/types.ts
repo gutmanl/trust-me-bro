@@ -18,6 +18,10 @@ export interface ProbeResult {
   readonly hint?: string;
   /** ISO timestamp; absent for a never-probed stage 3. */
   readonly checkedAt?: string;
+  /** Display title override — the API backend's stages check flag/key
+   * instead of PATH/version, so the generic CLI stage titles would
+   * mislead (TMB-51). */
+  readonly title?: string;
 }
 
 export interface BackendHealth {

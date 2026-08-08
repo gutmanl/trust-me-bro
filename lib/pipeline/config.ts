@@ -52,6 +52,13 @@ function validate(input: UpdateProjectConfigInput): void {
       `Unbekanntes sekundäres Backend "${input.secondaryCli}".`,
     );
   }
+  if (input.primaryCli === "anthropic-api") {
+    // Same rule as createProject: the spike covers only attribution and is
+    // therefore secondary-only (TMB-51).
+    throw new InvalidProjectInputError(
+      'Das Spike-Backend "anthropic-api" ist nur als sekundäres Backend nutzbar.',
+    );
+  }
   if (
     input.secondaryCli &&
     modelFamilyOf(input.secondaryCli) === modelFamilyOf(input.primaryCli)
