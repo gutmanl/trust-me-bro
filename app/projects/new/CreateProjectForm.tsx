@@ -18,7 +18,12 @@ const initialState: CreateProjectFormState = { error: null };
  * remains editable until submission — afterwards id, question and creation
  * time are immutable (normative invariant of the file format).
  */
-export function CreateProjectForm() {
+export function CreateProjectForm({
+  apiBackendEnabled = false,
+}: {
+  /** TMB-51: shows the API spike backend option while its flag is on. */
+  apiBackendEnabled?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(
     createProjectAction,
     initialState,
@@ -91,6 +96,11 @@ export function CreateProjectForm() {
           >
             <option value="claude">Claude Code (Anthropic)</option>
             <option value="codex">Codex CLI (OpenAI)</option>
+            {apiBackendEnabled ? (
+              <option value="anthropic-api">
+                Anthropic API (Spike, Familie anthropic)
+              </option>
+            ) : null}
           </select>
         </div>
         <div>
@@ -109,6 +119,11 @@ export function CreateProjectForm() {
             <option value="">Keine – Divergenzregel deaktiviert</option>
             <option value="claude">Claude Code (Anthropic)</option>
             <option value="codex">Codex CLI (OpenAI)</option>
+            {apiBackendEnabled ? (
+              <option value="anthropic-api">
+                Anthropic API (Spike, Familie anthropic)
+              </option>
+            ) : null}
           </select>
         </div>
       </fieldset>

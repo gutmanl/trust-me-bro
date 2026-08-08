@@ -1,3 +1,5 @@
+import { isApiBackendEnabled } from "@/lib/pipeline";
+
 import { CreateProjectForm } from "./CreateProjectForm";
 
 export default function NewProjectPage() {
@@ -11,7 +13,7 @@ export default function NewProjectPage() {
         erstem Kettenglied.
       </p>
       <div className="rounded-md border border-slate-200 bg-white p-6">
-        <CreateProjectForm />
+        <CreateProjectForm apiBackendEnabled={isApiBackendEnabled()} />
       </div>
     </div>
   );

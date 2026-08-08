@@ -17,9 +17,12 @@ const initialState: SettingsFormState = { error: null };
 export function SettingsForm({
   projectId,
   config,
+  apiBackendEnabled = false,
 }: {
   projectId: string;
   config: ProjectConfig;
+  /** TMB-51: shows the API spike backend option while its flag is on. */
+  apiBackendEnabled?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     updateProjectConfigAction.bind(null, projectId),
@@ -47,6 +50,11 @@ export function SettingsForm({
           >
             <option value="claude">claude (Modellfamilie anthropic)</option>
             <option value="codex">codex (Modellfamilie openai)</option>
+            {apiBackendEnabled ? (
+              <option value="anthropic-api">
+                anthropic-api (Spike, Modellfamilie anthropic)
+              </option>
+            ) : null}
           </select>
         </div>
         <div>
@@ -66,6 +74,11 @@ export function SettingsForm({
             <option value="">– keins (Divergenzregel deaktiviert) –</option>
             <option value="claude">claude (Modellfamilie anthropic)</option>
             <option value="codex">codex (Modellfamilie openai)</option>
+            {apiBackendEnabled ? (
+              <option value="anthropic-api">
+                anthropic-api (Spike, Modellfamilie anthropic)
+              </option>
+            ) : null}
           </select>
           <p className="mt-1 text-xs text-slate-500">
             Muss eine andere Modellfamilie als das primäre Backend sein.

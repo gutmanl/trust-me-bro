@@ -129,6 +129,9 @@ export {
   DEFAULT_SECOND_OPINION,
   getChainVerification,
   getProjectSummary,
+  // TMB-51: lets the UI show the spike backend option only while the
+  // feature flag and API key are present.
+  isApiBackendEnabled,
   listProjects,
   readProject,
 } from "./projects";

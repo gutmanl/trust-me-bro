@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { attributionJob, fakeRunner } from "../../__fixtures__/jobs";
 import {
-  AdapterOutputError,
-  AdapterProcessError,
-  AdapterRateLimitError,
-  AdapterTimeoutError,
-  AdapterValidationError,
-} from "../../core/errors";
+  CONTRACT_PAYLOAD,
+  runBackendContractSuite,
+} from "../../__fixtures__/contract-suite";
+import { attributionJob, fakeRunner } from "../../__fixtures__/jobs";
+import { AdapterOutputError, AdapterRateLimitError } from "../../core/errors";
 import { createCodexBackend } from "./codex-backend";
 
 const validPayload = {
@@ -126,40 +124,6 @@ describe("createCodexBackend", () => {
     );
   });
 
-  it("throws AdapterOutputError when the agent message is not JSON", async () => {
-    const backend = createCodexBackend({
-      processRunner: fakeRunner({ stdout: classicJsonl("I am not sure.") }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterOutputError,
-    );
-  });
-
-  it("throws AdapterValidationError when the payload violates the job schema", async () => {
-    const backend = createCodexBackend({
-      processRunner: fakeRunner({
-        stdout: classicJsonl(
-          JSON.stringify({ ...validPayload, relation_type: "supports" }),
-        ),
-      }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterValidationError,
-    );
-  });
-
-  it("maps a rate-limited failure to AdapterRateLimitError", async () => {
-    const backend = createCodexBackend({
-      processRunner: fakeRunner({
-        exitCode: 1,
-        stderr: "ERROR: Rate limit reached. Try again in 2 hours.",
-      }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterRateLimitError,
-    );
-  });
-
   it("detects a rate limit reported as an error event with exit 0", async () => {
     const stdout = JSON.stringify({
       id: "0",
@@ -170,24 +134,6 @@ describe("createCodexBackend", () => {
     });
     await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
       AdapterRateLimitError,
-    );
-  });
-
-  it("maps other non-zero exits to AdapterProcessError", async () => {
-    const backend = createCodexBackend({
-      processRunner: fakeRunner({ exitCode: 2, stderr: "login required" }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterProcessError,
-    );
-  });
-
-  it("maps a timeout to AdapterTimeoutError", async () => {
-    const backend = createCodexBackend({
-      processRunner: fakeRunner({ exitCode: null, timedOut: true }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterTimeoutError,
     );
   });
 
@@ -202,4 +148,34 @@ describe("createCodexBackend", () => {
     const result = await backend.invoke(attributionJob());
     expect(result.model).toBe("codex");
   });
+});
+
+// TMB-51: the shared taxonomy contract, translated onto codex's transport.
+runBackendContractSuite({
+  label: "codex",
+  build(scenario) {
+    const runner = (() => {
+      switch (scenario.kind) {
+        case "success":
+          return fakeRunner({
+            stdout: classicJsonl(JSON.stringify(CONTRACT_PAYLOAD)),
+          });
+        case "timeout":
+          return fakeRunner({ exitCode: null, timedOut: true });
+        case "transport_failure":
+          return fakeRunner({ exitCode: 2, stderr: scenario.detail });
+        case "rate_limited":
+          return fakeRunner({ exitCode: 1, stderr: scenario.detail });
+        case "malformed_output":
+          return fakeRunner({ stdout: classicJsonl(scenario.raw) });
+        case "schema_violation":
+          return fakeRunner({
+            stdout: classicJsonl(
+              JSON.stringify({ ...CONTRACT_PAYLOAD, confidence: 7 }),
+            ),
+          });
+      }
+    })();
+    return createCodexBackend({ processRunner: runner });
+  },
 });

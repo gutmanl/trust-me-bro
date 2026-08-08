@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   exampleProjectConfig as config,
@@ -7,6 +7,10 @@ import {
 } from "./__fixtures__/jobs";
 import { UnknownBackendError } from "./core/errors";
 import { resolveConfiguredBackends } from "./registry";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("resolveConfiguredBackends", () => {
   it("maps backends.primary/secondary from claims.json config to concrete adapters", () => {
@@ -30,6 +34,30 @@ describe("resolveConfiguredBackends", () => {
         backends: { primary: { cli: "gemini", model_family: "google" } },
       }),
     ).toThrow(UnknownBackendError);
+  });
+
+  it("resolves the API spike backend only when flag AND key are set (TMB-51)", () => {
+    const apiConfig = {
+      ...config,
+      backends: {
+        primary: { cli: "anthropic-api", model_family: "anthropic" },
+      },
+    };
+    // Neither flag nor key: degrades exactly like an unknown cli.
+    expect(() => resolveConfiguredBackends(apiConfig)).toThrow(
+      UnknownBackendError,
+    );
+    // Flag without key stays gated.
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "1");
+    vi.stubEnv("ANTHROPIC_API_KEY", undefined);
+    expect(() => resolveConfiguredBackends(apiConfig)).toThrow(
+      UnknownBackendError,
+    );
+    // Both present: the spike backend resolves.
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    expect(resolveConfiguredBackends(apiConfig).primary.id).toBe(
+      "anthropic-api",
+    );
   });
 
   it("hands the injected process runner to the resolved adapters", async () => {

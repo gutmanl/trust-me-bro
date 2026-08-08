@@ -12,7 +12,9 @@ export interface SettingsFormState {
   changedFields?: string[];
 }
 
-const BACKEND_CLIS = ["claude", "codex"] as const;
+// "anthropic-api" is accepted here but re-gated server-side: the pipeline
+// rejects it while the TMB-51 feature flag is off.
+const BACKEND_CLIS = ["claude", "codex", "anthropic-api"] as const;
 
 function parseCli(value: FormDataEntryValue | null): BackendCli | undefined {
   const text = String(value ?? "").trim();

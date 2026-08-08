@@ -61,6 +61,32 @@ export interface ProcessRunner {
   run(options: ProcessRunOptions): Promise<ProcessRunResult>;
 }
 
+export interface HttpRequestOptions {
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+  /** JSON request body (the port always POSTs). */
+  readonly body: string;
+  readonly timeoutMs: number;
+}
+
+export interface HttpResponseResult {
+  /** HTTP status; null when the request failed before any response. */
+  readonly status: number | null;
+  readonly body: string;
+  readonly timedOut: boolean;
+}
+
+/**
+ * Dumb HTTP port for API-based backends (TMB-51), the transport twin of
+ * ProcessRunner: resolves with the captured response and never throws or
+ * interprets status codes — mapping them to adapter errors is the concrete
+ * backend's job. Exactly one production implementation
+ * (runtime/node-fetch-http-port) may call bare fetch.
+ */
+export interface HttpPort {
+  request(options: HttpRequestOptions): Promise<HttpResponseResult>;
+}
+
 /** Persists one trace envelope for the given project (TMB-20). */
 export interface TraceSink {
   write(

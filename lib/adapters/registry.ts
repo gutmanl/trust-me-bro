@@ -1,11 +1,15 @@
+import { loadAnthropicApiKey, loadFeatureFlags } from "../identity";
 import type { ProjectConfig } from "../register";
+import { createAnthropicApiBackend } from "./backends/anthropic-api/anthropic-api-backend";
 import { createClaudeBackend } from "./backends/claude/claude-backend";
 import { createCodexBackend } from "./backends/codex/codex-backend";
-import type { Backend, ProcessRunner } from "./core/contracts";
+import type { Backend, HttpPort, ProcessRunner } from "./core/contracts";
 import { UnknownBackendError } from "./core/errors";
 
 export interface RegistryOptions {
   readonly processRunner?: ProcessRunner;
+  /** Test seam of the TMB-51 API spike backend. */
+  readonly httpPort?: HttpPort;
 }
 
 export interface ConfiguredBackends {
@@ -25,6 +29,19 @@ function createBackendForRef(
       return createClaudeBackend(options);
     case "codex":
       return createCodexBackend(options);
+    case "anthropic-api": {
+      // TMB-51 spike, double-gated: the feature flag AND the key must both
+      // be present — otherwise the id degrades exactly like an unknown CLI,
+      // so the prototype runs unchanged without an API key.
+      const apiKey = loadAnthropicApiKey();
+      if (!loadFeatureFlags().apiBackendEnabled || apiKey === undefined) {
+        throw new UnknownBackendError(ref.cli);
+      }
+      return createAnthropicApiBackend({
+        apiKey,
+        ...(options.httpPort ? { httpPort: options.httpPort } : {}),
+      });
+    }
     default:
       throw new UnknownBackendError(ref.cli);
   }

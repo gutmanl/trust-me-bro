@@ -11,6 +11,8 @@ import {
   IdentityNotConfiguredError,
   isIdentityConfigured,
   loadAdapterConfig,
+  loadAnthropicApiKey,
+  loadFeatureFlags,
   loadIdentityConfig,
   resolveProjectDir,
   writeIdentityConfig,
@@ -129,6 +131,29 @@ describe("writeIdentityConfig", () => {
     expect(writeIdentityConfig({ actorKuerzel: "lg" }).actorKuerzel).toBe(
       "env-wins",
     );
+  });
+});
+
+describe("feature flags (TMB-51)", () => {
+  it("keeps the API backend off by default", () => {
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", undefined);
+    expect(loadFeatureFlags().apiBackendEnabled).toBe(false);
+  });
+
+  it("enables the API backend only on the explicit value 1", () => {
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "true");
+    expect(loadFeatureFlags().apiBackendEnabled).toBe(false);
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "1");
+    expect(loadFeatureFlags().apiBackendEnabled).toBe(true);
+  });
+
+  it("treats a missing or empty API key as absent", () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", undefined);
+    expect(loadAnthropicApiKey()).toBeUndefined();
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    expect(loadAnthropicApiKey()).toBeUndefined();
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    expect(loadAnthropicApiKey()).toBe("sk-test");
   });
 });
 

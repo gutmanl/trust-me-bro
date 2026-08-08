@@ -11,7 +11,11 @@ export interface CreateProjectFormState {
 }
 
 function parseCli(value: FormDataEntryValue | null): BackendCli | undefined {
-  return value === "claude" || value === "codex" ? value : undefined;
+  // "anthropic-api" is accepted here but re-gated server-side: the pipeline
+  // rejects it while the TMB-51 feature flag is off.
+  return value === "claude" || value === "codex" || value === "anthropic-api"
+    ? value
+    : undefined;
 }
 
 export async function createProjectAction(

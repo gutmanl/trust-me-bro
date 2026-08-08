@@ -14,6 +14,17 @@ export interface IdentityConfig {
 }
 
 /**
+ * Feature flags of the prototype (TMB-51). Deliberately explicit booleans:
+ * an experimental path must never activate silently just because some
+ * unrelated tool exported an environment variable.
+ */
+export interface FeatureFlags {
+  /** The API-backend spike (Anthropic Messages API adapter). Off = the
+   * prototype runs unchanged without any API key. */
+  apiBackendEnabled: boolean;
+}
+
+/**
  * Runtime configuration of the adapter layer (TMB-19): operational tuning,
  * deliberately NOT part of claims.json — the trace log records what actually
  * happened per attempt, which is what reproducibility needs.

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  CONTRACT_PAYLOAD,
+  runBackendContractSuite,
+} from "../../__fixtures__/contract-suite";
 import { attributionJob, fakeRunner } from "../../__fixtures__/jobs";
 import {
   AdapterOutputError,
   AdapterProcessError,
   AdapterRateLimitError,
-  AdapterTimeoutError,
-  AdapterValidationError,
 } from "../../core/errors";
 import { createClaudeBackend } from "./claude-backend";
 
@@ -89,29 +91,6 @@ describe("createClaudeBackend", () => {
     );
   });
 
-  it("throws AdapterOutputError when the result payload is not JSON", async () => {
-    const backend = createClaudeBackend({
-      processRunner: fakeRunner({
-        stdout: envelope({ result: "I found no evidence." }),
-      }),
-    });
-    const rejection = expect(backend.invoke(attributionJob())).rejects;
-    await rejection.toBeInstanceOf(AdapterOutputError);
-  });
-
-  it("throws AdapterValidationError when the payload violates the job schema", async () => {
-    const backend = createClaudeBackend({
-      processRunner: fakeRunner({
-        stdout: envelope({
-          result: JSON.stringify({ ...validPayload, confidence: 7 }),
-        }),
-      }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterValidationError,
-    );
-  });
-
   it("maps an is_error envelope with a limit message to AdapterRateLimitError", async () => {
     const backend = createClaudeBackend({
       processRunner: fakeRunner({
@@ -137,18 +116,6 @@ describe("createClaudeBackend", () => {
     );
   });
 
-  it("maps a non-zero exit with a 429 on stderr to AdapterRateLimitError", async () => {
-    const backend = createClaudeBackend({
-      processRunner: fakeRunner({
-        exitCode: 1,
-        stderr: "API Error: 429 Too Many Requests",
-      }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterRateLimitError,
-    );
-  });
-
   it("maps other non-zero exits to AdapterProcessError with stderr preserved", async () => {
     const backend = createClaudeBackend({
       processRunner: fakeRunner({
@@ -161,15 +128,6 @@ describe("createClaudeBackend", () => {
     await expect(promise).rejects.toMatchObject({
       stderr: expect.stringContaining("ENOENT"),
     });
-  });
-
-  it("maps a timeout to AdapterTimeoutError", async () => {
-    const backend = createClaudeBackend({
-      processRunner: fakeRunner({ exitCode: null, timedOut: true }),
-    });
-    await expect(backend.invoke(attributionJob())).rejects.toBeInstanceOf(
-      AdapterTimeoutError,
-    );
   });
 
   it("reads the model from modelUsage when the envelope has no model field (observed with claude 2.1.223)", async () => {
@@ -192,4 +150,34 @@ describe("createClaudeBackend", () => {
     const result = await backend.invoke(attributionJob());
     expect(result.model).toBe("claude");
   });
+});
+
+// TMB-51: the shared taxonomy contract, translated onto claude's transport.
+runBackendContractSuite({
+  label: "claude",
+  build(scenario) {
+    const runner = (() => {
+      switch (scenario.kind) {
+        case "success":
+          return fakeRunner({
+            stdout: envelope({ result: JSON.stringify(CONTRACT_PAYLOAD) }),
+          });
+        case "timeout":
+          return fakeRunner({ exitCode: null, timedOut: true });
+        case "transport_failure":
+          return fakeRunner({ exitCode: 1, stderr: scenario.detail });
+        case "rate_limited":
+          return fakeRunner({ exitCode: 1, stderr: scenario.detail });
+        case "malformed_output":
+          return fakeRunner({ stdout: envelope({ result: scenario.raw }) });
+        case "schema_violation":
+          return fakeRunner({
+            stdout: envelope({
+              result: JSON.stringify({ ...CONTRACT_PAYLOAD, confidence: 7 }),
+            }),
+          });
+      }
+    })();
+    return createClaudeBackend({ processRunner: runner });
+  },
 });

@@ -1,7 +1,12 @@
 import { getCurrentActor } from "../identity";
 import type { ProjectConfig, ProjectEvent } from "../register";
 import { InvalidProjectInputError, RunActiveError } from "./errors";
-import { buildBackendsConfig, requireProjectStore } from "./projects";
+import {
+  allowedBackendClis,
+  buildBackendsConfig,
+  modelFamilyOf,
+  requireProjectStore,
+} from "./projects";
 import type { BackendCli } from "./projects";
 import { getGlobalJobRunner } from "./runs/job-runner";
 import type { JobRunner } from "./runs/job-runner";
@@ -35,23 +40,26 @@ export interface UpdateProjectConfigResult {
   changedFields: string[];
 }
 
-const BACKEND_CLIS: readonly BackendCli[] = ["claude", "codex"];
-
 function validate(input: UpdateProjectConfigInput): void {
-  if (!BACKEND_CLIS.includes(input.primaryCli)) {
+  const backendClis = allowedBackendClis();
+  if (!backendClis.includes(input.primaryCli)) {
     throw new InvalidProjectInputError(
       `Unbekanntes primäres Backend "${input.primaryCli}".`,
     );
   }
-  if (input.secondaryCli && !BACKEND_CLIS.includes(input.secondaryCli)) {
+  if (input.secondaryCli && !backendClis.includes(input.secondaryCli)) {
     throw new InvalidProjectInputError(
       `Unbekanntes sekundäres Backend "${input.secondaryCli}".`,
     );
   }
-  if (input.secondaryCli && input.secondaryCli === input.primaryCli) {
-    // The same rule createProject enforces: with the two-CLI registry the
-    // CLI determines the model family, so same CLI = same family — an
-    // invalid combination under an active divergence rule.
+  if (
+    input.secondaryCli &&
+    modelFamilyOf(input.secondaryCli) === modelFamilyOf(input.primaryCli)
+  ) {
+    // The same rule createProject enforces: the backend id determines the
+    // model family, and the divergence rule needs two DIFFERENT families —
+    // since TMB-51 two ids (claude, anthropic-api) share one family, the
+    // comparison is by family, not id.
     throw new InvalidProjectInputError(
       "Die zweite Modellfamilie muss sich von der ersten unterscheiden (Divergenzregel).",
     );

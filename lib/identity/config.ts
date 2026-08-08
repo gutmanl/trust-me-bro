@@ -6,7 +6,7 @@ import {
   readConfigFile,
 } from "./config-file";
 import { IdentityNotConfiguredError } from "./errors";
-import type { AdapterConfig, IdentityConfig } from "./types";
+import type { AdapterConfig, FeatureFlags, IdentityConfig } from "./types";
 
 const DEFAULT_WORKSPACE = "./workspace";
 
@@ -41,6 +41,28 @@ export function loadIdentityConfig(
       env.TMB_WORKSPACE ?? stored?.workspaceRoot ?? DEFAULT_WORKSPACE,
     ),
   };
+}
+
+/**
+ * Feature flags (TMB-51). Lives here because lib/identity is the single
+ * environment reader of the domain core.
+ */
+export function loadFeatureFlags(
+  env: NodeJS.ProcessEnv = process.env,
+): FeatureFlags {
+  return { apiBackendEnabled: env.TMB_ENABLE_API_BACKEND === "1" };
+}
+
+/**
+ * The Anthropic API key for the TMB-51 spike backend. Kept separate from the
+ * boolean flag so "flag off" and "key missing" stay independently
+ * diagnosable; both must be present for the adapter to be constructible.
+ */
+export function loadAnthropicApiKey(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const key = env.ANTHROPIC_API_KEY;
+  return key === undefined || key === "" ? undefined : key;
 }
 
 const ADAPTER_DEFAULTS: AdapterConfig = {

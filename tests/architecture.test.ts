@@ -103,6 +103,10 @@ describe("public surface of lib/adapters", () => {
     expect(surface.probeLogin).toBeUndefined();
     expect(surface.probePresenceAndVersion).toBeUndefined();
     expect(surface.setCachedLoginProbe).toBeUndefined();
+    // TMB-51: the API spike backend; its HTTP port implementation stays
+    // internal like nodeProcessRunner.
+    expect(surface.createAnthropicApiBackend).toBeDefined();
+    expect(surface.nodeFetchHttpPort).toBeUndefined();
     // Internals stay internal: prompt loading/interpolation, the raw spawn
     // site, the output validator and the trace writer are reachable only
     // through the orchestrator/backend path.
@@ -204,6 +208,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.runLoginProbe).toBeDefined();
     expect(surface.probeBackendUsable).toBeUndefined();
     expect(surface.withoutSecondaryBackend).toBeUndefined();
+    // TMB-51: the UI's flag accessor; family mapping and allowlist stay
+    // internal.
+    expect(surface.isApiBackendEnabled).toBeDefined();
+    expect(surface.modelFamilyOf).toBeUndefined();
+    expect(surface.allowedBackendClis).toBeUndefined();
     // TMB-46: settings use-case; diff formatter and backends builder stay
     // internal.
     expect(surface.updateProjectConfig).toBeDefined();
@@ -323,12 +332,15 @@ describe("module boundaries", () => {
     }
   });
 
-  it("confines network access to the pipeline's http fetcher", () => {
+  it("confines network access to the sanctioned http implementations", () => {
     const allowed = [
       // The one production implementation …
       path.join("lib", "pipeline", "sources", "node-http-fetcher.ts"),
       // … its port declaration (interface method named fetch) …
       path.join("lib", "pipeline", "sources", "fetch-port.ts"),
+      // TMB-51: the adapter layer's own HTTP port for API-based backends —
+      // the transport twin of the single child-process spawn site.
+      path.join("lib", "adapters", "runtime", "node-fetch-http-port.ts"),
     ];
     for (const file of domainFiles) {
       // … and test doubles implementing the port.

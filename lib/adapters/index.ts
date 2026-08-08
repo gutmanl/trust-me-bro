@@ -22,6 +22,9 @@ export type {
   Backend,
   Clock,
   ConcurrencyGate,
+  HttpPort,
+  HttpRequestOptions,
+  HttpResponseResult,
   InvokeResult,
   ProcessRunner,
   TraceSink,
@@ -70,6 +73,9 @@ export type {
 } from "./health";
 export { createClaudeBackend } from "./backends/claude/claude-backend";
 export { createCodexBackend } from "./backends/codex/codex-backend";
+// TMB-51: the API-backend spike — proof that extension seam 1 carries a
+// non-CLI transport. Feature-flag-gated in the registry.
+export { createAnthropicApiBackend } from "./backends/anthropic-api/anthropic-api-backend";
 export { resolveConfiguredBackends } from "./registry";
 export type { ConfiguredBackends, RegistryOptions } from "./registry";
 export { createMockBackend } from "./backends/mock/mock-backend";

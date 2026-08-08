@@ -1,6 +1,6 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
-import { readProject } from "@/lib/pipeline";
+import { isApiBackendEnabled, readProject } from "@/lib/pipeline";
 import { SettingsForm } from "./SettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,11 @@ export default async function SettingsPage(
       </div>
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
-        <SettingsForm projectId={id} config={register.config} />
+        <SettingsForm
+          projectId={id}
+          config={register.config}
+          apiBackendEnabled={isApiBackendEnabled()}
+        />
       </section>
     </div>
   );

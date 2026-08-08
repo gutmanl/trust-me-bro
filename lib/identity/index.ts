@@ -11,11 +11,17 @@ import type { HumanActorId, IdentityConfig } from "./types";
 export type {
   ActorId,
   AdapterConfig,
+  FeatureFlags,
   HumanActorId,
   SystemActorId,
   IdentityConfig,
 } from "./types";
-export { loadAdapterConfig, loadIdentityConfig } from "./config";
+export {
+  loadAdapterConfig,
+  loadAnthropicApiKey,
+  loadFeatureFlags,
+  loadIdentityConfig,
+} from "./config";
 export { isValidActorKuerzel } from "./config-file";
 export { IdentityNotConfiguredError } from "./errors";
 

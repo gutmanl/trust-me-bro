@@ -1,6 +1,11 @@
 import fs from "node:fs";
 
-import { getCurrentActor, getWorkspaceRoot } from "../identity";
+import {
+  getCurrentActor,
+  getWorkspaceRoot,
+  loadAnthropicApiKey,
+  loadFeatureFlags,
+} from "../identity";
 import {
   countClaimsByStatus,
   lastActivityAt,
@@ -20,13 +25,38 @@ import {
 } from "./errors";
 import { pendingRelevancePopulation } from "./warm/select-claims";
 
-/** The two agent CLIs the registry knows; the model family follows the CLI. */
-export type BackendCli = "claude" | "codex";
+/** The backends the registry knows; the model family follows the id. The
+ * "anthropic-api" entry is the TMB-51 spike — selectable only while its
+ * feature flag is on. */
+export type BackendCli = "claude" | "codex" | "anthropic-api";
 
 const MODEL_FAMILY: Record<BackendCli, string> = {
   claude: "anthropic",
   codex: "openai",
+  "anthropic-api": "anthropic",
 };
+
+/** The divergence rule compares model FAMILIES, not backend ids: claude and
+ * anthropic-api are distinct backends of the same family and therefore no
+ * valid second-opinion pair. Shared by creation and settings validation. */
+export function modelFamilyOf(cli: BackendCli): string {
+  return MODEL_FAMILY[cli];
+}
+
+/** TMB-51: the API spike backend is selectable only while its feature flag
+ * AND the API key are both present — without them the option disappears
+ * from the UI and server-side validation alike. */
+export function isApiBackendEnabled(): boolean {
+  return (
+    loadFeatureFlags().apiBackendEnabled && loadAnthropicApiKey() !== undefined
+  );
+}
+
+export function allowedBackendClis(): readonly BackendCli[] {
+  return isApiBackendEnabled()
+    ? ["claude", "codex", "anthropic-api"]
+    : ["claude", "codex"];
+}
 
 export const DEFAULT_RUBRIC_VERSION = "se-evidenz-rubrik-v1";
 export const DEFAULT_ADJUDICATION_SAMPLE_RATE = 0.1;
@@ -126,7 +156,16 @@ export async function createProject(
         "(Kleinbuchstaben, Ziffern, '.', '_', '-').",
     );
   }
-  if (input.secondaryCli && input.secondaryCli === input.primaryCli) {
+  const backendClis = allowedBackendClis();
+  for (const cli of [input.primaryCli, input.secondaryCli]) {
+    if (cli !== undefined && !backendClis.includes(cli)) {
+      throw new InvalidProjectInputError(`Unbekanntes Backend "${cli}".`);
+    }
+  }
+  if (
+    input.secondaryCli &&
+    modelFamilyOf(input.secondaryCli) === modelFamilyOf(input.primaryCli)
+  ) {
     throw new InvalidProjectInputError(
       "Die zweite Modellfamilie muss sich von der ersten unterscheiden (Divergenzregel).",
     );
