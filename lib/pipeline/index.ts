@@ -6,8 +6,16 @@
 export * from "./errors";
 export { decideClaim } from "./adjudication/decide";
 export type { AdjudicationDecisionInput } from "./adjudication/decide";
-export { buildAdjudicationQueue } from "./adjudication/queue";
-export type { QueueEntry } from "./adjudication/queue";
+export {
+  buildAdjudicationQueue,
+  filterQueue,
+  sortQueue,
+} from "./adjudication/queue";
+export type { QueueEntry, QueueRoutingFilter } from "./adjudication/queue";
+export { buildEvidenceDisplayMap } from "./adjudication/evidence-display";
+export type { EvidenceDisplay } from "./adjudication/evidence-display";
+export { buildTimeline } from "./timeline";
+export type { TimelineEntry } from "./timeline";
 export { applyRepair, discardClaim, proposeRepair } from "./repair/run-repair";
 export type {
   ApplyRepairInput,
@@ -16,11 +24,11 @@ export type {
 } from "./repair/run-repair";
 export type { ReEntryTarget } from "./repair/re-entry";
 export type { RepairOutput } from "../adapters";
-// The effort-timer reducer is deliberately NOT re-exported here: its consumer
-// is a client hook, and the barrel transitively pulls node:fs modules. The
-// hook deep-imports the pure module (lib/pipeline/adjudication/effort-timer)
-// instead — the one sanctioned client-side deep import.
-export { blobContentType, getProjectBlob } from "./blobs";
+// Pure, node:fs-free modules consumed by CLIENT components deep-import past
+// this barrel (which transitively pulls node:fs): the effort-timer reducer,
+// the queue filter/sort helpers and the id minting. The allowlist is pinned
+// by the app-boundary check in tests/architecture.test.ts.
+export { getProjectBlob } from "./blobs";
 export type { ProjectBlob } from "./blobs";
 // Pure display/derivation helpers of the register the web layer reuses.
 export {
@@ -88,7 +96,6 @@ export type {
 export {
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
-  DEFAULT_MAX_REPAIR_CYCLES,
   DEFAULT_RUBRIC_VERSION,
   DEFAULT_SECOND_OPINION,
   getChainVerification,

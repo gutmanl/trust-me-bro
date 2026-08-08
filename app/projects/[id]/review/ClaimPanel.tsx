@@ -9,8 +9,8 @@ import {
   statusBadgeClassName,
   SUPPORT_LABELS,
 } from "../../status-labels";
+import type { EvidenceDisplay } from "@/lib/pipeline";
 import { ComplaintDialog } from "./ComplaintDialog";
-import type { EvidenceDisplay } from "./evidence-display";
 import { RepairPanel } from "./RepairPanel";
 
 /**

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 
-import type { RoutingReason } from "@/lib/register";
-import type { QueueEntry } from "@/lib/pipeline";
+import type { QueueEntry, QueueRoutingFilter } from "@/lib/pipeline";
+// Sanctioned deep import (pinned in architecture.test.ts): pure queue
+// filter/sort shared with the server side, client-safe past the barrel.
+import { filterQueue, sortQueue } from "@/lib/pipeline/adjudication/queue";
 import { formatTimestamp } from "../../status-labels";
 import { ROUTING_LABELS, ROUTING_ORDER } from "./routing-labels";
 
-type RoutingFilter = "alle" | "ohne_zuordnung" | RoutingReason;
 type QueueSort = "wartezeit" | "routing";
 
 /**
@@ -24,32 +25,10 @@ export function QueuePanel({
   selectedClaimId: string | null;
   onSelect: (claimId: string) => void;
 }) {
-  const [filter, setFilter] = useState<RoutingFilter>("alle");
+  const [filter, setFilter] = useState<QueueRoutingFilter>("alle");
   const [sort, setSort] = useState<QueueSort>("wartezeit");
 
-  const filtered = entries.filter((entry) => {
-    if (filter === "alle") {
-      return true;
-    }
-    if (filter === "ohne_zuordnung") {
-      return entry.routing === null;
-    }
-    return entry.routing === filter;
-  });
-  const sorted = [...filtered].sort((a, b) => {
-    if (sort === "routing") {
-      const ra = a.routing
-        ? ROUTING_ORDER.indexOf(a.routing)
-        : ROUTING_ORDER.length;
-      const rb = b.routing
-        ? ROUTING_ORDER.indexOf(b.routing)
-        : ROUTING_ORDER.length;
-      if (ra !== rb) {
-        return ra - rb;
-      }
-    }
-    return a.queuedAt < b.queuedAt ? -1 : 1;
-  });
+  const sorted = sortQueue(filterQueue(entries, filter), sort, ROUTING_ORDER);
 
   return (
     <section className="rounded-md border border-slate-200 bg-white">
@@ -63,7 +42,7 @@ export function QueuePanel({
             <select
               value={filter}
               onChange={(event) =>
-                setFilter(event.target.value as RoutingFilter)
+                setFilter(event.target.value as QueueRoutingFilter)
               }
               className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
             >

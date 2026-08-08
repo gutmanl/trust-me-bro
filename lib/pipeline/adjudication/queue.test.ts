@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ClaimsRegister } from "../../register";
-import { buildAdjudicationQueue } from "./queue";
+import { buildAdjudicationQueue, filterQueue, sortQueue } from "./queue";
 
 function registerWith(
   claims: {
@@ -103,5 +103,44 @@ describe("buildAdjudicationQueue", () => {
     expect(escalated?.routing).toBe("eskaliert");
     expect(escalated?.queuedAt).toBe("2026-08-08T12:00:00Z");
     expect(preExtension?.routing).toBeNull();
+  });
+});
+
+describe("filterQueue / sortQueue", () => {
+  const entries = [
+    {
+      claim: { id: "c1" },
+      routing: "divergenz",
+      queuedAt: "2026-08-08T10:00:00Z",
+    },
+    { claim: { id: "c2" }, routing: null, queuedAt: "2026-08-08T09:00:00Z" },
+    {
+      claim: { id: "c3" },
+      routing: "stichprobe",
+      queuedAt: "2026-08-08T11:00:00Z",
+    },
+  ] as never[];
+
+  it("filters by routing reason and the ohne_zuordnung bucket", () => {
+    expect(filterQueue(entries, "alle")).toHaveLength(3);
+    expect(filterQueue(entries, "divergenz").map((e) => e.claim.id)).toEqual([
+      "c1",
+    ]);
+    expect(
+      filterQueue(entries, "ohne_zuordnung").map((e) => e.claim.id),
+    ).toEqual(["c2"]);
+  });
+
+  it("sorts by waiting time or routing order (unrouted last)", () => {
+    expect(sortQueue(entries, "wartezeit", []).map((e) => e.claim.id)).toEqual([
+      "c2",
+      "c1",
+      "c3",
+    ]);
+    expect(
+      sortQueue(entries, "routing", ["stichprobe", "divergenz"]).map(
+        (e) => e.claim.id,
+      ),
+    ).toEqual(["c3", "c1", "c2"]);
   });
 });

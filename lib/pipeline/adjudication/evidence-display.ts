@@ -1,15 +1,13 @@
-import type { ClaimsRegister } from "@/lib/pipeline";
-import {
-  formatCitation,
-  formatLocator,
-  resolveEvidenceRelation,
-} from "@/lib/pipeline";
+import type { ClaimsRegister } from "../../register";
+import { formatLocator, resolveEvidenceRelation } from "../../register";
+import { formatCitation } from "../sources/csl";
 
 /**
  * Server-side precomputation for the evidence detail panel (TMB-34): the
  * client components stay presentational, so everything that needs the
- * pipeline barrel (citation formatting, locator rule, divergence predicate,
- * snapshot links) is resolved here and travels as plain serializable data.
+ * pipeline layer (citation formatting, locator rule, divergence predicate,
+ * snapshot links) is resolved here and travels as plain serializable data
+ * across the RSC boundary.
  */
 
 export interface EvidenceDisplay {

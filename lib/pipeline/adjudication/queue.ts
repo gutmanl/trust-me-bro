@@ -32,3 +32,47 @@ export function buildAdjudicationQueue(register: ClaimsRegister): QueueEntry[] {
     })
     .sort((a, b) => (a.queuedAt < b.queuedAt ? -1 : 1));
 }
+
+/** Filter of the queue UI: a concrete routing reason, "ohne_zuordnung" for
+ * entries without one, or "alle". */
+export type QueueRoutingFilter = "alle" | "ohne_zuordnung" | RoutingReason;
+
+export function filterQueue(
+  entries: QueueEntry[],
+  filter: QueueRoutingFilter,
+): QueueEntry[] {
+  if (filter === "alle") {
+    return entries;
+  }
+  if (filter === "ohne_zuordnung") {
+    return entries.filter((entry) => entry.routing === null);
+  }
+  return entries.filter((entry) => entry.routing === filter);
+}
+
+/**
+ * Sort of the queue UI. `routingOrder` is the display order (the label
+ * module's concern) and arrives as a parameter: importing the enum at
+ * runtime would drag the register barrel — and node:fs — into the client
+ * bundle this pure module is deliberately safe for.
+ */
+export function sortQueue(
+  entries: QueueEntry[],
+  by: "wartezeit" | "routing",
+  routingOrder: readonly RoutingReason[],
+): QueueEntry[] {
+  return [...entries].sort((a, b) => {
+    if (by === "routing") {
+      const ra = a.routing
+        ? routingOrder.indexOf(a.routing)
+        : routingOrder.length;
+      const rb = b.routing
+        ? routingOrder.indexOf(b.routing)
+        : routingOrder.length;
+      if (ra !== rb) {
+        return ra - rb;
+      }
+    }
+    return a.queuedAt < b.queuedAt ? -1 : 1;
+  });
+}

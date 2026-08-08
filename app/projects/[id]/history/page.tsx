@@ -2,12 +2,11 @@ import Link from "next/link";
 
 import { SubpageHeader } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
-import type {
-  ClaimsRegister,
-  HistoryEntry,
-  ProjectEvent,
+import {
+  buildTimeline,
+  getChainVerification,
+  readProject,
 } from "@/lib/pipeline";
-import { getChainVerification, readProject } from "@/lib/pipeline";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
 import { COMPLAINT_CATEGORY_LABELS } from "../review/complaint-labels";
 import { ROUTING_LABELS } from "../review/routing-labels";
@@ -15,37 +14,11 @@ import { ROUTING_LABELS } from "../review/routing-labels";
 export const dynamic = "force-dynamic";
 
 /**
- * The append-only history (TMB-38): all status transitions and project
- * events as ONE chronological chain ordered by seq — exactly the global,
- * gapless sequence the hash chain links. Fully server-rendered; the claim
- * filter is a plain query parameter. Discarded claims stay visible with
- * their reason (A6: negative decisions remain reusable).
+ * The append-only history (TMB-38): the mixed chain from the pipeline's
+ * timeline projection, fully server-rendered; the claim filter is a plain
+ * query parameter. Discarded claims stay visible with their reason (A6:
+ * negative decisions remain reusable).
  */
-
-type TimelineEntry =
-  | { kind: "claim"; claimId: string; entry: HistoryEntry }
-  | { kind: "project"; entry: ProjectEvent };
-
-function buildTimeline(
-  register: ClaimsRegister,
-  claimFilter: string | undefined,
-): TimelineEntry[] {
-  const entries: TimelineEntry[] = [];
-  for (const claim of register.claims) {
-    if (claimFilter && claim.id !== claimFilter) {
-      continue;
-    }
-    for (const entry of claim.history) {
-      entries.push({ kind: "claim", claimId: claim.id, entry });
-    }
-  }
-  if (!claimFilter) {
-    for (const entry of register.project_events) {
-      entries.push({ kind: "project", entry });
-    }
-  }
-  return entries.sort((a, b) => a.entry.seq - b.entry.seq);
-}
 
 const EVENT_LABELS: Record<string, string> = {
   project_created: "Projekt angelegt",

@@ -8,11 +8,11 @@ import { useJobStream } from "@/app/lib/useJobStream";
 import type {
   BriefingViewModel,
   ClaimsRegister,
+  EvidenceDisplay,
   QueueEntry,
 } from "@/lib/pipeline";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimPanel } from "./ClaimPanel";
-import type { EvidenceDisplay } from "./evidence-display";
 import { QueuePanel } from "./QueuePanel";
 import { useEffortTimer } from "./useEffortTimer";
 
@@ -107,7 +107,12 @@ export function ReviewWorkspace({
         </section>
 
         <aside className="w-full xl:w-[26rem] xl:shrink-0">
+          {/* Keyed by claim id: the dialog/repair panels hold per-claim form
+              state, and React would otherwise reuse the instances when
+              switching between two claims of the same status — checked
+              categories from claim A would silently apply to claim B. */}
           <ClaimPanel
+            key={selectedClaim?.id ?? "none"}
             projectId={projectId}
             claim={selectedClaim}
             selectedEvidenceId={selectedEvidenceId}

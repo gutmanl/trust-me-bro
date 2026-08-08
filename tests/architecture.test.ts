@@ -118,6 +118,8 @@ describe("public surface of lib/pipeline", () => {
     // TMB-5: adjudication, repair, history and snapshot use-cases.
     expect(surface.getBriefingViewModel).toBeDefined();
     expect(surface.buildAdjudicationQueue).toBeDefined();
+    expect(surface.buildEvidenceDisplayMap).toBeDefined();
+    expect(surface.buildTimeline).toBeDefined();
     expect(surface.decideClaim).toBeDefined();
     expect(surface.proposeRepair).toBeDefined();
     expect(surface.applyRepair).toBeDefined();
@@ -247,6 +249,51 @@ describe("module boundaries", () => {
       expect(read(file), file).not.toMatch(
         /register\/(persistence|statemachine|chain)\//,
       );
+    }
+  });
+});
+
+describe("web-layer boundary", () => {
+  /** All app/ sources incl. .tsx (sourceFiles only collects .ts). */
+  function appSourceFiles(): string[] {
+    const absolute = path.join(repoRoot, "app");
+    return fs
+      .readdirSync(absolute, { recursive: true, encoding: "utf8" })
+      .filter(
+        (name) =>
+          (name.endsWith(".ts") || name.endsWith(".tsx")) &&
+          !name.endsWith(".test.ts"),
+      )
+      .map((name) => path.join("app", name));
+  }
+
+  it("keeps runtime imports on the pipeline barrel (pinned deep imports)", () => {
+    // Pure, node:fs-free modules that CLIENT components must deep-import
+    // because the barrel transitively pulls node:fs. Every other runtime
+    // import from lib/ goes through @/lib/pipeline; type-only imports are
+    // erased at build time and free (label maps import types from
+    // @/lib/register).
+    const allowedRuntime = new Set([
+      "@/lib/pipeline",
+      "@/lib/pipeline/adjudication/effort-timer",
+      "@/lib/pipeline/adjudication/queue",
+      "@/lib/pipeline/ids",
+    ]);
+    const files = appSourceFiles();
+    expect(files.length).toBeGreaterThan(10);
+    for (const file of files) {
+      const content = read(file);
+      for (const match of content.matchAll(
+        /import\s+(type\s+)?[^;]*?from\s+["'](@\/lib\/[^"']+)["']/g,
+      )) {
+        if (match[1] !== undefined) {
+          continue; // type-only import
+        }
+        expect(
+          allowedRuntime.has(match[2]),
+          `${file} imports ${match[2]} at runtime — use the @/lib/pipeline barrel or pin a new pure deep import here`,
+        ).toBe(true);
+      }
     }
   });
 });

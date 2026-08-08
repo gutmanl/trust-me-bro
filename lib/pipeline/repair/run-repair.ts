@@ -7,7 +7,8 @@ import type {
   RepairOutput,
 } from "../../adapters";
 import { getCurrentActor, loadAdapterConfig } from "../../identity";
-import type { Claim, ClaimsRegister, HistoryEntry } from "../../register";
+import type { Claim, HistoryEntry } from "../../register";
+import { isAtomicClaimText } from "../../register";
 import { RepairPreconditionError } from "../errors";
 import { DEFAULT_MAX_REPAIR_CYCLES, requireProjectStore } from "../projects";
 import { decideReEntry } from "./re-entry";
@@ -39,8 +40,10 @@ export interface RepairDependencies {
   orchestrator?: Orchestrator;
 }
 
-function requireBeanstandet(register: ClaimsRegister, claimId: string): Claim {
-  const claim = register.claims.find((candidate) => candidate.id === claimId);
+/** Shared precondition of all three repair verbs; takes the claim list so
+ * it works on a read register AND inside a transaction (tx.listClaims). */
+function requireBeanstandet(claims: Claim[], claimId: string): Claim {
+  const claim = claims.find((candidate) => candidate.id === claimId);
   if (!claim) {
     throw new RepairPreconditionError(`Claim "${claimId}" existiert nicht.`);
   }
@@ -59,7 +62,7 @@ export async function proposeRepair(
 ): Promise<RepairProposalOutcome> {
   const store = requireProjectStore(projectId);
   const register = await store.read();
-  const claim = requireBeanstandet(register, claimId);
+  const claim = requireBeanstandet(register.claims, claimId);
 
   const complaintEntry = claim.history.findLast(
     (entry) => entry.to_status === "beanstandet",
@@ -139,16 +142,20 @@ export async function applyRepair(
       "Die überarbeitete Fassung darf nicht leer sein.",
     );
   }
+  // Atomicity is re-validated HERE, not left to the re-entry gates: the
+  // existenzgeprueft edge's gate never looks at the wording, and the erfasst
+  // edge's gate rejection would surface as a crash instead of form feedback.
+  // Rejecting keeps the repair loop interactive (the reviewer reformulates
+  // immediately) rather than routing a knowingly invalid wording onward.
+  if (!isAtomicClaimText(newText)) {
+    throw new RepairPreconditionError(
+      "Die überarbeitete Fassung bündelt mehrere Aussagen – bitte genau " +
+        "einen atomaren Leitsatz formulieren (Atomaritätsgate).",
+    );
+  }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    const claim = tx.listClaims().find((candidate) => candidate.id === claimId);
-    if (!claim || claim.status !== "beanstandet") {
-      throw new RepairPreconditionError(
-        claim
-          ? `Claim "${claimId}" ist nicht beanstandet (Status: ${claim.status}).`
-          : `Claim "${claimId}" existiert nicht.`,
-      );
-    }
+    const claim = requireBeanstandet(tx.listClaims(), claimId);
     const sourceLabel = {
       vorschlag_uebernommen: "Vorschlag übernommen",
       vorschlag_angepasst: "Vorschlag angepasst",
@@ -197,14 +204,7 @@ export async function discardClaim(
   }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    const claim = tx.listClaims().find((candidate) => candidate.id === claimId);
-    if (!claim || claim.status !== "beanstandet") {
-      throw new RepairPreconditionError(
-        claim
-          ? `Claim "${claimId}" ist nicht beanstandet (Status: ${claim.status}).`
-          : `Claim "${claimId}" existiert nicht.`,
-      );
-    }
+    requireBeanstandet(tx.listClaims(), claimId);
     return tx.transitionClaim(claimId, {
       to: "verworfen",
       actor: getCurrentActor(),

@@ -248,6 +248,22 @@ describe("applyRepair", () => {
     expect(countRepairCycles(claim)).toBe(3);
   });
 
+  it("rejects non-atomic revisions before anything is persisted", async () => {
+    const store = await projectWithComplainedClaim([evidence("ev_0001", true)]);
+    await expect(
+      applyRepair(PROJECT_ID, "clm_0001", {
+        newText:
+          "Reviews reduzieren Fehler. Außerdem verbessern sie die Wartbarkeit.",
+        source: "manuell",
+      }),
+    ).rejects.toThrow(RepairPreconditionError);
+    const claim = (await store.read()).claims[0];
+    expect(claim.status).toBe("beanstandet");
+    expect(claim.text).toBe(
+      "Reviews reduzieren die Fehlerdichte immer deutlich.",
+    );
+  });
+
   it("rejects empty revisions and non-beanstandet claims", async () => {
     await projectWithComplainedClaim([evidence("ev_0001", true)]);
     await expect(

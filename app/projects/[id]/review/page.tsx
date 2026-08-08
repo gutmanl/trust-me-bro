@@ -4,11 +4,11 @@ import { SubpageHeader } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import {
   buildAdjudicationQueue,
+  buildEvidenceDisplayMap,
   getBriefingViewModel,
   getVerificationState,
   readProject,
 } from "@/lib/pipeline";
-import { buildEvidenceDisplayMap } from "./evidence-display";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 
 export const dynamic = "force-dynamic";
