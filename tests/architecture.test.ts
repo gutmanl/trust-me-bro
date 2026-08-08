@@ -311,6 +311,24 @@ describe("module boundaries", () => {
     }
   });
 
+  it("keeps the CLI on the domain core (register + bundle core only)", () => {
+    // The standalone CLI works without the web application: lib/register
+    // and lib/export are its whole world — never lib/pipeline (job runner,
+    // orchestration, Next.js concerns), lib/adapters or app/. Ratified with
+    // TMB-42, previously an undocumented convention.
+    for (const file of sourceFiles("cli")) {
+      const content = read(file);
+      for (const match of content.matchAll(
+        /from\s+["']\.\.\/lib\/([a-z-]+)/g,
+      )) {
+        expect(
+          ["register", "export"].includes(match[1]),
+          `${file} imports ../lib/${match[1]} — the CLI may only use lib/register and lib/export`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("keeps the adapter layer off the register's write internals", () => {
     // The trace sink's atomic-write deep import is the single ratified
     // exception (TMB-20): reusing the one sanctioned raw-write site instead
