@@ -12,7 +12,7 @@ import { runVerify } from "./verify";
 let projectDir: string;
 
 /** Rebuilds the fixture's chain via ChainAppender so it is gapless and closed
- * (the appendix example intentionally elides seq 3–8). */
+ * (the appendix example intentionally elides seq 3–7). */
 function chainedFixture(): ClaimsRegister {
   const register = structuredClone(exampleProject) as unknown as ClaimsRegister;
   const historyEntries = register.claims[0].history;
