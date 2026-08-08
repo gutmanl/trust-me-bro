@@ -11,6 +11,7 @@ import {
 } from "../../status-labels";
 import { ComplaintDialog } from "./ComplaintDialog";
 import type { EvidenceDisplay } from "./evidence-display";
+import { RepairPanel } from "./RepairPanel";
 
 /**
  * Evidence detail panel (TMB-34): Leitsatz, source, Fundstelle and verbatim
@@ -112,6 +113,17 @@ export function ClaimPanel({
           claim={claim}
           currentSeconds={currentSeconds}
         />
+      ) : null}
+
+      {claim.status === "beanstandet" ? (
+        <RepairPanel projectId={projectId} claim={claim} />
+      ) : null}
+
+      {claim.status === "ueberarbeitet" ? (
+        <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          Überarbeitet – die Neufassung durchläuft die betroffenen Prüfstufen
+          im nächsten Prüflauf.
+        </p>
       ) : null}
     </div>
   );

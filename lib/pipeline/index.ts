@@ -8,6 +8,14 @@ export { decideClaim } from "./adjudication/decide";
 export type { AdjudicationDecisionInput } from "./adjudication/decide";
 export { buildAdjudicationQueue } from "./adjudication/queue";
 export type { QueueEntry } from "./adjudication/queue";
+export { applyRepair, discardClaim, proposeRepair } from "./repair/run-repair";
+export type {
+  ApplyRepairInput,
+  ApplyRepairResult,
+  RepairProposalOutcome,
+} from "./repair/run-repair";
+export type { ReEntryTarget } from "./repair/re-entry";
+export type { RepairOutput } from "../adapters";
 // The effort-timer reducer is deliberately NOT re-exported here: its consumer
 // is a client hook, and the barrel transitively pulls node:fs modules. The
 // hook deep-imports the pure module (lib/pipeline/adjudication/effort-timer)
@@ -80,6 +88,7 @@ export type {
 export {
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
+  DEFAULT_MAX_REPAIR_CYCLES,
   DEFAULT_RUBRIC_VERSION,
   DEFAULT_SECOND_OPINION,
   getProjectSummary,
