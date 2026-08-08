@@ -2,9 +2,11 @@ import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { getVerificationState, readProject } from "@/lib/pipeline";
 import {
+  CALIBRATION_LABELS,
   formatTimestamp,
   STATUS_LABELS,
   statusBadgeClassName,
+  SUPPORT_LABELS,
 } from "../../status-labels";
 import { VerificationPanel } from "./VerificationPanel";
 
@@ -31,19 +33,6 @@ const STATE_BADGES: Record<string, { label: string; className: string }> = {
     label: "Abgeschlossen",
     className: "border-green-200 bg-green-50 text-green-800",
   },
-};
-
-const SUPPORT_LABELS: Record<string, string> = {
-  supported: "Supported",
-  partially_supported: "Partially Supported",
-  unsupported: "Unsupported",
-  uncertain: "Uncertain",
-};
-
-const CALIBRATION_LABELS: Record<string, string> = {
-  lizenziert: "lizenziert",
-  abschwaechen: "abschwächen",
-  zur_adjudikation: "zur Adjudikation",
 };
 
 export default async function VerificationPage(

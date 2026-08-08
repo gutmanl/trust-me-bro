@@ -91,6 +91,14 @@ export class EmptySourceSetError extends PipelineError {
   }
 }
 
+/** A requested blob does not exist in the project (or the path is not a
+ * valid blob path — both map to not-found, no path internals leak). */
+export class UnknownBlobError extends PipelineError {
+  constructor(relativePath: string, options?: { cause?: unknown }) {
+    super(`Blob "${relativePath}" existiert nicht.`, options);
+  }
+}
+
 /** One briefing per project: the original is the input extraction is
  * measured against; re-import would silently change that baseline. */
 export class BriefingAlreadyImportedError extends PipelineError {

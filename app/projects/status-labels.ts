@@ -1,4 +1,10 @@
-import type { ClaimStatus } from "@/lib/register";
+import type {
+  CalibrationResult,
+  ClaimStatus,
+  RelationType,
+  SourceType,
+  SupportDegree,
+} from "@/lib/register";
 
 /** German display labels of the ASCII-transliterated status enum. */
 export const STATUS_LABELS: Record<ClaimStatus, string> = {
@@ -25,6 +31,33 @@ export const STATUS_ORDER: ClaimStatus[] = [
   "ueberarbeitet",
   "verworfen",
 ];
+
+export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
+  begutachtete_publikation: "begutachtete Publikation",
+  preprint: "Preprint",
+  grauliteratur: "Grauliteratur",
+  herstellerdokumentation: "Herstellerdokumentation",
+};
+
+export const RELATION_LABELS: Record<RelationType, string> = {
+  stuetzt: "stützt",
+  stuetzt_teilweise: "stützt teilweise",
+  widerspricht: "widerspricht",
+  nicht_einschlaegig: "nicht einschlägig",
+};
+
+export const SUPPORT_LABELS: Record<SupportDegree, string> = {
+  supported: "Supported",
+  partially_supported: "Partially Supported",
+  unsupported: "Unsupported",
+  uncertain: "Uncertain",
+};
+
+export const CALIBRATION_LABELS: Record<CalibrationResult, string> = {
+  lizenziert: "lizenziert",
+  abschwaechen: "abschwächen",
+  zur_adjudikation: "zur Adjudikation",
+};
 
 /** Status pill styling (amber = awaiting adjudication, green = confirmed,
  * red = complained/discarded, slate = in-pipeline) shared by the claim

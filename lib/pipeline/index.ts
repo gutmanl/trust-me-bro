@@ -4,6 +4,14 @@
  * internals stay internal.
  */
 export * from "./errors";
+export { blobContentType, getProjectBlob } from "./blobs";
+export type { ProjectBlob } from "./blobs";
+// Pure display/derivation helpers of the register the web layer reuses.
+export {
+  formatLocator,
+  latestJudgmentPerBackend,
+  resolveEvidenceRelation,
+} from "../register";
 export { getBriefing, getBriefingViewModel, importBriefing } from "./briefing";
 export type { ImportBriefingInput } from "./briefing";
 export type {

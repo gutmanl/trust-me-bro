@@ -7,6 +7,7 @@ import {
   getVerificationState,
   readProject,
 } from "@/lib/pipeline";
+import { buildEvidenceDisplayMap } from "./evidence-display";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function ReviewPage(
           projectId={id}
           register={register}
           briefing={briefing}
+          evidenceDisplay={buildEvidenceDisplayMap(id, register)}
           verificationActive={verificationState.status === "laeuft"}
         />
       ) : (

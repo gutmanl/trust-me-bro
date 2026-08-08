@@ -8,6 +8,7 @@ import { useJobStream } from "@/app/lib/useJobStream";
 import type { BriefingViewModel, ClaimsRegister } from "@/lib/pipeline";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimPanel } from "./ClaimPanel";
+import type { EvidenceDisplay } from "./evidence-display";
 
 /**
  * Client shell of the review workspace: owns the claim selection, keeps the
@@ -20,15 +21,20 @@ export function ReviewWorkspace({
   projectId,
   register,
   briefing,
+  evidenceDisplay,
   verificationActive,
 }: {
   projectId: string;
   register: ClaimsRegister;
   briefing: BriefingViewModel;
+  evidenceDisplay: Record<string, EvidenceDisplay>;
   verificationActive: boolean;
 }) {
   const router = useRouter();
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
+    null,
+  );
 
   // Live refresh during a verification run: every finished claim updates the
   // durable register, so re-render the server components per item instead of
@@ -47,11 +53,9 @@ export function ReviewWorkspace({
     },
   });
 
-  // Evidence-level selection (jump to a specific Beleg) arrives with the
-  // detail panel in TMB-34; until then selecting a reference selects its
-  // claim.
-  const selectClaim = (claimId: string, _evidenceId?: string): void => {
+  const selectClaim = (claimId: string, evidenceId?: string): void => {
     setSelectedClaimId(claimId);
+    setSelectedEvidenceId(evidenceId ?? null);
   };
 
   const selectedClaim =
@@ -86,7 +90,12 @@ export function ReviewWorkspace({
         </section>
 
         <aside className="w-full lg:w-[26rem] lg:shrink-0">
-          <ClaimPanel claim={selectedClaim} />
+          <ClaimPanel
+            claim={selectedClaim}
+            selectedEvidenceId={selectedEvidenceId}
+            evidenceNumbers={briefing.evidenceNumbers}
+            evidenceDisplay={evidenceDisplay}
+          />
         </aside>
       </div>
     </div>
