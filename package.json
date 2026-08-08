@@ -2,6 +2,17 @@
   "name": "trustmebro",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "trustmebro": "bin/trustmebro.mjs"
+  },
+  "files": [
+    "bin",
+    ".next/standalone",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.9"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,6 +26,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:schema": "tsx scripts/generate-schema.ts",
+    "package:build": "node scripts/package-build.mjs",
+    "prepack": "npm run package:build",
     "tmb": "tsx cli/tmb.ts"
   },
   "dependencies": {

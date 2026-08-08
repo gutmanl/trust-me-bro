@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
@@ -39,8 +38,15 @@ export const RubricRuleSet = z.strictObject({
 });
 export type RubricRuleSet = z.infer<typeof RubricRuleSet>;
 
+// Anchored at the process working directory, NOT import.meta.url (TMB-48):
+// the production server bundle relocates this module, while dev server,
+// tests and the packaged launcher all run with a cwd containing lib/ (the
+// packaging step copies the rule files into the standalone directory).
 const rulesDir = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
+  process.cwd(),
+  "lib",
+  "pipeline",
+  "verification",
   "rules",
 );
 
