@@ -34,7 +34,16 @@ export {
   resolveEvidenceRelation,
 } from "./statemachine/divergence";
 export type { TransitionRequest } from "./statemachine/engine";
-export { renderBriefing } from "./projection/render-briefing";
+export { formatLocator, renderBriefing } from "./projection/render-briefing";
+export {
+  buildBriefingViewModel,
+  CONFIRMED_STATUSES,
+} from "./projection/briefing-view";
+export type {
+  BriefingParagraphVM,
+  BriefingViewModel,
+  ClaimMarkerVM,
+} from "./projection/briefing-view";
 export { countClaimsByStatus } from "./projection/counts";
 export { lastActivityAt } from "./projection/activity";
 export { verifyChain } from "./chain/verify";

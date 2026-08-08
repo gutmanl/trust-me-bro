@@ -1,7 +1,11 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { getVerificationState, readProject } from "@/lib/pipeline";
-import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
+import {
+  formatTimestamp,
+  STATUS_LABELS,
+  statusBadgeClassName,
+} from "../../status-labels";
 import { VerificationPanel } from "./VerificationPanel";
 
 export const dynamic = "force-dynamic";
@@ -92,13 +96,7 @@ export default async function VerificationPage(
                 <div className="flex items-start justify-between gap-4">
                   <p className="text-sm">{claim.text}</p>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
-                      claim.status === "zur_adjudikation"
-                        ? "bg-amber-100 text-amber-800"
-                        : claim.status === "automatisch_bestaetigt"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-slate-100 text-slate-600"
-                    }`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${statusBadgeClassName(claim.status)}`}
                   >
                     {STATUS_LABELS[claim.status]}
                   </span>

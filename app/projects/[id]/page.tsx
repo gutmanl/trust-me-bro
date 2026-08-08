@@ -124,6 +124,27 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
               Claims prüfen (Existenz, Attribution, Kalibrierung)
             </Link>
           </li>
+          <li className="flex items-center gap-2">
+            <span
+              className={
+                summary.total_claims > 0 &&
+                summary.claim_counts.zur_adjudikation === 0
+                  ? "text-green-600"
+                  : "text-slate-400"
+              }
+            >
+              {summary.total_claims > 0 &&
+              summary.claim_counts.zur_adjudikation === 0
+                ? "✓"
+                : "○"}
+            </span>
+            <Link
+              href={`/projects/${summary.id}/review`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Adjudizieren und reparieren
+            </Link>
+          </li>
         </ol>
       </section>
     </div>

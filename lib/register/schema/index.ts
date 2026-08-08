@@ -16,6 +16,7 @@ export {
   ExistenceCheckStatus,
   ProjectEventType,
   RelationType,
+  RoutingReason,
   SourceType,
   SupportDegree,
 } from "./enums";
@@ -26,7 +27,13 @@ export {
   SourceSnapshot,
 } from "./source";
 export { Evidence, ExistenceCheck, Judgment, Locator } from "./evidence";
-export { ChainFields, Decision, HistoryEntry, ProjectEvent } from "./history";
+export {
+  ChainFields,
+  Decision,
+  HistoryEntry,
+  ProjectEvent,
+  Revision,
+} from "./history";
 export { Claim, Provenance } from "./claim";
 export {
   BackendRef,

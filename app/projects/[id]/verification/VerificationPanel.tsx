@@ -1,19 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 
-import { ErrorBanner, primaryButtonClass } from "@/app/components/ui";
+import {
+  ErrorBanner,
+  primaryButtonClass,
+  RunProgressFeed,
+} from "@/app/components/ui";
+import { useJobStream } from "@/app/lib/useJobStream";
 import type { VerificationState } from "@/lib/pipeline";
 import type { VerificationFormState } from "./actions";
 import { startVerificationAction } from "./actions";
 
 const initialState: VerificationFormState = { error: null };
-
-interface ProgressLine {
-  key: number;
-  text: string;
-}
 
 function describeProgress(event: Record<string, unknown>): string | null {
   switch (event.type) {
@@ -40,9 +40,9 @@ function describeProgress(event: Record<string, unknown>): string | null {
 }
 
 /**
- * Start button + live progress via the SSE stream, the verification twin of
- * ExtractionPanel: durable state renders server-side, this panel adds the
- * volatile per-claim feed (n/m via item events) and refreshes on run end.
+ * Start button + live progress via the shared SSE hook, the verification
+ * twin of ExtractionPanel: durable state renders server-side, this panel
+ * adds the volatile per-claim feed and refreshes on run end.
  */
 export function VerificationPanel({
   projectId,
@@ -56,7 +56,6 @@ export function VerificationPanel({
     startVerificationAction.bind(null, projectId),
     initialState,
   );
-  const [lines, setLines] = useState<ProgressLine[]>([]);
   const [startedForm, setStartedForm] = useState<VerificationFormState | null>(
     null,
   );
@@ -67,50 +66,20 @@ export function VerificationPanel({
   if (formState.started && startedForm !== formState) {
     setStartedForm(formState);
     setStopped(false);
-    setLines([]);
   }
 
   const watching =
     !stopped && (formState.started === true || state.status === "laeuft");
 
-  useEffect(() => {
-    if (!watching) {
-      return;
-    }
-    const source = new EventSource(
-      `/api/projects/${projectId}/verification/stream`,
-    );
-    let counter = 0;
-    const stop = (): void => {
-      source.close();
+  const { lines } = useJobStream({
+    streamUrl: `/api/projects/${projectId}/verification/stream`,
+    active: watching,
+    describe: describeProgress,
+    onDone: () => {
       setStopped(true);
       router.refresh();
-    };
-    source.addEventListener("progress", (event) => {
-      const parsed = JSON.parse((event as MessageEvent).data) as Record<
-        string,
-        unknown
-      >;
-      const text = describeProgress(parsed);
-      if (text) {
-        counter += 1;
-        const line = { key: counter, text };
-        setLines((previous) => [...previous, line]);
-      }
-      if (parsed.type === "run_completed") {
-        stop();
-      }
-    });
-    source.addEventListener("state", () => {
-      stop();
-    });
-    source.onerror = () => {
-      source.close();
-    };
-    return () => {
-      source.close();
-    };
-  }, [watching, projectId, router]);
+    },
+  });
 
   const canStart =
     !pending &&
@@ -134,17 +103,7 @@ export function VerificationPanel({
       <ErrorBanner message={formState.error} />
 
       {watching ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-700">
-            Fortschritt des Prüflaufs
-          </p>
-          <ul className="mt-2 space-y-1 font-mono text-xs text-slate-600">
-            {lines.length === 0 ? <li>Verbinde …</li> : null}
-            {lines.map((line) => (
-              <li key={line.key}>{line.text}</li>
-            ))}
-          </ul>
-        </div>
+        <RunProgressFeed title="Fortschritt des Prüflaufs" lines={lines} />
       ) : null}
     </div>
   );

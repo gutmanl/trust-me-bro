@@ -4,8 +4,26 @@
  * internals stay internal.
  */
 export * from "./errors";
-export { getBriefing, importBriefing } from "./briefing";
+export { getBriefing, getBriefingViewModel, importBriefing } from "./briefing";
 export type { ImportBriefingInput } from "./briefing";
+export type {
+  BriefingParagraphVM,
+  BriefingViewModel,
+  ClaimMarkerVM,
+} from "../register";
+// Register data types the web layer renders (type-only re-exports so app/
+// code keeps importing from this one barrel).
+export type {
+  Claim,
+  ClaimsRegister,
+  ComplaintCategory,
+  Evidence,
+  HistoryEntry,
+  Judgment,
+  ProjectEvent,
+  RoutingReason,
+  Source,
+} from "../register";
 export { mintProjectId, slugify } from "./ids";
 export {
   captureSource,

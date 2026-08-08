@@ -35,6 +35,27 @@ export function SuccessBanner({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Progress box of a running job stream (extraction/verification/review). */
+export function RunProgressFeed({
+  title,
+  lines,
+}: {
+  title: string;
+  lines: { key: number; text: string }[];
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-medium text-slate-700">{title}</p>
+      <ul className="mt-2 space-y-1 font-mono text-xs text-slate-600">
+        {lines.length === 0 ? <li>Verbinde …</li> : null}
+        {lines.map((line) => (
+          <li key={line.key}>{line.text}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function SubpageHeader({
   projectId,
   title,

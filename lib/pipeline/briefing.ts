@@ -1,5 +1,6 @@
 import { getCurrentActor } from "../identity";
-import type { BriefingImport } from "../register";
+import type { BriefingImport, BriefingViewModel } from "../register";
+import { buildBriefingViewModel } from "../register";
 import {
   BriefingAlreadyImportedError,
   InvalidBriefingInputError,
@@ -50,6 +51,26 @@ export async function importBriefing(
   await store.renderBriefingFile();
   const register = await store.read();
   return register.project.briefing_import as BriefingImport;
+}
+
+/**
+ * Structured briefing view model for the review workspace (TMB-33), built
+ * from the frozen original and the current register via the shared
+ * projection; null before a briefing was imported.
+ */
+export async function getBriefingViewModel(
+  projectId: string,
+): Promise<BriefingViewModel | null> {
+  const store = requireProjectStore(projectId);
+  const register = await store.read();
+  const meta = register.project.briefing_import;
+  if (!meta) {
+    return null;
+  }
+  return buildBriefingViewModel(
+    store.blobs().readText(meta.blob_path),
+    register,
+  );
 }
 
 /** The frozen briefing with its import metadata, or null before import. */
