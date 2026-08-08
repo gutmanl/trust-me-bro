@@ -9,6 +9,7 @@ import type { BriefingViewModel, ClaimsRegister } from "@/lib/pipeline";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimPanel } from "./ClaimPanel";
 import type { EvidenceDisplay } from "./evidence-display";
+import { useEffortTimer } from "./useEffortTimer";
 
 /**
  * Client shell of the review workspace: owns the claim selection, keeps the
@@ -35,6 +36,7 @@ export function ReviewWorkspace({
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
     null,
   );
+  const { currentSeconds } = useEffortTimer(selectedClaimId);
 
   // Live refresh during a verification run: every finished claim updates the
   // durable register, so re-render the server components per item instead of
@@ -91,10 +93,12 @@ export function ReviewWorkspace({
 
         <aside className="w-full lg:w-[26rem] lg:shrink-0">
           <ClaimPanel
+            projectId={projectId}
             claim={selectedClaim}
             selectedEvidenceId={selectedEvidenceId}
             evidenceNumbers={briefing.evidenceNumbers}
             evidenceDisplay={evidenceDisplay}
+            currentSeconds={currentSeconds}
           />
         </aside>
       </div>

@@ -4,6 +4,12 @@
  * internals stay internal.
  */
 export * from "./errors";
+export { decideClaim } from "./adjudication/decide";
+export type { AdjudicationDecisionInput } from "./adjudication/decide";
+// The effort-timer reducer is deliberately NOT re-exported here: its consumer
+// is a client hook, and the barrel transitively pulls node:fs modules. The
+// hook deep-imports the pure module (lib/pipeline/adjudication/effort-timer)
+// instead — the one sanctioned client-side deep import.
 export { blobContentType, getProjectBlob } from "./blobs";
 export type { ProjectBlob } from "./blobs";
 // Pure display/derivation helpers of the register the web layer reuses.

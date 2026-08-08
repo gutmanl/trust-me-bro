@@ -91,6 +91,14 @@ export class EmptySourceSetError extends PipelineError {
   }
 }
 
+/** An adjudication decision violates its preconditions (claim not awaiting
+ * adjudication, missing justification for "sonstiges", unmeasurable
+ * duration). */
+export class AdjudicationPreconditionError extends PipelineError {}
+
+/** A repair step violates its preconditions (claim not beanstandet). */
+export class RepairPreconditionError extends PipelineError {}
+
 /** A requested blob does not exist in the project (or the path is not a
  * valid blob path — both map to not-found, no path internals leak). */
 export class UnknownBlobError extends PipelineError {

@@ -9,6 +9,7 @@ import {
   statusBadgeClassName,
   SUPPORT_LABELS,
 } from "../../status-labels";
+import { ComplaintDialog } from "./ComplaintDialog";
 import type { EvidenceDisplay } from "./evidence-display";
 
 /**
@@ -19,15 +20,19 @@ import type { EvidenceDisplay } from "./evidence-display";
  * on divergence, because LLM explanations invite unwarranted deference.
  */
 export function ClaimPanel({
+  projectId,
   claim,
   selectedEvidenceId,
   evidenceNumbers,
   evidenceDisplay,
+  currentSeconds,
 }: {
+  projectId: string;
   claim: Claim | null;
   selectedEvidenceId: string | null;
   evidenceNumbers: Record<string, number>;
   evidenceDisplay: Record<string, EvidenceDisplay>;
+  currentSeconds: () => number;
 }) {
   if (!claim) {
     return (
@@ -100,6 +105,14 @@ export function ClaimPanel({
       ) : null}
 
       <p className="text-xs text-slate-400">{claim.history.at(-1)?.reason}</p>
+
+      {claim.status === "zur_adjudikation" ? (
+        <ComplaintDialog
+          projectId={projectId}
+          claim={claim}
+          currentSeconds={currentSeconds}
+        />
+      ) : null}
     </div>
   );
 }
