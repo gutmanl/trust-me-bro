@@ -338,6 +338,20 @@ describe("relevance check", () => {
     ).rejects.toBeInstanceOf(RelevancePreconditionError);
   });
 
+  it("refuses to start when the primary backend fails preflight (TMB-49)", async () => {
+    await setupWarmProject();
+    await expect(
+      startRelevanceCheck(WARM, {
+        orchestrator: relevanceOrchestrator(),
+        runner,
+        preflight: async () => ({
+          usable: false,
+          hint: "claude nicht gefunden – installieren.",
+        }),
+      }),
+    ).rejects.toThrow(/nicht einsatzbereit.*claude nicht gefunden/);
+  });
+
   it("routes negative and uncertain judgments to adjudication", async () => {
     const { confirmed, autoConfirmed } = await setupWarmProject();
     const handle = await startRelevanceCheck(WARM, {

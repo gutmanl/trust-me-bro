@@ -19,6 +19,8 @@ import {
   ExtractionAlreadyRanError,
   ExtractionPreconditionError,
 } from "../errors";
+import { permissiveBackendPreflight, probeBackendUsable } from "../health";
+import type { BackendPreflight } from "../health";
 import { evidenceIdAt, nextClaimId } from "../ids";
 import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
@@ -34,6 +36,9 @@ const ACTOR = "system:extraction" as const;
 export interface ExtractionDependencies {
   orchestrator?: Orchestrator;
   runner?: JobRunner;
+  /** TMB-49 test seam; defaults to permissive when an orchestrator is
+   * injected (a mock never talks to real CLIs), else to the real probe. */
+  preflight?: BackendPreflight;
 }
 
 export interface ExtractionRunSummary {
@@ -78,6 +83,18 @@ export async function startExtraction(
     )
   ) {
     throw new ExtractionAlreadyRanError(projectId);
+  }
+
+  // Preflight (TMB-49): a run against an unusable primary CLI is refused
+  // BEFORE it starts — with the targeted setup hint, not a mid-run error.
+  const preflight =
+    deps.preflight ??
+    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const primaryReady = await preflight(register.config.backends.primary.cli);
+  if (!primaryReady.usable) {
+    throw new ExtractionPreconditionError(
+      `Primäres Backend nicht einsatzbereit: ${primaryReady.hint ?? "unbekannt"}`,
+    );
   }
 
   const runner = deps.runner ?? getGlobalJobRunner();

@@ -150,6 +150,19 @@ describe("startExtraction preconditions", () => {
       ExtractionPreconditionError,
     );
   });
+
+  it("refuses to start when the primary backend fails preflight (TMB-49)", async () => {
+    await prepareProject();
+    await expect(
+      startExtraction("proj_extraktion", {
+        orchestrator: testOrchestrator(),
+        preflight: async () => ({
+          usable: false,
+          hint: "claude nicht gefunden – installieren.",
+        }),
+      }),
+    ).rejects.toThrow(/nicht einsatzbereit.*claude nicht gefunden/);
+  });
 });
 
 describe("extraction run", () => {

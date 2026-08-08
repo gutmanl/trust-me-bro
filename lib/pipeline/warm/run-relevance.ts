@@ -3,6 +3,8 @@ import type { JobRequest, Orchestrator, RelevanceInput } from "../../adapters";
 import { loadAdapterConfig } from "../../identity";
 import type { ClaimsRegister, RegisterStore } from "../../register";
 import { RelevancePreconditionError } from "../errors";
+import { permissiveBackendPreflight, probeBackendUsable } from "../health";
+import type { BackendPreflight } from "../health";
 import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
@@ -27,6 +29,9 @@ const ACTOR_CHECK = "system:einschlaegigkeit" as const;
 export interface RelevanceDependencies {
   orchestrator?: Orchestrator;
   runner?: JobRunner;
+  /** TMB-49 test seam; defaults to permissive when an orchestrator is
+   * injected (a mock never talks to real CLIs), else to the real probe. */
+  preflight?: BackendPreflight;
 }
 
 export type RelevanceItemOutcome =
@@ -81,6 +86,18 @@ export async function startRelevanceCheck(
     throw new RelevancePreconditionError(
       "Keine übernommenen Claims ohne Einschlägigkeitsprüfung – " +
         "nichts zu prüfen.",
+    );
+  }
+
+  // Preflight (TMB-49): refuse a run against an unusable primary CLI
+  // BEFORE it starts, with the targeted setup hint.
+  const preflight =
+    deps.preflight ??
+    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const primaryReady = await preflight(register.config.backends.primary.cli);
+  if (!primaryReady.usable) {
+    throw new RelevancePreconditionError(
+      `Primäres Backend nicht einsatzbereit: ${primaryReady.hint ?? "unbekannt"}`,
     );
   }
 

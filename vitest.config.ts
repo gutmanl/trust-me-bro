@@ -30,6 +30,7 @@ export default defineConfig({
         // denominator; it does not lower the ratchet on executable code.
         "lib/adapters/core/jobs.ts",
         "lib/adapters/core/contracts.ts",
+        "lib/adapters/health/types.ts",
         "lib/adapters/orchestrator/types.ts",
         "lib/identity/types.ts",
         "lib/pipeline/sources/fetch-port.ts",

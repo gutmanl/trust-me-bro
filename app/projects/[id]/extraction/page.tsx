@@ -1,6 +1,10 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
-import { SubpageHeader } from "@/app/components/ui";
-import { getExtractionState, readProject } from "@/lib/pipeline";
+import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
+import {
+  getBackendsHealth,
+  getExtractionState,
+  readProject,
+} from "@/lib/pipeline";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
 import { ExtractionPanel } from "./ExtractionPanel";
 
@@ -42,6 +46,7 @@ export default async function ExtractionPage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const state = getExtractionState(id, register);
+  const health = await getBackendsHealth(id);
   const badge = STATE_BADGES[state.status];
 
   return (
@@ -64,6 +69,8 @@ export default async function ExtractionPage(
           </p>
         ) : null}
       </div>
+
+      <BackendHealthNotice projectId={id} health={health} mode="block" />
 
       <ExtractionPanel projectId={id} state={state} />
 

@@ -59,6 +59,15 @@ export {
   RubricOutput,
 } from "./schema";
 export { CURRENT_PROMPT_VERSION, renderPromptForJob } from "./prompts";
+// TMB-49: preflight diagnosis of the CLI backends. Only the facade is
+// public; probe mechanics and the login-probe cache stay internal.
+export { checkCliHealth, runCliLoginProbe } from "./health";
+export type {
+  BackendHealth,
+  ProbeResult,
+  ProbeStageId,
+  ProbeStatus,
+} from "./health";
 export { createClaudeBackend } from "./backends/claude/claude-backend";
 export { createCodexBackend } from "./backends/codex/codex-backend";
 export { resolveConfiguredBackends } from "./registry";

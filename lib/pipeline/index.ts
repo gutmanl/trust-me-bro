@@ -127,6 +127,11 @@ export {
 // TMB-47: first-run setup — the gate predicate and the one mutation the
 // /setup page performs. Identity internals stay behind lib/identity.
 export { completeFirstRunSetup, isSetupComplete } from "./setup";
+// TMB-49: backend preflight for the status page and the panel notices; the
+// probe mechanics and the run-precondition seam stay internal.
+export { getBackendsHealth, runLoginProbe } from "./health";
+export type { ProjectBackendsHealth } from "./health";
+export type { BackendHealth, ProbeResult, ProbeStatus } from "../adapters";
 // TMB-46: per-project settings with chain-audited changes; the diff
 // formatter stays internal.
 export { updateProjectConfig } from "./config";

@@ -96,6 +96,13 @@ describe("public surface of lib/adapters", () => {
     expect(surface.createMockBackend).toBeDefined();
     expect(surface.renderPromptForJob).toBeDefined();
     expect(surface.AdapterRateLimitError).toBeDefined();
+    // TMB-49: the preflight facade; probe mechanics and the login-probe
+    // cache stay internal.
+    expect(surface.checkCliHealth).toBeDefined();
+    expect(surface.runCliLoginProbe).toBeDefined();
+    expect(surface.probeLogin).toBeUndefined();
+    expect(surface.probePresenceAndVersion).toBeUndefined();
+    expect(surface.setCachedLoginProbe).toBeUndefined();
     // Internals stay internal: prompt loading/interpolation, the raw spawn
     // site, the output validator and the trace writer are reachable only
     // through the orchestrator/backend path.
@@ -191,6 +198,12 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.completeFirstRunSetup).toBeDefined();
     expect(surface.writeIdentityConfig).toBeUndefined();
     expect(surface.isIdentityConfigured).toBeUndefined();
+    // TMB-49: backend preflight accessors; probe mechanics and the run
+    // precondition seam stay internal.
+    expect(surface.getBackendsHealth).toBeDefined();
+    expect(surface.runLoginProbe).toBeDefined();
+    expect(surface.probeBackendUsable).toBeUndefined();
+    expect(surface.withoutSecondaryBackend).toBeUndefined();
     // TMB-46: settings use-case; diff formatter and backends builder stay
     // internal.
     expect(surface.updateProjectConfig).toBeDefined();

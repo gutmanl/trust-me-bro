@@ -4,6 +4,12 @@ import { loadAdapterConfig } from "../../identity";
 import { evaluateAutoConfirmation } from "../../register";
 import type { ClaimsRegister, RegisterStore, Source } from "../../register";
 import { VerificationPreconditionError } from "../errors";
+import {
+  permissiveBackendPreflight,
+  probeBackendUsable,
+  withoutSecondaryBackend,
+} from "../health";
+import type { BackendPreflight } from "../health";
 import { DEFAULT_SECOND_OPINION, requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
@@ -46,6 +52,9 @@ export interface VerificationDependencies {
   orchestrator?: Orchestrator;
   runner?: JobRunner;
   fetcher?: HttpFetcher;
+  /** TMB-49 test seam; defaults to permissive when an orchestrator is
+   * injected (a mock never talks to real CLIs), else to the real probe. */
+  preflight?: BackendPreflight;
 }
 
 export type VerificationItemOutcome =
@@ -56,6 +65,7 @@ export type VerificationItemOutcome =
   | "eskaliert"
   | "pausiert"
   | "uebersprungen"
+  | "llm_gesperrt"
   | "stichprobe";
 
 export interface VerificationItemResult {
@@ -73,6 +83,13 @@ interface RunContext {
   cache: SourceCheckCache;
   sampleRate: number;
   totalEligible: number;
+  /** TMB-49: non-null when the primary backend failed preflight — stage 1
+   * still runs, the LLM stages are skipped per claim (claims stay
+   * existenzgeprueft and are swept up by a later run). */
+  llmLockedHint: string | null;
+  /** TMB-49: run-visible note when the secondary backend failed preflight
+   * and the divergence rule is disabled for this run. */
+  degradedNote: string | null;
   bracket: {
     startedRecorded: boolean;
     pauseReason: string | null;
@@ -118,25 +135,49 @@ export async function startVerification(
     );
   }
 
+  // Preflight (TMB-49). Verification is deliberately NEVER hard-blocked:
+  // stage 1 (deterministic existence check) must stay usable with the LLM
+  // backends down. An unusable primary locks only the LLM stages per claim;
+  // an unusable secondary disables the divergence rule for this run.
+  const preflight =
+    deps.preflight ??
+    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const primaryReady = await preflight(register.config.backends.primary.cli);
+  const secondaryCli = register.config.backends.secondary?.cli;
+  const secondaryReady =
+    secondaryCli === undefined
+      ? { usable: true as const }
+      : await preflight(secondaryCli);
+  const effectiveConfig = secondaryReady.usable
+    ? register.config
+    : withoutSecondaryBackend(register.config);
+
   const runner = deps.runner ?? getGlobalJobRunner();
   const context: RunContext = {
     store,
     sourcesById: new Map(register.sources.map((source) => [source.id, source])),
     stage23: {
       orchestrator:
-        deps.orchestrator ?? createProjectOrchestrator(register.config),
-      primaryBackendId: register.config.backends.primary.cli,
-      secondaryBackendId: register.config.backends.secondary?.cli,
+        deps.orchestrator ?? createProjectOrchestrator(effectiveConfig),
+      primaryBackendId: effectiveConfig.backends.primary.cli,
+      secondaryBackendId: effectiveConfig.backends.secondary?.cli,
       projectDir: store.projectDir,
       timeoutMs: loadAdapterConfig().timeoutMs,
-      secondOpinion: register.config.second_opinion ?? DEFAULT_SECOND_OPINION,
-      rubricVersion: register.config.rubric_version,
+      secondOpinion: effectiveConfig.second_opinion ?? DEFAULT_SECOND_OPINION,
+      rubricVersion: effectiveConfig.rubric_version,
       ruleSet,
     },
     fetcher: deps.fetcher ?? nodeHttpFetcher,
     cache: new Map(),
     sampleRate: register.config.adjudication_sample_rate,
     totalEligible: eligible.length,
+    llmLockedHint: primaryReady.usable
+      ? null
+      : (primaryReady.hint ?? "Backend nicht einsatzbereit."),
+    degradedNote: secondaryReady.usable
+      ? null
+      : `Divergenzregel deaktiviert – sekundäres Backend "${secondaryCli}" ` +
+        `nicht einsatzbereit (${secondaryReady.hint ?? "unbekannt"}).`,
     bracket: {
       startedRecorded: false,
       pauseReason: null,
@@ -204,10 +245,18 @@ async function recordStartedOnce(
   if (context.bracket.startedRecorded) {
     return;
   }
+  const notes = [
+    context.degradedNote,
+    context.llmLockedHint === null
+      ? null
+      : `LLM-Prüfstufen gesperrt (Preflight): ${context.llmLockedHint}`,
+  ].filter((note): note is string => note !== null);
   await context.store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "verification_run_started",
-      reason: `Prüflauf gestartet: ${context.totalEligible} Claim(s) (Lauf ${runId}).`,
+      reason:
+        `Prüflauf gestartet: ${context.totalEligible} Claim(s) (Lauf ${runId}).` +
+        (notes.length === 0 ? "" : ` ${notes.join(" ")}`),
       actor: ACTOR_RUN,
     });
   });
@@ -297,6 +346,20 @@ async function processClaim(
         message: `Existenzprüfung nicht bestanden (${failures.length} Fundstelle(n)) – zur Adjudikation.`,
       };
     }
+  }
+
+  // LLM lock (TMB-49): stage 1 is done, the claim rests at existenzgeprueft
+  // untouched — a later run with a working backend sweeps it up via
+  // pickUnfinishedClaims. Deliberately NOT an escalation: adjudication is
+  // for content problems, a downed backend is an operations problem.
+  if (context.llmLockedHint !== null) {
+    return {
+      claimId,
+      outcome: "llm_gesperrt",
+      message:
+        `LLM-Prüfstufen gesperrt (${context.llmLockedHint}) – ` +
+        "Claim bleibt existenzgeprüft.",
+    };
   }
 
   // Stages 2+3 (LLM, outside any transaction).

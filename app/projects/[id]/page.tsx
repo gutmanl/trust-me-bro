@@ -198,6 +198,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
           >
             Einstellungen
           </Link>
+          <Link
+            href={`/projects/${summary.id}/status`}
+            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+          >
+            Systemstatus (Backend-Diagnose)
+          </Link>
         </p>
       </section>
 

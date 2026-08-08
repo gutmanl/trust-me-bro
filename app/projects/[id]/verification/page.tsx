@@ -1,6 +1,10 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
-import { SubpageHeader } from "@/app/components/ui";
-import { getVerificationState, readProject } from "@/lib/pipeline";
+import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
+import {
+  getBackendsHealth,
+  getVerificationState,
+  readProject,
+} from "@/lib/pipeline";
 import {
   CALIBRATION_LABELS,
   formatTimestamp,
@@ -41,6 +45,7 @@ export default async function VerificationPage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const state = getVerificationState(id, register);
+  const health = await getBackendsHealth(id);
   const badge = STATE_BADGES[state.status];
 
   return (
@@ -71,6 +76,8 @@ export default async function VerificationPage(
           </p>
         ) : null}
       </div>
+
+      <BackendHealthNotice projectId={id} health={health} mode="verification" />
 
       <VerificationPanel projectId={id} state={state} />
 

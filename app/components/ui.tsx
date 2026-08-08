@@ -56,6 +56,84 @@ export function RunProgressFeed({
   );
 }
 
+/** Failure hint of the first failed stage, for banner texts (TMB-49). */
+function firstFailureHint(health: {
+  stages: readonly { status: string; detail: string; hint?: string }[];
+}): string {
+  const failed = health.stages.find((stage) => stage.status === "failed");
+  return failed?.hint ?? failed?.detail ?? "Backend nicht einsatzbereit.";
+}
+
+/**
+ * Amber degradation notice above the run panels (TMB-49): marks locked LLM
+ * steps and a disabled divergence rule visibly, with the concrete next step
+ * and a link to the status page. Renders nothing when all backends are
+ * usable.
+ */
+export function BackendHealthNotice({
+  projectId,
+  health,
+  mode,
+}: {
+  projectId: string;
+  health: {
+    primary: {
+      cli: string;
+      usable: boolean;
+      stages: readonly { status: string; detail: string; hint?: string }[];
+    };
+    secondary?: {
+      cli: string;
+      usable: boolean;
+      stages: readonly { status: string; detail: string; hint?: string }[];
+    };
+  };
+  /** "block": the whole step is LLM-only and refused at start.
+   * "verification": only stages 2/3 lock, stage 1 stays usable. */
+  mode: "block" | "verification";
+}) {
+  const messages: string[] = [];
+  if (!health.primary.usable) {
+    messages.push(
+      mode === "verification"
+        ? `LLM-Prüfstufen gesperrt – primäres Backend "${health.primary.cli}" ` +
+            `nicht einsatzbereit: ${firstFailureHint(health.primary)} ` +
+            "Die deterministische Existenzprüfung (Stufe 1) bleibt nutzbar."
+        : `Dieser Schritt ist gesperrt – primäres Backend "${health.primary.cli}" ` +
+            `nicht einsatzbereit: ${firstFailureHint(health.primary)}`,
+    );
+  }
+  if (
+    mode === "verification" &&
+    health.primary.usable &&
+    health.secondary !== undefined &&
+    !health.secondary.usable
+  ) {
+    messages.push(
+      `Divergenzregel deaktiviert – sekundäres Backend "${health.secondary.cli}" ` +
+        `nicht einsatzbereit: ${firstFailureHint(health.secondary)}`,
+    );
+  }
+  if (messages.length === 0) {
+    return null;
+  }
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      {messages.map((message) => (
+        <p key={message}>{message}</p>
+      ))}
+      <p className="mt-1">
+        <Link
+          href={`/projects/${projectId}/status`}
+          className="underline decoration-amber-400 hover:decoration-amber-600"
+        >
+          Zur Statusseite (Einrichtungsdiagnose)
+        </Link>
+      </p>
+    </div>
+  );
+}
+
 export function SubpageHeader({
   projectId,
   title,

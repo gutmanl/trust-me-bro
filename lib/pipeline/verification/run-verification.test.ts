@@ -339,6 +339,86 @@ describe("cascading verification run", () => {
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
   });
 
+  it("locks the LLM stages when the primary fails preflight, stage 1 still runs (TMB-49)", async () => {
+    await createTestProject();
+    await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));
+    const handle = await startVerification(PROJECT, {
+      orchestrator: makeOrchestrator(),
+      runner,
+      fetcher: fakeFetcher({}),
+      preflight: async (cli) =>
+        cli === "claude"
+          ? { usable: false, hint: "claude nicht gefunden – installieren." }
+          : { usable: true },
+    });
+    await handle.done;
+
+    const register = await readRegister();
+    const claim = register.claims[0];
+    // Stage 1 ran and persisted; the LLM stages were skipped, the claim
+    // rests at existenzgeprueft (NOT escalated to adjudication).
+    expect(claim.status).toBe("existenzgeprueft");
+    expect(claim.evidence[0].existence_check?.status).toBe("bestanden");
+    expect(claim.evidence[0].judgments).toHaveLength(0);
+    const started = register.project_events.find(
+      (event) => event.event === "verification_run_started",
+    );
+    expect(started?.reason).toContain("LLM-Prüfstufen gesperrt");
+    expect(started?.reason).toContain("claude nicht gefunden");
+
+    const outcomes = handle
+      .eventsSoFar()
+      .filter((event) => event.type === "item_completed")
+      .map((event) =>
+        event.type === "item_completed"
+          ? (event.outcome.result as { outcome: string }).outcome
+          : "",
+      );
+    expect(outcomes).toEqual(["llm_gesperrt", "stichprobe"]);
+
+    // With the backend back, a fresh run sweeps the claim up.
+    await runVerification();
+    expect((await readRegister()).claims[0].status).toBe(
+      "automatisch_bestaetigt",
+    );
+  });
+
+  it("disables the divergence rule when the secondary fails preflight (TMB-49)", async () => {
+    await createTestProject();
+    await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));
+    // Low confidence would normally trigger the second opinion.
+    const handle = await startVerification(PROJECT, {
+      orchestrator: makeOrchestrator({
+        primaryAttribution: {
+          relation_type: "stuetzt",
+          confidence: 0.5,
+          reasoning: "unsicher",
+        },
+      }),
+      runner,
+      fetcher: fakeFetcher({}),
+      preflight: async (cli) =>
+        cli === "codex"
+          ? { usable: false, hint: "codex nicht gefunden." }
+          : { usable: true },
+    });
+    await handle.done;
+
+    const register = await readRegister();
+    const claim = register.claims[0];
+    // Only the primary judged: no second opinion despite the trigger.
+    expect(claim.evidence[0].judgments.map((j) => j.backend)).toEqual([
+      "claude",
+    ]);
+    const started = register.project_events.find(
+      (event) => event.event === "verification_run_started",
+    );
+    expect(started?.reason).toContain("Divergenzregel deaktiviert");
+    expect(started?.reason).toContain("codex");
+    // The stored config keeps its secondary (per-run degradation only).
+    expect(register.config.backends.secondary?.cli).toBe("codex");
+  });
+
   it("draws the full sample at rate 1, marked as Stichprobenkontrolle", async () => {
     await createTestProject({ adjudication_sample_rate: 1 });
     await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));

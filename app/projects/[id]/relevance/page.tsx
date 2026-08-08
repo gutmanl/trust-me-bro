@@ -1,6 +1,10 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
-import { SubpageHeader } from "@/app/components/ui";
-import { getRelevanceState, readProject } from "@/lib/pipeline";
+import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
+import {
+  getBackendsHealth,
+  getRelevanceState,
+  readProject,
+} from "@/lib/pipeline";
 import {
   formatTimestamp,
   STATUS_LABELS,
@@ -43,6 +47,7 @@ export default async function RelevancePage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const state = getRelevanceState(id, register);
+  const health = await getBackendsHealth(id);
   const badge = STATE_BADGES[state.status];
   const adopted = register.claims.filter(
     (claim) => claim.provenance.origin_project_id !== undefined,
@@ -77,7 +82,10 @@ export default async function RelevancePage(
       </div>
 
       {state.status !== "nicht_anwendbar" ? (
-        <RelevancePanel projectId={id} state={state} />
+        <>
+          <BackendHealthNotice projectId={id} health={health} mode="block" />
+          <RelevancePanel projectId={id} state={state} />
+        </>
       ) : null}
 
       {adopted.length > 0 ? (
