@@ -6,6 +6,8 @@
 export * from "./errors";
 export { decideClaim } from "./adjudication/decide";
 export type { AdjudicationDecisionInput } from "./adjudication/decide";
+export { buildAdjudicationQueue } from "./adjudication/queue";
+export type { QueueEntry } from "./adjudication/queue";
 // The effort-timer reducer is deliberately NOT re-exported here: its consumer
 // is a client hook, and the barrel transitively pulls node:fs modules. The
 // hook deep-imports the pure module (lib/pipeline/adjudication/effort-timer)

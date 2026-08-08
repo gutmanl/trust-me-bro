@@ -5,10 +5,15 @@ import { useState } from "react";
 
 import { SuccessBanner } from "@/app/components/ui";
 import { useJobStream } from "@/app/lib/useJobStream";
-import type { BriefingViewModel, ClaimsRegister } from "@/lib/pipeline";
+import type {
+  BriefingViewModel,
+  ClaimsRegister,
+  QueueEntry,
+} from "@/lib/pipeline";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimPanel } from "./ClaimPanel";
 import type { EvidenceDisplay } from "./evidence-display";
+import { QueuePanel } from "./QueuePanel";
 import { useEffortTimer } from "./useEffortTimer";
 
 /**
@@ -22,12 +27,14 @@ export function ReviewWorkspace({
   projectId,
   register,
   briefing,
+  queue,
   evidenceDisplay,
   verificationActive,
 }: {
   projectId: string;
   register: ClaimsRegister;
   briefing: BriefingViewModel;
+  queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
   verificationActive: boolean;
 }) {
@@ -79,7 +86,15 @@ export function ReviewWorkspace({
         </p>
       )}
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <aside className="w-full xl:w-72 xl:shrink-0">
+          <QueuePanel
+            entries={queue}
+            selectedClaimId={selectedClaimId}
+            onSelect={selectClaim}
+          />
+        </aside>
+
         <section className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">
             Briefing mit Belegen
@@ -91,7 +106,7 @@ export function ReviewWorkspace({
           />
         </section>
 
-        <aside className="w-full lg:w-[26rem] lg:shrink-0">
+        <aside className="w-full xl:w-[26rem] xl:shrink-0">
           <ClaimPanel
             projectId={projectId}
             claim={selectedClaim}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SubpageHeader } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import {
+  buildAdjudicationQueue,
   getBriefingViewModel,
   getVerificationState,
   readProject,
@@ -35,6 +36,7 @@ export default async function ReviewPage(
           projectId={id}
           register={register}
           briefing={briefing}
+          queue={buildAdjudicationQueue(register)}
           evidenceDisplay={buildEvidenceDisplayMap(id, register)}
           verificationActive={verificationState.status === "laeuft"}
         />
