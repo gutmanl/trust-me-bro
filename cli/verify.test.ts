@@ -12,78 +12,15 @@ import {
   zipBundle,
 } from "../lib/export";
 import type { BundleFiles } from "../lib/export";
-import { latestChainLink, sha256Hex } from "../lib/register";
-import { ChainAppender } from "../lib/register/chain";
-import type { ClaimsRegister } from "../lib/register/schema";
-import exampleProject from "../lib/register/schema/__fixtures__/example-project.json";
+import { latestChainLink } from "../lib/register";
+import type { ClaimsRegister } from "../lib/register";
+import {
+  chainedFixture,
+  fixtureBlobEntries,
+} from "../lib/register/schema/__fixtures__/chained-project";
 import { runVerify } from "./verify";
 
 let projectDir: string;
-
-/** Deterministic blob contents whose real SHA-256 replaces the fixture's
- * placeholder checksums, so blob integrity is actually checkable. */
-const BLOBS = {
-  briefing: Buffer.from("Das ist das eingefrorene Briefing.\n"),
-  snapshot: Buffer.from("%PDF-1.4 snapshot bytes\n"),
-  text: Buffer.from("median review time dropped\n"),
-};
-
-function blobPathFor(content: Buffer, ext: string): string {
-  const sha = sha256Hex(content);
-  return `blobs/${sha.slice(0, 2)}/${sha}.${ext}`;
-}
-
-/** Rebuilds the fixture's chain via ChainAppender so it is gapless and closed
- * (the appendix example intentionally elides seq 3–7), with REAL blob
- * checksums for the three blob contents. */
-function chainedFixture(): ClaimsRegister {
-  const register = structuredClone(exampleProject) as unknown as ClaimsRegister;
-  register.project.briefing_import = {
-    ...register.project.briefing_import!,
-    sha256: sha256Hex(BLOBS.briefing),
-    blob_path: blobPathFor(BLOBS.briefing, "md"),
-  };
-  const snapshot = register.sources[0].custom.snapshot!;
-  register.sources[0].custom.snapshot = {
-    ...snapshot,
-    sha256: sha256Hex(BLOBS.snapshot),
-    blob_path: blobPathFor(BLOBS.snapshot, "pdf"),
-    text_blob_path: blobPathFor(BLOBS.text, "txt"),
-  };
-
-  const historyEntries = register.claims[0].history;
-  const [frozen] = register.project_events;
-  register.claims[0].history = [];
-  register.project_events = [];
-  const appender = new ChainAppender(register);
-  register.project_events.push(
-    appender.append({
-      ...frozen,
-      seq: undefined,
-      prev_hash: undefined,
-      hash: undefined,
-    }) as never,
-  );
-  for (const entry of historyEntries) {
-    register.claims[0].history.push(
-      appender.append({
-        ...entry,
-        seq: undefined,
-        prev_hash: undefined,
-        hash: undefined,
-      }) as never,
-    );
-  }
-  return register;
-}
-
-function blobEntries(register: ClaimsRegister): [string, Buffer][] {
-  return [
-    [register.project.briefing_import!.blob_path, BLOBS.briefing],
-    [register.sources[0].custom.snapshot!.blob_path, BLOBS.snapshot],
-    [register.sources[0].custom.snapshot!.text_blob_path!, BLOBS.text],
-  ];
-}
 
 function writeClaims(register: ClaimsRegister): void {
   fs.writeFileSync(
@@ -93,7 +30,7 @@ function writeClaims(register: ClaimsRegister): void {
 }
 
 function writeBlobs(register: ClaimsRegister): void {
-  for (const [relativePath, content] of blobEntries(register)) {
+  for (const [relativePath, content] of fixtureBlobEntries(register)) {
     const absolute = path.join(projectDir, relativePath);
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, content);
@@ -108,7 +45,7 @@ function writeBundle(
   const files: BundleFiles = {
     "claims.json": bundleText.encode(`${JSON.stringify(register, null, 2)}\n`),
   };
-  for (const [relativePath, content] of blobEntries(register)) {
+  for (const [relativePath, content] of fixtureBlobEntries(register)) {
     files[relativePath] = new Uint8Array(content);
   }
   const manifest = buildManifest({
@@ -169,16 +106,19 @@ describe("tmb verify on a project directory", () => {
     const report = runVerify(projectDir);
     expect(report.ok).toBe(false);
     expect(report.messages.join("\n")).toContain(
-      `blob missing or checksum mismatch: ${blobPath}`,
+      `blob checksum mismatch: ${blobPath}`,
     );
   });
 
-  it("reports a missing referenced blob", () => {
+  it("reports missing referenced blobs with the lean-import hint", () => {
     const register = chainedFixture();
     writeClaims(register);
     const report = runVerify(projectDir);
     expect(report.ok).toBe(false);
     expect(report.messages.join("\n")).toContain("blob integrity FAILED");
+    expect(report.messages.join("\n")).toContain(
+      "blob missing (lean import without blobs?)",
+    );
   });
 
   it("reports schema violations before chain checks", () => {

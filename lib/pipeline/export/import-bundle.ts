@@ -74,7 +74,15 @@ export async function importProjectBundle(input: {
     );
   }
 
-  writeBundleToDirectory(files, targetDir);
+  // All-or-nothing materialization: a write failure midway (disk full,
+  // Windows-reserved name, permissions) must not leave a half-written
+  // directory behind that would block every retry under the same name.
+  try {
+    writeBundleToDirectory(files, targetDir);
+  } catch (error) {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    throw error;
+  }
 
   // briefing.md is a regenerable projection: re-render it from the frozen
   // blob. A lean bundle (blobs as checksum references) has no briefing blob

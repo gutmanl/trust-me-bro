@@ -7,9 +7,7 @@ import {
   unzipBundle,
   verifyBundleFiles,
 } from "../lib/export";
-import { createBlobStore } from "../lib/register/blobs";
-import { verifyChain } from "../lib/register/chain";
-import { ClaimsRegister } from "../lib/register/schema";
+import { ClaimsRegister, createBlobStore, verifyChain } from "../lib/register";
 
 export interface VerifyReport {
   ok: boolean;
@@ -79,11 +77,18 @@ function runVerifyDirectory(projectDir: string): VerifyReport {
 
   // Blob integrity against the snapshot checksums (TMB-42): every blob the
   // register references must exist and hash to its path-embedded checksum.
+  // A directory from a lean import legitimately lacks the contents — the
+  // report says so, but an integrity tool must not silently pass evidence
+  // it cannot check, so the result is still a failure (ratified decision).
   const blobs = createBlobStore(projectDir);
   const blobPaths = collectBlobPaths(parsed.data);
   const blobProblems = blobPaths
     .filter((blobPath) => !blobs.verifyIntegrity(blobPath))
-    .map((blobPath) => `  blob missing or checksum mismatch: ${blobPath}`);
+    .map((blobPath) =>
+      blobs.exists(blobPath)
+        ? `  blob checksum mismatch: ${blobPath}`
+        : `  blob missing (lean import without blobs?): ${blobPath}`,
+    );
   if (blobProblems.length > 0) {
     return {
       ok: false,

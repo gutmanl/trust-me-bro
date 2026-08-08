@@ -100,18 +100,16 @@ export function verifyBundleFiles(files: BundleFiles): BundleVerification {
   const listed = new Map(manifest.files.map((entry) => [entry.path, entry]));
   for (const entry of manifest.files) {
     const content = files[entry.path];
-    if (entry.included) {
-      if (!content) {
+    if (!content) {
+      // Absence is legitimate exactly for included:false entries (lean
+      // export: checksum references only).
+      if (entry.included) {
         problems.push({ type: "missing_file", path: entry.path });
-      } else if (sha256Hex(Buffer.from(content)) !== entry.sha256) {
-        problems.push({ type: "checksum_mismatch", path: entry.path });
       }
-    } else if (content) {
-      // Listed as excluded (lean export) but present anyway: verify like an
-      // included file would be.
-      if (sha256Hex(Buffer.from(content)) !== entry.sha256) {
-        problems.push({ type: "checksum_mismatch", path: entry.path });
-      }
+      continue;
+    }
+    if (sha256Hex(Buffer.from(content)) !== entry.sha256) {
+      problems.push({ type: "checksum_mismatch", path: entry.path });
     }
   }
   for (const path of Object.keys(files)) {
