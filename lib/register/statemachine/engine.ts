@@ -1,8 +1,8 @@
 import type { ActorId } from "../../identity/types";
 import type { ChainAppender } from "../chain/appender";
 import type { Claim } from "../schema/claim";
-import type { ClaimStatus } from "../schema/enums";
-import type { Decision, HistoryEntry } from "../schema/history";
+import type { ClaimStatus, RoutingReason } from "../schema/enums";
+import type { Decision, HistoryEntry, Revision } from "../schema/history";
 import { isAtomicClaimText } from "./atomicity";
 import {
   DecisionRequiredError,
@@ -17,6 +17,12 @@ export interface TransitionRequest {
   reason: string;
   at?: string;
   decision?: Decision;
+  /** Structured routing reason; only meaningful on transitions into
+   * `zur_adjudikation` (queue grouping, TMB-36). */
+  routing?: RoutingReason;
+  /** Text revision of the repair loop; only meaningful on the
+   * `beanstandet → ueberarbeitet` edge (TMB-37). */
+  revision?: Revision;
 }
 
 function actorKind(actor: ActorId): "system" | "human" {
@@ -49,18 +55,18 @@ function checkDecision(
       "decision object missing",
     );
   }
-  if (requirement === "category_null" && decision.category !== null) {
+  if (requirement === "category_null" && decision.categories.length !== 0) {
     throw new DecisionRequiredError(
       claim.id,
       request.to,
-      "a confirmation carries category null",
+      "a confirmation carries an empty categories array",
     );
   }
-  if (requirement === "category_required" && decision.category === null) {
+  if (requirement === "category_required" && decision.categories.length === 0) {
     throw new DecisionRequiredError(
       claim.id,
       request.to,
-      "a complaint requires a complaint category",
+      "a complaint requires at least one complaint category",
     );
   }
   if (
@@ -112,6 +118,8 @@ export function applyTransition(
     to_status: request.to,
     reason: request.reason,
     ...(request.decision ? { decision: request.decision } : {}),
+    ...(request.routing ? { routing: request.routing } : {}),
+    ...(request.revision ? { revision: request.revision } : {}),
   }) as HistoryEntry;
   claim.status = request.to;
   claim.history.push(entry);
@@ -148,7 +156,9 @@ export function createClaim(
       : "zur_adjudikation";
   // The claim starts with from_status null; applyTransition performs the
   // creation edge so it gets its gate check and chain link exactly like
-  // every later transition.
+  // every later transition. A missing Fundstelle is the routed condition
+  // (TMB-36 queue); the atomicity rejection stays unrouted — it is no value
+  // of the ratified RoutingReason enum and buckets as "ohne Zuordnung".
   const claim: Claim = {
     ...structuredClone(input.claim),
     status: null as unknown as ClaimStatus,
@@ -159,6 +169,9 @@ export function createClaim(
     actor: input.actor,
     reason: input.reason,
     at: input.at,
+    ...(to === "zur_adjudikation" && input.claim.evidence.length === 0
+      ? { routing: "ohne_beleg" as const }
+      : {}),
   });
   draft.claims.push(claim);
   return claim;

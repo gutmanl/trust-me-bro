@@ -417,21 +417,38 @@ describe("human adjudication", () => {
     ).rejects.toThrow(DecisionRequiredError);
   });
 
-  it("confirms with category null and records the decision", async () => {
+  it("confirms with empty categories and records the decision", async () => {
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
         to: "bestaetigt",
         actor: "human:lg",
         reason: "Manuell verifiziert.",
-        decision: { category: null, reviewed_evidence_ids: [], duration_s: 42 },
+        decision: { categories: [], reviewed_evidence_ids: [], duration_s: 42 },
       });
     });
     const claim = (await store.read()).claims[0];
     expect(claim.status).toBe("bestaetigt");
     expect(claim.history.at(-1)?.decision).toMatchObject({
-      category: null,
+      categories: [],
       duration_s: 42,
     });
+  });
+
+  it("rejects a confirmation that carries complaint categories", async () => {
+    await expect(
+      store.transaction((tx) =>
+        tx.transitionClaim("clm_0001", {
+          to: "bestaetigt",
+          actor: "human:lg",
+          reason: "Bestätigung mit Kategorie.",
+          decision: {
+            categories: ["sonstiges"],
+            reviewed_evidence_ids: [],
+            duration_s: 10,
+          },
+        }),
+      ),
+    ).rejects.toThrow(DecisionRequiredError);
   });
 
   it("requires a complaint category for beanstandet", async () => {
@@ -442,13 +459,34 @@ describe("human adjudication", () => {
           actor: "human:lg",
           reason: "Kategorie fehlt.",
           decision: {
-            category: null,
+            categories: [],
             reviewed_evidence_ids: [],
             duration_s: 10,
           },
         }),
       ),
     ).rejects.toThrow(DecisionRequiredError);
+  });
+
+  it("accepts multi-select complaints and records all categories", async () => {
+    await store.transaction((tx) => {
+      tx.transitionClaim("clm_0001", {
+        to: "beanstandet",
+        actor: "human:lg",
+        reason: "Aus dem Kontext gerissen und Quelle veraltet.",
+        decision: {
+          categories: ["aus_dem_kontext_gerissen", "quelle_veraltet"],
+          reviewed_evidence_ids: [],
+          duration_s: 30,
+        },
+      });
+    });
+    const claim = (await store.read()).claims[0];
+    expect(claim.status).toBe("beanstandet");
+    expect(claim.history.at(-1)?.decision?.categories).toEqual([
+      "aus_dem_kontext_gerissen",
+      "quelle_veraltet",
+    ]);
   });
 
   it("rejects system actors on human edges", async () => {
@@ -471,7 +509,7 @@ describe("human adjudication", () => {
           actor: "human:lg",
           reason: "Falsche Evidenz-IDs.",
           decision: {
-            category: null,
+            categories: [],
             reviewed_evidence_ids: ["ev_9999"],
             duration_s: 5,
           },
@@ -494,7 +532,7 @@ describe("repair loop", () => {
         actor: "human:lg",
         reason: "Wortlaut nicht in Quelle.",
         decision: {
-          category: "wortlaut_nicht_in_quelle",
+          categories: ["wortlaut_nicht_in_quelle"],
           reviewed_evidence_ids: [],
           duration_s: 60,
         },
@@ -519,6 +557,48 @@ describe("repair loop", () => {
     const claim = (await store.read()).claims[0];
     expect(claim.status).toBe("erfasst");
     expect(claim.history).toHaveLength(4);
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("records a text revision with the previous wording preserved", async () => {
+    const before = (await store.read()).claims[0].text;
+    await store.transaction((tx) => {
+      tx.reviseClaimText("clm_0001", "Abgeschwächte Neuformulierung.");
+      tx.transitionClaim("clm_0001", {
+        to: "ueberarbeitet",
+        actor: "human:lg",
+        reason: "Reparatur angenommen.",
+        revision: {
+          previous_text: before,
+          new_text: "Abgeschwächte Neuformulierung.",
+        },
+      });
+    });
+    const claim = (await store.read()).claims[0];
+    expect(claim.text).toBe("Abgeschwächte Neuformulierung.");
+    expect(claim.history.at(-1)?.revision).toEqual({
+      previous_text: before,
+      new_text: "Abgeschwächte Neuformulierung.",
+    });
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("carries the routing reason on escalation back to adjudication", async () => {
+    await store.transaction((tx) => {
+      tx.transitionClaim("clm_0001", {
+        to: "ueberarbeitet",
+        actor: "human:lg",
+        reason: "Reparatur angenommen.",
+      });
+      tx.transitionClaim("clm_0001", {
+        to: "zur_adjudikation",
+        actor: "system:reparatur",
+        reason: "Eskaliert nach erschöpften Reparaturzyklen.",
+        routing: "eskaliert",
+      });
+    });
+    const claim = (await store.read()).claims[0];
+    expect(claim.history.at(-1)?.routing).toBe("eskaliert");
     expect((await store.verify()).ok).toBe(true);
   });
 
@@ -552,7 +632,7 @@ describe("invalid transitions have zero side effects", () => {
           actor: "human:lg",
           reason: "Abkürzung verboten.",
           decision: {
-            category: null,
+            categories: [],
             reviewed_evidence_ids: [],
             duration_s: 1,
           },

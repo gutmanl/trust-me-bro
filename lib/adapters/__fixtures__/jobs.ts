@@ -58,7 +58,7 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
     claim: exampleClaim,
     evidence: [exampleEvidence],
     complaint: {
-      category: "leitsatz_nicht_herleitbar",
+      categories: ["leitsatz_nicht_herleitbar"],
       reason: "Der Auszug trägt die Verallgemeinerung nicht.",
     },
   } satisfies RepairInput,

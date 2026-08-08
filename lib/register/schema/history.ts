@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { ClaimStatus, ComplaintCategory, ProjectEventType } from "./enums";
+import {
+  ClaimStatus,
+  ComplaintCategory,
+  ProjectEventType,
+  RoutingReason,
+} from "./enums";
 import { ActorId, EvidenceId, IsoDateTime, Sha256Hex } from "./primitives";
 
 /**
@@ -16,16 +21,28 @@ export const ChainFields = z.strictObject({
 });
 
 /**
- * A human adjudication decision. `category` is null for confirmations and a
- * complaint category for objections; reviewed evidence ids and duration feed
+ * A human adjudication decision. `categories` is empty for confirmations and
+ * carries one or more complaint categories for objections (multi-select of
+ * the adjudication dialog, TMB-35); reviewed evidence ids and duration feed
  * the effort measures (A5) without separate logging infrastructure.
  */
 export const Decision = z.strictObject({
-  category: ComplaintCategory.nullable(),
+  categories: z.array(ComplaintCategory),
   reviewed_evidence_ids: z.array(EvidenceId),
   duration_s: z.number().min(0),
 });
 export type Decision = z.infer<typeof Decision>;
+
+/**
+ * Text revision of the repair loop (TMB-37): carried by the
+ * `beanstandet → ueberarbeitet` history entry so every previous wording
+ * stays reconstructable from the chain alone.
+ */
+export const Revision = z.strictObject({
+  previous_text: z.string().min(1),
+  new_text: z.string().min(1),
+});
+export type Revision = z.infer<typeof Revision>;
 
 /**
  * One status transition of a claim, appended by the status machine.
@@ -39,6 +56,8 @@ export const HistoryEntry = z.strictObject({
   to_status: ClaimStatus,
   reason: z.string().min(1),
   decision: Decision.optional(),
+  routing: RoutingReason.optional(),
+  revision: Revision.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
 });

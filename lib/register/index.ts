@@ -28,6 +28,7 @@ export { isAtomicClaimText } from "./statemachine/atomicity";
 // WHICH relation to persist without re-implementing the rules; the gates in
 // the transition table remain the sole authority at commit time.
 export { evaluateAutoConfirmation } from "./statemachine/auto-confirmation";
+export { allExistenceChecksPassed } from "./statemachine/transitions";
 export {
   latestJudgmentPerBackend,
   resolveEvidenceRelation,

@@ -98,6 +98,12 @@ export interface RegisterTransaction {
   transitionClaim(claimId: string, request: TransitionRequest): HistoryEntry;
   /** Adds evidence to a claim (repair: alternative Fundstelle). */
   addEvidence(claimId: string, evidence: Evidence): void;
+  /**
+   * Rewrites the claim wording during the repair loop (TMB-37). The previous
+   * wording is never lost: the caller records it in the accompanying
+   * `beanstandet → ueberarbeitet` transition's `revision` field.
+   */
+  reviseClaimText(claimId: string, newText: string): void;
   /** Records the stage-1 existence result for one piece of evidence. */
   setExistenceCheck(
     claimId: string,
@@ -378,6 +384,9 @@ function createTransaction(
     },
     addEvidence(claimId, evidence) {
       mutableClaim(claimId).evidence.push(structuredClone(evidence));
+    },
+    reviseClaimText(claimId, newText) {
+      mutableClaim(claimId).text = newText;
     },
     setExistenceCheck(claimId, evidenceId, result) {
       mutableEvidence(claimId, evidenceId).existence_check = { ...result };

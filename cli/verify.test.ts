@@ -15,7 +15,7 @@ let projectDir: string;
  * (the appendix example intentionally elides seq 3–8). */
 function chainedFixture(): ClaimsRegister {
   const register = structuredClone(exampleProject) as unknown as ClaimsRegister;
-  const [creation, adjudication] = register.claims[0].history;
+  const historyEntries = register.claims[0].history;
   const [frozen] = register.project_events;
   register.claims[0].history = [];
   register.project_events = [];
@@ -28,20 +28,16 @@ function chainedFixture(): ClaimsRegister {
       hash: undefined,
     }) as never,
   );
-  register.claims[0].history.push(
-    appender.append({
-      ...creation,
-      seq: undefined,
-      prev_hash: undefined,
-      hash: undefined,
-    }) as never,
-    appender.append({
-      ...adjudication,
-      seq: undefined,
-      prev_hash: undefined,
-      hash: undefined,
-    }) as never,
-  );
+  for (const entry of historyEntries) {
+    register.claims[0].history.push(
+      appender.append({
+        ...entry,
+        seq: undefined,
+        prev_hash: undefined,
+        hash: undefined,
+      }) as never,
+    );
+  }
   return register;
 }
 

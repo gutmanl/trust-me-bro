@@ -25,8 +25,10 @@ export interface TransitionDef {
   /** Which actor kind may take this edge. */
   actorKind: "system" | "human";
   gate: Gate;
-  /** Human adjudication edges must carry a decision object; null category =
-   * confirmation, non-null category = complaint. */
+  /** Human adjudication edges must carry a decision object; an empty
+   * `categories` array = confirmation, a non-empty one = complaint. The
+   * literal names predate the multi-select extension (TMB-35) and are kept
+   * to leave the pinned edge table untouched. */
   decision?: "category_null" | "category_required" | "optional";
 }
 
@@ -54,7 +56,12 @@ const hasNoEvidence: Gate = (claim) =>
     ? ok
     : fail("claim has evidence and belongs in erfasst");
 
-const allExistenceChecksPassed: Gate = (claim) => {
+/**
+ * Exported (like evaluateAutoConfirmation) so the repair pipeline can decide
+ * WHICH re-entry edge a revised claim takes without re-implementing the
+ * rule; the gate in the table remains the authority at commit time.
+ */
+export const allExistenceChecksPassed: Gate = (claim) => {
   if (claim.evidence.length === 0) {
     return fail("claim has no evidence");
   }

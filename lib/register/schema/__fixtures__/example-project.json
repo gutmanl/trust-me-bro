@@ -111,6 +111,17 @@
           "hash": "77e0b30000000000000000000000000000000000000000000000000000000000"
         },
         {
+          "seq": 8,
+          "at": "2026-08-01T13:59:12Z",
+          "actor": "system:stichprobe",
+          "from_status": "automatisch_bestaetigt",
+          "to_status": "zur_adjudikation",
+          "reason": "Stichprobenkontrolle (Lauf run_0001, Seed run_0001, Rate 0.1).",
+          "routing": "stichprobe",
+          "prev_hash": "9d31c40000000000000000000000000000000000000000000000000000000000",
+          "hash": "b12f090000000000000000000000000000000000000000000000000000000000"
+        },
+        {
           "seq": 9,
           "at": "2026-08-01T14:03:55Z",
           "actor": "human:lg",
@@ -118,7 +129,7 @@
           "to_status": "bestaetigt",
           "reason": "Stichprobenkontrolle: Fundstelle und Zahlenwert im Snapshot verifiziert.",
           "decision": {
-            "category": null,
+            "categories": [],
             "reviewed_evidence_ids": ["ev_0001"],
             "duration_s": 96
           },

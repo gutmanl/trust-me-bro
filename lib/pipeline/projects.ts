@@ -24,6 +24,9 @@ const MODEL_FAMILY: Record<BackendCli, string> = {
 
 export const DEFAULT_RUBRIC_VERSION = "se-evidenz-rubrik-v1";
 export const DEFAULT_ADJUDICATION_SAMPLE_RATE = 0.1;
+/** Repair cycles before the loop escalates to the reviewer (TMB-37); applied
+ * at point of use for registers whose config predates the field. */
+export const DEFAULT_MAX_REPAIR_CYCLES = 2;
 /** Second-opinion criteria (Divergenzregel): request the secondary backend's
  * judgment when the primary confidence is below the threshold or the primary
  * relation is not `stuetzt`. */
@@ -56,6 +59,7 @@ function buildProjectConfig(input: CreateProjectInput): ProjectConfig {
   return {
     rubric_version: DEFAULT_RUBRIC_VERSION,
     adjudication_sample_rate: DEFAULT_ADJUDICATION_SAMPLE_RATE,
+    max_repair_cycles: DEFAULT_MAX_REPAIR_CYCLES,
     backends: {
       primary: {
         cli: input.primaryCli,

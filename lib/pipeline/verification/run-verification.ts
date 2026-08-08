@@ -262,6 +262,9 @@ async function processClaim(
             : `Existenzprüfung nicht bestanden: ${failures
                 .map((failure) => failure.detail)
                 .join(" ")}`,
+        ...(failures.length > 0
+          ? { routing: "existenz_nicht_bestanden" as const }
+          : {}),
       });
       return tx.getClaim(claimId);
     });
@@ -297,6 +300,7 @@ async function processClaim(
         to: "zur_adjudikation",
         actor: ACTOR_PRECHECK,
         reason: `Prüfaufrufe endgültig gescheitert – eskaliert: ${stage23.message}`,
+        routing: "eskaliert",
       });
     });
     bracket.escalated += 1;
@@ -337,6 +341,7 @@ async function applyPreCheckResult(
         reason:
           "Divergenz der Backend-Urteile – Relation bleibt bis zur " +
           "Adjudikation offen, beide Urteile sind sichtbar.",
+        routing: "divergenz",
       });
       return "divergenz" as const;
     }
@@ -368,6 +373,7 @@ async function applyPreCheckResult(
       to: "zur_adjudikation",
       actor: ACTOR_PRECHECK,
       reason: `Nicht automatisch bestätigbar: ${verdict.reason}.`,
+      routing: "negative_vorpruefung",
     });
     return "zur_adjudikation" as const;
   });
@@ -415,6 +421,7 @@ async function drawSampleStep(
         to: "zur_adjudikation",
         actor: ACTOR_SAMPLE,
         reason: `Stichprobenkontrolle (Lauf ${runId}, Seed ${runId}, Rate ${sampleRate}).`,
+        routing: "stichprobe",
       });
     }
     const summary =

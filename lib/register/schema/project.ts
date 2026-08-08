@@ -59,6 +59,11 @@ export const ProjectConfig = z
   .strictObject({
     rubric_version: z.string().min(1),
     adjudication_sample_rate: z.number().min(0).max(1),
+    /** Repair cycles before the loop escalates back to adjudication instead
+     * of iterating endlessly (TMB-37). Optional like `second_opinion`:
+     * absence means the pipeline's code default applies (documented
+     * extension, additive). */
+    max_repair_cycles: z.int().min(1).optional(),
     backends: z.strictObject({
       primary: BackendRef,
       secondary: BackendRef.optional(),

@@ -95,6 +95,22 @@ export const CalibrationResult = z.enum([
 export type CalibrationResult = z.infer<typeof CalibrationResult>;
 
 /**
+ * Structured routing reason of a transition INTO `zur_adjudikation` (TMB-5,
+ * ratified 08.08.2026): the queue filters and groups by this field instead of
+ * parsing free-text reasons. Optional on history entries — entries from
+ * before this extension (and non-routing transitions) simply lack it.
+ */
+export const RoutingReason = z.enum([
+  "ohne_beleg",
+  "existenz_nicht_bestanden",
+  "divergenz",
+  "negative_vorpruefung",
+  "stichprobe",
+  "eskaliert",
+]);
+export type RoutingReason = z.infer<typeof RoutingReason>;
+
+/**
  * Project-wide events without a claim reference (file format appendix).
  * `verification_run_started`/`verification_run_completed` bracket a
  * TMB-4 verification run; the extraction bracket keeps its own pair so each

@@ -229,7 +229,7 @@ describe("full project lifecycle", () => {
           reason: "Fundstelle und Zahlenwert im Snapshot verifiziert.",
           at: "2026-08-06T10:02:00Z",
           decision: {
-            category: null,
+            categories: [],
             reviewed_evidence_ids: ["ev_0001"],
             duration_s: 96,
           },
@@ -244,7 +244,7 @@ describe("full project lifecycle", () => {
           reason: "Keine Fundstelle vorhanden.",
           at: "2026-08-06T10:10:00Z",
           decision: {
-            category: "wortlaut_nicht_in_quelle",
+            categories: ["wortlaut_nicht_in_quelle"],
             reviewed_evidence_ids: [],
             duration_s: 40,
           },
@@ -267,7 +267,7 @@ describe("full project lifecycle", () => {
           reason: "Weiterhin unbelegt.",
           at: "2026-08-06T10:13:00Z",
           decision: {
-            category: "wortlaut_nicht_in_quelle",
+            categories: ["wortlaut_nicht_in_quelle"],
             reviewed_evidence_ids: [],
             duration_s: 20,
           },

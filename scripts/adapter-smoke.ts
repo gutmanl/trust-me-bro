@@ -81,7 +81,7 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
       claim,
       evidence: [evidence],
       complaint: {
-        category: "leitsatz_nicht_herleitbar",
+        categories: ["leitsatz_nicht_herleitbar"],
         reason:
           "Die Verallgemeinerung über Studienkontexte hinaus trägt der Einzelbefund nicht.",
       },
