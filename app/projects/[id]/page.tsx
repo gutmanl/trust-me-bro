@@ -13,7 +13,14 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   return (
     <div className="space-y-6">
       <div>
-        <p className="font-mono text-xs text-slate-500">{summary.id}</p>
+        <p className="font-mono text-xs text-slate-500">
+          {summary.id}
+          {summary.origin_id ? (
+            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 font-sans">
+              importiert · Ursprungs-Id {summary.origin_id}
+            </span>
+          ) : null}
+        </p>
         <h1 className="mt-1 text-2xl font-semibold">
           {summary.research_question}
         </h1>

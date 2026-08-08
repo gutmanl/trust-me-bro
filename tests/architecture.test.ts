@@ -163,6 +163,8 @@ describe("public surface of lib/pipeline", () => {
     // TMB-39: the bundle download use-case; assembly stays internal.
     expect(surface.exportProjectBundle).toBeDefined();
     expect(surface.buildExportFilename).toBeUndefined();
+    // TMB-40: bundle import (verify in memory, then materialize).
+    expect(surface.importProjectBundle).toBeDefined();
     // Repair internals stay internal: the re-entry rule and cycle count are
     // reachable only through applyRepair.
     expect(surface.decideReEntry).toBeUndefined();
@@ -289,11 +291,20 @@ describe("module boundaries", () => {
     // lib/export is domain core beside lib/register: usable by the CLI
     // without pulling in lib/pipeline (job runner, orchestrator, Next.js
     // concerns) or lib/adapters. It may only use the register's public
-    // barrel — never its write internals.
+    // barrel — never its write internals, with ONE ratified exception
+    // mirroring the trace sink (TMB-20): the bundle materializer reuses the
+    // sanctioned atomic-write site instead of duplicating it (TMB-40).
+    const allowedAtomicWrite = path.join("lib", "export", "write-bundle.ts");
     for (const file of sourceFiles(path.join("lib", "export"))) {
       const content = read(file);
       expect(content, file).not.toMatch(/from\s+["'][^"']*\bpipeline\//);
       expect(content, file).not.toMatch(/from\s+["'][^"']*\badapters\//);
+      if (file === allowedAtomicWrite) {
+        expect(content, file).not.toMatch(
+          /from\s+["'][^"']*register\/(statemachine|chain)\//,
+        );
+        continue;
+      }
       expect(content, file).not.toMatch(
         /from\s+["'][^"']*register\/(persistence|statemachine|chain)\//,
       );

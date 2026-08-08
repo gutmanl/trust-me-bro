@@ -20,3 +20,4 @@ export type { BuildManifestInput, ManifestFileEntry } from "./manifest";
 export { collectBlobPaths } from "./blob-refs";
 export { describeBundleProblem, verifyBundleFiles } from "./verify-bundle";
 export type { BundleProblem, BundleVerification } from "./verify-bundle";
+export { writeBundleToDirectory } from "./write-bundle";

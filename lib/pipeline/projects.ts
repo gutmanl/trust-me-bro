@@ -50,7 +50,12 @@ export interface CreateProjectInput {
 }
 
 export interface ProjectSummary {
+  /** Routing identity: the workspace directory name (URL segment). */
   id: string;
+  /** Chain-bound inner project id, set only when it differs from `id` —
+   * i.e. for projects imported under a different workspace name (TMB-40).
+   * The genesis hash covers the inner id, so it is never rewritten. */
+  origin_id?: string;
   research_question: string;
   created_at: string;
   briefing_imported: boolean;
@@ -132,9 +137,15 @@ export async function createProject(
   }
 }
 
-function toSummary(register: ClaimsRegister): ProjectSummary {
+function toSummary(
+  directoryName: string,
+  register: ClaimsRegister,
+): ProjectSummary {
   return {
-    id: register.project.id,
+    id: directoryName,
+    ...(register.project.id !== directoryName
+      ? { origin_id: register.project.id }
+      : {}),
     research_question: register.project.research_question,
     created_at: register.project.created_at,
     briefing_imported: register.project.briefing_import !== undefined,
@@ -170,7 +181,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
       continue;
     }
     try {
-      summaries.push(toSummary(await store.read()));
+      summaries.push(toSummary(entry.name, await store.read()));
     } catch (error) {
       console.warn(`Projekt "${entry.name}" ist nicht lesbar:`, error);
     }
@@ -198,7 +209,7 @@ export function requireProjectStore(projectId: string): RegisterStore {
 export async function getProjectSummary(
   projectId: string,
 ): Promise<ProjectSummary> {
-  return toSummary(await requireProjectStore(projectId).read());
+  return toSummary(projectId, await requireProjectStore(projectId).read());
 }
 
 /** Full register of a project, for detail views. */

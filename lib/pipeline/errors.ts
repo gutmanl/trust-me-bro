@@ -99,6 +99,15 @@ export class AdjudicationPreconditionError extends PipelineError {}
 /** A repair step violates its preconditions (claim not beanstandet). */
 export class RepairPreconditionError extends PipelineError {}
 
+/** A .tmb bundle failed verification on import (format, manifest checksums,
+ * schema, hash chain or blob integrity) — aborted before any write, with
+ * the itemized diagnosis as the user-facing message. */
+export class InvalidBundleError extends PipelineError {
+  constructor(readonly diagnosis: string[]) {
+    super(`Bundle ist ungültig: ${diagnosis.join("; ")}`);
+  }
+}
+
 /** A requested blob does not exist in the project (or the path is not a
  * valid blob path — both map to not-found, no path internals leak). */
 export class UnknownBlobError extends PipelineError {

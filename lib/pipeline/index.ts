@@ -113,6 +113,9 @@ export type { TracesAggregate } from "./export/traces";
 // TMB-39: the .tmb bundle download.
 export { exportProjectBundle } from "./export/build-export";
 export type { ExportBundleResult } from "./export/build-export";
+// TMB-40: bundle import under a user-chosen workspace name.
+export { importProjectBundle } from "./export/import-bundle";
+export type { ImportBundleResult } from "./export/import-bundle";
 export type { ChainVerificationResult } from "../register";
 export type {
   BackendCli,
