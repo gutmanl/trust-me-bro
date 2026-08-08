@@ -1,7 +1,12 @@
 import path from "node:path";
 
 import { loadIdentityConfig } from "./config";
-import type { HumanActorId } from "./types";
+import {
+  defaultConfigFilePath,
+  readConfigFile,
+  writeConfigFile,
+} from "./config-file";
+import type { HumanActorId, IdentityConfig } from "./types";
 
 export type {
   ActorId,
@@ -11,6 +16,8 @@ export type {
   IdentityConfig,
 } from "./types";
 export { loadAdapterConfig, loadIdentityConfig } from "./config";
+export { isValidActorKuerzel } from "./config-file";
+export { IdentityNotConfiguredError } from "./errors";
 
 /**
  * Project directory names double as path segments below the workspace root,
@@ -41,4 +48,34 @@ export function resolveProjectDir(projectId: string): string {
     );
   }
   return path.join(getWorkspaceRoot(), projectId);
+}
+
+/**
+ * Whether an actor kuerzel is available from ANY source (env or stored
+ * file) — the cheap, never-throwing predicate the first-run gate (proxy.ts)
+ * consults on every request (TMB-47).
+ */
+export function isIdentityConfigured(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return (
+    env.TMB_ACTOR_KUERZEL !== undefined ||
+    readConfigFile(defaultConfigFilePath(env)) !== undefined
+  );
+}
+
+/**
+ * Persists the first-run configuration and returns the now-effective
+ * identity (re-read through the regular layering, so an env override keeps
+ * winning even directly after setup).
+ */
+export function writeIdentityConfig(input: {
+  actorKuerzel: string;
+  workspaceRoot?: string;
+}): IdentityConfig {
+  writeConfigFile(defaultConfigFilePath(), {
+    actorKuerzel: input.actorKuerzel,
+    workspaceRoot: input.workspaceRoot,
+  });
+  return loadIdentityConfig();
 }

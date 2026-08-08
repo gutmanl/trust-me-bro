@@ -124,6 +124,9 @@ export {
   listProjects,
   readProject,
 } from "./projects";
+// TMB-47: first-run setup — the gate predicate and the one mutation the
+// /setup page performs. Identity internals stay behind lib/identity.
+export { completeFirstRunSetup, isSetupComplete } from "./setup";
 // TMB-46: per-project settings with chain-audited changes; the diff
 // formatter stays internal.
 export { updateProjectConfig } from "./config";

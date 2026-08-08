@@ -136,6 +136,10 @@ export class UnknownBlobError extends PipelineError {
   }
 }
 
+/** First-run setup input is invalid (TMB-47: kuerzel outside the safe
+ * ASCII subset that actor ids hashed into the chain are restricted to). */
+export class InvalidIdentityInputError extends PipelineError {}
+
 /** One briefing per project: the original is the input extraction is
  * measured against; re-import would silently change that baseline. */
 export class BriefingAlreadyImportedError extends PipelineError {

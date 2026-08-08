@@ -185,6 +185,12 @@ describe("public surface of lib/pipeline", () => {
     // TMB-45: metrics accessor and CSV serialization.
     expect(surface.getProjectMetrics).toBeDefined();
     expect(surface.metricsToCsv).toBeDefined();
+    // TMB-47: first-run setup use-cases; identity internals stay behind
+    // lib/identity (the pipeline barrel never re-exports them).
+    expect(surface.isSetupComplete).toBeDefined();
+    expect(surface.completeFirstRunSetup).toBeDefined();
+    expect(surface.writeIdentityConfig).toBeUndefined();
+    expect(surface.isIdentityConfigured).toBeUndefined();
     // TMB-46: settings use-case; diff formatter and backends builder stay
     // internal.
     expect(surface.updateProjectConfig).toBeDefined();
@@ -255,19 +261,46 @@ describe("module boundaries", () => {
     }
   });
 
-  it("allows raw file writes only inside the atomic-write helper", () => {
-    const allowed = path.join(
-      "lib",
-      "register",
-      "persistence",
-      "atomic-write.ts",
-    );
+  it("allows raw file writes only inside the sanctioned write sites", () => {
+    const allowed = [
+      path.join("lib", "register", "persistence", "atomic-write.ts"),
+      // TMB-47: identity's config-file writer is the SECOND sanctioned
+      // site. It cannot reuse the register's atomic-write helper because
+      // lib/register depends on lib/identity — the import would invert the
+      // layering, so the few lines are deliberately duplicated there.
+      path.join("lib", "identity", "config-file.ts"),
+    ];
     for (const file of domainFiles) {
-      if (file === allowed) {
+      if (allowed.includes(file)) {
         continue;
       }
       expect(read(file), file).not.toMatch(
         /fs\.(writeFileSync|appendFileSync|createWriteStream)\(/,
+      );
+    }
+  });
+
+  it("confines workspace/project path resolution to its sanctioned callers", () => {
+    // TMB-47 acceptance: outside lib/identity no module resolves the
+    // workspace root or project paths on its own. The two read-side
+    // authorities (store lookup, project listing) and the import target
+    // resolution are the pinned exceptions; everything else receives
+    // directories from them.
+    const allowed = [
+      path.join("lib", "register", "persistence", "store.ts"),
+      path.join("lib", "pipeline", "projects.ts"),
+      path.join("lib", "pipeline", "export", "import-bundle.ts"),
+      path.join("lib", "pipeline", "setup.ts"),
+    ];
+    for (const file of domainFiles) {
+      if (
+        file.startsWith(path.join("lib", "identity")) ||
+        allowed.includes(file)
+      ) {
+        continue;
+      }
+      expect(read(file), file).not.toMatch(
+        /getWorkspaceRoot\(|resolveProjectDir\(/,
       );
     }
   });
