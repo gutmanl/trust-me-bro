@@ -96,7 +96,14 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  fs.rmSync(workspace, { recursive: true, force: true });
+  // maxRetries: Windows intermittently reports ENOTEMPTY while the just-
+  // finished run's file handles are still closing (observed flaky cleanup).
+  fs.rmSync(workspace, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 100,
+  });
 });
 
 async function prepareProject(): Promise<void> {
