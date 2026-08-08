@@ -72,7 +72,7 @@ export function useJobStream(options: JobStreamOptions): {
         const line = { key: counter, text };
         setLines((previous) => [...previous, line]);
       }
-      if (parsed.type === "run_completed") {
+      if (parsed.type === "run_completed" || parsed.type === "run_cancelled") {
         finish();
       }
     });

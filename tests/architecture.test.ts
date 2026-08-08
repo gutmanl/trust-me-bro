@@ -234,6 +234,11 @@ describe("public surface of lib/pipeline", () => {
     // or the orchestrator wiring directly from the web layer.
     expect(surface.getGlobalJobRunner).toBeUndefined();
     expect(surface.createJobRunner).toBeUndefined();
+    // TMB-50: cooperative run control is a use-case, the runner stays
+    // internal.
+    expect(surface.pauseRun).toBeDefined();
+    expect(surface.resumeRun).toBeDefined();
+    expect(surface.cancelRun).toBeDefined();
   });
 });
 

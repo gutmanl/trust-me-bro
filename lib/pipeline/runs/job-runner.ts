@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { RunActiveError } from "../errors";
-import type { RunHandle, RunItemOutcome, RunProgressEvent } from "./types";
+import type {
+  RunControlState,
+  RunHandle,
+  RunItemOutcome,
+  RunProgressEvent,
+} from "./types";
 
 /**
  * Minimal in-process job runner (TMB-25, Grobentwurf): per project at most
@@ -15,6 +20,13 @@ import type { RunHandle, RunItemOutcome, RunProgressEvent } from "./types";
  * stays project-wide across kinds (single writer), but each feature's state
  * derivation and SSE stream can address ITS runs — without the kind filter,
  * the extraction page would replay a verification run and vice versa.
+ *
+ * TMB-50 adds cooperative pause/cancel: both take effect BETWEEN items (an
+ * in-flight CLI call is never interrupted), pause blocks the loop on an
+ * internal gate the resume releases, cancel ends the loop early with a
+ * run_cancelled terminal event. Because every finished item committed
+ * durably, a cancelled run is never data loss — resuming is starting a new
+ * run, exactly like after a rate-limit pause or a crash.
  */
 
 export interface JobRunner {
@@ -70,6 +82,9 @@ export function createJobRunner(options?: {
       const events: RunProgressEvent<TResult>[] = [];
       const listeners = new Set<(event: RunProgressEvent<TResult>) => void>();
       let activeFlag = true;
+      let controlState: RunControlState = "running";
+      let pauseGate: { promise: Promise<void>; resolve: () => void } | null =
+        null;
 
       const emit = (event: RunProgressEvent<TResult>): void => {
         events.push(event);
@@ -77,6 +92,20 @@ export function createJobRunner(options?: {
           listener(event);
         }
       };
+
+      const armPauseGate = (): void => {
+        let release!: () => void;
+        const promise = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        pauseGate = { promise, resolve: release };
+      };
+
+      // Accessor helpers: the loop reads state that closures (the handle's
+      // control methods) mutate across awaits — TS narrowing cannot see
+      // those assignments, function calls return the unnarrowed type.
+      const isCancelRequested = (): boolean => controlState === "cancelling";
+      const armedGate = (): { promise: Promise<void> } | null => pauseGate;
 
       const done = (async () => {
         emit({
@@ -88,6 +117,18 @@ export function createJobRunner(options?: {
         let succeeded = 0;
         let failed = 0;
         for (const [index, item] of items.entries()) {
+          if (isCancelRequested()) {
+            break;
+          }
+          const gate = armedGate();
+          if (gate !== null) {
+            controlState = "paused";
+            emit({ type: "run_paused", runId });
+            await gate.promise;
+            if (isCancelRequested()) {
+              break;
+            }
+          }
           const id = itemId(item);
           emit({ type: "item_started", runId, itemId: id, index });
           let outcome: RunItemOutcome<TResult>;
@@ -110,7 +151,13 @@ export function createJobRunner(options?: {
         }
         activeFlag = false;
         active.delete(projectId);
-        emit({ type: "run_completed", runId, projectId, succeeded, failed });
+        if (isCancelRequested()) {
+          controlState = "cancelled";
+          emit({ type: "run_cancelled", runId, projectId, succeeded, failed });
+        } else {
+          controlState = "running";
+          emit({ type: "run_completed", runId, projectId, succeeded, failed });
+        }
         return { succeeded, failed };
       })();
 
@@ -123,6 +170,48 @@ export function createJobRunner(options?: {
         subscribe(listener) {
           listeners.add(listener);
           return () => listeners.delete(listener);
+        },
+        controlState: () => controlState,
+        requestPause() {
+          if (!activeFlag || controlState !== "running") {
+            return false;
+          }
+          controlState = "pausing";
+          armPauseGate();
+          emit({ type: "run_pause_requested", runId });
+          return true;
+        },
+        resume() {
+          if (
+            !activeFlag ||
+            (controlState !== "pausing" && controlState !== "paused")
+          ) {
+            return false;
+          }
+          const wasBlocked = controlState === "paused";
+          controlState = "running";
+          pauseGate?.resolve();
+          pauseGate = null;
+          if (wasBlocked) {
+            emit({ type: "run_resumed", runId });
+          }
+          return true;
+        },
+        requestCancel() {
+          if (
+            !activeFlag ||
+            controlState === "cancelling" ||
+            controlState === "cancelled"
+          ) {
+            return false;
+          }
+          controlState = "cancelling";
+          emit({ type: "run_cancel_requested", runId });
+          // A pending pause must not deadlock the cancel: release the gate,
+          // the loop wakes up and exits before the next item.
+          pauseGate?.resolve();
+          pauseGate = null;
+          return true;
         },
         done,
       };

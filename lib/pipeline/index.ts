@@ -81,7 +81,15 @@ export type {
   ExtractionState,
   ExtractionStatus,
 } from "./extraction/derive-state";
-export type { RunHandle, RunItemOutcome, RunProgressEvent } from "./runs/types";
+export type {
+  RunControlState,
+  RunHandle,
+  RunItemOutcome,
+  RunProgressEvent,
+} from "./runs/types";
+// TMB-50: cooperative run control, generic across run kinds; the runner
+// itself stays internal (runs start only through the use-cases).
+export { cancelRun, pauseRun, resumeRun } from "./runs/control";
 export {
   getVerificationRun,
   getVerificationState,

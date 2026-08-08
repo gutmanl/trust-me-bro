@@ -48,6 +48,14 @@ export class RunActiveError extends PipelineError {
   }
 }
 
+/** A pause/resume/cancel request found no active run of the addressed kind
+ * (TMB-50) — e.g. the run finished between page render and button click. */
+export class NoActiveRunError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(`Für Projekt "${projectId}" läuft aktuell kein Lauf.`);
+  }
+}
+
 /** Preconditions of the extraction run are not met. */
 export class ExtractionPreconditionError extends PipelineError {}
 

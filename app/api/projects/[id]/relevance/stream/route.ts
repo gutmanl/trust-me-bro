@@ -53,7 +53,10 @@ export async function GET(
         }
         unsubscribe = run.subscribe((event) => {
           controller.enqueue(sse("progress", event));
-          if (event.type === "run_completed") {
+          if (
+            event.type === "run_completed" ||
+            event.type === "run_cancelled"
+          ) {
             close();
           }
         });

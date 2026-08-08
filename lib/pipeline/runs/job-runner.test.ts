@@ -99,6 +99,138 @@ describe("createJobRunner", () => {
     expect(runner.currentRun("proj_a")?.runId).toBe(first.runId);
   });
 
+  it("pauses between items, the in-flight item still completes (TMB-50)", async () => {
+    const runner = createJobRunner();
+    let releaseFirst!: () => void;
+    const firstItem = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const started: string[] = [];
+    const handle = runner.submit(
+      "proj_a",
+      ["eins", "zwei"],
+      (item) => item,
+      async (item) => {
+        started.push(item);
+        if (item === "eins") {
+          await firstItem;
+        }
+        return item;
+      },
+    );
+
+    expect(handle.requestPause()).toBe(true);
+    expect(handle.controlState()).toBe("pausing");
+    // Pausing again is a no-op.
+    expect(handle.requestPause()).toBe(false);
+
+    releaseFirst();
+    // Give the loop a tick to reach the gate.
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(handle.controlState()).toBe("paused");
+    expect(started).toEqual(["eins"]); // item 2 never started
+
+    expect(handle.resume()).toBe(true);
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 2, failed: 0 });
+    expect(eventTypes(handle.eventsSoFar())).toEqual([
+      "run_started",
+      "item_started",
+      "run_pause_requested",
+      "item_completed",
+      "run_paused",
+      "run_resumed",
+      "item_started",
+      "item_completed",
+      "run_completed",
+    ]);
+  });
+
+  it("cancels before the next item and ends with run_cancelled (TMB-50)", async () => {
+    const runner = createJobRunner();
+    let releaseFirst!: () => void;
+    const firstItem = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const started: string[] = [];
+    const handle = runner.submit(
+      "proj_a",
+      ["eins", "zwei", "drei"],
+      (item) => item,
+      async (item) => {
+        started.push(item);
+        if (item === "eins") {
+          await firstItem;
+        }
+        return item;
+      },
+    );
+
+    expect(handle.requestCancel()).toBe(true);
+    expect(handle.controlState()).toBe("cancelling");
+    expect(handle.requestCancel()).toBe(false);
+
+    releaseFirst();
+    const result = await handle.done;
+    // The in-flight item finished and counted; the rest never started.
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+    expect(started).toEqual(["eins"]);
+    expect(handle.controlState()).toBe("cancelled");
+    expect(handle.isActive()).toBe(false);
+    expect(eventTypes(handle.eventsSoFar())).toEqual([
+      "run_started",
+      "item_started",
+      "run_cancel_requested",
+      "item_completed",
+      "run_cancelled",
+    ]);
+    // The project slot is free again.
+    expect(runner.isRunning("proj_a")).toBe(false);
+  });
+
+  it("cancel releases a pending pause instead of deadlocking (TMB-50)", async () => {
+    const runner = createJobRunner();
+    let releaseFirst!: () => void;
+    const firstItem = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const handle = runner.submit(
+      "proj_a",
+      ["eins", "zwei"],
+      (item) => item,
+      async (item) => {
+        if (item === "eins") {
+          await firstItem;
+        }
+        return item;
+      },
+    );
+
+    handle.requestPause();
+    releaseFirst();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(handle.controlState()).toBe("paused");
+
+    handle.requestCancel();
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+    expect(handle.controlState()).toBe("cancelled");
+  });
+
+  it("refuses control requests after the run finished", async () => {
+    const runner = createJobRunner();
+    const handle = runner.submit(
+      "proj_a",
+      ["x"],
+      (item) => item,
+      async () => "ok",
+    );
+    await handle.done;
+    expect(handle.requestPause()).toBe(false);
+    expect(handle.resume()).toBe(false);
+    expect(handle.requestCancel()).toBe(false);
+  });
+
   it("replays buffered events to late subscribers via eventsSoFar", async () => {
     const runner = createJobRunner();
     const handle = runner.submit(
