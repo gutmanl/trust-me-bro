@@ -17,3 +17,19 @@ export function countClaimsByStatus(
   }
   return counts;
 }
+
+/**
+ * Repair cycles of a claim, derived from the history instead of a stored
+ * counter (a second source of truth could desync from the chain it
+ * summarizes — same discipline as the sample population and the TMB-45
+ * metrics). One cycle = one accepted revision (`beanstandet →
+ * ueberarbeitet`). Relocated here from the repair pipeline with TMB-45: it
+ * is a pure history derivation shared by re-entry and metrics.
+ */
+export function countRepairCycles(claim: Claim): number {
+  return claim.history.filter(
+    (entry) =>
+      entry.from_status === "beanstandet" &&
+      entry.to_status === "ueberarbeitet",
+  ).length;
+}

@@ -12,6 +12,7 @@ export type {
   JobIO,
   JobKind,
   JobRequest,
+  RelevanceInput,
   RenderedPrompt,
   RepairInput,
   RubricInput,
@@ -53,6 +54,7 @@ export {
   ExtractedClaim,
   ExtractedEvidence,
   ExtractionOutput,
+  RelevanceOutput,
   RepairOutput,
   RubricOutput,
 } from "./schema";

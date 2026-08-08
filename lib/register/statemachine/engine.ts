@@ -176,3 +176,48 @@ export function createClaim(
   draft.claims.push(claim);
   return claim;
 }
+
+/**
+ * Creates an adopted claim of a warm run (TMB-43): unlike createClaim, the
+ * claim is created directly INTO its settled origin status — it arrives
+ * fully verified from the origin project and was never unchecked here. The
+ * adoption edges' gate enforces that the claim carries
+ * provenance.origin_project_id, so this path is structurally closed to
+ * normal extraction. Deliberately a separate capability from createClaim:
+ * least surprise — extraction can never accidentally mint a pre-confirmed
+ * claim.
+ */
+export function adoptClaim(
+  draft: { claims: Claim[] },
+  chain: ChainAppender,
+  input: {
+    claim: Omit<Claim, "status" | "history">;
+    /** The settled status the claim held in the origin project. */
+    targetStatus: "bestaetigt" | "automatisch_bestaetigt" | "verworfen";
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  },
+): Claim {
+  if (actorKind(input.actor) !== "system") {
+    throw new InvalidTransitionError(
+      input.claim.id,
+      null,
+      input.targetStatus,
+      "adoption is system-only",
+    );
+  }
+  const claim: Claim = {
+    ...structuredClone(input.claim),
+    status: null as unknown as ClaimStatus,
+    history: [],
+  };
+  applyTransition(claim, chain, {
+    to: input.targetStatus,
+    actor: input.actor,
+    reason: input.reason,
+    at: input.at,
+  });
+  draft.claims.push(claim);
+  return claim;
+}

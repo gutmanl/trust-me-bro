@@ -1,7 +1,6 @@
 import type { ClaimsRegister, Source, SourceType } from "../../register";
 import { getCurrentActor } from "../../identity";
 import {
-  DocumentFetchError,
   EmptySourceSetError,
   InvalidSourceInputError,
   SourceSetFrozenError,
@@ -14,7 +13,7 @@ import {
   issuedYear,
   type ManualMetadata,
 } from "./csl";
-import { extractFullText } from "../fulltext/extract";
+import { acquireDocument, buildSnapshot, extractTextOrError } from "./document";
 import type { HttpFetcher } from "./fetch-port";
 import { isHttpUrl, normalizeArxivId, normalizeDoi } from "./identifiers";
 import { nodeHttpFetcher } from "./node-http-fetcher";
@@ -38,20 +37,6 @@ export interface CaptureSourceInput {
 
 export interface CaptureDependencies {
   fetcher?: HttpFetcher;
-}
-
-const EXT_BY_CONTENT_TYPE: Record<string, string> = {
-  "application/pdf": "pdf",
-  "text/html": "html",
-  "application/xhtml+xml": "html",
-  "text/plain": "txt",
-  "text/markdown": "md",
-};
-
-function extFromFilename(filename: string): string {
-  const match = /\.([a-z0-9]+)$/i.exec(filename);
-  const ext = match ? match[1].toLowerCase() : "bin";
-  return ext === "htm" ? "html" : ext;
 }
 
 /** The one place that knows how "frozen" is encoded in the event log. */
@@ -121,49 +106,6 @@ async function resolveMetadata(
   }
 }
 
-async function acquireDocument(
-  input: CaptureSourceInput,
-  resolved: ResolvedMetadata,
-  fetcher: HttpFetcher,
-): Promise<{ content: Buffer; ext: string }> {
-  if (input.upload && input.upload.content.length > 0) {
-    return {
-      content: input.upload.content,
-      ext: extFromFilename(input.upload.filename),
-    };
-  }
-  const documentUrl = input.documentUrl?.trim() || resolved.documentUrl;
-  if (!documentUrl) {
-    throw new InvalidSourceInputError(
-      "Zum Einfrieren wird das Quellendokument benötigt: " +
-        "Dokument-URL angeben oder Datei hochladen.",
-    );
-  }
-  if (!isHttpUrl(documentUrl)) {
-    throw new InvalidSourceInputError(
-      `"${documentUrl}" ist keine http(s)-URL.`,
-    );
-  }
-  let resource;
-  try {
-    resource = await fetcher.fetch(documentUrl);
-  } catch (error) {
-    throw new DocumentFetchError(
-      `Quellendokument konnte nicht geladen werden (${documentUrl}).`,
-      { cause: error },
-    );
-  }
-  if (resource.status !== 200 || resource.body.length === 0) {
-    throw new DocumentFetchError(
-      `Quellendokument konnte nicht geladen werden (HTTP ${resource.status}, ${documentUrl}).`,
-    );
-  }
-  const ext =
-    (resource.contentType && EXT_BY_CONTENT_TYPE[resource.contentType]) ??
-    extFromFilename(new URL(documentUrl).pathname);
-  return { content: resource.body, ext };
-}
-
 /**
  * Captures one source (TMB-23): resolves DOI/arXiv identifiers to CSL-JSON
  * metadata (URL/upload sources carry manual metadata), downloads or accepts
@@ -179,20 +121,16 @@ export async function captureSource(
   const store = requireProjectStore(input.projectId);
 
   const { resolved, verified } = await resolveMetadata(input, fetcher);
-  const document = await acquireDocument(input, resolved, fetcher);
+  const document = await acquireDocument(
+    {
+      upload: input.upload,
+      documentUrl: input.documentUrl?.trim() || resolved.documentUrl,
+    },
+    fetcher,
+  );
   // TMB-24: the extracted full text is what stage 1 and the agent CLIs
-  // read. Extraction failures are recorded at the source entry — a source
-  // without text layer is captured visibly, not rejected.
-  let extraction: { text: string } | { error: string };
-  try {
-    extraction = {
-      text: await extractFullText(document.content, document.ext),
-    };
-  } catch (error) {
-    extraction = {
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+  // read; failures are recorded at the source entry, never fatal.
+  const extraction = await extractTextOrError(document.content, document.ext);
   const now = new Date().toISOString();
 
   return store.transaction((tx) => {
@@ -219,18 +157,7 @@ export async function captureSource(
       custom: {
         source_type: input.sourceType,
         ...(verified ? { identifier_verified: { status: true, at: now } } : {}),
-        snapshot: {
-          retrieved_at: now,
-          sha256: blob.sha256,
-          blob_path: blob.blobPath,
-          ...("text" in extraction
-            ? {
-                text_blob_path: store.blobs().put(extraction.text, "txt")
-                  .blobPath,
-              }
-            : { text_extraction_error: extraction.error }),
-          revision: 1,
-        },
+        snapshot: buildSnapshot(store.blobs(), blob, extraction, 1, now),
       },
     };
     tx.addSource(source);

@@ -81,6 +81,18 @@ export class SourceSetFrozenError extends PipelineError {
   }
 }
 
+/** A source revision violates its preconditions (TMB-44): the set is not
+ * frozen yet (unfrozen sources are simply re-captured), or the source has
+ * no snapshot. */
+export class SourceRevisionPreconditionError extends PipelineError {}
+
+/** The referenced source does not exist in the project. */
+export class UnknownSourceError extends PipelineError {
+  constructor(readonly sourceId: string) {
+    super(`Quelle "${sourceId}" existiert nicht.`);
+  }
+}
+
 /** Freezing needs at least one captured source. */
 export class EmptySourceSetError extends PipelineError {
   constructor(readonly projectId: string) {
@@ -90,6 +102,14 @@ export class EmptySourceSetError extends PipelineError {
     );
   }
 }
+
+/** A warm run violates its preconditions (TMB-43): origin not frozen, no
+ * settled claims to adopt, or the follow-up question equals the origin's. */
+export class WarmRunPreconditionError extends PipelineError {}
+
+/** The relevance check violates its preconditions (TMB-43): no adopted
+ * claims awaiting an Einschlägigkeitsprüfung. */
+export class RelevancePreconditionError extends PipelineError {}
 
 /** An adjudication decision violates its preconditions (claim not awaiting
  * adjudication, missing justification for "sonstiges", unmeasurable

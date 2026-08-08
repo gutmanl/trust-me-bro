@@ -67,6 +67,11 @@ describe("public surface of lib/register", () => {
     // projection, content hashing and the chain tip for the manifest. The
     // ChainAppender itself stays internal (assertion below).
     expect(surface.toPlainCsl).toBeDefined();
+    // TMB-45: metrics as a pure register projection; countRepairCycles
+    // relocated here from the repair pipeline (shared by re-entry and
+    // metrics, pure history derivation).
+    expect(surface.computeProjectMetrics).toBeDefined();
+    expect(surface.countRepairCycles).toBeDefined();
     expect(surface.sha256Hex).toBeDefined();
     expect(surface.sha256FromBlobPath).toBeDefined();
     expect(surface.latestChainLink).toBeDefined();
@@ -139,6 +144,18 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.captureSource).toBeDefined();
     expect(surface.freezeSourceSet).toBeDefined();
     expect(surface.isSourceSetFrozen).toBeDefined();
+    // TMB-44: source revision on a frozen set; the shared document
+    // acquisition helper stays internal.
+    expect(surface.reviseSource).toBeDefined();
+    expect(surface.acquireDocument).toBeUndefined();
+    // TMB-43: warm runs — creation and relevance check; the population
+    // selection and state derivation stay internal.
+    expect(surface.createWarmRunProject).toBeDefined();
+    expect(surface.startRelevanceCheck).toBeDefined();
+    expect(surface.getRelevanceState).toBeDefined();
+    expect(surface.getRelevanceRun).toBeDefined();
+    expect(surface.pendingRelevancePopulation).toBeUndefined();
+    expect(surface.deriveRelevanceState).toBeUndefined();
     expect(surface.formatCitation).toBeDefined();
     expect(surface.toPlainCsl).toBeDefined();
     expect(surface.startExtraction).toBeDefined();
@@ -165,6 +182,14 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.buildReferencesCsl).toBeUndefined();
     expect(surface.buildProvDocument).toBeUndefined();
     expect(surface.buildTracesAggregate).toBeUndefined();
+    // TMB-45: metrics accessor and CSV serialization.
+    expect(surface.getProjectMetrics).toBeDefined();
+    expect(surface.metricsToCsv).toBeDefined();
+    // TMB-46: settings use-case; diff formatter and backends builder stay
+    // internal.
+    expect(surface.updateProjectConfig).toBeDefined();
+    expect(surface.describeConfigChanges).toBeUndefined();
+    expect(surface.buildBackendsConfig).toBeUndefined();
     // TMB-39: the bundle download use-case; assembly stays internal.
     expect(surface.exportProjectBundle).toBeDefined();
     expect(surface.buildExportFilename).toBeUndefined();
@@ -506,13 +531,72 @@ describe("status model transition table", () => {
         actorKind: "system",
         decision: null,
       },
+      // Ratified with TMB-7: warm-run adoption creates claims directly in
+      // their settled origin status (gate: provenance.origin_project_id).
+      { from: null, to: "bestaetigt", actorKind: "system", decision: null },
+      {
+        from: null,
+        to: "automatisch_bestaetigt",
+        actorKind: "system",
+        decision: null,
+      },
+      { from: null, to: "verworfen", actorKind: "system", decision: null },
+      // Ratified with TMB-43: negative relevance of an adopted claim.
+      {
+        from: "bestaetigt",
+        to: "zur_adjudikation",
+        actorKind: "system",
+        decision: null,
+      },
+      // Ratified with TMB-44: source revision reopens settled claims.
+      {
+        from: "existenzgeprueft",
+        to: "nachpruefung_erforderlich",
+        actorKind: "system",
+        decision: null,
+      },
+      {
+        from: "vorgeprueft",
+        to: "nachpruefung_erforderlich",
+        actorKind: "system",
+        decision: null,
+      },
+      {
+        from: "automatisch_bestaetigt",
+        to: "nachpruefung_erforderlich",
+        actorKind: "system",
+        decision: null,
+      },
+      {
+        from: "bestaetigt",
+        to: "nachpruefung_erforderlich",
+        actorKind: "system",
+        decision: null,
+      },
+      {
+        from: "nachpruefung_erforderlich",
+        to: "erfasst",
+        actorKind: "system",
+        decision: null,
+      },
     ]);
   });
 
-  it("keeps bestaetigt and verworfen terminal and verworfen unreachable from adjudication", () => {
-    expect(TRANSITIONS.filter((def) => def.from === "bestaetigt")).toHaveLength(
-      0,
-    );
+  it("keeps verworfen outgoing-terminal and bestaetigt reopenable only by TMB-7's system edges", () => {
+    // Since TMB-7 bestaetigt is settled, not eternal: exactly two
+    // narrowly-scoped system edges reopen it (source revision → Nachprüfung,
+    // negative warm-run relevance → adjudication). verworfen stays fully
+    // terminal, and a discard is still never directly reachable from
+    // adjudication (repair is offered first).
+    expect(
+      TRANSITIONS.filter((def) => def.from === "bestaetigt").map((def) => ({
+        to: def.to,
+        actorKind: def.actorKind,
+      })),
+    ).toEqual([
+      { to: "zur_adjudikation", actorKind: "system" },
+      { to: "nachpruefung_erforderlich", actorKind: "system" },
+    ]);
     expect(TRANSITIONS.filter((def) => def.from === "verworfen")).toHaveLength(
       0,
     );
@@ -521,6 +605,15 @@ describe("status model transition table", () => {
         (def) => def.from === "zur_adjudikation" && def.to === "verworfen",
       ),
     ).toHaveLength(0);
+  });
+
+  it("has no duplicate (from, to, actorKind) triple (findTransition first-match trap)", () => {
+    const seen = new Set<string>();
+    for (const def of TRANSITIONS) {
+      const key = `${def.from}→${def.to}:${def.actorKind}`;
+      expect(seen.has(key), `duplicate transition ${key}`).toBe(false);
+      seen.add(key);
+    }
   });
 });
 

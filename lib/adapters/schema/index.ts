@@ -12,3 +12,4 @@ export {
 } from "./extraction";
 export { RubricOutput } from "./rubric";
 export { RepairOutput } from "./repair";
+export { RelevanceOutput } from "./relevance";

@@ -17,6 +17,7 @@ export const STATUS_LABELS: Record<ClaimStatus, string> = {
   beanstandet: "beanstandet",
   ueberarbeitet: "überarbeitet",
   verworfen: "verworfen",
+  nachpruefung_erforderlich: "Nachprüfung erforderlich",
 };
 
 /** Order in which status counts are displayed (workflow order). */
@@ -30,6 +31,7 @@ export const STATUS_ORDER: ClaimStatus[] = [
   "beanstandet",
   "ueberarbeitet",
   "verworfen",
+  "nachpruefung_erforderlich",
 ];
 
 export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
@@ -66,6 +68,8 @@ export function statusBadgeClassName(status: ClaimStatus): string {
   switch (status) {
     case "zur_adjudikation":
       return "bg-amber-100 text-amber-800";
+    case "nachpruefung_erforderlich":
+      return "bg-orange-100 text-orange-800";
     case "automatisch_bestaetigt":
     case "bestaetigt":
       return "bg-green-100 text-green-800";

@@ -232,13 +232,30 @@ async function processClaim(
   );
   if (
     !claim ||
-    (claim.status !== "erfasst" && claim.status !== "existenzgeprueft")
+    (claim.status !== "erfasst" &&
+      claim.status !== "existenzgeprueft" &&
+      claim.status !== "nachpruefung_erforderlich")
   ) {
     return {
       claimId,
       outcome: "uebersprungen",
       message: "Übersprungen – Status hat sich seit Laufbeginn geändert.",
     };
+  }
+
+  // Nachprüfung (TMB-44): re-admit to the full cascade — the revised source
+  // text can invalidate any stage's determination, so the claim re-enters
+  // at erfasst and rides the existing pipeline unchanged.
+  if (claim.status === "nachpruefung_erforderlich") {
+    claim = await context.store.transaction((tx) => {
+      tx.transitionClaim(claimId, {
+        to: "erfasst",
+        actor: ACTOR_STAGE1,
+        reason:
+          "Wiederaufnahme in die Prüfkaskade nach Bestandsrevision der Quelle(n).",
+      });
+      return tx.getClaim(claimId);
+    });
   }
 
   // Stage 1 (deterministic, always re-checked for erfasst claims).

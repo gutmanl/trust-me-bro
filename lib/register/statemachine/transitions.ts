@@ -132,10 +132,24 @@ const notAutoConfirmable: Gate = (claim) =>
 const always: Gate = () => ok;
 
 /**
- * All edges of the status model. Terminal states: bestaetigt and verworfen
- * (no outgoing edges). automatisch_bestaetigt is not fully terminal — the
- * configurable sample draw (Stichprobe) pulls claims back to adjudication;
- * the selection itself is pipeline logic, the edge only checks the shape.
+ * Adoption edges of the warm run (TMB-43) are only takeable by claims that
+ * actually carry adoption provenance — a structural, self-enforcing check:
+ * normal extraction can never mint a pre-confirmed claim because its claims
+ * have no origin project.
+ */
+const isAdopted: Gate = (claim) =>
+  claim.provenance.origin_project_id !== undefined
+    ? ok
+    : fail("adoption edge requires provenance.origin_project_id (Warmlauf)");
+
+/**
+ * All edges of the status model. Since TMB-7 only verworfen is fully
+ * terminal (no outgoing edges): bestaetigt and automatisch_bestaetigt are
+ * settled, not eternal — a source revision (TMB-44) or a negative relevance
+ * judgment of a warm run (TMB-43) reopens them via narrowly-scoped
+ * system-only edges. The sample draw (Stichprobe) pulls
+ * automatisch_bestaetigt claims back to adjudication as before; selection
+ * logic is pipeline work, the edges only check the shape.
  */
 export const TRANSITIONS: TransitionDef[] = [
   // Creation: the extraction gate of Nachweisvollständigkeit. Claims without
@@ -257,6 +271,72 @@ export const TRANSITIONS: TransitionDef[] = [
     to: "zur_adjudikation",
     actorKind: "system",
     gate: always,
+  },
+  // Warm-run adoption (TMB-43, ratified with the TMB-7 epic): an adopted
+  // claim is CREATED into its settled origin status — it was never
+  // "erfasst, ungeprüft" in this project, it arrives fully verified from
+  // the origin project (referenced in provenance.origin_project_id, which
+  // the gate enforces). This is the one sanctioned exception to the rule
+  // that claims start in erfasst or zur_adjudikation.
+  { from: null, to: "bestaetigt", actorKind: "system", gate: isAdopted },
+  {
+    from: null,
+    to: "automatisch_bestaetigt",
+    actorKind: "system",
+    gate: isAdopted,
+  },
+  { from: null, to: "verworfen", actorKind: "system", gate: isAdopted },
+  // Relevance check of the warm run (TMB-43): a negative/uncertain
+  // Einschlägigkeit judgment re-routes an adopted, previously human-confirmed
+  // claim to adjudication (routing einschlaegigkeit_negativ) — the human
+  // stays the final instance on whether the claim counts for the new
+  // question. automatisch_bestaetigt reuses its existing sample-draw edge.
+  {
+    from: "bestaetigt",
+    to: "zur_adjudikation",
+    actorKind: "system",
+    gate: isAdopted,
+  },
+  // Bestandsrevision (TMB-44): a source revision invalidates the machine
+  // determinations that referenced the old wording. Exactly the settled
+  // statuses are pulled back: erfasst self-heals (stage 1 always re-runs),
+  // zur_adjudikation/beanstandet/ueberarbeitet are mid human-workflow and
+  // stay untouched (the revision event is visible in the history), and
+  // verworfen stays terminal — a discard is not revived by new source text.
+  // WHEN these edges are taken is the revision use-case's decision,
+  // mirroring the sample-draw edge.
+  {
+    from: "existenzgeprueft",
+    to: "nachpruefung_erforderlich",
+    actorKind: "system",
+    gate: always,
+  },
+  {
+    from: "vorgeprueft",
+    to: "nachpruefung_erforderlich",
+    actorKind: "system",
+    gate: always,
+  },
+  {
+    from: "automatisch_bestaetigt",
+    to: "nachpruefung_erforderlich",
+    actorKind: "system",
+    gate: always,
+  },
+  {
+    from: "bestaetigt",
+    to: "nachpruefung_erforderlich",
+    actorKind: "system",
+    gate: always,
+  },
+  // Re-entry after Nachprüfung: always the full cascade from stage 1 —
+  // the revised source text can invalidate any stage's determination, and
+  // reusing the existing cascade needs zero new pipeline logic.
+  {
+    from: "nachpruefung_erforderlich",
+    to: "erfasst",
+    actorKind: "system",
+    gate: hasEvidence,
   },
 ];
 

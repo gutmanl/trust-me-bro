@@ -6,11 +6,14 @@ import type { Claim, ClaimsRegister } from "../../register";
  * epic: a crashed or paused run needs no bookkeeping of "where it stopped",
  * because each claim's status already says what remains. `erfasst` needs
  * stage 1 (always re-checked, it is cheap and deterministic);
- * `existenzgeprueft` needs stages 2+3.
+ * `existenzgeprueft` needs stages 2+3; `nachpruefung_erforderlich` (TMB-44)
+ * re-enters the full cascade against the revised source text.
  */
 export function pickUnfinishedClaims(register: ClaimsRegister): Claim[] {
   return register.claims.filter(
     (claim) =>
-      claim.status === "erfasst" || claim.status === "existenzgeprueft",
+      claim.status === "erfasst" ||
+      claim.status === "existenzgeprueft" ||
+      claim.status === "nachpruefung_erforderlich",
   );
 }

@@ -3,6 +3,7 @@ import type {
   ExtractionInput,
   JobIO,
   JobKind,
+  RelevanceInput,
   RenderedPrompt,
   RepairInput,
   RubricInput,
@@ -20,6 +21,7 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   attribution: "1.0.0",
   rubric: "1.0.0",
   repair: "1.0.0",
+  relevance: "1.0.0",
 };
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);
@@ -55,6 +57,14 @@ function buildVars(kind: JobKind, input: unknown): Record<string, string> {
         claim_json: json(typed.claim),
         evidence_json: json(typed.evidence),
         complaint_json: json(typed.complaint),
+      };
+    }
+    case "relevance": {
+      const typed = input as RelevanceInput;
+      return {
+        research_question: typed.research_question,
+        previous_research_question: typed.previous_research_question,
+        claim_json: json(typed.claim),
       };
     }
   }

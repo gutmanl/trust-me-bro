@@ -14,7 +14,13 @@ import { IsoDateTime, Sha256Hex } from "../../register";
 export const TraceEnvelope = z
   .strictObject({
     trace_id: z.uuid(),
-    method: z.enum(["extraction", "attribution", "rubric", "repair"]),
+    method: z.enum([
+      "extraction",
+      "attribution",
+      "rubric",
+      "repair",
+      "relevance",
+    ]),
     params: z.unknown(),
     backend: z.string().min(1),
     /** Null when the attempt failed before the backend reported a model. */

@@ -11,7 +11,7 @@ import type { Claim, Evidence } from "../../register";
 import { RepairPreconditionError } from "../errors";
 import { createProject } from "../projects";
 import { decideClaim } from "../adjudication/decide";
-import { countRepairCycles } from "./cycle-count";
+import { countRepairCycles } from "../../register";
 import { decideReEntry } from "./re-entry";
 import { applyRepair, discardClaim, proposeRepair } from "./run-repair";
 

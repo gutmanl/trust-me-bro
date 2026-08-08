@@ -47,6 +47,11 @@ export const SourceCustom = z.strictObject({
   source_type: SourceType,
   identifier_verified: IdentifierVerification.optional(),
   snapshot: SourceSnapshot.optional(),
+  /** Superseded snapshots of earlier revisions (TMB-44), append-only in
+   * revision order. The old blobs stay referenced from claims.json — a
+   * revision makes them historical, never unreachable (old and new
+   * revision coexist; documented extension, additive). */
+  previous_snapshots: z.array(SourceSnapshot).optional(),
 });
 
 /**

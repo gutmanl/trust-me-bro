@@ -24,9 +24,14 @@ import {
 import { withProjectLock } from "./lock";
 import { findIntegrityProblems } from "./validate";
 import { renderBriefing } from "../projection/render-briefing";
-import { applyTransition, createClaim } from "../statemachine/engine";
+import {
+  adoptClaim,
+  applyTransition,
+  createClaim,
+} from "../statemachine/engine";
 import type { TransitionRequest } from "../statemachine/engine";
 import type { Evidence, Judgment } from "../schema/evidence";
+import type { SourceSnapshot } from "../schema/source";
 import type {
   CalibrationResult,
   RelationType,
@@ -91,6 +96,37 @@ export interface RegisterTransaction {
     reason: string;
     at?: string;
   }): Claim;
+  /**
+   * Creates an adopted claim of a warm run (TMB-43) directly in its settled
+   * origin status. The adoption edges' gate requires
+   * provenance.origin_project_id, so extraction can never take this path.
+   */
+  adoptClaim(input: {
+    claim: Omit<Claim, "status" | "history">;
+    targetStatus: "bestaetigt" | "automatisch_bestaetigt" | "verworfen";
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): Claim;
+  /**
+   * Rotates a frozen source's snapshot to a new revision (TMB-44): the
+   * superseded snapshot moves to previous_snapshots (never lost), the new
+   * one becomes current, and the project-wide source_set_revision advances.
+   * The caller is responsible for the checksum-identical short-circuit —
+   * this capability, once invoked, always performs a revision.
+   */
+  reviseSource(sourceId: string, snapshot: SourceSnapshot): void;
+  /**
+   * Replaces the project configuration (TMB-46) and appends the
+   * config_changed event carrying the complete before/after pair — the sole
+   * way to change config; a change past the audit trail is impossible.
+   */
+  updateConfig(input: {
+    config: ProjectConfig;
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): ProjectEvent;
   /**
    * The sole status-changing capability: checks edge, gate and decision
    * requirement, then appends exactly one chain-linked history entry.
@@ -376,6 +412,46 @@ function createTransaction(
     },
     addClaim(input) {
       return structuredClone(createClaim(draft, chain, input));
+    },
+    adoptClaim(input) {
+      return structuredClone(adoptClaim(draft, chain, input));
+    },
+    reviseSource(sourceId, snapshot) {
+      const source = draft.sources.find(
+        (candidate) => candidate.id === sourceId,
+      );
+      if (!source) {
+        throw new Error(`unknown source ${sourceId}`);
+      }
+      const superseded = source.custom.snapshot;
+      if (!superseded) {
+        throw new Error(`source ${sourceId} has no snapshot to revise`);
+      }
+      if (snapshot.revision !== superseded.revision + 1) {
+        throw new Error(
+          `source ${sourceId}: revision must advance ${superseded.revision} → ` +
+            `${superseded.revision + 1}, got ${snapshot.revision}`,
+        );
+      }
+      source.custom.previous_snapshots = [
+        ...(source.custom.previous_snapshots ?? []),
+        superseded,
+      ];
+      source.custom.snapshot = structuredClone(snapshot);
+      draft.project.source_set_revision += 1;
+    },
+    updateConfig({ config, actor, reason, at }) {
+      const previous = structuredClone(draft.config);
+      draft.config = structuredClone(config);
+      const entry = chain.append({
+        at: at ?? new Date().toISOString(),
+        actor,
+        event: "config_changed",
+        reason,
+        config_change: { previous, next: structuredClone(config) },
+      }) as ProjectEvent;
+      draft.project_events.push(entry);
+      return entry;
     },
     transitionClaim(claimId, request) {
       return structuredClone(

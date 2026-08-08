@@ -39,6 +39,10 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
     suggested_text: "Mock-Vorschlag einer abgeschwächten Formulierung.",
     reasoning: "Mock-Begründung des Reparaturvorschlags.",
   },
+  relevance: {
+    einschlaegig: "ja",
+    reasoning: "Mock-Einschätzung: Claim betrifft die neue Recherchefrage.",
+  },
 };
 
 export interface MockBackendOptions {

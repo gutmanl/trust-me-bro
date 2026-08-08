@@ -8,17 +8,20 @@ import type {
 } from "../../register";
 import type { AttributionOutput } from "../schema/attribution";
 import type { ExtractionOutput } from "../schema/extraction";
+import type { RelevanceOutput } from "../schema/relevance";
 import type { RepairOutput } from "../schema/repair";
 import type { RubricOutput } from "../schema/rubric";
 
 /**
- * Job model of the adapter layer: the four LLM verification steps of the
- * concept (extraction, attribution judgment, rubric pre-assessment, repair
- * proposal) as data. A job is stateless and self-contained — everything the
- * backend needs, including the rendered prompt, travels in the request, so
- * any single call is individually repeatable (divergence rule, RQ3 reruns).
+ * Job model of the adapter layer: the LLM verification steps of the concept
+ * (extraction, attribution judgment, rubric pre-assessment, repair proposal,
+ * and — since TMB-43 — the relevance check of warm runs) as data. A job is
+ * stateless and self-contained — everything the backend needs, including the
+ * rendered prompt, travels in the request, so any single call is
+ * individually repeatable (divergence rule, RQ3 reruns).
  */
-export type JobKind = "extraction" | "attribution" | "rubric" | "repair";
+export type JobKind =
+  "extraction" | "attribution" | "rubric" | "repair" | "relevance";
 
 type LocatorValue = z.infer<typeof Locator>;
 
@@ -76,6 +79,16 @@ export interface RepairInput {
   };
 }
 
+/** Relevance check of a warm run (TMB-43): only the claim's bearing on the
+ * NEW research question is judged — existence and attribution stand. */
+export interface RelevanceInput {
+  readonly research_question: string;
+  /** The origin project's question, for contrast; "(nicht verfügbar)" when
+   * the origin project cannot be read anymore. */
+  readonly previous_research_question: string;
+  readonly claim: ClaimContext;
+}
+
 /**
  * Compile-time mapping job kind → input/output shapes. `Backend.invoke<K>`
  * indexes into this instead of switching over a union, so callers get the
@@ -86,6 +99,7 @@ export interface JobIO {
   attribution: { input: AttributionInput; output: AttributionOutput };
   rubric: { input: RubricInput; output: RubricOutput };
   repair: { input: RepairInput; output: RepairOutput };
+  relevance: { input: RelevanceInput; output: RelevanceOutput };
 }
 
 /** A prompt template resolved to concrete text, identified for the trace. */

@@ -18,6 +18,7 @@ import {
   ProjectAlreadyExistsError,
   UnknownProjectError,
 } from "./errors";
+import { pendingRelevancePopulation } from "./warm/select-claims";
 
 /** The two agent CLIs the registry knows; the model family follows the CLI. */
 export type BackendCli = "claude" | "codex";
@@ -63,6 +64,33 @@ export interface ProjectSummary {
   claim_counts: Record<ClaimStatus, number>;
   total_claims: number;
   last_change_at: string;
+  /** Claims adopted from another project (warm run, TMB-43). */
+  adopted_claims: number;
+  /** Adopted claims still awaiting a completed relevance sweep. */
+  pending_relevance: number;
+}
+
+/** The backends block from the two-CLI registry; shared by project creation
+ * and the settings use-case (TMB-46) so the CLI→family mapping has one
+ * home. Not part of the public barrel. */
+export function buildBackendsConfig(
+  primaryCli: BackendCli,
+  secondaryCli?: BackendCli,
+): ProjectConfig["backends"] {
+  return {
+    primary: {
+      cli: primaryCli,
+      model_family: MODEL_FAMILY[primaryCli],
+    },
+    ...(secondaryCli
+      ? {
+          secondary: {
+            cli: secondaryCli,
+            model_family: MODEL_FAMILY[secondaryCli],
+          },
+        }
+      : {}),
+  };
 }
 
 function buildProjectConfig(input: CreateProjectInput): ProjectConfig {
@@ -70,20 +98,7 @@ function buildProjectConfig(input: CreateProjectInput): ProjectConfig {
     rubric_version: DEFAULT_RUBRIC_VERSION,
     adjudication_sample_rate: DEFAULT_ADJUDICATION_SAMPLE_RATE,
     max_repair_cycles: DEFAULT_MAX_REPAIR_CYCLES,
-    backends: {
-      primary: {
-        cli: input.primaryCli,
-        model_family: MODEL_FAMILY[input.primaryCli],
-      },
-      ...(input.secondaryCli
-        ? {
-            secondary: {
-              cli: input.secondaryCli,
-              model_family: MODEL_FAMILY[input.secondaryCli],
-            },
-          }
-        : {}),
-    },
+    backends: buildBackendsConfig(input.primaryCli, input.secondaryCli),
     // Auto-enabled exactly when a second model family exists; single-backend
     // projects stay valid and simply never trigger second opinions.
     ...(input.secondaryCli ? { second_opinion: DEFAULT_SECOND_OPINION } : {}),
@@ -153,6 +168,13 @@ function toSummary(
     claim_counts: countClaimsByStatus(register.claims),
     total_claims: register.claims.length,
     last_change_at: lastActivityAt(register),
+    adopted_claims: register.claims.filter(
+      (claim) => claim.provenance.origin_project_id !== undefined,
+    ).length,
+    pending_relevance: pendingRelevancePopulation(
+      register.claims,
+      register.project_events,
+    ).length,
   };
 }
 

@@ -152,13 +152,51 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
               Adjudizieren und reparieren
             </Link>
           </li>
+          {summary.adopted_claims > 0 ? (
+            <li className="flex items-center gap-2">
+              <span
+                className={
+                  summary.pending_relevance === 0
+                    ? "text-green-600"
+                    : "text-slate-400"
+                }
+              >
+                {summary.pending_relevance === 0 ? "✓" : "○"}
+              </span>
+              <Link
+                href={`/projects/${summary.id}/relevance`}
+                className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+              >
+                Einschlägigkeit der übernommenen Claims prüfen (
+                {summary.adopted_claims} übernommen)
+              </Link>
+            </li>
+          ) : null}
         </ol>
-        <p className="mt-3 text-sm">
+        <p className="mt-3 flex flex-wrap gap-x-4 text-sm">
           <Link
             href={`/projects/${summary.id}/history`}
             className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
           >
             Verlauf der Append-only-Historie ansehen
+          </Link>
+          <Link
+            href={`/projects/${summary.id}/warm-run`}
+            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+          >
+            Folgefrage als warmen Lauf starten
+          </Link>
+          <Link
+            href={`/projects/${summary.id}/metrics`}
+            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+          >
+            Auswertung (Messgrößen) ansehen
+          </Link>
+          <Link
+            href={`/projects/${summary.id}/settings`}
+            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+          >
+            Einstellungen
           </Link>
         </p>
       </section>

@@ -68,7 +68,15 @@ export async function startExtraction(
       "Vor der Extraktion muss der Quellenbestand eingefroren sein.",
     );
   }
-  if (register.claims.length > 0) {
+  // Adopted claims of a warm run (TMB-43) do not block the project's own
+  // one-shot extraction; only native (locally extracted) claims do.
+  // nextClaimId scans ALL existing ids, so fresh claims mint past the
+  // highest adopted id — no collision possible.
+  if (
+    register.claims.some(
+      (claim) => claim.provenance.origin_project_id === undefined,
+    )
+  ) {
     throw new ExtractionAlreadyRanError(projectId);
   }
 

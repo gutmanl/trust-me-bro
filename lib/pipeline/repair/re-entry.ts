@@ -1,6 +1,6 @@
 import type { Claim } from "../../register";
 import { allExistenceChecksPassed } from "../../register";
-import { countRepairCycles } from "./cycle-count";
+import { countRepairCycles } from "../../register";
 
 /**
  * Which re-entry edge a just-revised (`ueberarbeitet`) claim takes (TMB-37,

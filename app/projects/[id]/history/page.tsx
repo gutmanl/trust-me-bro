@@ -29,6 +29,9 @@ const EVENT_LABELS: Record<string, string> = {
   batch_run_completed: "Extraktionslauf beendet",
   verification_run_started: "Prüflauf gestartet",
   verification_run_completed: "Prüflauf beendet",
+  relevance_run_started: "Einschlägigkeitsprüfung gestartet",
+  relevance_run_completed: "Einschlägigkeitsprüfung beendet",
+  config_changed: "Konfiguration geändert",
 };
 
 export default async function HistoryPage(
@@ -159,6 +162,17 @@ export default async function HistoryPage(
                   Neufassung: „{item.entry.revision.new_text}“
                 </p>
               </div>
+            ) : null}
+
+            {item.kind === "project" && item.entry.config_change ? (
+              <details className="mt-2 rounded-md border border-slate-100 bg-slate-50 p-2 text-xs">
+                <summary className="cursor-pointer text-slate-500">
+                  Konfiguration vorher/nachher (vollständig)
+                </summary>
+                <pre className="mt-1 overflow-x-auto text-slate-700">
+                  {JSON.stringify(item.entry.config_change, null, 2)}
+                </pre>
+              </details>
             ) : null}
           </li>
         ))}

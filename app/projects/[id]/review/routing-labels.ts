@@ -8,6 +8,7 @@ export const ROUTING_LABELS: Record<RoutingReason, string> = {
   negative_vorpruefung: "negative Vorprüfung",
   stichprobe: "Stichprobe",
   eskaliert: "eskaliert",
+  einschlaegigkeit_negativ: "Einschlägigkeit (warmer Lauf) negativ/unsicher",
 };
 
 export const ROUTING_ORDER: RoutingReason[] = [
@@ -15,6 +16,7 @@ export const ROUTING_ORDER: RoutingReason[] = [
   "negative_vorpruefung",
   "divergenz",
   "ohne_beleg",
+  "einschlaegigkeit_negativ",
   "stichprobe",
   "eskaliert",
 ];

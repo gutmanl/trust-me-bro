@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
-import { captureSource, freezeSourceSet } from "@/lib/pipeline";
+import { captureSource, freezeSourceSet, reviseSource } from "@/lib/pipeline";
 import type { CaptureKind, CaptureSourceInput } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 
@@ -72,6 +72,46 @@ export async function captureSourceAction(
   }
   revalidatePath(`/projects/${projectId}/sources`);
   return { error: null, captured: result.value.id };
+}
+
+export interface ReviseFormState {
+  error: string | null;
+  /** Set after a successful submit: whether a new revision was created. */
+  revised?: boolean;
+  newRevision?: number;
+  recheckedCount?: number;
+}
+
+export async function reviseSourceAction(
+  projectId: string,
+  sourceId: string,
+  _previous: ReviseFormState,
+  formData: FormData,
+): Promise<ReviseFormState> {
+  const input = {
+    projectId,
+    sourceId,
+    documentUrl: optional(formData.get("document_url")),
+    upload: undefined as { content: Buffer; filename: string } | undefined,
+  };
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    input.upload = {
+      content: Buffer.from(await file.arrayBuffer()),
+      filename: file.name,
+    };
+  }
+  const result = await runPipelineAction(() => reviseSource(input));
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}/sources`);
+  return {
+    error: null,
+    revised: result.value.revised,
+    newRevision: result.value.newRevision,
+    recheckedCount: result.value.recheckedClaimIds.length,
+  };
 }
 
 export async function freezeSourceSetAction(

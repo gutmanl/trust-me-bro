@@ -63,6 +63,9 @@ export {
   isSourceSetFrozen,
 } from "./sources/capture";
 export type { CaptureKind, CaptureSourceInput } from "./sources/capture";
+// TMB-44: source revision on a frozen set.
+export { reviseSource } from "./sources/revise";
+export type { ReviseSourceInput, ReviseSourceResult } from "./sources/revise";
 export { formatCitation, toPlainCsl } from "./sources/csl";
 export type { ManualMetadata } from "./sources/csl";
 export {
@@ -93,6 +96,24 @@ export type {
   VerificationState,
   VerificationStatus,
 } from "./verification/derive-state";
+// TMB-43: warm runs — follow-up project creation with claim adoption and
+// the relevance check. Selection and state derivation stay internal.
+export { createWarmRunProject } from "./warm/create-warm-run";
+export type {
+  CreateWarmRunInput,
+  CreateWarmRunResult,
+} from "./warm/create-warm-run";
+export {
+  getRelevanceRun,
+  getRelevanceState,
+  startRelevanceCheck,
+} from "./warm/run-relevance";
+export type {
+  RelevanceDependencies,
+  RelevanceItemOutcome,
+  RelevanceItemResult,
+} from "./warm/run-relevance";
+export type { RelevanceState, RelevanceStatus } from "./warm/derive-state";
 export {
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
@@ -103,6 +124,18 @@ export {
   listProjects,
   readProject,
 } from "./projects";
+// TMB-46: per-project settings with chain-audited changes; the diff
+// formatter stays internal.
+export { updateProjectConfig } from "./config";
+export type {
+  UpdateProjectConfigInput,
+  UpdateProjectConfigResult,
+} from "./config";
+// TMB-45: evaluation metrics — freshly computed from the register on every
+// call, never persisted; the pure computation lives in the register's
+// projection layer.
+export { getProjectMetrics, metricsToCsv } from "./metrics";
+export type { ClaimMetricsRow, ProjectMetrics } from "../register";
 // TMB-41: the three derived export files, standalone AND inside the bundle
 // from the same builders (no drift possible). The pure build functions stay
 // internal; the web layer sees only the per-project accessors.

@@ -44,8 +44,12 @@ export type {
   BriefingViewModel,
   ClaimMarkerVM,
 } from "./projection/briefing-view";
-export { countClaimsByStatus } from "./projection/counts";
+export { countClaimsByStatus, countRepairCycles } from "./projection/counts";
 export { lastActivityAt } from "./projection/activity";
+// TMB-45: evaluation metrics as pure derivations over the register — the
+// history is the single source, nothing is persisted.
+export { computeProjectMetrics } from "./projection/metrics";
+export type { ClaimMetricsRow, ProjectMetrics } from "./projection/metrics";
 // F4 filter projection (plain CSL-JSON item), shared by source capture and
 // the export epic's references.csl.json derivation.
 export { toPlainCsl } from "./projection/csl";

@@ -12,7 +12,7 @@ function baseRegister(): ClaimsRegister {
 describe("countClaimsByStatus", () => {
   it("returns a zeroed record for every status of the model", () => {
     const counts = countClaimsByStatus([]);
-    expect(Object.values(counts)).toHaveLength(9);
+    expect(Object.values(counts)).toHaveLength(10);
     expect(Object.values(counts).every((count) => count === 0)).toBe(true);
   });
 

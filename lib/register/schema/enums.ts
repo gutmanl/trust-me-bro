@@ -6,7 +6,14 @@ import { z } from "zod";
  * (file format appendix: the mapping is one-to-one and normative).
  */
 
-/** Claim lifecycle per the status model table in the concept chapter. */
+/**
+ * Claim lifecycle per the status model table in the concept chapter.
+ * `nachpruefung_erforderlich` (TMB-44) extends the ratified nine-status
+ * model: a source revision invalidates the machine determinations that
+ * referenced the old wording, so settled claims re-enter the verification
+ * cascade instead of silently keeping a verdict about a text that no
+ * longer exists (documented extension, additive).
+ */
 export const ClaimStatus = z.enum([
   "erfasst",
   "existenzgeprueft",
@@ -17,6 +24,7 @@ export const ClaimStatus = z.enum([
   "beanstandet",
   "ueberarbeitet",
   "verworfen",
+  "nachpruefung_erforderlich",
 ]);
 export type ClaimStatus = z.infer<typeof ClaimStatus>;
 
@@ -107,6 +115,9 @@ export const RoutingReason = z.enum([
   "negative_vorpruefung",
   "stichprobe",
   "eskaliert",
+  /** TMB-43: an adopted claim's relevance to the follow-up question was
+   * judged negative or uncertain by the relevance check of a warm run. */
+  "einschlaegigkeit_negativ",
 ]);
 export type RoutingReason = z.infer<typeof RoutingReason>;
 
@@ -126,5 +137,12 @@ export const ProjectEventType = z.enum([
   "batch_run_completed",
   "verification_run_started",
   "verification_run_completed",
+  /** TMB-43: brackets of the relevance check of a warm run, structurally
+   * parallel to the extraction/verification brackets. */
+  "relevance_run_started",
+  "relevance_run_completed",
+  /** TMB-46: a config change; the event carries the before/after pair in
+   * `config_change` (documented extension, additive). */
+  "config_changed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

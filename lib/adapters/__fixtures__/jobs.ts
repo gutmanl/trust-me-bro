@@ -12,6 +12,7 @@ import type {
   JobIO,
   JobKind,
   JobRequest,
+  RelevanceInput,
   RepairInput,
   RubricInput,
 } from "../core/jobs";
@@ -62,6 +63,13 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
       reason: "Der Auszug trägt die Verallgemeinerung nicht.",
     },
   } satisfies RepairInput,
+  relevance: {
+    research_question:
+      "Wie wirken LLM-gestuetzte Code-Reviews auf die Codequalität?",
+    previous_research_question:
+      "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
+    claim: exampleClaim,
+  } satisfies RelevanceInput,
 };
 
 export function jobFor<K extends JobKind>(

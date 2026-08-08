@@ -7,6 +7,7 @@ import {
   RoutingReason,
 } from "./enums";
 import { ActorId, EvidenceId, IsoDateTime, Sha256Hex } from "./primitives";
+import { ProjectConfig } from "./project";
 
 /**
  * Chain fields carried by every history entry and project event. The `seq`
@@ -63,6 +64,20 @@ export const HistoryEntry = z.strictObject({
 });
 export type HistoryEntry = z.infer<typeof HistoryEntry>;
 
+/**
+ * Config change payload of a `config_changed` event (TMB-46): the complete
+ * before/after pair, following the full-snapshot idiom of `Revision`
+ * (previous_text/new_text) — the configuration at any point of the history
+ * is reconstructable from the chain alone, and a config change past the
+ * audit trail is impossible because the value is only written together with
+ * this event.
+ */
+export const ConfigChange = z.strictObject({
+  previous: ProjectConfig,
+  next: ProjectConfig,
+});
+export type ConfigChange = z.infer<typeof ConfigChange>;
+
 /** A project-wide event without claim reference, structurally chain-linked
  * like a history entry. */
 export const ProjectEvent = z.strictObject({
@@ -71,6 +86,8 @@ export const ProjectEvent = z.strictObject({
   actor: ActorId,
   event: ProjectEventType,
   reason: z.string().min(1),
+  /** Only on `config_changed` events (TMB-46). */
+  config_change: ConfigChange.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
 });

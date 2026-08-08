@@ -9,8 +9,12 @@ import {
   primaryButtonClass,
   SuccessBanner,
 } from "@/app/components/ui";
-import type { SourceFormState } from "./actions";
-import { captureSourceAction, freezeSourceSetAction } from "./actions";
+import type { ReviseFormState, SourceFormState } from "./actions";
+import {
+  captureSourceAction,
+  freezeSourceSetAction,
+  reviseSourceAction,
+} from "./actions";
 
 const initialState: SourceFormState = { error: null };
 
@@ -227,6 +231,108 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
         </button>
       </form>
     </div>
+  );
+}
+
+const initialReviseState: ReviseFormState = { error: null };
+
+/**
+ * Disclosure-style per-source revision form (TMB-44), only rendered on a
+ * frozen set: re-fetch from a URL or upload the current document; identical
+ * content is recognized via checksum and changes nothing.
+ */
+export function ReviseSourceForm({
+  projectId,
+  sourceId,
+}: {
+  projectId: string;
+  sourceId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction, pending] = useActionState(
+    reviseSourceAction.bind(null, projectId, sourceId),
+    initialReviseState,
+  );
+
+  if (!open) {
+    return (
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-xs font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700"
+        >
+          Quelle revidieren …
+        </button>
+        {state.revised === true ? (
+          <SuccessBanner>
+            Revision {state.newRevision} erstellt – {state.recheckedCount}{" "}
+            Claim(s) zur Nachprüfung markiert.
+          </SuccessBanner>
+        ) : null}
+        {state.revised === false ? (
+          <SuccessBanner>
+            Inhalt unverändert (Prüfsumme identisch) – keine neue Revision.
+          </SuccessBanner>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      action={formAction}
+      className="mt-3 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3"
+    >
+      <p className="text-xs text-slate-600">
+        Aktualisierte Fassung der Quelle laden: Die alte Revision bleibt im
+        Blob-Store erhalten; betroffene, bereits geprüfte Claims wandern zur
+        Nachprüfung.
+      </p>
+      <div>
+        <label
+          htmlFor={`revise_url_${sourceId}`}
+          className="mb-1 block text-xs font-medium"
+        >
+          Dokument-URL (PDF/HTML)
+        </label>
+        <input
+          id={`revise_url_${sourceId}`}
+          name="document_url"
+          type="url"
+          placeholder="https://… – oder unten Datei hochladen"
+          className={`${inputClass} font-mono`}
+        />
+      </div>
+      <div>
+        <label
+          htmlFor={`revise_file_${sourceId}`}
+          className="mb-1 block text-xs font-medium"
+        >
+          … oder Quellendokument hochladen
+        </label>
+        <input
+          id={`revise_file_${sourceId}`}
+          name="file"
+          type="file"
+          accept=".pdf,.html,.htm,.txt,.md,application/pdf,text/html,text/plain"
+          className={fileInputClass}
+        />
+      </div>
+      <ErrorBanner message={state.error} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className={primaryButtonClass}>
+          {pending ? "Wird revidiert …" : "Revision erstellen"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </form>
   );
 }
 

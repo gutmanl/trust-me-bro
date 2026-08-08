@@ -3,6 +3,7 @@ import type { ZodType } from "zod";
 import {
   AttributionOutput,
   ExtractionOutput,
+  RelevanceOutput,
   RepairOutput,
   RubricOutput,
 } from "../schema";
@@ -14,6 +15,7 @@ const OUTPUT_SCHEMA: { [K in JobKind]: ZodType<JobIO[K]["output"]> } = {
   attribution: AttributionOutput,
   rubric: RubricOutput,
   repair: RepairOutput,
+  relevance: RelevanceOutput,
 };
 
 /**

@@ -86,6 +86,13 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
           "Die Verallgemeinerung über Studienkontexte hinaus trägt der Einzelbefund nicht.",
       },
     },
+    relevance: {
+      research_question:
+        "Wie wirken LLM-gestuetzte Code-Reviews auf die Codequalität?",
+      previous_research_question:
+        "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
+      claim,
+    },
   } as const;
   const make = <K extends JobKind>(kind: K): JobRequest<K> => ({
     kind,
@@ -99,6 +106,7 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
     attribution: make("attribution"),
     rubric: make("rubric"),
     repair: make("repair"),
+    relevance: make("relevance"),
   };
 }
 

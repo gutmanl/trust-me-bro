@@ -657,23 +657,31 @@ describe("invalid transitions have zero side effects", () => {
 });
 
 describe("transition table sanity", () => {
-  it("defines no outgoing edges for terminal states", () => {
-    for (const terminal of ["bestaetigt", "verworfen"] as const) {
-      expect(TRANSITIONS.filter((def) => def.from === terminal)).toHaveLength(
-        0,
-      );
-    }
+  it("keeps verworfen fully terminal; bestaetigt has exactly the TMB-7 reopening edges", () => {
+    expect(TRANSITIONS.filter((def) => def.from === "verworfen")).toHaveLength(
+      0,
+    );
+    // Since TMB-7 bestaetigt is settled, not eternal: reopenable only by a
+    // source revision (TMB-44) and a negative warm-run relevance judgment
+    // (TMB-43), both system-only.
+    expect(
+      TRANSITIONS.filter((def) => def.from === "bestaetigt").map(
+        (def) => `${def.to}:${def.actorKind}`,
+      ),
+    ).toEqual(["zur_adjudikation:system", "nachpruefung_erforderlich:system"]);
   });
 
-  it("gives every status except terminal ones at least one outgoing edge", () => {
+  it("gives every status except verworfen at least one outgoing edge", () => {
     const nonTerminal = [
       "erfasst",
       "existenzgeprueft",
       "vorgeprueft",
       "automatisch_bestaetigt",
       "zur_adjudikation",
+      "bestaetigt",
       "beanstandet",
       "ueberarbeitet",
+      "nachpruefung_erforderlich",
     ] as const;
     for (const status of nonTerminal) {
       expect(TRANSITIONS.some((def) => def.from === status)).toBe(true);

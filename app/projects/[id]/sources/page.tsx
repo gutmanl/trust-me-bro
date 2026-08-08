@@ -2,7 +2,11 @@ import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { formatCitation, isSourceSetFrozen, readProject } from "@/lib/pipeline";
 import { formatTimestamp } from "../../status-labels";
-import { CaptureSourceForm, FreezeSourceSetForm } from "./SourceForms";
+import {
+  CaptureSourceForm,
+  FreezeSourceSetForm,
+  ReviseSourceForm,
+} from "./SourceForms";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +94,15 @@ export default async function SourcesPage(
                     <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                       ⚠ {snapshot.text_extraction_error}
                     </div>
+                  ) : null}
+                  {source.custom.previous_snapshots?.length ? (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {source.custom.previous_snapshots.length} frühere
+                      Revision(en) im Blob-Store erhalten.
+                    </p>
+                  ) : null}
+                  {frozen && snapshot ? (
+                    <ReviseSourceForm projectId={id} sourceId={source.id} />
                   ) : null}
                 </li>
               );

@@ -10,14 +10,32 @@
       "type": "string"
     },
     "__schema10": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence_threshold": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "on_relation_not_stuetzt": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confidence_threshold",
+        "on_relation_not_stuetzt"
+      ],
+      "type": "object"
+    },
+    "__schema11": {
       "pattern": "^src_[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     },
-    "__schema11": {
+    "__schema12": {
       "minLength": 1,
       "type": "string"
     },
-    "__schema12": {
+    "__schema13": {
       "additionalProperties": false,
       "properties": {
         "identifier_verified": {
@@ -36,35 +54,14 @@
           ],
           "type": "object"
         },
-        "snapshot": {
-          "additionalProperties": false,
-          "properties": {
-            "blob_path": {
-              "$ref": "#/$defs/__schema3"
-            },
-            "retrieved_at": {
-              "$ref": "#/$defs/__schema1"
-            },
-            "revision": {
-              "$ref": "#/$defs/__schema15"
-            },
-            "sha256": {
-              "$ref": "#/$defs/__schema2"
-            },
-            "text_blob_path": {
-              "$ref": "#/$defs/__schema13"
-            },
-            "text_extraction_error": {
-              "$ref": "#/$defs/__schema14"
-            }
+        "previous_snapshots": {
+          "items": {
+            "$ref": "#/$defs/__schema14"
           },
-          "required": [
-            "retrieved_at",
-            "sha256",
-            "blob_path",
-            "revision"
-          ],
-          "type": "object"
+          "type": "array"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/__schema14"
         },
         "source_type": {
           "enum": [
@@ -81,20 +78,50 @@
       ],
       "type": "object"
     },
-    "__schema13": {
+    "__schema14": {
+      "additionalProperties": false,
+      "properties": {
+        "blob_path": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "retrieved_at": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "revision": {
+          "$ref": "#/$defs/__schema17"
+        },
+        "sha256": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "text_blob_path": {
+          "$ref": "#/$defs/__schema15"
+        },
+        "text_extraction_error": {
+          "$ref": "#/$defs/__schema16"
+        }
+      },
+      "required": [
+        "retrieved_at",
+        "sha256",
+        "blob_path",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "__schema15": {
       "$ref": "#/$defs/__schema3"
     },
-    "__schema14": {
+    "__schema16": {
       "minLength": 1,
       "type": "string"
     },
-    "__schema15": {
+    "__schema17": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema16": {},
-    "__schema17": {
+    "__schema18": {},
+    "__schema19": {
       "enum": [
         "erfasst",
         "existenzgeprueft",
@@ -104,20 +131,8 @@
         "bestaetigt",
         "beanstandet",
         "ueberarbeitet",
-        "verworfen"
-      ],
-      "type": "string"
-    },
-    "__schema18": {
-      "pattern": "^ev_[a-z0-9][a-z0-9_-]*$",
-      "type": "string"
-    },
-    "__schema19": {
-      "enum": [
-        "stuetzt",
-        "stuetzt_teilweise",
-        "widerspricht",
-        "nicht_einschlaegig"
+        "verworfen",
+        "nachpruefung_erforderlich"
       ],
       "type": "string"
     },
@@ -126,10 +141,23 @@
       "type": "string"
     },
     "__schema20": {
+      "pattern": "^ev_[a-z0-9][a-z0-9_-]*$",
+      "type": "string"
+    },
+    "__schema21": {
+      "enum": [
+        "stuetzt",
+        "stuetzt_teilweise",
+        "widerspricht",
+        "nicht_einschlaegig"
+      ],
+      "type": "string"
+    },
+    "__schema22": {
       "additionalProperties": false,
       "properties": {
         "actor": {
-          "$ref": "#/$defs/__schema22"
+          "$ref": "#/$defs/__schema24"
         },
         "at": {
           "$ref": "#/$defs/__schema1"
@@ -157,7 +185,7 @@
             },
             "reviewed_evidence_ids": {
               "items": {
-                "$ref": "#/$defs/__schema18"
+                "$ref": "#/$defs/__schema20"
               },
               "type": "array"
             }
@@ -172,7 +200,7 @@
         "from_status": {
           "anyOf": [
             {
-              "$ref": "#/$defs/__schema17"
+              "$ref": "#/$defs/__schema19"
             },
             {
               "type": "null"
@@ -214,15 +242,16 @@
             "divergenz",
             "negative_vorpruefung",
             "stichprobe",
-            "eskaliert"
+            "eskaliert",
+            "einschlaegigkeit_negativ"
           ],
           "type": "string"
         },
         "seq": {
-          "$ref": "#/$defs/__schema21"
+          "$ref": "#/$defs/__schema23"
         },
         "to_status": {
-          "$ref": "#/$defs/__schema17"
+          "$ref": "#/$defs/__schema19"
         }
       },
       "required": [
@@ -237,12 +266,12 @@
       ],
       "type": "object"
     },
-    "__schema21": {
+    "__schema23": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema22": {
+    "__schema24": {
       "pattern": "^(human|system):[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     },
@@ -251,27 +280,53 @@
       "type": "string"
     },
     "__schema4": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudication_sample_rate": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "backends": {
+          "$ref": "#/$defs/__schema8"
+        },
+        "max_repair_cycles": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "rubric_version": {
+          "$ref": "#/$defs/__schema5"
+        },
+        "second_opinion": {
+          "$ref": "#/$defs/__schema10"
+        }
+      },
+      "required": [
+        "rubric_version",
+        "adjudication_sample_rate",
+        "backends"
+      ],
+      "type": "object"
+    },
+    "__schema5": {
       "minLength": 1,
       "type": "string"
     },
-    "__schema5": {
+    "__schema6": {
       "maximum": 1,
       "minimum": 0,
       "type": "number"
     },
-    "__schema6": {
+    "__schema7": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema7": {
+    "__schema8": {
       "additionalProperties": false,
       "properties": {
         "primary": {
-          "$ref": "#/$defs/__schema8"
+          "$ref": "#/$defs/__schema9"
         },
         "secondary": {
-          "$ref": "#/$defs/__schema8"
+          "$ref": "#/$defs/__schema9"
         }
       },
       "required": [
@@ -279,7 +334,7 @@
       ],
       "type": "object"
     },
-    "__schema8": {
+    "__schema9": {
       "additionalProperties": false,
       "properties": {
         "cli": {
@@ -294,24 +349,6 @@
       "required": [
         "cli",
         "model_family"
-      ],
-      "type": "object"
-    },
-    "__schema9": {
-      "additionalProperties": false,
-      "properties": {
-        "confidence_threshold": {
-          "maximum": 1,
-          "minimum": 0,
-          "type": "number"
-        },
-        "on_relation_not_stuetzt": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "confidence_threshold",
-        "on_relation_not_stuetzt"
       ],
       "type": "object"
     }
@@ -369,7 +406,7 @@
                   "type": "object"
                 },
                 "id": {
-                  "$ref": "#/$defs/__schema18"
+                  "$ref": "#/$defs/__schema20"
                 },
                 "judgments": {
                   "items": {
@@ -396,7 +433,7 @@
                         "type": "string"
                       },
                       "relation_type": {
-                        "$ref": "#/$defs/__schema19"
+                        "$ref": "#/$defs/__schema21"
                       }
                     },
                     "required": [
@@ -426,10 +463,10 @@
                   "type": "object"
                 },
                 "relation_type": {
-                  "$ref": "#/$defs/__schema19"
+                  "$ref": "#/$defs/__schema21"
                 },
                 "source_id": {
-                  "$ref": "#/$defs/__schema10"
+                  "$ref": "#/$defs/__schema11"
                 },
                 "verbatim_excerpt": {
                   "minLength": 1,
@@ -449,7 +486,7 @@
           },
           "history": {
             "items": {
-              "$ref": "#/$defs/__schema20"
+              "$ref": "#/$defs/__schema22"
             },
             "minItems": 1,
             "type": "array"
@@ -489,7 +526,7 @@
             "type": "object"
           },
           "status": {
-            "$ref": "#/$defs/__schema17"
+            "$ref": "#/$defs/__schema19"
           },
           "support_degree": {
             "enum": [
@@ -520,30 +557,7 @@
       "type": "array"
     },
     "config": {
-      "additionalProperties": false,
-      "properties": {
-        "adjudication_sample_rate": {
-          "$ref": "#/$defs/__schema5"
-        },
-        "backends": {
-          "$ref": "#/$defs/__schema7"
-        },
-        "max_repair_cycles": {
-          "$ref": "#/$defs/__schema6"
-        },
-        "rubric_version": {
-          "$ref": "#/$defs/__schema4"
-        },
-        "second_opinion": {
-          "$ref": "#/$defs/__schema9"
-        }
-      },
-      "required": [
-        "rubric_version",
-        "adjudication_sample_rate",
-        "backends"
-      ],
-      "type": "object"
+      "$ref": "#/$defs/__schema4"
     },
     "project": {
       "additionalProperties": false,
@@ -602,10 +616,26 @@
         "additionalProperties": false,
         "properties": {
           "actor": {
-            "$ref": "#/$defs/__schema22"
+            "$ref": "#/$defs/__schema24"
           },
           "at": {
             "$ref": "#/$defs/__schema1"
+          },
+          "config_change": {
+            "additionalProperties": false,
+            "properties": {
+              "next": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "previous": {
+                "$ref": "#/$defs/__schema4"
+              }
+            },
+            "required": [
+              "previous",
+              "next"
+            ],
+            "type": "object"
           },
           "event": {
             "enum": [
@@ -616,7 +646,10 @@
               "batch_run_started",
               "batch_run_completed",
               "verification_run_started",
-              "verification_run_completed"
+              "verification_run_completed",
+              "relevance_run_started",
+              "relevance_run_completed",
+              "config_changed"
             ],
             "type": "string"
           },
@@ -631,7 +664,7 @@
             "type": "string"
           },
           "seq": {
-            "$ref": "#/$defs/__schema21"
+            "$ref": "#/$defs/__schema23"
           }
         },
         "required": [
@@ -654,18 +687,18 @@
     "sources": {
       "items": {
         "additionalProperties": {
-          "$ref": "#/$defs/__schema16"
+          "$ref": "#/$defs/__schema18"
         },
         "description": "CSL-JSON item with workshop extension in `custom`",
         "properties": {
           "custom": {
-            "$ref": "#/$defs/__schema12"
+            "$ref": "#/$defs/__schema13"
           },
           "id": {
-            "$ref": "#/$defs/__schema10"
+            "$ref": "#/$defs/__schema11"
           },
           "type": {
-            "$ref": "#/$defs/__schema11"
+            "$ref": "#/$defs/__schema12"
           }
         },
         "required": [
