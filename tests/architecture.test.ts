@@ -55,6 +55,13 @@ describe("public surface of lib/register", () => {
     expect(surface.evaluateAutoConfirmation).toBeDefined();
     expect(surface.resolveEvidenceRelation).toBeDefined();
     expect(surface.latestJudgmentPerBackend).toBeDefined();
+    // TMB-5: the repair pipeline decides the re-entry edge with the same
+    // predicate the gate re-checks at commit time.
+    expect(surface.allExistenceChecksPassed).toBeDefined();
+    // TMB-5: anchor resolution/evidence numbering single-sourced for the
+    // markdown projection AND the review UI.
+    expect(surface.buildBriefingViewModel).toBeDefined();
+    expect(surface.formatLocator).toBeDefined();
     // Chain links and status changes must only be producible inside a
     // RegisterStore transaction (single-writer invariant).
     expect(surface.ChainAppender).toBeUndefined();
@@ -108,6 +115,19 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.startVerification).toBeDefined();
     expect(surface.getVerificationState).toBeDefined();
     expect(surface.getVerificationRun).toBeDefined();
+    // TMB-5: adjudication, repair, history and snapshot use-cases.
+    expect(surface.getBriefingViewModel).toBeDefined();
+    expect(surface.buildAdjudicationQueue).toBeDefined();
+    expect(surface.decideClaim).toBeDefined();
+    expect(surface.proposeRepair).toBeDefined();
+    expect(surface.applyRepair).toBeDefined();
+    expect(surface.discardClaim).toBeDefined();
+    expect(surface.getProjectBlob).toBeDefined();
+    expect(surface.getChainVerification).toBeDefined();
+    // Repair internals stay internal: the re-entry rule and cycle count are
+    // reachable only through applyRepair.
+    expect(surface.decideReEntry).toBeUndefined();
+    expect(surface.countRepairCycles).toBeUndefined();
     // Verification internals stay internal: stage checkers, rubric rules,
     // aggregation and the sample draw are reachable only through the run.
     expect(surface.pickUnfinishedClaims).toBeUndefined();

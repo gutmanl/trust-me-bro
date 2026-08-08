@@ -121,9 +121,7 @@ export function RepairPanel({
           disabled={pending || text.trim().length === 0}
           className={primaryButtonClass}
         >
-          {applyPending
-            ? "Wird übernommen …"
-            : "Übernehmen und erneut prüfen"}
+          {applyPending ? "Wird übernommen …" : "Übernehmen und erneut prüfen"}
         </button>
       </form>
 

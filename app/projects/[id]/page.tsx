@@ -146,6 +146,14 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             </Link>
           </li>
         </ol>
+        <p className="mt-3 text-sm">
+          <Link
+            href={`/projects/${summary.id}/history`}
+            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+          >
+            Verlauf der Append-only-Historie ansehen
+          </Link>
+        </p>
       </section>
     </div>
   );

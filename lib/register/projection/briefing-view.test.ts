@@ -64,7 +64,12 @@ describe("buildBriefingViewModel", () => {
     const view = buildBriefingViewModel(
       BRIEFING,
       registerWith([
-        { id: "clm_0002", status: "erfasst", anchor: "p1", evidenceIds: ["ev_b"] },
+        {
+          id: "clm_0002",
+          status: "erfasst",
+          anchor: "p1",
+          evidenceIds: ["ev_b"],
+        },
         {
           id: "clm_0001",
           status: "erfasst",

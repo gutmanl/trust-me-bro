@@ -41,9 +41,7 @@ export async function decideClaim(
 
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    const claim = tx
-      .listClaims()
-      .find((candidate) => candidate.id === claimId);
+    const claim = tx.listClaims().find((candidate) => candidate.id === claimId);
     if (!claim) {
       throw new AdjudicationPreconditionError(
         `Claim "${claimId}" existiert nicht.`,

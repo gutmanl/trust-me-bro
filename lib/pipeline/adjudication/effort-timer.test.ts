@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  effortReducer,
-  effortSeconds,
-  startEffort,
-} from "./effort-timer";
+import { effortReducer, effortSeconds, startEffort } from "./effort-timer";
 
 const T0 = 1_000_000;
 

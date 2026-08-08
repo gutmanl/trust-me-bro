@@ -86,7 +86,8 @@ export function buildBriefingViewModel(
   register: ClaimsRegister,
 ): BriefingViewModel {
   const normalized = briefingOriginal.replace(/\r\n?/g, "\n").trim();
-  const paragraphTexts = normalized.length > 0 ? normalized.split(/\n{2,}/) : [];
+  const paragraphTexts =
+    normalized.length > 0 ? normalized.split(/\n{2,}/) : [];
 
   const anchored: AnchoredClaim[] = register.claims
     .map((claim) => ({

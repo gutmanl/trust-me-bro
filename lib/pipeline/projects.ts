@@ -7,7 +7,12 @@ import {
   ProjectId,
   RegisterStore,
 } from "../register";
-import type { ClaimsRegister, ClaimStatus, ProjectConfig } from "../register";
+import type {
+  ChainVerificationResult,
+  ClaimsRegister,
+  ClaimStatus,
+  ProjectConfig,
+} from "../register";
 import {
   InvalidProjectInputError,
   ProjectAlreadyExistsError,
@@ -199,4 +204,12 @@ export async function getProjectSummary(
 /** Full register of a project, for detail views. */
 export async function readProject(projectId: string): Promise<ClaimsRegister> {
   return requireProjectStore(projectId).read();
+}
+
+/** Hash-chain verification of the persisted register (TMB-38: the history
+ * view's integrity indicator, same check as `tmb verify`). */
+export async function getChainVerification(
+  projectId: string,
+): Promise<ChainVerificationResult> {
+  return requireProjectStore(projectId).verify();
 }

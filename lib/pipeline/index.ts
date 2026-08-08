@@ -91,10 +91,12 @@ export {
   DEFAULT_MAX_REPAIR_CYCLES,
   DEFAULT_RUBRIC_VERSION,
   DEFAULT_SECOND_OPINION,
+  getChainVerification,
   getProjectSummary,
   listProjects,
   readProject,
 } from "./projects";
+export type { ChainVerificationResult } from "../register";
 export type {
   BackendCli,
   CreateProjectInput,

@@ -121,8 +121,8 @@ export function ClaimPanel({
 
       {claim.status === "ueberarbeitet" ? (
         <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-          Überarbeitet – die Neufassung durchläuft die betroffenen Prüfstufen
-          im nächsten Prüflauf.
+          Überarbeitet – die Neufassung durchläuft die betroffenen Prüfstufen im
+          nächsten Prüflauf.
         </p>
       ) : null}
     </div>

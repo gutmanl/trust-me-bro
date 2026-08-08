@@ -74,17 +74,15 @@ export async function proposeRepair(
       claim_type: claim.claim_type,
       briefing_anchor: claim.briefing_anchor,
     },
-    evidence: claim.evidence.map(
-      (evidence): EvidenceContext => ({
-        id: evidence.id,
-        source_id: evidence.source_id,
-        source_type:
-          sourcesById.get(evidence.source_id)?.custom.source_type ??
-          "grauliteratur",
-        locator: evidence.locator,
-        verbatim_excerpt: evidence.verbatim_excerpt,
-      }),
-    ),
+    evidence: claim.evidence.map((evidence): EvidenceContext => ({
+      id: evidence.id,
+      source_id: evidence.source_id,
+      source_type:
+        sourcesById.get(evidence.source_id)?.custom.source_type ??
+        "grauliteratur",
+      locator: evidence.locator,
+      verbatim_excerpt: evidence.verbatim_excerpt,
+    })),
     complaint: {
       categories: complaintEntry?.decision?.categories ?? [],
       reason: complaintEntry?.reason ?? "Beanstandet ohne Begründung.",
@@ -143,9 +141,7 @@ export async function applyRepair(
   }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    const claim = tx
-      .listClaims()
-      .find((candidate) => candidate.id === claimId);
+    const claim = tx.listClaims().find((candidate) => candidate.id === claimId);
     if (!claim || claim.status !== "beanstandet") {
       throw new RepairPreconditionError(
         claim
@@ -201,9 +197,7 @@ export async function discardClaim(
   }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    const claim = tx
-      .listClaims()
-      .find((candidate) => candidate.id === claimId);
+    const claim = tx.listClaims().find((candidate) => candidate.id === claimId);
     if (!claim || claim.status !== "beanstandet") {
       throw new RepairPreconditionError(
         claim

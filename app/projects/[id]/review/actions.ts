@@ -90,9 +90,7 @@ export async function applyRepairAction(
 ): Promise<ApplyRepairFormState> {
   const newText = String(formData.get("new_text") ?? "");
   const source = String(formData.get("source") ?? "manuell") as
-    | "vorschlag_uebernommen"
-    | "vorschlag_angepasst"
-    | "manuell";
+    "vorschlag_uebernommen" | "vorschlag_angepasst" | "manuell";
   const proposedText = String(formData.get("proposed_text") ?? "");
   const result = await runPipelineAction(() =>
     applyRepair(projectId, claimId, { newText, source, proposedText }),

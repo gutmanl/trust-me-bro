@@ -171,9 +171,7 @@ describe("proposeRepair", () => {
 
 describe("applyRepair", () => {
   it("revises the text, preserves the previous wording and skips stage 1 when existence checks passed", async () => {
-    const store = await projectWithComplainedClaim([
-      evidence("ev_0001", true),
-    ]);
+    const store = await projectWithComplainedClaim([evidence("ev_0001", true)]);
     const result = await applyRepair(PROJECT_ID, "clm_0001", {
       newText: "Reviews können die Fehlerdichte reduzieren.",
       source: "vorschlag_uebernommen",
@@ -204,9 +202,7 @@ describe("applyRepair", () => {
   });
 
   it("escalates to adjudication after the cycle limit, with routing", async () => {
-    const store = await projectWithComplainedClaim([
-      evidence("ev_0001", true),
-    ]);
+    const store = await projectWithComplainedClaim([evidence("ev_0001", true)]);
     // Default limit is 2: run two full complain→repair cycles first.
     for (const cycle of [1, 2]) {
       if (cycle > 1) {
@@ -286,18 +282,16 @@ describe("discardClaim", () => {
 
   it("requires a reason", async () => {
     await projectWithComplainedClaim([evidence("ev_0001", false)]);
-    await expect(
-      discardClaim(PROJECT_ID, "clm_0001", "  "),
-    ).rejects.toThrow(RepairPreconditionError);
+    await expect(discardClaim(PROJECT_ID, "clm_0001", "  ")).rejects.toThrow(
+      RepairPreconditionError,
+    );
   });
 });
 
 describe("decideReEntry", () => {
   it("is pure over the claim's history and evidence state", () => {
     const claim = {
-      history: [
-        { from_status: "beanstandet", to_status: "ueberarbeitet" },
-      ],
+      history: [{ from_status: "beanstandet", to_status: "ueberarbeitet" }],
       evidence: [
         {
           id: "ev_0001",

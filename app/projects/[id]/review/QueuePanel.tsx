@@ -38,8 +38,12 @@ export function QueuePanel({
   });
   const sorted = [...filtered].sort((a, b) => {
     if (sort === "routing") {
-      const ra = a.routing ? ROUTING_ORDER.indexOf(a.routing) : ROUTING_ORDER.length;
-      const rb = b.routing ? ROUTING_ORDER.indexOf(b.routing) : ROUTING_ORDER.length;
+      const ra = a.routing
+        ? ROUTING_ORDER.indexOf(a.routing)
+        : ROUTING_ORDER.length;
+      const rb = b.routing
+        ? ROUTING_ORDER.indexOf(b.routing)
+        : ROUTING_ORDER.length;
       if (ra !== rb) {
         return ra - rb;
       }

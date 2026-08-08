@@ -26,7 +26,10 @@ export interface ReEntryDecision {
   reason: string;
 }
 
-export function decideReEntry(claim: Claim, maxCycles: number): ReEntryDecision {
+export function decideReEntry(
+  claim: Claim,
+  maxCycles: number,
+): ReEntryDecision {
   const cycle = countRepairCycles(claim);
   if (cycle > maxCycles) {
     return {

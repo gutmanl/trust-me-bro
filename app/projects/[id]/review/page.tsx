@@ -29,7 +29,15 @@ export default async function ReviewPage(
 
   return (
     <div className="space-y-6">
-      <SubpageHeader projectId={id} title="Adjudikation & Reparatur" />
+      <div className="flex items-end justify-between gap-4">
+        <SubpageHeader projectId={id} title="Adjudikation & Reparatur" />
+        <Link
+          href={`/projects/${id}/history`}
+          className="shrink-0 text-sm text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+        >
+          Verlauf ansehen
+        </Link>
+      </div>
 
       {briefing ? (
         <ReviewWorkspace

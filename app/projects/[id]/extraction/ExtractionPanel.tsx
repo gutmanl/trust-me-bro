@@ -104,7 +104,10 @@ export function ExtractionPanel({
       <ErrorBanner message={formState.error} />
 
       {watching ? (
-        <RunProgressFeed title="Fortschritt des Extraktionslaufs" lines={lines} />
+        <RunProgressFeed
+          title="Fortschritt des Extraktionslaufs"
+          lines={lines}
+        />
       ) : null}
     </div>
   );
