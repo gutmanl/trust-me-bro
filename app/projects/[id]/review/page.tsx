@@ -25,7 +25,7 @@ export default async function ReviewPage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const briefing = await getBriefingViewModel(id);
-  const verificationState = getVerificationState(register);
+  const verificationState = getVerificationState(id, register);
 
   return (
     <div className="space-y-6">

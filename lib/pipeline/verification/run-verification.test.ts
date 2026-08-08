@@ -216,7 +216,7 @@ describe("cascading verification run", () => {
       "verification_run_completed",
     ]);
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
-    expect(getVerificationState(register, { runner }).status).toBe(
+    expect(getVerificationState(PROJECT, register, { runner }).status).toBe(
       "abgeschlossen",
     );
 
@@ -315,7 +315,7 @@ describe("cascading verification run", () => {
     const completed = register.project_events.at(-1);
     expect(completed?.event).toBe("verification_run_completed");
     expect(completed?.reason).toContain("pausiert");
-    expect(getVerificationState(register, { runner }).status).toBe(
+    expect(getVerificationState(PROJECT, register, { runner }).status).toBe(
       "angehalten",
     );
 
@@ -399,9 +399,9 @@ describe("cascading verification run", () => {
         reason: "Test.",
       });
     });
-    expect(getVerificationState(await readRegister(), { runner }).status).toBe(
-      "unterbrochen",
-    );
+    expect(
+      getVerificationState(PROJECT, await readRegister(), { runner }).status,
+    ).toBe("unterbrochen");
 
     // The recovery run consists of the sample-draw item alone: it sweeps up
     // the stranded confirmation and closes the bracket.
@@ -413,7 +413,7 @@ describe("cascading verification run", () => {
     expect(recovered.project_events.at(-1)?.event).toBe(
       "verification_run_completed",
     );
-    expect(getVerificationState(recovered, { runner }).status).toBe(
+    expect(getVerificationState(PROJECT, recovered, { runner }).status).toBe(
       "abgeschlossen",
     );
     expect((await store.verify()).ok).toBe(true);

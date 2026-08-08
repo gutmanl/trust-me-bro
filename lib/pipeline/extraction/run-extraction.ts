@@ -96,15 +96,19 @@ export async function startExtraction(
   );
 }
 
-/** Register-derived extraction state plus live-run knowledge, for UI/SSE. */
+/** Register-derived extraction state plus live-run knowledge, for UI/SSE.
+ * Keyed by the routing project id (workspace directory name), which the run
+ * was submitted under — NOT register.project.id: for a project imported
+ * under a different directory name the two diverge (TMB-40). */
 export function getExtractionState(
+  projectId: string,
   register: ClaimsRegister,
   deps: { runner?: JobRunner } = {},
 ): ExtractionState {
   const runner = deps.runner ?? getGlobalJobRunner();
   return deriveExtractionState(
     register,
-    runner.isRunning(register.project.id, "extraction"),
+    runner.isRunning(projectId, "extraction"),
   );
 }
 

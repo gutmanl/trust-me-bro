@@ -192,15 +192,40 @@ describe("extraction run", () => {
     expect(batchEvents[1].reason).toContain("3 Claim(s), davon 2");
 
     expect((await store.verify()).ok).toBe(true);
-    expect(getExtractionState(register, { runner }).status).toBe(
-      "abgeschlossen",
-    );
+    expect(
+      getExtractionState("proj_extraktion", register, { runner }).status,
+    ).toBe("abgeschlossen");
     // The projection reflects the new claims.
     const briefingMd = fs.readFileSync(
       path.join(store.projectDir, "briefing.md"),
       "utf8",
     );
     expect(briefingMd).toContain("clm_0001");
+  });
+
+  it("keys live-run state by the routing id, not the register's inner id", async () => {
+    // An imported project keeps its chain-bound inner id but can live under
+    // a different workspace directory name (TMB-40); runs are submitted and
+    // must be looked up under the directory name.
+    const runner = createJobRunner();
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const handle = runner.submit(
+      "projekt-kopie",
+      ["briefing"],
+      () => "briefing",
+      async () => gate,
+      { kind: "extraction" },
+    );
+    const register = await RegisterStore.forProject("proj_extraktion").read();
+    expect(
+      getExtractionState("projekt-kopie", register, { runner }).status,
+    ).toBe("laeuft");
+    expect(
+      getExtractionState(register.project.id, register, { runner }).status,
+    ).toBe("nicht_gestartet");
+    release();
+    await handle.done;
   });
 
   it("blocks a second extraction once claims exist", async () => {
@@ -239,7 +264,9 @@ describe("extraction run", () => {
     const lastEvent = register.project_events.at(-1);
     expect(lastEvent?.event).toBe("batch_run_completed");
     expect(lastEvent?.reason).toContain("erschöpft");
-    expect(getExtractionState(register).status).toBe("fehlgeschlagen");
+    expect(getExtractionState("proj_extraktion", register).status).toBe(
+      "fehlgeschlagen",
+    );
     // Zero claims written → a retry is allowed.
     await expect(
       startExtraction("proj_extraktion", {

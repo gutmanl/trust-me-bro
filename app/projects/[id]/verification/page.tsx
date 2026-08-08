@@ -40,7 +40,7 @@ export default async function VerificationPage(
 ) {
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
-  const state = getVerificationState(register);
+  const state = getVerificationState(id, register);
   const badge = STATE_BADGES[state.status];
 
   return (

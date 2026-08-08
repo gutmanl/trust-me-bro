@@ -60,7 +60,7 @@ export async function GET(
         });
         return;
       }
-      controller.enqueue(sse("state", getExtractionState(register)));
+      controller.enqueue(sse("state", getExtractionState(id, register)));
       close();
     },
     cancel() {

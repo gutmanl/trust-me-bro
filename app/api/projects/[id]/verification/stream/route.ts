@@ -60,7 +60,7 @@ export async function GET(
         });
         return;
       }
-      controller.enqueue(sse("state", getVerificationState(register)));
+      controller.enqueue(sse("state", getVerificationState(id, register)));
       close();
     },
     cancel() {

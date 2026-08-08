@@ -167,15 +167,19 @@ export async function startVerification(
   );
 }
 
-/** Register-derived verification state plus live-run knowledge, for UI/SSE. */
+/** Register-derived verification state plus live-run knowledge, for UI/SSE.
+ * Keyed by the routing project id (workspace directory name), which the run
+ * was submitted under — NOT register.project.id: for a project imported
+ * under a different directory name the two diverge (TMB-40). */
 export function getVerificationState(
+  projectId: string,
   register: ClaimsRegister,
   deps: { runner?: JobRunner } = {},
 ): VerificationState {
   const runner = deps.runner ?? getGlobalJobRunner();
   return deriveVerificationState(
     register,
-    runner.isRunning(register.project.id, "verification"),
+    runner.isRunning(projectId, "verification"),
   );
 }
 

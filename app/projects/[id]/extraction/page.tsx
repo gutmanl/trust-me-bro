@@ -41,7 +41,7 @@ export default async function ExtractionPage(
 ) {
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
-  const state = getExtractionState(register);
+  const state = getExtractionState(id, register);
   const badge = STATE_BADGES[state.status];
 
   return (
