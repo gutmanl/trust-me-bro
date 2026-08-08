@@ -61,12 +61,10 @@ export function buildManualCslItem(
   return item;
 }
 
-/** F4: a source without the workshop extension is a plain CSL-JSON item. */
-export function toPlainCsl(source: Source): Record<string, unknown> {
-  const plain: Record<string, unknown> = { ...source };
-  delete plain.custom;
-  return plain;
-}
+// F4 filter projection; moved into the register core with TMB-6 (the export
+// epic's references.csl.json derivation shares it), re-exported here so the
+// capture module and the pipeline barrel keep their import path.
+export { toPlainCsl } from "../../register";
 
 /** First author's family name, if determinable. */
 export function firstAuthorFamily(

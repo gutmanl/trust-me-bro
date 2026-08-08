@@ -46,11 +46,21 @@ export type {
 } from "./projection/briefing-view";
 export { countClaimsByStatus } from "./projection/counts";
 export { lastActivityAt } from "./projection/activity";
+// F4 filter projection (plain CSL-JSON item), shared by source capture and
+// the export epic's references.csl.json derivation.
+export { toPlainCsl } from "./projection/csl";
 export { verifyChain } from "./chain/verify";
 export type {
   ChainVerificationError,
   ChainVerificationResult,
 } from "./chain/verify";
+// TMB-6: content-hash utilities and the chain tip for the export bundle's
+// manifest — pure read-side helpers with no writer invariant to protect
+// (unlike the ChainAppender, which stays internal).
+export { sha256Hex } from "./chain/hash";
+export { latestChainLink } from "./chain/appender";
+export type { ChainLink } from "./chain/appender";
+export { sha256FromBlobPath } from "./blobs/paths";
 export { createBlobStore } from "./blobs/store";
 export type { BlobRef, BlobStore } from "./blobs/store";
 export * from "./schema";

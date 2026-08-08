@@ -62,6 +62,13 @@ describe("public surface of lib/register", () => {
     // markdown projection AND the review UI.
     expect(surface.buildBriefingViewModel).toBeDefined();
     expect(surface.formatLocator).toBeDefined();
+    // TMB-6: pure read-side helpers for the export bundle — the F4 filter
+    // projection, content hashing and the chain tip for the manifest. The
+    // ChainAppender itself stays internal (assertion below).
+    expect(surface.toPlainCsl).toBeDefined();
+    expect(surface.sha256Hex).toBeDefined();
+    expect(surface.sha256FromBlobPath).toBeDefined();
+    expect(surface.latestChainLink).toBeDefined();
     // Chain links and status changes must only be producible inside a
     // RegisterStore transaction (single-writer invariant).
     expect(surface.ChainAppender).toBeUndefined();

@@ -58,6 +58,27 @@ export class ChainAppender {
   }
 }
 
+/**
+ * The chain's current tip (highest-seq entry), or undefined for a register
+ * without any entries. The export bundle's manifest states this explicitly
+ * (chain_head): a legible external commitment to the state at export time —
+ * the countermeasure to the tail truncation that chain verification alone
+ * cannot detect (see verify.ts).
+ */
+export function latestChainLink(
+  register: ClaimsRegister,
+): ChainLink | undefined {
+  let latest: ChainLink | undefined;
+  for (const entry of allChainEntries(register)) {
+    if (!latest || entry.seq > latest.seq) {
+      latest = entry;
+    }
+  }
+  return latest
+    ? { seq: latest.seq, prev_hash: latest.prev_hash, hash: latest.hash }
+    : undefined;
+}
+
 /** All chain-carrying entries of a register: every claim's history plus the
  * project events. Iteration order is irrelevant — the chain orders by seq. */
 export function* allChainEntries(
