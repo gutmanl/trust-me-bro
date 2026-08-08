@@ -155,6 +155,48 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
           </Link>
         </p>
       </section>
+
+      <section className="rounded-md border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-700">
+          Export &amp; Weitergabe
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Das .tmb-Bundle ist ein einzelnes Weitergabeartefakt (ZIP-Container)
+          mit Manifest-Prüfsummen; die Hash-Kette ist damit auch ohne
+          Repository-Historie prüfbar (<code>tmb verify</code>).
+        </p>
+        <ul className="mt-3 space-y-2 text-sm">
+          <li>
+            <a
+              href={`/api/projects/${summary.id}/export`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Bundle herunterladen (.tmb, mit Blobs)
+            </a>
+          </li>
+          <li>
+            <a
+              href={`/api/projects/${summary.id}/export?blobs=0`}
+              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+            >
+              Schlankes Bundle (ohne Blobs, nur Prüfsummen-Referenzen)
+            </a>
+          </li>
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">Abgeleitete Exporte:</p>
+        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {["references.csl.json", "prov.jsonld", "traces.json"].map((name) => (
+            <li key={name}>
+              <a
+                href={`/api/projects/${summary.id}/export/derived/${name}`}
+                className="font-mono text-xs text-slate-700 underline decoration-slate-300 hover:decoration-slate-600"
+              >
+                {name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

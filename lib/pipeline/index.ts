@@ -110,6 +110,9 @@ export { getReferencesCsl } from "./export/references";
 export { getProvDocument } from "./export/prov";
 export { getTracesAggregate } from "./export/traces";
 export type { TracesAggregate } from "./export/traces";
+// TMB-39: the .tmb bundle download.
+export { exportProjectBundle } from "./export/build-export";
+export type { ExportBundleResult } from "./export/build-export";
 export type { ChainVerificationResult } from "../register";
 export type {
   BackendCli,

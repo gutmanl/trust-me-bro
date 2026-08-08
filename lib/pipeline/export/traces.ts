@@ -19,8 +19,11 @@ export interface TracesAggregate {
   traces: TraceEnvelope[];
 }
 
-/** Reads and validates every trace file of a project, in file order. */
-export function readTraceEnvelopes(projectDir: string): TraceEnvelope[] {
+/** Raw trace files of a project in name (= chronological) order — the
+ * bundle carries them verbatim under traces/. */
+export function readTraceFiles(
+  projectDir: string,
+): { name: string; content: Buffer }[] {
   const tracesDir = path.join(projectDir, "traces");
   if (!fs.existsSync(tracesDir)) {
     return [];
@@ -29,11 +32,17 @@ export function readTraceEnvelopes(projectDir: string): TraceEnvelope[] {
     .readdirSync(tracesDir)
     .filter((name) => name.endsWith(".json"))
     .sort()
-    .map((name) =>
-      TraceEnvelope.parse(
-        JSON.parse(fs.readFileSync(path.join(tracesDir, name), "utf8")),
-      ),
-    );
+    .map((name) => ({
+      name,
+      content: fs.readFileSync(path.join(tracesDir, name)),
+    }));
+}
+
+/** Reads and validates every trace file of a project, in file order. */
+export function readTraceEnvelopes(projectDir: string): TraceEnvelope[] {
+  return readTraceFiles(projectDir).map(({ content }) =>
+    TraceEnvelope.parse(JSON.parse(content.toString("utf8"))),
+  );
 }
 
 /** Pure aggregate over already-read envelopes, ordered chronologically

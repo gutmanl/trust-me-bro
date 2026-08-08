@@ -20,6 +20,7 @@
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "fast-xml-parser": "^5.10.1",
+    "fflate": "^0.8.3",
     "linkedom": "^0.18.13",
     "next": "16.3.0",
     "proper-lockfile": "^4.1.2",

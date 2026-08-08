@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import * as adaptersPublic from "../lib/adapters";
+import * as exportPublic from "../lib/export";
 import * as pipelinePublic from "../lib/pipeline";
 import * as registerPublic from "../lib/register";
 import { TRANSITIONS } from "../lib/register/statemachine/transitions";
@@ -100,6 +101,25 @@ describe("public surface of lib/adapters", () => {
   });
 });
 
+describe("public surface of lib/export", () => {
+  it("exposes the bundle core but never the fflate internals", () => {
+    const surface = exportPublic as Record<string, unknown>;
+    expect(surface.zipBundle).toBeDefined();
+    expect(surface.unzipBundle).toBeDefined();
+    expect(surface.buildManifest).toBeDefined();
+    expect(surface.serializeManifest).toBeDefined();
+    expect(surface.Manifest).toBeDefined();
+    expect(surface.collectBlobPaths).toBeDefined();
+    expect(surface.verifyBundleFiles).toBeDefined();
+    expect(surface.describeBundleProblem).toBeDefined();
+    expect(surface.BundleFormatError).toBeDefined();
+    // The zip library never leaks past the confined wrapper.
+    expect(surface.zipSync).toBeUndefined();
+    expect(surface.unzipSync).toBeUndefined();
+    expect(surface.strToU8).toBeUndefined();
+  });
+});
+
 describe("public surface of lib/pipeline", () => {
   it("exposes the use-cases the web layer calls", () => {
     const surface = pipelinePublic as Record<string, unknown>;
@@ -140,6 +160,9 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.buildReferencesCsl).toBeUndefined();
     expect(surface.buildProvDocument).toBeUndefined();
     expect(surface.buildTracesAggregate).toBeUndefined();
+    // TMB-39: the bundle download use-case; assembly stays internal.
+    expect(surface.exportProjectBundle).toBeDefined();
+    expect(surface.buildExportFilename).toBeUndefined();
     // Repair internals stay internal: the re-entry rule and cycle count are
     // reachable only through applyRepair.
     expect(surface.decideReEntry).toBeUndefined();
@@ -247,6 +270,33 @@ describe("module boundaries", () => {
         continue;
       }
       expect(read(file), file).not.toMatch(/["']node:child_process["']/);
+    }
+  });
+
+  it("confines the fflate dependency to the bundle core's zip wrapper", () => {
+    // Same pattern as the network/child-process confinement: the ZIP format
+    // has exactly one implementation site (TMB-6).
+    const allowed = path.join("lib", "export", "zip.ts");
+    for (const file of domainFiles) {
+      if (file === allowed) {
+        continue;
+      }
+      expect(read(file), file).not.toMatch(/["']fflate["']/);
+    }
+  });
+
+  it("keeps the bundle core (lib/export) off the use-case and adapter layers", () => {
+    // lib/export is domain core beside lib/register: usable by the CLI
+    // without pulling in lib/pipeline (job runner, orchestrator, Next.js
+    // concerns) or lib/adapters. It may only use the register's public
+    // barrel — never its write internals.
+    for (const file of sourceFiles(path.join("lib", "export"))) {
+      const content = read(file);
+      expect(content, file).not.toMatch(/from\s+["'][^"']*\bpipeline\//);
+      expect(content, file).not.toMatch(/from\s+["'][^"']*\badapters\//);
+      expect(content, file).not.toMatch(
+        /from\s+["'][^"']*register\/(persistence|statemachine|chain)\//,
+      );
     }
   });
 
