@@ -254,7 +254,7 @@ export function getVerificationRun(
 
 /** The run bracket opens in its own tiny transaction BEFORE any impure work
  * of the first item — every later write happens inside the bracket, and a
- * crash anywhere leaves started-without-completed (state "unterbrochen"). */
+ * crash anywhere leaves started-without-completed (state "interrupted"). */
 async function recordStartedOnce(
   context: RunContext,
   runId: string,

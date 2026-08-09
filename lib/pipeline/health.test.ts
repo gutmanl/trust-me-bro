@@ -53,7 +53,7 @@ async function createTestProject(
     id: PROJECT,
     research_question: "Frage?",
     config: {
-      rubric_version: "se-evidenz-rubrik-v1",
+      rubric_version: "se-evidence-rubric-v1",
       adjudication_sample_rate: 0,
       backends: {
         primary: { cli: "claude", model_family: "anthropic" },
