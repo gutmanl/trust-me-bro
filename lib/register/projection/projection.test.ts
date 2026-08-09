@@ -67,7 +67,7 @@ describe("status annotations", () => {
     expect(adjudicated).toContain("bestätigt (adjudiziert)");
 
     const automatic = baseRegister();
-    automatic.claims[0].status = "automatisch_bestaetigt";
+    automatic.claims[0].status = "auto_confirmed";
     expect(renderBriefing(BRIEFING, automatic)).toContain(
       "automatisch bestätigt (stichprobenweise nachprüfbar)",
     );
@@ -75,7 +75,7 @@ describe("status annotations", () => {
 
   it("visibly flags claims that are not confirmed", () => {
     const register = baseRegister();
-    register.claims[0].status = "beanstandet";
+    register.claims[0].status = "contested";
     const output = renderBriefing(BRIEFING, register);
     expect(output).toContain("⚠");
     expect(output).toContain("NICHT BESTÄTIGT – Status: beanstandet");
@@ -83,7 +83,7 @@ describe("status annotations", () => {
 
   it("reports the briefing as verified only without open adjudications", () => {
     const open = baseRegister();
-    open.claims[0].status = "zur_adjudikation";
+    open.claims[0].status = "pending_adjudication";
     expect(renderBriefing(BRIEFING, open)).toContain(
       "IN PRÜFUNG – 1 Claim(s) zur Adjudikation offen",
     );
@@ -113,7 +113,7 @@ describe("anchors and evidence numbering", () => {
   it("numbers inline evidence and cross-references the Belege section", () => {
     const output = renderBriefing(BRIEFING, baseRegister());
     expect(output).toContain("Belege [1]");
-    expect(output).toContain("1. src_meyer2025, S. 6, Abschn. 4.2 · stuetzt");
+    expect(output).toContain("1. src_meyer2025, S. 6, Abschn. 4.2 · stützt");
   });
 });
 
@@ -134,7 +134,7 @@ describe("RegisterStore.renderBriefingFile", () => {
       id: "proj_projection-test",
       research_question: "Wird die Projektion regeneriert?",
       config: {
-        rubric_version: "se-evidenz-rubrik-v1",
+        rubric_version: "se-evidence-rubric-v1",
         adjudication_sample_rate: 0.1,
         backends: { primary: { cli: "claude", model_family: "anthropic" } },
       },

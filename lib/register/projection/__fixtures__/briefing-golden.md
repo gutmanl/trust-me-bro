@@ -20,4 +20,4 @@ Langfristige Effekte sind noch nicht ausreichend untersucht.
 
 ## Belege
 
-1. src_meyer2025, S. 6, Abschn. 4.2 · stuetzt · „…median review time dropped from 42 to 19 minutes (-55%)…"
+1. src_meyer2025, S. 6, Abschn. 4.2 · stützt · „…median review time dropped from 42 to 19 minutes (-55%)…"

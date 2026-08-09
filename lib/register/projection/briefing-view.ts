@@ -18,8 +18,8 @@ import type { ClaimsRegister } from "../schema/register";
  */
 
 export const CONFIRMED_STATUSES: ReadonlySet<Claim["status"]> = new Set([
-  "bestaetigt",
-  "automatisch_bestaetigt",
+  "confirmed",
+  "auto_confirmed",
 ]);
 
 export interface ClaimMarkerVM {
@@ -51,8 +51,11 @@ export interface BriefingViewModel {
   openCount: number;
   /** Claims not (yet) confirmed, including discarded ones. */
   unconfirmedCount: number;
-  /** Banner condition (TMB-33): no claim awaits adjudication. */
-  isGeprueft: boolean;
+  /** Banner condition (TMB-33): no claim awaits adjudication. Named
+   * `isFullyAdjudicated` rather than `isVerified` to avoid falsely
+   * suggesting the verification stage — the computed condition is "no claim
+   * pending adjudication". */
+  isFullyAdjudicated: boolean;
 }
 
 interface AnchoredClaim {
@@ -127,7 +130,7 @@ export function buildBriefingViewModel(
     .map(toMarker);
 
   const openCount = register.claims.filter(
-    (claim) => claim.status === "zur_adjudikation",
+    (claim) => claim.status === "pending_adjudication",
   ).length;
   const unconfirmedCount = register.claims.filter(
     (claim) => !CONFIRMED_STATUSES.has(claim.status),
@@ -140,6 +143,6 @@ export function buildBriefingViewModel(
     evidenceNumbers,
     openCount,
     unconfirmedCount,
-    isGeprueft: openCount === 0,
+    isFullyAdjudicated: openCount === 0,
   };
 }

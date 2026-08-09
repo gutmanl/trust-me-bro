@@ -88,8 +88,8 @@ export interface RegisterTransaction {
   }): void;
   /**
    * Creates a claim through the extraction gate: initial status is decided by
-   * the Nachweisvollständigkeits-Gate (evidence → erfasst, none → zur
-   * Adjudikation), never by the caller.
+   * the evidence-completeness gate (evidence → captured, none → pending
+   * adjudication), never by the caller.
    */
   addClaim(input: {
     claim: Omit<Claim, "status" | "history">;
@@ -104,7 +104,7 @@ export interface RegisterTransaction {
    */
   adoptClaim(input: {
     claim: Omit<Claim, "status" | "history">;
-    targetStatus: "bestaetigt" | "automatisch_bestaetigt" | "verworfen";
+    targetStatus: "confirmed" | "auto_confirmed" | "discarded";
     actor: ActorId;
     reason: string;
     at?: string;
@@ -133,19 +133,19 @@ export interface RegisterTransaction {
    * requirement, then appends exactly one chain-linked history entry.
    */
   transitionClaim(claimId: string, request: TransitionRequest): HistoryEntry;
-  /** Adds evidence to a claim (repair: alternative Fundstelle). */
+  /** Adds evidence to a claim (repair: alternative evidence). */
   addEvidence(claimId: string, evidence: Evidence): void;
   /**
    * Rewrites the claim wording during the repair loop (TMB-37). The previous
    * wording is never lost: the caller records it in the accompanying
-   * `beanstandet → ueberarbeitet` transition's `revision` field.
+   * `contested → revised` transition's `revision` field.
    */
   reviseClaimText(claimId: string, newText: string): void;
   /** Records the stage-1 existence result for one piece of evidence. */
   setExistenceCheck(
     claimId: string,
     evidenceId: string,
-    result: { status: "bestanden" | "nicht_bestanden"; at: string },
+    result: { status: "passed" | "failed"; at: string },
   ): void;
   /** Appends a backend judgment; existing judgments are never overwritten. */
   appendJudgment(claimId: string, evidenceId: string, judgment: Judgment): void;

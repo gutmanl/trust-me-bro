@@ -28,7 +28,7 @@ export function latestJudgmentPerBackend(
 /**
  * The relation currently authoritative for one piece of evidence, or null
  * when none is: no judgments yet, or the latest judgments per backend
- * disagree (Divergenzregel — resolution is then the adjudicator's decision,
+ * disagree (divergence rule — resolution is then the adjudicator's decision,
  * never computed).
  */
 export function resolveEvidenceRelation(

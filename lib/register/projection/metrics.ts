@@ -10,8 +10,8 @@ import type { ClaimsRegister } from "../schema/register";
 import { countRepairCycles } from "./counts";
 
 /**
- * Evaluation metrics (TMB-45, A5): Nachweisvollständigkeit,
- * Nachweiskorrektheit and Prüfaufwand, computed EXCLUSIVELY from the
+ * Evaluation metrics (TMB-45, A5): evidence completeness, evidence
+ * correctness and review effort, computed EXCLUSIVELY from the
  * register's history — deliberately never persisted, a stored second copy
  * could drift from the chain it summarizes. All functions are pure over
  * ClaimsRegister and testable with the fixture registers.
@@ -23,11 +23,12 @@ export interface ClaimMetricsRow {
   claim_id: string;
   status: ClaimStatus;
   claim_type: ClaimType;
-  /** ≥1 Fundstelle proven in the frozen corpus (existence check passed). */
-  has_proven_fundstelle: boolean;
+  /** ≥1 piece of evidence proven in the frozen corpus (existence check
+   * passed). */
+  has_proven_evidence: boolean;
   support_degree: SupportDegree | null;
   calibration_result: string | null;
-  /** Human-final outcome (bestaetigt or verworfen). */
+  /** Human-final outcome (confirmed or discarded). */
   is_terminal_adjudicated: boolean;
   /** ≥1 of the claim's adjudication decisions followed a sample draw
    * (RQ3 control, reported separately). */
@@ -38,7 +39,7 @@ export interface ClaimMetricsRow {
   /** Summed decision.duration_s over all decisions of this claim. */
   adjudication_duration_s: number;
   repair_cycles: number;
-  /** Last routing reason INTO zur_adjudikation, if any. */
+  /** Last routing reason INTO pending_adjudication, if any. */
   routing_reason: RoutingReason | null;
   /** Warm-run adoption (TMB-43). */
   is_adopted: boolean;
@@ -48,28 +49,28 @@ export interface ClaimMetricsRow {
 export interface ProjectMetrics {
   project_id: string;
   source_set_revision: number;
-  nachweisvollstaendigkeit: {
+  evidence_completeness: {
     total_claims: number;
-    with_proven_fundstelle: number;
+    with_proven_evidence: number;
     /** 0 when the project has no claims. */
     ratio: number;
   };
   /** Support-degree distribution after adjudication: claims with a
-   * human-final outcome (bestaetigt/verworfen); `unassessed` counts those
+   * human-final outcome (confirmed/discarded); `unassessed` counts those
    * without a support degree (e.g. discarded before pre-checking). */
-  nachweiskorrektheit: {
+  evidence_correctness: {
     total_terminal: number;
     by_support_degree: Record<SupportDegree | "unassessed", number>;
   };
   /** Adjudication effort WITHOUT the sample-control decisions, which the
-   * `stichprobe` block reports separately (RQ3). */
-  pruefaufwand: {
+   * `spot_check` block reports separately (RQ3). */
+  review_effort: {
     total_decisions: number;
     total_duration_s: number;
     mean_duration_s: number;
     total_repair_cycles: number;
   };
-  stichprobe: {
+  spot_check: {
     total_decisions: number;
     total_duration_s: number;
     claim_ids: string[];
@@ -80,21 +81,21 @@ export interface ProjectMetrics {
     adopted_total: number;
     origin_project_ids: string[];
     still_settled: number;
-    routed_relevanz_negativ: number;
+    routed_negative_relevance: number;
   } | null;
   rows: ClaimMetricsRow[];
 }
 
 /** A decision entry belongs to the sample control iff the last routing
- * into zur_adjudikation BEFORE it was the sample draw. */
+ * into pending_adjudication BEFORE it was the sample draw. */
 function isSampleDecision(claim: Claim, decisionEntry: HistoryEntry): boolean {
   const routingBefore = claim.history
     .filter(
       (entry) =>
-        entry.seq < decisionEntry.seq && entry.to_status === "zur_adjudikation",
+        entry.seq < decisionEntry.seq && entry.to_status === "pending_adjudication",
     )
     .at(-1);
-  return routingBefore?.routing === "stichprobe";
+  return routingBefore?.routing === "spot_check";
 }
 
 function buildRow(claim: Claim): ClaimMetricsRow {
@@ -105,19 +106,19 @@ function buildRow(claim: Claim): ClaimMetricsRow {
     isSampleDecision(claim, entry),
   );
   const lastRouting = claim.history
-    .filter((entry) => entry.to_status === "zur_adjudikation")
+    .filter((entry) => entry.to_status === "pending_adjudication")
     .at(-1);
   return {
     claim_id: claim.id,
     status: claim.status,
     claim_type: claim.claim_type,
-    has_proven_fundstelle: claim.evidence.some(
-      (evidence) => evidence.existence_check?.status === "bestanden",
+    has_proven_evidence: claim.evidence.some(
+      (evidence) => evidence.existence_check?.status === "passed",
     ),
     support_degree: claim.support_degree ?? null,
     calibration_result: claim.calibration_result ?? null,
     is_terminal_adjudicated:
-      claim.status === "bestaetigt" || claim.status === "verworfen",
+      claim.status === "confirmed" || claim.status === "discarded",
     is_sample_control: sampleDecisions.length > 0,
     adjudication_count: decisions.length,
     adjudication_duration_s: decisions.reduce(
@@ -143,7 +144,7 @@ export function computeProjectMetrics(
 ): ProjectMetrics {
   const rows = register.claims.map(buildRow);
 
-  const withProven = rows.filter((row) => row.has_proven_fundstelle).length;
+  const withProven = rows.filter((row) => row.has_proven_evidence).length;
 
   const terminal = rows.filter((row) => row.is_terminal_adjudicated);
   const bySupportDegree = Object.fromEntries([
@@ -185,23 +186,23 @@ export function computeProjectMetrics(
   }
 
   const adopted = rows.filter((row) => row.is_adopted);
-  const routedNegativ = register.claims.filter((claim) =>
-    claim.history.some((entry) => entry.routing === "einschlaegigkeit_negativ"),
+  const routedNegative = register.claims.filter((claim) =>
+    claim.history.some((entry) => entry.routing === "negative_relevance"),
   ).length;
 
   return {
     project_id: register.project.id,
     source_set_revision: register.project.source_set_revision,
-    nachweisvollstaendigkeit: {
+    evidence_completeness: {
       total_claims: rows.length,
-      with_proven_fundstelle: withProven,
+      with_proven_evidence: withProven,
       ratio: rows.length === 0 ? 0 : withProven / rows.length,
     },
-    nachweiskorrektheit: {
+    evidence_correctness: {
       total_terminal: terminal.length,
       by_support_degree: bySupportDegree,
     },
-    pruefaufwand: {
+    review_effort: {
       total_decisions: regularDecisions,
       total_duration_s: regularDurationS,
       mean_duration_s:
@@ -211,7 +212,7 @@ export function computeProjectMetrics(
         0,
       ),
     },
-    stichprobe: {
+    spot_check: {
       total_decisions: sampleDecisions,
       total_duration_s: sampleDurationS,
       claim_ids: sampleClaimIds,
@@ -226,11 +227,11 @@ export function computeProjectMetrics(
             ].sort(),
             still_settled: adopted.filter(
               (row) =>
-                row.status === "bestaetigt" ||
-                row.status === "automatisch_bestaetigt" ||
-                row.status === "verworfen",
+                row.status === "confirmed" ||
+                row.status === "auto_confirmed" ||
+                row.status === "discarded",
             ).length,
-            routed_relevanz_negativ: routedNegativ,
+            routed_negative_relevance: routedNegative,
           },
     rows,
   };

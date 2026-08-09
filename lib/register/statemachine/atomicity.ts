@@ -2,7 +2,7 @@
  * Conservative atomicity heuristic of the extraction gate (TMB-25): an
  * extraction result that bundles multiple statements violates the claim
  * model (A1: atomar) and must not enter the verification pipeline as
- * "erfasst". The heuristic looks for internal sentence boundaries while
+ * "captured". The heuristic looks for internal sentence boundaries while
  * ignoring decimals, ordinals, initials and common German abbreviations.
  * It never needs to be perfect: a false positive costs one adjudication
  * review, a false negative is still caught by the human reading the claim —

@@ -1,39 +1,39 @@
 import { z } from "zod";
 
 /**
- * Closed enumerations of the claims.json field schema. Values are
- * ASCII-transliterated forms of the German terms from the concept chapter
+ * Closed enumerations of the claims.json field schema. Values are English
+ * identifiers mapped one-to-one to the German terms of the concept chapter
  * (file format appendix: the mapping is one-to-one and normative).
  */
 
 /**
  * Claim lifecycle per the status model table in the concept chapter.
- * `nachpruefung_erforderlich` (TMB-44) extends the ratified nine-status
+ * `recheck_required` (TMB-44) extends the ratified nine-status
  * model: a source revision invalidates the machine determinations that
  * referenced the old wording, so settled claims re-enter the verification
  * cascade instead of silently keeping a verdict about a text that no
  * longer exists (documented extension, additive).
  */
 export const ClaimStatus = z.enum([
-  "erfasst",
-  "existenzgeprueft",
-  "vorgeprueft",
-  "automatisch_bestaetigt",
-  "zur_adjudikation",
-  "bestaetigt",
-  "beanstandet",
-  "ueberarbeitet",
-  "verworfen",
-  "nachpruefung_erforderlich",
+  "captured",
+  "existence_checked",
+  "prechecked",
+  "auto_confirmed",
+  "pending_adjudication",
+  "confirmed",
+  "contested",
+  "revised",
+  "discarded",
+  "recheck_required",
 ]);
 export type ClaimStatus = z.infer<typeof ClaimStatus>;
 
 /** Claim classification steering the evidence rubric (SE-Evidenz-Rubrik). */
 export const ClaimType = z.enum([
-  "quantitativer_einzelbefund",
-  "vergleichende_aussage",
-  "wirksamkeitsaussage",
-  "empfehlung",
+  "quantitative_finding",
+  "comparative_statement",
+  "effectiveness_statement",
+  "recommendation",
 ]);
 export type ClaimType = z.infer<typeof ClaimType>;
 
@@ -51,40 +51,40 @@ export type SupportDegree = z.infer<typeof SupportDegree>;
 
 /** Relation of one piece of evidence to its claim (Artefaktmodell). */
 export const RelationType = z.enum([
-  "stuetzt",
-  "stuetzt_teilweise",
-  "widerspricht",
-  "nicht_einschlaegig",
+  "supports",
+  "partially_supports",
+  "contradicts",
+  "not_relevant",
 ]);
 export type RelationType = z.infer<typeof RelationType>;
 
 /** Source typing per the MLR-informed rubric weighting (Artefaktmodell). */
 export const SourceType = z.enum([
-  "begutachtete_publikation",
+  "peer_reviewed_publication",
   "preprint",
-  "grauliteratur",
-  "herstellerdokumentation",
+  "grey_literature",
+  "vendor_documentation",
 ]);
 export type SourceType = z.infer<typeof SourceType>;
 
 /** Result of the deterministic existence check (stage 1). */
-export const ExistenceCheckStatus = z.enum(["bestanden", "nicht_bestanden"]);
+export const ExistenceCheckStatus = z.enum(["passed", "failed"]);
 export type ExistenceCheckStatus = z.infer<typeof ExistenceCheckStatus>;
 
 /**
  * Complaint categories of the adjudication dialog, translating the error
  * taxonomy into reviewer language (concept chapter, Adjudikations-Interface).
- * The mandatory free-text justification for "sonstiges" is enforced by the
+ * The mandatory free-text justification for "other" is enforced by the
  * adjudication dialog (later epic); the register only requires the generic
  * non-empty reason.
  */
 export const ComplaintCategory = z.enum([
-  "wortlaut_nicht_in_quelle",
-  "leitsatz_nicht_herleitbar",
-  "aus_dem_kontext_gerissen",
-  "quelle_nicht_vertrauenswuerdig",
-  "quelle_veraltet",
-  "sonstiges",
+  "wording_not_in_source",
+  "claim_not_derivable",
+  "taken_out_of_context",
+  "source_not_trustworthy",
+  "source_outdated",
+  "other",
 ]);
 export type ComplaintCategory = z.infer<typeof ComplaintCategory>;
 
@@ -94,30 +94,35 @@ export type ComplaintCategory = z.infer<typeof ComplaintCategory>;
  * names a rubric complaint as a routing condition to adjudication; the field
  * schema of the format appendix left the outcome unmodeled, so this enum is
  * a documented extension introduced with the register core.
+ *
+ * `pending_adjudication` is intentionally the same value as the ClaimStatus
+ * member of the same name: a rubric complaint routes the claim into
+ * adjudication, so the calibration outcome and the resulting claim status
+ * are the same concept observed from two angles, not a coincidence.
  */
 export const CalibrationResult = z.enum([
-  "lizenziert",
-  "abschwaechen",
-  "zur_adjudikation",
+  "licensed",
+  "weakened",
+  "pending_adjudication",
 ]);
 export type CalibrationResult = z.infer<typeof CalibrationResult>;
 
 /**
- * Structured routing reason of a transition INTO `zur_adjudikation` (TMB-5,
+ * Structured routing reason of a transition INTO `pending_adjudication` (TMB-5,
  * ratified 08.08.2026): the queue filters and groups by this field instead of
  * parsing free-text reasons. Optional on history entries — entries from
  * before this extension (and non-routing transitions) simply lack it.
  */
 export const RoutingReason = z.enum([
-  "ohne_beleg",
-  "existenz_nicht_bestanden",
-  "divergenz",
-  "negative_vorpruefung",
-  "stichprobe",
-  "eskaliert",
+  "no_evidence",
+  "existence_check_failed",
+  "divergence",
+  "negative_precheck",
+  "spot_check",
+  "escalated",
   /** TMB-43: an adopted claim's relevance to the follow-up question was
    * judged negative or uncertain by the relevance check of a warm run. */
-  "einschlaegigkeit_negativ",
+  "negative_relevance",
 ]);
 export type RoutingReason = z.infer<typeof RoutingReason>;
 

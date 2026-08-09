@@ -41,7 +41,7 @@ export type Decision = z.infer<typeof Decision>;
 
 /**
  * Text revision of the repair loop (TMB-37): carried by the
- * `beanstandet → ueberarbeitet` history entry so every previous wording
+ * `contested → revised` history entry so every previous wording
  * stays reconstructable from the chain alone.
  */
 export const Revision = z.strictObject({

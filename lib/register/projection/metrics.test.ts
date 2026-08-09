@@ -30,39 +30,39 @@ describe("computeProjectMetrics", () => {
     const register = baseRegister();
     register.claims = [];
     const metrics = computeProjectMetrics(register);
-    expect(metrics.nachweisvollstaendigkeit).toEqual({
+    expect(metrics.evidence_completeness).toEqual({
       total_claims: 0,
-      with_proven_fundstelle: 0,
+      with_proven_evidence: 0,
       ratio: 0,
     });
-    expect(metrics.nachweiskorrektheit.total_terminal).toBe(0);
-    expect(metrics.pruefaufwand.total_decisions).toBe(0);
-    expect(metrics.pruefaufwand.mean_duration_s).toBe(0);
-    expect(metrics.stichprobe.total_decisions).toBe(0);
+    expect(metrics.evidence_correctness.total_terminal).toBe(0);
+    expect(metrics.review_effort.total_decisions).toBe(0);
+    expect(metrics.review_effort.mean_duration_s).toBe(0);
+    expect(metrics.spot_check.total_decisions).toBe(0);
     expect(metrics.warm_run).toBeNull();
     expect(metrics.rows).toEqual([]);
   });
 
   it("derives the appendix example: one confirmed claim via sample control", () => {
     const metrics = computeProjectMetrics(baseRegister());
-    expect(metrics.nachweisvollstaendigkeit).toEqual({
+    expect(metrics.evidence_completeness).toEqual({
       total_claims: 1,
-      with_proven_fundstelle: 1,
+      with_proven_evidence: 1,
       ratio: 1,
     });
-    expect(metrics.nachweiskorrektheit.total_terminal).toBe(1);
-    expect(metrics.nachweiskorrektheit.by_support_degree.supported).toBe(1);
+    expect(metrics.evidence_correctness.total_terminal).toBe(1);
+    expect(metrics.evidence_correctness.by_support_degree.supported).toBe(1);
     // The single decision followed the sample draw — it counts as RQ3
     // control, NOT as regular adjudication effort.
-    expect(metrics.pruefaufwand.total_decisions).toBe(0);
-    expect(metrics.pruefaufwand.total_duration_s).toBe(0);
-    expect(metrics.stichprobe.total_decisions).toBe(1);
-    expect(metrics.stichprobe.total_duration_s).toBe(96);
-    expect(metrics.stichprobe.claim_ids).toEqual(["clm_0001"]);
+    expect(metrics.review_effort.total_decisions).toBe(0);
+    expect(metrics.review_effort.total_duration_s).toBe(0);
+    expect(metrics.spot_check.total_decisions).toBe(1);
+    expect(metrics.spot_check.total_duration_s).toBe(96);
+    expect(metrics.spot_check.claim_ids).toEqual(["clm_0001"]);
     const row = metrics.rows[0];
     expect(row.is_sample_control).toBe(true);
     expect(row.is_terminal_adjudicated).toBe(true);
-    expect(row.routing_reason).toBe("stichprobe");
+    expect(row.routing_reason).toBe("spot_check");
     expect(row.is_adopted).toBe(false);
   });
 
@@ -73,38 +73,38 @@ describe("computeProjectMetrics", () => {
     // (complaint + confirmation after repair), one repair cycle.
     const regular = structuredClone(template);
     regular.id = "clm_0002";
-    regular.status = "bestaetigt";
+    regular.status = "confirmed";
     regular.support_degree = "partially_supported";
     regular.history = [
-      entry(20, { from_status: null, to_status: "erfasst" }),
+      entry(20, { from_status: null, to_status: "captured" }),
       entry(21, {
-        from_status: "vorgeprueft",
-        to_status: "zur_adjudikation",
-        routing: "negative_vorpruefung",
+        from_status: "prechecked",
+        to_status: "pending_adjudication",
+        routing: "negative_precheck",
       }),
       entry(22, {
-        from_status: "zur_adjudikation",
-        to_status: "beanstandet",
+        from_status: "pending_adjudication",
+        to_status: "contested",
         actor: "human:lg",
         decision: {
-          categories: ["aus_dem_kontext_gerissen"],
+          categories: ["taken_out_of_context"],
           reviewed_evidence_ids: [],
           duration_s: 120,
         },
       }),
       entry(23, {
-        from_status: "beanstandet",
-        to_status: "ueberarbeitet",
+        from_status: "contested",
+        to_status: "revised",
         revision: { previous_text: "Alt.", new_text: "Neu." },
       }),
       entry(24, {
-        from_status: "ueberarbeitet",
-        to_status: "zur_adjudikation",
-        routing: "eskaliert",
+        from_status: "revised",
+        to_status: "pending_adjudication",
+        routing: "escalated",
       }),
       entry(25, {
-        from_status: "zur_adjudikation",
-        to_status: "bestaetigt",
+        from_status: "pending_adjudication",
+        to_status: "confirmed",
         actor: "human:lg",
         decision: {
           categories: [],
@@ -116,53 +116,53 @@ describe("computeProjectMetrics", () => {
     // Adopted claim (warm run) later routed for negative relevance.
     const adopted = structuredClone(template);
     adopted.id = "clm_0003";
-    adopted.status = "zur_adjudikation";
+    adopted.status = "pending_adjudication";
     adopted.provenance = {
       ...adopted.provenance,
       origin_project_id: "proj_ursprung",
     };
     adopted.history = [
-      entry(30, { from_status: null, to_status: "bestaetigt" }),
+      entry(30, { from_status: null, to_status: "confirmed" }),
       entry(31, {
-        from_status: "bestaetigt",
-        to_status: "zur_adjudikation",
-        routing: "einschlaegigkeit_negativ",
+        from_status: "confirmed",
+        to_status: "pending_adjudication",
+        routing: "negative_relevance",
       }),
     ] as never;
     // Adopted claim that stayed settled.
     const adoptedKept = structuredClone(template);
     adoptedKept.id = "clm_0004";
-    adoptedKept.status = "automatisch_bestaetigt";
+    adoptedKept.status = "auto_confirmed";
     adoptedKept.provenance = {
       ...adoptedKept.provenance,
       origin_project_id: "proj_ursprung",
     };
     adoptedKept.history = [
-      entry(32, { from_status: null, to_status: "automatisch_bestaetigt" }),
+      entry(32, { from_status: null, to_status: "auto_confirmed" }),
     ] as never;
     register.claims.push(regular, adopted, adoptedKept);
 
     const metrics = computeProjectMetrics(register);
-    expect(metrics.pruefaufwand.total_decisions).toBe(2);
-    expect(metrics.pruefaufwand.total_duration_s).toBe(180);
-    expect(metrics.pruefaufwand.mean_duration_s).toBe(90);
-    expect(metrics.pruefaufwand.total_repair_cycles).toBe(1);
+    expect(metrics.review_effort.total_decisions).toBe(2);
+    expect(metrics.review_effort.total_duration_s).toBe(180);
+    expect(metrics.review_effort.mean_duration_s).toBe(90);
+    expect(metrics.review_effort.total_repair_cycles).toBe(1);
     // The fixture claim's sample decision stays separate.
-    expect(metrics.stichprobe.total_decisions).toBe(1);
+    expect(metrics.spot_check.total_decisions).toBe(1);
     expect(metrics.warm_run).toEqual({
       adopted_total: 2,
       origin_project_ids: ["proj_ursprung"],
       still_settled: 1,
-      routed_relevanz_negativ: 1,
+      routed_negative_relevance: 1,
     });
     const regularRow = metrics.rows.find((row) => row.claim_id === "clm_0002");
     expect(regularRow?.adjudication_count).toBe(2);
     expect(regularRow?.adjudication_duration_s).toBe(180);
     expect(regularRow?.repair_cycles).toBe(1);
     expect(regularRow?.is_sample_control).toBe(false);
-    expect(regularRow?.routing_reason).toBe("eskaliert");
+    expect(regularRow?.routing_reason).toBe("escalated");
     const adoptedRow = metrics.rows.find((row) => row.claim_id === "clm_0003");
     expect(adoptedRow?.is_adopted).toBe(true);
-    expect(adoptedRow?.routing_reason).toBe("einschlaegigkeit_negativ");
+    expect(adoptedRow?.routing_reason).toBe("negative_relevance");
   });
 });

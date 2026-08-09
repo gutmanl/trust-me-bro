@@ -13,7 +13,7 @@
     }
   },
   "config": {
-    "rubric_version": "se-evidenz-rubrik-v1",
+    "rubric_version": "se-evidence-rubric-v1",
     "adjudication_sample_rate": 0.1,
     "backends": {
       "primary": {
@@ -43,7 +43,7 @@
       "container-title": "IEEE Transactions on Software Engineering",
       "DOI": "10.1109/TSE.2025.3489012",
       "custom": {
-        "source_type": "begutachtete_publikation",
+        "source_type": "peer_reviewed_publication",
         "identifier_verified": {
           "status": true,
           "at": "2026-07-28T08:05:44Z"
@@ -62,10 +62,10 @@
     {
       "id": "clm_0001",
       "text": "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
-      "claim_type": "quantitativer_einzelbefund",
-      "status": "bestaetigt",
+      "claim_type": "quantitative_finding",
+      "status": "confirmed",
       "support_degree": "supported",
-      "calibration_result": "lizenziert",
+      "calibration_result": "licensed",
       "briefing_anchor": "p12",
       "provenance": {
         "tool": "deep-research-x",
@@ -83,15 +83,15 @@
           },
           "verbatim_excerpt": "…median review time dropped from 42 to 19 minutes (-55%)…",
           "existence_check": {
-            "status": "bestanden",
+            "status": "passed",
             "at": "2026-07-28T09:12:03Z"
           },
-          "relation_type": "stuetzt",
+          "relation_type": "supports",
           "judgments": [
             {
               "backend": "claude",
               "model": "claude-sonnet-5",
-              "relation_type": "stuetzt",
+              "relation_type": "supports",
               "confidence": 0.92,
               "reasoning": "Zahlenwert und Richtung stimmen mit dem Auszug ueberein.",
               "at": "2026-07-28T09:20:11Z"
@@ -105,7 +105,7 @@
           "at": "2026-07-28T08:12:30Z",
           "actor": "system:extraction",
           "from_status": null,
-          "to_status": "erfasst",
+          "to_status": "captured",
           "reason": "Aus Briefing-Absatz p12 extrahiert.",
           "prev_hash": "c41d8a0000000000000000000000000000000000000000000000000000000000",
           "hash": "77e0b30000000000000000000000000000000000000000000000000000000000"
@@ -113,11 +113,11 @@
         {
           "seq": 8,
           "at": "2026-08-01T13:59:12Z",
-          "actor": "system:stichprobe",
-          "from_status": "automatisch_bestaetigt",
-          "to_status": "zur_adjudikation",
+          "actor": "system:spot_check",
+          "from_status": "auto_confirmed",
+          "to_status": "pending_adjudication",
           "reason": "Stichprobenkontrolle (Lauf run_0001, Seed run_0001, Rate 0.1).",
-          "routing": "stichprobe",
+          "routing": "spot_check",
           "prev_hash": "9d31c40000000000000000000000000000000000000000000000000000000000",
           "hash": "b12f090000000000000000000000000000000000000000000000000000000000"
         },
@@ -125,8 +125,8 @@
           "seq": 9,
           "at": "2026-08-01T14:03:55Z",
           "actor": "human:lg",
-          "from_status": "zur_adjudikation",
-          "to_status": "bestaetigt",
+          "from_status": "pending_adjudication",
+          "to_status": "confirmed",
           "reason": "Stichprobenkontrolle: Fundstelle und Zahlenwert im Snapshot verifiziert.",
           "decision": {
             "categories": [],

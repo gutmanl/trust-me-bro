@@ -41,14 +41,14 @@ function buildValidRegister(): ClaimsRegister {
       at: "2026-08-01T08:10:00Z",
       actor: "system:extraction",
       from_status: null,
-      to_status: "erfasst",
+      to_status: "captured",
       reason: "Aus Briefing extrahiert.",
     }) as ClaimsRegister["claims"][number]["history"][number],
     appender.append({
       at: "2026-08-01T09:00:00Z",
       actor: "system:existence_check",
-      from_status: "erfasst",
-      to_status: "existenzgeprueft",
+      from_status: "captured",
+      to_status: "existence_checked",
       reason: "Alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
     }) as ClaimsRegister["claims"][number]["history"][number],
   );
@@ -61,7 +61,7 @@ function buildValidRegister(): ClaimsRegister {
     }) as ClaimsRegister["project_events"][number],
   );
   // Keep the derived status field consistent with the minted history.
-  base.claims[0].status = "existenzgeprueft";
+  base.claims[0].status = "existence_checked";
   return base;
 }
 
@@ -72,7 +72,7 @@ function buildSealedRegister(): ClaimsRegister {
   base.project = { ...base.project, ...identity };
   base.claims[0].history = [];
   base.project_events = [];
-  base.claims[0].status = "existenzgeprueft";
+  base.claims[0].status = "existence_checked";
 
   const appender = new ChainAppender(base);
   base.project_events.push(
@@ -88,14 +88,14 @@ function buildSealedRegister(): ClaimsRegister {
       at: "2026-08-01T08:10:00Z",
       actor: "system:extraction",
       from_status: null,
-      to_status: "erfasst",
+      to_status: "captured",
       reason: "Aus Briefing extrahiert.",
     }) as ClaimsRegister["claims"][number]["history"][number],
     appender.append({
       at: "2026-08-01T09:00:00Z",
       actor: "system:existence_check",
-      from_status: "erfasst",
-      to_status: "existenzgeprueft",
+      from_status: "captured",
+      to_status: "existence_checked",
       reason: "Alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
     }) as ClaimsRegister["claims"][number]["history"][number],
   );
@@ -244,14 +244,14 @@ describe("verifyChain", () => {
 
   it("detects a status field edited past the chained history", () => {
     const register = buildValidRegister();
-    register.claims[0].status = "bestaetigt";
+    register.claims[0].status = "confirmed";
     const result = verifyChain(register);
     expect(result.ok).toBe(false);
     expect(result.errors).toContainEqual({
       type: "status_mismatch",
       claimId: register.claims[0].id,
-      status: "bestaetigt",
-      lastHistoryStatus: "existenzgeprueft",
+      status: "confirmed",
+      lastHistoryStatus: "existence_checked",
     });
   });
 });
@@ -277,7 +277,7 @@ describe("state root (content replay)", () => {
     ],
     [
       "resolved relation",
-      (r) => void (r.claims[0].evidence[0].relation_type = "widerspricht"),
+      (r) => void (r.claims[0].evidence[0].relation_type = "contradicts"),
     ],
     [
       "judgment confidence",
@@ -289,7 +289,7 @@ describe("state root (content replay)", () => {
     ],
     [
       "calibration result",
-      (r) => void (r.claims[0].calibration_result = "abschwaechen"),
+      (r) => void (r.claims[0].calibration_result = "weakened"),
     ],
     [
       "source title",

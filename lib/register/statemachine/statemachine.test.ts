@@ -16,7 +16,7 @@ import {
 import { TRANSITIONS } from "./transitions";
 
 const config: ProjectConfig = {
-  rubric_version: "se-evidenz-rubrik-v1",
+  rubric_version: "se-evidence-rubric-v1",
   adjudication_sample_rate: 0.1,
   backends: {
     primary: { cli: "claude", model_family: "anthropic" },
@@ -28,7 +28,7 @@ const source = {
   id: "src_meyer2025",
   type: "article-journal",
   title: "Effects of AI Assistants on Code Review Duration",
-  custom: { source_type: "begutachtete_publikation" },
+  custom: { source_type: "peer_reviewed_publication" },
 };
 
 function newEvidence(id = "ev_0001"): Evidence {
@@ -45,7 +45,7 @@ function newClaim(id = "clm_0001", evidence: Evidence[] = [newEvidence()]) {
   return {
     id,
     text: "LLM-Reviews reduzieren die Reviewzeit.",
-    claim_type: "quantitativer_einzelbefund",
+    claim_type: "quantitative_finding",
     briefing_anchor: "p12",
     provenance: {
       tool: "deep-research-x",
@@ -95,7 +95,7 @@ afterEach(() => {
 });
 
 describe("claim creation (extraction gate)", () => {
-  it("routes claims with evidence to erfasst", async () => {
+  it("routes claims with evidence to captured", async () => {
     const claim = await store.transaction((tx) =>
       tx.addClaim({
         claim: newClaim(),
@@ -103,11 +103,11 @@ describe("claim creation (extraction gate)", () => {
         reason: "Extrahiert.",
       }),
     );
-    expect(claim.status).toBe("erfasst");
+    expect(claim.status).toBe("captured");
     expect(claim.history).toHaveLength(1);
     expect(claim.history[0]).toMatchObject({
       from_status: null,
-      to_status: "erfasst",
+      to_status: "captured",
     });
   });
 
@@ -119,10 +119,10 @@ describe("claim creation (extraction gate)", () => {
         reason: "Keine Fundstelle extrahierbar.",
       }),
     );
-    expect(claim.status).toBe("zur_adjudikation");
+    expect(claim.status).toBe("pending_adjudication");
   });
 
-  it("routes bundled statements to adjudication despite evidence (Atomaritätsgate)", async () => {
+  it("routes bundled statements to adjudication despite evidence (atomicity gate)", async () => {
     const bundled = newClaim("clm_0004");
     bundled.text =
       "Die Reviewzeit sinkt um 55 %. Zudem steigt die Codequalität langfristig.";
@@ -134,8 +134,8 @@ describe("claim creation (extraction gate)", () => {
           "Atomaritätsgate: Extraktionsergebnis bündelt mehrere Aussagen.",
       }),
     );
-    expect(claim.status).toBe("zur_adjudikation");
-    expect(claim.history[0].to_status).toBe("zur_adjudikation");
+    expect(claim.status).toBe("pending_adjudication");
+    expect(claim.history[0].to_status).toBe("pending_adjudication");
   });
 
   it("rejects human actors as claim creators", async () => {
@@ -162,11 +162,11 @@ describe("gate conditions re-derive from persisted state", () => {
     });
   });
 
-  it("blocks existenzgeprueft while checks are missing or failed", async () => {
+  it("blocks existence_checked while checks are missing or failed", async () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "existenzgeprueft",
+          to: "existence_checked",
           actor: "system:existence_check",
           reason: "sollte scheitern",
         }),
@@ -175,14 +175,14 @@ describe("gate conditions re-derive from persisted state", () => {
 
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "nicht_bestanden",
+        status: "failed",
         at: "2026-08-06T09:00:00Z",
       });
     });
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "existenzgeprueft",
+          to: "existence_checked",
           actor: "system:existence_check",
           reason: "sollte weiter scheitern",
         }),
@@ -193,77 +193,77 @@ describe("gate conditions re-derive from persisted state", () => {
   it("routes failed existence checks to adjudication", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "nicht_bestanden",
+        status: "failed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: "system:existence_check",
         reason: "Wortlaut nicht im Snapshot gefunden.",
       });
     });
     const register = await store.read();
-    expect(register.claims[0].status).toBe("zur_adjudikation");
+    expect(register.claims[0].status).toBe("pending_adjudication");
   });
 
-  it("escalates existenzgeprueft → zur_adjudikation when adapter retries are exhausted (TMB-19, ratified edge)", async () => {
+  it("escalates existence_checked → pending_adjudication when adapter retries are exhausted (TMB-19, ratified edge)", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
+        to: "existence_checked",
         actor: "system:existence_check",
         reason: "Wortlaut im Snapshot verifiziert.",
       });
       const entry = tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: "system:adapter",
         reason:
           "LLM-Prüfaufrufe endgültig gescheitert (3 Versuche, timeout) — Eskalation statt stillem Verwerfen.",
       });
-      expect(entry.from_status).toBe("existenzgeprueft");
-      expect(entry.to_status).toBe("zur_adjudikation");
+      expect(entry.from_status).toBe("existence_checked");
+      expect(entry.to_status).toBe("pending_adjudication");
     });
     const register = await store.read();
-    expect(register.claims[0].status).toBe("zur_adjudikation");
+    expect(register.claims[0].status).toBe("pending_adjudication");
   });
 
   it("walks the happy path to automatic confirmation", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
+        to: "existence_checked",
         actor: "system:existence_check",
         reason: "Fundstelle nachgewiesen.",
       });
-      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "stuetzt"));
-      tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "stuetzt"));
-      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "supports"));
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "supports"));
+      tx.setResolvedRelation("clm_0001", "ev_0001", "supports");
       tx.setSupportDegree("clm_0001", "supported");
-      tx.setCalibrationResult("clm_0001", "lizenziert");
+      tx.setCalibrationResult("clm_0001", "licensed");
       tx.transitionClaim("clm_0001", {
-        to: "vorgeprueft",
+        to: "prechecked",
         actor: "system:attribution",
         reason: "Stufe 2 und 3 abgeschlossen.",
       });
       tx.transitionClaim("clm_0001", {
-        to: "automatisch_bestaetigt",
+        to: "auto_confirmed",
         actor: "system:adjudication_gate",
         reason: "Durchgehend positiv, keine Divergenz.",
       });
     });
     const register = await store.read();
-    expect(register.claims[0].status).toBe("automatisch_bestaetigt");
+    expect(register.claims[0].status).toBe("auto_confirmed");
     expect(register.claims[0].history.map((entry) => entry.to_status)).toEqual([
-      "erfasst",
-      "existenzgeprueft",
-      "vorgeprueft",
-      "automatisch_bestaetigt",
+      "captured",
+      "existence_checked",
+      "prechecked",
+      "auto_confirmed",
     ]);
     expect((await store.verify()).ok).toBe(true);
   });
@@ -271,25 +271,25 @@ describe("gate conditions re-derive from persisted state", () => {
   it("blocks automatic confirmation on backend divergence", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
+        to: "existence_checked",
         actor: "system:existence_check",
         reason: "Fundstelle nachgewiesen.",
       });
-      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "stuetzt"));
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "supports"));
       tx.appendJudgment(
         "clm_0001",
         "ev_0001",
-        judgment("codex", "stuetzt_teilweise"),
+        judgment("codex", "partially_supports"),
       );
-      tx.setCalibrationResult("clm_0001", "lizenziert");
-      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.setCalibrationResult("clm_0001", "licensed");
+      tx.setResolvedRelation("clm_0001", "ev_0001", "supports");
       tx.setSupportDegree("clm_0001", "supported");
       tx.transitionClaim("clm_0001", {
-        to: "vorgeprueft",
+        to: "prechecked",
         actor: "system:attribution",
         reason: "Stufe 2 und 3 abgeschlossen.",
       });
@@ -297,7 +297,7 @@ describe("gate conditions re-derive from persisted state", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "automatisch_bestaetigt",
+          to: "auto_confirmed",
           actor: "system:adjudication_gate",
           reason: "sollte an der Divergenzregel scheitern",
         }),
@@ -305,79 +305,79 @@ describe("gate conditions re-derive from persisted state", () => {
     ).rejects.toThrow(/diverge/);
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: "system:adjudication_gate",
         reason: "Modellfamilien-Divergenz.",
       });
     });
-    expect((await store.read()).claims[0].status).toBe("zur_adjudikation");
+    expect((await store.read()).claims[0].status).toBe("pending_adjudication");
   });
 
   it("does not read a backend's own revision as divergence (latest judgment counts)", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
+        to: "existence_checked",
         actor: "system:existence_check",
         reason: "Fundstelle nachgewiesen.",
       });
-      // claude first judged stuetzt_teilweise, then revised to stuetzt after
+      // claude first judged partially_supports, then revised to supports after
       // a re-run; codex agrees with the current position.
       tx.appendJudgment(
         "clm_0001",
         "ev_0001",
-        judgment("claude", "stuetzt_teilweise", "2026-08-06T09:00:00Z"),
+        judgment("claude", "partially_supports", "2026-08-06T09:00:00Z"),
       );
       tx.appendJudgment(
         "clm_0001",
         "ev_0001",
-        judgment("claude", "stuetzt", "2026-08-06T10:00:00Z"),
+        judgment("claude", "supports", "2026-08-06T10:00:00Z"),
       );
       tx.appendJudgment(
         "clm_0001",
         "ev_0001",
-        judgment("codex", "stuetzt", "2026-08-06T10:05:00Z"),
+        judgment("codex", "supports", "2026-08-06T10:05:00Z"),
       );
-      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.setResolvedRelation("clm_0001", "ev_0001", "supports");
       tx.setSupportDegree("clm_0001", "supported");
-      tx.setCalibrationResult("clm_0001", "lizenziert");
+      tx.setCalibrationResult("clm_0001", "licensed");
       tx.transitionClaim("clm_0001", {
-        to: "vorgeprueft",
+        to: "prechecked",
         actor: "system:attribution",
         reason: "Stufe 2 und 3 abgeschlossen.",
       });
       tx.transitionClaim("clm_0001", {
-        to: "automatisch_bestaetigt",
+        to: "auto_confirmed",
         actor: "system:adjudication_gate",
         reason: "Aktuelle Urteile beider Backends stimmen überein.",
       });
     });
     expect((await store.read()).claims[0].status).toBe(
-      "automatisch_bestaetigt",
+      "auto_confirmed",
     );
   });
 
   it("blocks automatic confirmation on a rubric complaint (Stufe 3)", async () => {
     await store.transaction((tx) => {
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
+        to: "existence_checked",
         actor: "system:existence_check",
         reason: "Fundstelle nachgewiesen.",
       });
-      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "stuetzt"));
-      tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "stuetzt"));
-      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "supports"));
+      tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "supports"));
+      tx.setResolvedRelation("clm_0001", "ev_0001", "supports");
       tx.setSupportDegree("clm_0001", "supported");
-      tx.setCalibrationResult("clm_0001", "abschwaechen");
+      tx.setCalibrationResult("clm_0001", "weakened");
       tx.transitionClaim("clm_0001", {
-        to: "vorgeprueft",
+        to: "prechecked",
         actor: "system:attribution",
         reason: "Stufe 2 und 3 abgeschlossen.",
       });
@@ -385,12 +385,12 @@ describe("gate conditions re-derive from persisted state", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "automatisch_bestaetigt",
+          to: "auto_confirmed",
           actor: "system:adjudication_gate",
           reason: "sollte an der Rubrik scheitern",
         }),
       ),
-    ).rejects.toThrow(/lizenziert/);
+    ).rejects.toThrow(/licensed/);
   });
 });
 
@@ -409,7 +409,7 @@ describe("human adjudication", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "bestaetigt",
+          to: "confirmed",
           actor: "human:lg",
           reason: "ohne Entscheidung",
         }),
@@ -420,14 +420,14 @@ describe("human adjudication", () => {
   it("confirms with empty categories and records the decision", async () => {
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "bestaetigt",
+        to: "confirmed",
         actor: "human:lg",
         reason: "Manuell verifiziert.",
         decision: { categories: [], reviewed_evidence_ids: [], duration_s: 42 },
       });
     });
     const claim = (await store.read()).claims[0];
-    expect(claim.status).toBe("bestaetigt");
+    expect(claim.status).toBe("confirmed");
     expect(claim.history.at(-1)?.decision).toMatchObject({
       categories: [],
       duration_s: 42,
@@ -438,11 +438,11 @@ describe("human adjudication", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "bestaetigt",
+          to: "confirmed",
           actor: "human:lg",
           reason: "Bestätigung mit Kategorie.",
           decision: {
-            categories: ["sonstiges"],
+            categories: ["other"],
             reviewed_evidence_ids: [],
             duration_s: 10,
           },
@@ -451,11 +451,11 @@ describe("human adjudication", () => {
     ).rejects.toThrow(DecisionRequiredError);
   });
 
-  it("requires a complaint category for beanstandet", async () => {
+  it("requires a complaint category for contested", async () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "beanstandet",
+          to: "contested",
           actor: "human:lg",
           reason: "Kategorie fehlt.",
           decision: {
@@ -471,21 +471,21 @@ describe("human adjudication", () => {
   it("accepts multi-select complaints and records all categories", async () => {
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "beanstandet",
+        to: "contested",
         actor: "human:lg",
         reason: "Aus dem Kontext gerissen und Quelle veraltet.",
         decision: {
-          categories: ["aus_dem_kontext_gerissen", "quelle_veraltet"],
+          categories: ["taken_out_of_context", "source_outdated"],
           reviewed_evidence_ids: [],
           duration_s: 30,
         },
       });
     });
     const claim = (await store.read()).claims[0];
-    expect(claim.status).toBe("beanstandet");
+    expect(claim.status).toBe("contested");
     expect(claim.history.at(-1)?.decision?.categories).toEqual([
-      "aus_dem_kontext_gerissen",
-      "quelle_veraltet",
+      "taken_out_of_context",
+      "source_outdated",
     ]);
   });
 
@@ -493,7 +493,7 @@ describe("human adjudication", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "bestaetigt",
+          to: "confirmed",
           actor: "system:adjudication_gate",
           reason: "Maschine darf nicht adjudizieren.",
         }),
@@ -505,7 +505,7 @@ describe("human adjudication", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "bestaetigt",
+          to: "confirmed",
           actor: "human:lg",
           reason: "Falsche Evidenz-IDs.",
           decision: {
@@ -528,11 +528,11 @@ describe("repair loop", () => {
         reason: "Unbelegter Claim.",
       });
       tx.transitionClaim("clm_0001", {
-        to: "beanstandet",
+        to: "contested",
         actor: "human:lg",
         reason: "Wortlaut nicht in Quelle.",
         decision: {
-          categories: ["wortlaut_nicht_in_quelle"],
+          categories: ["wording_not_in_source"],
           reviewed_evidence_ids: [],
           duration_s: 60,
         },
@@ -543,19 +543,19 @@ describe("repair loop", () => {
   it("re-enters the cascade after revision", async () => {
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "ueberarbeitet",
+        to: "revised",
         actor: "system:repair",
         reason: "Neuformulierung vorgeschlagen und angenommen.",
       });
       tx.addEvidence("clm_0001", newEvidence("ev_0002"));
       tx.transitionClaim("clm_0001", {
-        to: "erfasst",
+        to: "captured",
         actor: "system:repair",
         reason: "Neue Fundstelle, volle Kaskade.",
       });
     });
     const claim = (await store.read()).claims[0];
-    expect(claim.status).toBe("erfasst");
+    expect(claim.status).toBe("captured");
     expect(claim.history).toHaveLength(4);
     expect((await store.verify()).ok).toBe(true);
   });
@@ -565,7 +565,7 @@ describe("repair loop", () => {
     await store.transaction((tx) => {
       tx.reviseClaimText("clm_0001", "Abgeschwächte Neuformulierung.");
       tx.transitionClaim("clm_0001", {
-        to: "ueberarbeitet",
+        to: "revised",
         actor: "human:lg",
         reason: "Reparatur angenommen.",
         revision: {
@@ -586,33 +586,33 @@ describe("repair loop", () => {
   it("carries the routing reason on escalation back to adjudication", async () => {
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "ueberarbeitet",
+        to: "revised",
         actor: "human:lg",
         reason: "Reparatur angenommen.",
       });
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
-        actor: "system:reparatur",
+        to: "pending_adjudication",
+        actor: "system:repair",
         reason: "Eskaliert nach erschöpften Reparaturzyklen.",
-        routing: "eskaliert",
+        routing: "escalated",
       });
     });
     const claim = (await store.read()).claims[0];
-    expect(claim.history.at(-1)?.routing).toBe("eskaliert");
+    expect(claim.history.at(-1)?.routing).toBe("escalated");
     expect((await store.verify()).ok).toBe(true);
   });
 
   it("allows discarding unrepairable claims, which then stay in the register", async () => {
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "verworfen",
+        to: "discarded",
         actor: "human:lg",
         reason: "Nicht reparierbar.",
       });
     });
     const register = await store.read();
     expect(register.claims).toHaveLength(1);
-    expect(register.claims[0].status).toBe("verworfen");
+    expect(register.claims[0].status).toBe("discarded");
   });
 });
 
@@ -628,7 +628,7 @@ describe("invalid transitions have zero side effects", () => {
     await expect(
       store.transaction((tx) =>
         tx.transitionClaim("clm_0001", {
-          to: "bestaetigt",
+          to: "confirmed",
           actor: "human:lg",
           reason: "Abkürzung verboten.",
           decision: {
@@ -641,7 +641,7 @@ describe("invalid transitions have zero side effects", () => {
     ).rejects.toThrow(InvalidTransitionError);
 
     const register = await store.read();
-    expect(register.claims[0].status).toBe("erfasst");
+    expect(register.claims[0].status).toBe("captured");
     expect(register.claims[0].history).toHaveLength(1);
 
     // The next valid mutation continues the chain gaplessly.
@@ -657,31 +657,31 @@ describe("invalid transitions have zero side effects", () => {
 });
 
 describe("transition table sanity", () => {
-  it("keeps verworfen fully terminal; bestaetigt has exactly the TMB-7 reopening edges", () => {
-    expect(TRANSITIONS.filter((def) => def.from === "verworfen")).toHaveLength(
+  it("keeps discarded fully terminal; confirmed has exactly the TMB-7 reopening edges", () => {
+    expect(TRANSITIONS.filter((def) => def.from === "discarded")).toHaveLength(
       0,
     );
-    // Since TMB-7 bestaetigt is settled, not eternal: reopenable only by a
+    // Since TMB-7 confirmed is settled, not eternal: reopenable only by a
     // source revision (TMB-44) and a negative warm-run relevance judgment
     // (TMB-43), both system-only.
     expect(
-      TRANSITIONS.filter((def) => def.from === "bestaetigt").map(
+      TRANSITIONS.filter((def) => def.from === "confirmed").map(
         (def) => `${def.to}:${def.actorKind}`,
       ),
-    ).toEqual(["zur_adjudikation:system", "nachpruefung_erforderlich:system"]);
+    ).toEqual(["pending_adjudication:system", "recheck_required:system"]);
   });
 
-  it("gives every status except verworfen at least one outgoing edge", () => {
+  it("gives every status except discarded at least one outgoing edge", () => {
     const nonTerminal = [
-      "erfasst",
-      "existenzgeprueft",
-      "vorgeprueft",
-      "automatisch_bestaetigt",
-      "zur_adjudikation",
-      "bestaetigt",
-      "beanstandet",
-      "ueberarbeitet",
-      "nachpruefung_erforderlich",
+      "captured",
+      "existence_checked",
+      "prechecked",
+      "auto_confirmed",
+      "pending_adjudication",
+      "confirmed",
+      "contested",
+      "revised",
+      "recheck_required",
     ] as const;
     for (const status of nonTerminal) {
       expect(TRANSITIONS.some((def) => def.from === status)).toBe(true);

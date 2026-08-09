@@ -58,7 +58,7 @@ describe("ClaimsRegister", () => {
     };
     valid.config.second_opinion = {
       confidence_threshold: 0.8,
-      on_relation_not_stuetzt: true,
+      on_relation_not_supports: true,
     };
     expect(ClaimsRegister.safeParse(valid).success).toBe(true);
 
@@ -125,7 +125,7 @@ describe("ClaimsRegister", () => {
   it("accepts freshly extracted claims without verification results", () => {
     const fresh = clone(exampleProject);
     const claim = fresh.claims[0] as Record<string, unknown>;
-    claim.status = "erfasst";
+    claim.status = "captured";
     delete claim.support_degree;
     const evidence = fresh.claims[0].evidence[0] as Record<string, unknown>;
     delete evidence.existence_check;

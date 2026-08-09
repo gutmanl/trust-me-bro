@@ -38,14 +38,14 @@ export const BackendRef = z.strictObject({
 
 /**
  * Criteria under which the attribution check requests a second judgment from
- * the secondary backend (Divergenzregel, TMB-29): primary confidence below
+ * the secondary backend (divergence rule, TMB-29): primary confidence below
  * the threshold, or — when enabled — a primary relation other than
- * `stuetzt`. Documented extension of the ratified format (additive,
+ * `supports`. Documented extension of the ratified format (additive,
  * optional); absence means the pipeline's code defaults apply.
  */
 export const SecondOpinionConfig = z.strictObject({
   confidence_threshold: z.number().min(0).max(1),
-  on_relation_not_stuetzt: z.boolean(),
+  on_relation_not_supports: z.boolean(),
 });
 export type SecondOpinionConfig = z.infer<typeof SecondOpinionConfig>;
 

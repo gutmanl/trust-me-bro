@@ -17,13 +17,13 @@
           "minimum": 0,
           "type": "number"
         },
-        "on_relation_not_stuetzt": {
+        "on_relation_not_supports": {
           "type": "boolean"
         }
       },
       "required": [
         "confidence_threshold",
-        "on_relation_not_stuetzt"
+        "on_relation_not_supports"
       ],
       "type": "object"
     },
@@ -65,10 +65,10 @@
         },
         "source_type": {
           "enum": [
-            "begutachtete_publikation",
+            "peer_reviewed_publication",
             "preprint",
-            "grauliteratur",
-            "herstellerdokumentation"
+            "grey_literature",
+            "vendor_documentation"
           ],
           "type": "string"
         }
@@ -123,16 +123,16 @@
     "__schema18": {},
     "__schema19": {
       "enum": [
-        "erfasst",
-        "existenzgeprueft",
-        "vorgeprueft",
-        "automatisch_bestaetigt",
-        "zur_adjudikation",
-        "bestaetigt",
-        "beanstandet",
-        "ueberarbeitet",
-        "verworfen",
-        "nachpruefung_erforderlich"
+        "captured",
+        "existence_checked",
+        "prechecked",
+        "auto_confirmed",
+        "pending_adjudication",
+        "confirmed",
+        "contested",
+        "revised",
+        "discarded",
+        "recheck_required"
       ],
       "type": "string"
     },
@@ -146,10 +146,10 @@
     },
     "__schema21": {
       "enum": [
-        "stuetzt",
-        "stuetzt_teilweise",
-        "widerspricht",
-        "nicht_einschlaegig"
+        "supports",
+        "partially_supports",
+        "contradicts",
+        "not_relevant"
       ],
       "type": "string"
     },
@@ -168,12 +168,12 @@
             "categories": {
               "items": {
                 "enum": [
-                  "wortlaut_nicht_in_quelle",
-                  "leitsatz_nicht_herleitbar",
-                  "aus_dem_kontext_gerissen",
-                  "quelle_nicht_vertrauenswuerdig",
-                  "quelle_veraltet",
-                  "sonstiges"
+                  "wording_not_in_source",
+                  "claim_not_derivable",
+                  "taken_out_of_context",
+                  "source_not_trustworthy",
+                  "source_outdated",
+                  "other"
                 ],
                 "type": "string"
               },
@@ -237,13 +237,13 @@
         },
         "routing": {
           "enum": [
-            "ohne_beleg",
-            "existenz_nicht_bestanden",
-            "divergenz",
-            "negative_vorpruefung",
-            "stichprobe",
-            "eskaliert",
-            "einschlaegigkeit_negativ"
+            "no_evidence",
+            "existence_check_failed",
+            "divergence",
+            "negative_precheck",
+            "spot_check",
+            "escalated",
+            "negative_relevance"
           ],
           "type": "string"
         },
@@ -372,18 +372,18 @@
           },
           "calibration_result": {
             "enum": [
-              "lizenziert",
-              "abschwaechen",
-              "zur_adjudikation"
+              "licensed",
+              "weakened",
+              "pending_adjudication"
             ],
             "type": "string"
           },
           "claim_type": {
             "enum": [
-              "quantitativer_einzelbefund",
-              "vergleichende_aussage",
-              "wirksamkeitsaussage",
-              "empfehlung"
+              "quantitative_finding",
+              "comparative_statement",
+              "effectiveness_statement",
+              "recommendation"
             ],
             "type": "string"
           },
@@ -399,8 +399,8 @@
                     },
                     "status": {
                       "enum": [
-                        "bestanden",
-                        "nicht_bestanden"
+                        "passed",
+                        "failed"
                       ],
                       "type": "string"
                     }

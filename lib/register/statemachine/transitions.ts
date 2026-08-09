@@ -6,7 +6,7 @@ import { evaluateAutoConfirmation } from "./auto-confirmation";
 /**
  * Transition table of the claim status model. It is normative for the
  * implementation and mirrors the gates of the verification workflow in the
- * concept chapter (statuses erfasst → … → verworfen; gates route instead of
+ * concept chapter (statuses captured → … → discarded; gates route instead of
  * silently passing claims on).
  *
  * Gates are pure predicates over the ALREADY-PERSISTED claim state: the
@@ -36,17 +36,17 @@ const ok: GateResult = { ok: true };
 const fail = (reason: string): GateResult => ({ ok: false, reason });
 
 /**
- * Admission into "erfasst" (creation and repair re-entry): evidence must
- * exist (Fundstellen-Gate) AND the wording must be one atomic statement
- * (Atomaritäts-Gate, TMB-25). Both violations route to adjudication —
+ * Admission into "captured" (creation and repair re-entry): evidence must
+ * exist (evidence gate) AND the wording must be one atomic statement
+ * (atomicity gate, TMB-25). Both violations route to adjudication —
  * visible, never dropped.
  */
 const hasEvidence: Gate = (claim) => {
   if (claim.evidence.length === 0) {
-    return fail("claim has no evidence (unbelegter Claim)");
+    return fail("claim has no evidence (unsubstantiated claim)");
   }
   if (!isAtomicClaimText(claim.text)) {
-    return fail("claim text bundles multiple statements (Atomaritätsgate)");
+    return fail("claim text bundles multiple statements (atomicity gate)");
   }
   return ok;
 };
@@ -54,7 +54,7 @@ const hasEvidence: Gate = (claim) => {
 const hasNoEvidence: Gate = (claim) =>
   claim.evidence.length === 0 || !isAtomicClaimText(claim.text)
     ? ok
-    : fail("claim has evidence and belongs in erfasst");
+    : fail("claim has evidence and belongs in captured");
 
 /**
  * Exported (like evaluateAutoConfirmation) so the repair pipeline can decide
@@ -74,7 +74,7 @@ export const allExistenceChecksPassed: Gate = (claim) => {
     );
   }
   const failed = claim.evidence.filter(
-    (evidence) => evidence.existence_check?.status !== "bestanden",
+    (evidence) => evidence.existence_check?.status !== "passed",
   );
   return failed.length === 0
     ? ok
@@ -83,7 +83,7 @@ export const allExistenceChecksPassed: Gate = (claim) => {
 
 const someExistenceCheckFailed: Gate = (claim) =>
   claim.evidence.some(
-    (evidence) => evidence.existence_check?.status === "nicht_bestanden",
+    (evidence) => evidence.existence_check?.status === "failed",
   )
     ? ok
     : fail("no failed existence check recorded");
@@ -117,7 +117,7 @@ const preCheckComplete: Gate = (claim) => {
 };
 
 /**
- * The auto-confirmation rule (supported + lizenziert + no divergence among
+ * The auto-confirmation rule (supported + licensed + no divergence among
  * the latest judgments per backend) lives in auto-confirmation.ts so the
  * verification pipeline can consult the same predicate; this gate remains
  * the authority at commit time.
@@ -140,113 +140,113 @@ const always: Gate = () => ok;
 const isAdopted: Gate = (claim) =>
   claim.provenance.origin_project_id !== undefined
     ? ok
-    : fail("adoption edge requires provenance.origin_project_id (Warmlauf)");
+    : fail("adoption edge requires provenance.origin_project_id (warm run)");
 
 /**
- * All edges of the status model. Since TMB-7 only verworfen is fully
- * terminal (no outgoing edges): bestaetigt and automatisch_bestaetigt are
+ * All edges of the status model. Since TMB-7 only discarded is fully
+ * terminal (no outgoing edges): confirmed and auto_confirmed are
  * settled, not eternal — a source revision (TMB-44) or a negative relevance
  * judgment of a warm run (TMB-43) reopens them via narrowly-scoped
- * system-only edges. The sample draw (Stichprobe) pulls
- * automatisch_bestaetigt claims back to adjudication as before; selection
+ * system-only edges. The sample draw (spot check) pulls
+ * auto_confirmed claims back to adjudication as before; selection
  * logic is pipeline work, the edges only check the shape.
  */
 export const TRANSITIONS: TransitionDef[] = [
-  // Creation: the extraction gate of Nachweisvollständigkeit. Claims without
-  // an extractable Fundstelle become visible in adjudication, not dropped.
-  { from: null, to: "erfasst", actorKind: "system", gate: hasEvidence },
+  // Creation: the extraction gate of evidence completeness. Claims without
+  // extractable evidence become visible in adjudication, not dropped.
+  { from: null, to: "captured", actorKind: "system", gate: hasEvidence },
   {
     from: null,
-    to: "zur_adjudikation",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: hasNoEvidence,
   },
   // Stage 1: deterministic existence check.
   {
-    from: "erfasst",
-    to: "existenzgeprueft",
+    from: "captured",
+    to: "existence_checked",
     actorKind: "system",
     gate: allExistenceChecksPassed,
   },
   {
-    from: "erfasst",
-    to: "zur_adjudikation",
+    from: "captured",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: someExistenceCheckFailed,
   },
   // Stages 2+3 complete: judgments, resolved relations and support degree set.
   {
-    from: "existenzgeprueft",
-    to: "vorgeprueft",
+    from: "existence_checked",
+    to: "prechecked",
     actorKind: "system",
     gate: preCheckComplete,
   },
   // Adapter-failure escalation (TMB-19, ratified 06.08.2026): stage-2/3 LLM
   // calls that exhaust their bounded retries would otherwise leave the claim
-  // stuck in existenzgeprueft. Escalation to adjudication replaces silent
+  // stuck in existence_checked. Escalation to adjudication replaces silent
   // dropping; the reason of the history entry documents the failure. The
   // gate only checks shape — WHEN the edge is taken is the caller's
   // (pipeline/job runner) decision, mirroring the sample-draw edge.
   {
-    from: "existenzgeprueft",
-    to: "zur_adjudikation",
+    from: "existence_checked",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: always,
   },
   // Adjudication gate after pre-checking.
   {
-    from: "vorgeprueft",
-    to: "automatisch_bestaetigt",
+    from: "prechecked",
+    to: "auto_confirmed",
     actorKind: "system",
     gate: autoConfirmable,
   },
   {
-    from: "vorgeprueft",
-    to: "zur_adjudikation",
+    from: "prechecked",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: notAutoConfirmable,
   },
   // Sample control of automatically confirmed claims (RQ3).
   {
-    from: "automatisch_bestaetigt",
-    to: "zur_adjudikation",
+    from: "auto_confirmed",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: always,
   },
   // Binding human adjudication.
   {
-    from: "zur_adjudikation",
-    to: "bestaetigt",
+    from: "pending_adjudication",
+    to: "confirmed",
     actorKind: "human",
     gate: always,
     decision: "category_null",
   },
   // Discarding is deliberately NOT possible directly from adjudication: the
-  // concept routes every negative decision through beanstandet (repair is
-  // offered first); verworfen is reached only from the repair loop.
+  // concept routes every negative decision through contested (repair is
+  // offered first); discarded is reached only from the repair loop.
   {
-    from: "zur_adjudikation",
-    to: "beanstandet",
+    from: "pending_adjudication",
+    to: "contested",
     actorKind: "human",
     gate: always,
     decision: "category_required",
   },
   // Repair loop: revised version re-enters the affected stages only.
   {
-    from: "beanstandet",
-    to: "ueberarbeitet",
+    from: "contested",
+    to: "revised",
     actorKind: "system",
     gate: always,
   },
   {
-    from: "beanstandet",
-    to: "ueberarbeitet",
+    from: "contested",
+    to: "revised",
     actorKind: "human",
     gate: always,
   },
   {
-    from: "beanstandet",
-    to: "verworfen",
+    from: "contested",
+    to: "discarded",
     actorKind: "human",
     gate: always,
     decision: "optional",
@@ -255,86 +255,86 @@ export const TRANSITIONS: TransitionDef[] = [
   // weakened (existing existence checks still pass), or escalate after
   // repeated repair failure.
   {
-    from: "ueberarbeitet",
-    to: "erfasst",
+    from: "revised",
+    to: "captured",
     actorKind: "system",
     gate: hasEvidence,
   },
   {
-    from: "ueberarbeitet",
-    to: "existenzgeprueft",
+    from: "revised",
+    to: "existence_checked",
     actorKind: "system",
     gate: allExistenceChecksPassed,
   },
   {
-    from: "ueberarbeitet",
-    to: "zur_adjudikation",
+    from: "revised",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: always,
   },
   // Warm-run adoption (TMB-43, ratified with the TMB-7 epic): an adopted
   // claim is CREATED into its settled origin status — it was never
-  // "erfasst, ungeprüft" in this project, it arrives fully verified from
+  // "captured, unchecked" in this project, it arrives fully verified from
   // the origin project (referenced in provenance.origin_project_id, which
   // the gate enforces). This is the one sanctioned exception to the rule
-  // that claims start in erfasst or zur_adjudikation.
-  { from: null, to: "bestaetigt", actorKind: "system", gate: isAdopted },
+  // that claims start in captured or pending_adjudication.
+  { from: null, to: "confirmed", actorKind: "system", gate: isAdopted },
   {
     from: null,
-    to: "automatisch_bestaetigt",
+    to: "auto_confirmed",
     actorKind: "system",
     gate: isAdopted,
   },
-  { from: null, to: "verworfen", actorKind: "system", gate: isAdopted },
+  { from: null, to: "discarded", actorKind: "system", gate: isAdopted },
   // Relevance check of the warm run (TMB-43): a negative/uncertain
-  // Einschlägigkeit judgment re-routes an adopted, previously human-confirmed
-  // claim to adjudication (routing einschlaegigkeit_negativ) — the human
+  // relevance judgment re-routes an adopted, previously human-confirmed
+  // claim to adjudication (routing negative_relevance) — the human
   // stays the final instance on whether the claim counts for the new
-  // question. automatisch_bestaetigt reuses its existing sample-draw edge.
+  // question. auto_confirmed reuses its existing sample-draw edge.
   {
-    from: "bestaetigt",
-    to: "zur_adjudikation",
+    from: "confirmed",
+    to: "pending_adjudication",
     actorKind: "system",
     gate: isAdopted,
   },
-  // Bestandsrevision (TMB-44): a source revision invalidates the machine
+  // Source revision (TMB-44): a source revision invalidates the machine
   // determinations that referenced the old wording. Exactly the settled
-  // statuses are pulled back: erfasst self-heals (stage 1 always re-runs),
-  // zur_adjudikation/beanstandet/ueberarbeitet are mid human-workflow and
+  // statuses are pulled back: captured self-heals (stage 1 always re-runs),
+  // pending_adjudication/contested/revised are mid human-workflow and
   // stay untouched (the revision event is visible in the history), and
-  // verworfen stays terminal — a discard is not revived by new source text.
+  // discarded stays terminal — a discard is not revived by new source text.
   // WHEN these edges are taken is the revision use-case's decision,
   // mirroring the sample-draw edge.
   {
-    from: "existenzgeprueft",
-    to: "nachpruefung_erforderlich",
+    from: "existence_checked",
+    to: "recheck_required",
     actorKind: "system",
     gate: always,
   },
   {
-    from: "vorgeprueft",
-    to: "nachpruefung_erforderlich",
+    from: "prechecked",
+    to: "recheck_required",
     actorKind: "system",
     gate: always,
   },
   {
-    from: "automatisch_bestaetigt",
-    to: "nachpruefung_erforderlich",
+    from: "auto_confirmed",
+    to: "recheck_required",
     actorKind: "system",
     gate: always,
   },
   {
-    from: "bestaetigt",
-    to: "nachpruefung_erforderlich",
+    from: "confirmed",
+    to: "recheck_required",
     actorKind: "system",
     gate: always,
   },
-  // Re-entry after Nachprüfung: always the full cascade from stage 1 —
+  // Re-entry after recheck: always the full cascade from stage 1 —
   // the revised source text can invalidate any stage's determination, and
   // reusing the existing cascade needs zero new pipeline logic.
   {
-    from: "nachpruefung_erforderlich",
-    to: "erfasst",
+    from: "recheck_required",
+    to: "captured",
     actorKind: "system",
     gate: hasEvidence,
   },

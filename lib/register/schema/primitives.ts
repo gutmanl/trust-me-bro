@@ -47,7 +47,7 @@ export const EvidenceId = z
 
 /**
  * Actor of a history entry or project event: a verification stage
- * ("system:<stufe>") or the local user ("human:<kuerzel>").
+ * ("system:<stage>") or the local user ("human:<handle>").
  */
 export const ActorId = z
   .string()

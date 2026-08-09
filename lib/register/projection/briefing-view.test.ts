@@ -41,10 +41,10 @@ describe("buildBriefingViewModel", () => {
     const view = buildBriefingViewModel(
       BRIEFING,
       registerWith([
-        { id: "clm_0002", status: "erfasst", anchor: "p2" },
-        { id: "clm_0001", status: "erfasst", anchor: "p1" },
-        { id: "clm_0003", status: "erfasst", anchor: "p9" },
-        { id: "clm_0004", status: "erfasst", anchor: "kaputt" },
+        { id: "clm_0002", status: "captured", anchor: "p2" },
+        { id: "clm_0001", status: "captured", anchor: "p1" },
+        { id: "clm_0003", status: "captured", anchor: "p9" },
+        { id: "clm_0004", status: "captured", anchor: "kaputt" },
       ]),
     );
     expect(view.paragraphs).toHaveLength(2);
@@ -66,13 +66,13 @@ describe("buildBriefingViewModel", () => {
       registerWith([
         {
           id: "clm_0002",
-          status: "erfasst",
+          status: "captured",
           anchor: "p1",
           evidenceIds: ["ev_b"],
         },
         {
           id: "clm_0001",
-          status: "erfasst",
+          status: "captured",
           anchor: "p1",
           evidenceIds: ["ev_a1", "ev_a2"],
         },
@@ -90,30 +90,30 @@ describe("buildBriefingViewModel", () => {
     ]);
   });
 
-  it("derives the geprüft banner exactly from open adjudication claims", () => {
+  it("derives the fully-adjudicated banner exactly from open adjudication claims", () => {
     const open = buildBriefingViewModel(
       BRIEFING,
       registerWith([
-        { id: "clm_0001", status: "zur_adjudikation", anchor: "p1" },
+        { id: "clm_0001", status: "pending_adjudication", anchor: "p1" },
       ]),
     );
-    expect(open.isGeprueft).toBe(false);
+    expect(open.isFullyAdjudicated).toBe(false);
     expect(open.openCount).toBe(1);
 
     const done = buildBriefingViewModel(
       BRIEFING,
       registerWith([
-        { id: "clm_0001", status: "bestaetigt", anchor: "p1" },
-        { id: "clm_0002", status: "verworfen", anchor: "p1" },
+        { id: "clm_0001", status: "confirmed", anchor: "p1" },
+        { id: "clm_0002", status: "discarded", anchor: "p1" },
       ]),
     );
-    expect(done.isGeprueft).toBe(true);
+    expect(done.isFullyAdjudicated).toBe(true);
     expect(done.unconfirmedCount).toBe(1);
   });
 
   it("agrees with the markdown projection on the banner line", () => {
     const register = registerWith([
-      { id: "clm_0001", status: "zur_adjudikation", anchor: "p1" },
+      { id: "clm_0001", status: "pending_adjudication", anchor: "p1" },
     ]);
     const markdown = renderBriefing(BRIEFING, register);
     expect(markdown).toContain(

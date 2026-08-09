@@ -20,13 +20,13 @@ describe("countClaimsByStatus", () => {
     const register = baseRegister();
     const second = structuredClone(register.claims[0]);
     second.id = "clm_0002";
-    second.status = "zur_adjudikation";
+    second.status = "pending_adjudication";
     register.claims.push(second);
 
     const counts = countClaimsByStatus(register.claims);
-    expect(counts.bestaetigt).toBe(1);
-    expect(counts.zur_adjudikation).toBe(1);
-    expect(counts.erfasst).toBe(0);
+    expect(counts.confirmed).toBe(1);
+    expect(counts.pending_adjudication).toBe(1);
+    expect(counts.captured).toBe(0);
   });
 });
 

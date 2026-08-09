@@ -495,177 +495,177 @@ describe("status model transition table", () => {
       decision: def.decision ?? null,
     }));
     expect(edges).toEqual([
-      { from: null, to: "erfasst", actorKind: "system", decision: null },
+      { from: null, to: "captured", actorKind: "system", decision: null },
       {
         from: null,
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "erfasst",
-        to: "existenzgeprueft",
+        from: "captured",
+        to: "existence_checked",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "erfasst",
-        to: "zur_adjudikation",
+        from: "captured",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "existenzgeprueft",
-        to: "vorgeprueft",
+        from: "existence_checked",
+        to: "prechecked",
         actorKind: "system",
         decision: null,
       },
       // Ratified with TMB-19: adapter-failure escalation instead of a claim
-      // stuck in existenzgeprueft (see transitions.ts for the rationale).
+      // stuck in existence_checked (see transitions.ts for the rationale).
       {
-        from: "existenzgeprueft",
-        to: "zur_adjudikation",
+        from: "existence_checked",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "vorgeprueft",
-        to: "automatisch_bestaetigt",
+        from: "prechecked",
+        to: "auto_confirmed",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "vorgeprueft",
-        to: "zur_adjudikation",
+        from: "prechecked",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "automatisch_bestaetigt",
-        to: "zur_adjudikation",
+        from: "auto_confirmed",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "zur_adjudikation",
-        to: "bestaetigt",
+        from: "pending_adjudication",
+        to: "confirmed",
         actorKind: "human",
         decision: "category_null",
       },
       {
-        from: "zur_adjudikation",
-        to: "beanstandet",
+        from: "pending_adjudication",
+        to: "contested",
         actorKind: "human",
         decision: "category_required",
       },
       {
-        from: "beanstandet",
-        to: "ueberarbeitet",
+        from: "contested",
+        to: "revised",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "beanstandet",
-        to: "ueberarbeitet",
+        from: "contested",
+        to: "revised",
         actorKind: "human",
         decision: null,
       },
       {
-        from: "beanstandet",
-        to: "verworfen",
+        from: "contested",
+        to: "discarded",
         actorKind: "human",
         decision: "optional",
       },
       {
-        from: "ueberarbeitet",
-        to: "erfasst",
+        from: "revised",
+        to: "captured",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "ueberarbeitet",
-        to: "existenzgeprueft",
+        from: "revised",
+        to: "existence_checked",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "ueberarbeitet",
-        to: "zur_adjudikation",
+        from: "revised",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       // Ratified with TMB-7: warm-run adoption creates claims directly in
       // their settled origin status (gate: provenance.origin_project_id).
-      { from: null, to: "bestaetigt", actorKind: "system", decision: null },
+      { from: null, to: "confirmed", actorKind: "system", decision: null },
       {
         from: null,
-        to: "automatisch_bestaetigt",
+        to: "auto_confirmed",
         actorKind: "system",
         decision: null,
       },
-      { from: null, to: "verworfen", actorKind: "system", decision: null },
+      { from: null, to: "discarded", actorKind: "system", decision: null },
       // Ratified with TMB-43: negative relevance of an adopted claim.
       {
-        from: "bestaetigt",
-        to: "zur_adjudikation",
+        from: "confirmed",
+        to: "pending_adjudication",
         actorKind: "system",
         decision: null,
       },
       // Ratified with TMB-44: source revision reopens settled claims.
       {
-        from: "existenzgeprueft",
-        to: "nachpruefung_erforderlich",
+        from: "existence_checked",
+        to: "recheck_required",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "vorgeprueft",
-        to: "nachpruefung_erforderlich",
+        from: "prechecked",
+        to: "recheck_required",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "automatisch_bestaetigt",
-        to: "nachpruefung_erforderlich",
+        from: "auto_confirmed",
+        to: "recheck_required",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "bestaetigt",
-        to: "nachpruefung_erforderlich",
+        from: "confirmed",
+        to: "recheck_required",
         actorKind: "system",
         decision: null,
       },
       {
-        from: "nachpruefung_erforderlich",
-        to: "erfasst",
+        from: "recheck_required",
+        to: "captured",
         actorKind: "system",
         decision: null,
       },
     ]);
   });
 
-  it("keeps verworfen outgoing-terminal and bestaetigt reopenable only by TMB-7's system edges", () => {
-    // Since TMB-7 bestaetigt is settled, not eternal: exactly two
-    // narrowly-scoped system edges reopen it (source revision → Nachprüfung,
-    // negative warm-run relevance → adjudication). verworfen stays fully
+  it("keeps discarded outgoing-terminal and confirmed reopenable only by TMB-7's system edges", () => {
+    // Since TMB-7 confirmed is settled, not eternal: exactly two
+    // narrowly-scoped system edges reopen it (source revision → recheck,
+    // negative warm-run relevance → adjudication). discarded stays fully
     // terminal, and a discard is still never directly reachable from
     // adjudication (repair is offered first).
     expect(
-      TRANSITIONS.filter((def) => def.from === "bestaetigt").map((def) => ({
+      TRANSITIONS.filter((def) => def.from === "confirmed").map((def) => ({
         to: def.to,
         actorKind: def.actorKind,
       })),
     ).toEqual([
-      { to: "zur_adjudikation", actorKind: "system" },
-      { to: "nachpruefung_erforderlich", actorKind: "system" },
+      { to: "pending_adjudication", actorKind: "system" },
+      { to: "recheck_required", actorKind: "system" },
     ]);
-    expect(TRANSITIONS.filter((def) => def.from === "verworfen")).toHaveLength(
+    expect(TRANSITIONS.filter((def) => def.from === "discarded")).toHaveLength(
       0,
     );
     expect(
       TRANSITIONS.filter(
-        (def) => def.from === "zur_adjudikation" && def.to === "verworfen",
+        (def) => def.from === "pending_adjudication" && def.to === "discarded",
       ),
     ).toHaveLength(0);
   });

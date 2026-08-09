@@ -2,6 +2,7 @@ import type { Claim } from "../schema/claim";
 import type { ClaimsRegister } from "../schema/register";
 import type { ClaimMarkerVM } from "./briefing-view";
 import { buildBriefingViewModel, CONFIRMED_STATUSES } from "./briefing-view";
+import { RELATION_LABEL_DE, STATUS_LABEL_DE } from "./status-display";
 
 /**
  * Renders briefing.md from the frozen briefing original and the register.
@@ -13,16 +14,21 @@ import { buildBriefingViewModel, CONFIRMED_STATUSES } from "./briefing-view";
  * projection, so the two can never drift. Same blob + same register yields a
  * byte-identical file. The file carries no truth of its own — it is
  * regenerated at any time from blob and claims.json.
+ *
+ * The status/relation enum values are internal English identifiers; this
+ * German output document must never show one directly, so every place they
+ * would otherwise surface goes through the German display maps in
+ * status-display.ts instead.
  */
 
 function statusLabel(claim: Claim): string {
   switch (claim.status) {
-    case "bestaetigt":
+    case "confirmed":
       return "bestätigt (adjudiziert)";
-    case "automatisch_bestaetigt":
+    case "auto_confirmed":
       return "automatisch bestätigt (stichprobenweise nachprüfbar)";
     default:
-      return `NICHT BESTÄTIGT – Status: ${claim.status}`;
+      return `NICHT BESTÄTIGT – Status: ${STATUS_LABEL_DE[claim.status]}`;
   }
 }
 
@@ -73,7 +79,7 @@ export function renderBriefing(
     "",
     `**Projekt:** ${register.project.id}`,
     "",
-    view.isGeprueft
+    view.isFullyAdjudicated
       ? `**Prüfstand:** GEPRÜFT – kein Claim zur Adjudikation offen` +
           (view.unconfirmedCount > 0
             ? ` (${view.unconfirmedCount} Claim(s) nicht bestätigt)`
@@ -115,7 +121,9 @@ function appendEvidenceLines(lines: string[], marker: ClaimMarkerVM): void {
   for (const [index, evidence] of marker.claim.evidence.entries()) {
     const number = marker.evidenceNumbers[index];
     const locator = formatLocator(evidence.locator as Record<string, unknown>);
-    const relation = evidence.relation_type ?? "unbewertet";
+    const relation = evidence.relation_type
+      ? RELATION_LABEL_DE[evidence.relation_type]
+      : "unbewertet";
     lines.push(
       "",
       `${number}. ${evidence.source_id}${locator ? `, ${locator}` : ""} · ${relation} · ` +

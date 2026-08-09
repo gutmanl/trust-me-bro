@@ -14,7 +14,7 @@ import {
 import { RegisterStore } from "./store";
 
 const config: ProjectConfig = {
-  rubric_version: "se-evidenz-rubrik-v1",
+  rubric_version: "se-evidence-rubric-v1",
   adjudication_sample_rate: 0.1,
   backends: {
     primary: { cli: "claude", model_family: "anthropic" },
@@ -135,7 +135,7 @@ describe("RegisterStore.transaction", () => {
     const source = {
       id: "src_doppelt",
       type: "article-journal",
-      custom: { source_type: "begutachtete_publikation" },
+      custom: { source_type: "peer_reviewed_publication" },
     } as const;
     const before = fs.readFileSync(store.claimsPath, "utf8");
     await expect(

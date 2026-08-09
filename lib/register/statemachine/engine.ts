@@ -18,10 +18,10 @@ export interface TransitionRequest {
   at?: string;
   decision?: Decision;
   /** Structured routing reason; only meaningful on transitions into
-   * `zur_adjudikation` (queue grouping, TMB-36). */
+   * `pending_adjudication` (queue grouping, TMB-36). */
   routing?: RoutingReason;
   /** Text revision of the repair loop; only meaningful on the
-   * `beanstandet → ueberarbeitet` edge (TMB-37). */
+   * `contested → revised` edge (TMB-37). */
   revision?: Revision;
 }
 
@@ -128,9 +128,9 @@ export function applyTransition(
 
 /**
  * Creates a claim through the extraction gate: the initial status is decided
- * by the Nachweisvollständigkeits-Gate (evidence present → erfasst, none →
- * zur_adjudikation) and the Atomaritäts-Gate (bundled statements →
- * zur_adjudikation), never by the caller.
+ * by the evidence-completeness gate (evidence present → captured, none →
+ * pending_adjudication) and the atomicity gate (bundled statements →
+ * pending_adjudication), never by the caller.
  */
 export function createClaim(
   draft: { claims: Claim[] },
@@ -146,19 +146,19 @@ export function createClaim(
     throw new InvalidTransitionError(
       input.claim.id,
       null,
-      "erfasst",
+      "captured",
       "creation is system-only",
     );
   }
   const to: ClaimStatus =
     input.claim.evidence.length > 0 && isAtomicClaimText(input.claim.text)
-      ? "erfasst"
-      : "zur_adjudikation";
+      ? "captured"
+      : "pending_adjudication";
   // The claim starts with from_status null; applyTransition performs the
   // creation edge so it gets its gate check and chain link exactly like
-  // every later transition. A missing Fundstelle is the routed condition
+  // every later transition. Missing evidence is the routed condition
   // (TMB-36 queue); the atomicity rejection stays unrouted — it is no value
-  // of the ratified RoutingReason enum and buckets as "ohne Zuordnung".
+  // of the ratified RoutingReason enum and buckets as "unassigned".
   const claim: Claim = {
     ...structuredClone(input.claim),
     status: null as unknown as ClaimStatus,
@@ -169,8 +169,8 @@ export function createClaim(
     actor: input.actor,
     reason: input.reason,
     at: input.at,
-    ...(to === "zur_adjudikation" && input.claim.evidence.length === 0
-      ? { routing: "ohne_beleg" as const }
+    ...(to === "pending_adjudication" && input.claim.evidence.length === 0
+      ? { routing: "no_evidence" as const }
       : {}),
   });
   draft.claims.push(claim);
@@ -193,7 +193,7 @@ export function adoptClaim(
   input: {
     claim: Omit<Claim, "status" | "history">;
     /** The settled status the claim held in the origin project. */
-    targetStatus: "bestaetigt" | "automatisch_bestaetigt" | "verworfen";
+    targetStatus: "confirmed" | "auto_confirmed" | "discarded";
     actor: ActorId;
     reason: string;
     at?: string;
