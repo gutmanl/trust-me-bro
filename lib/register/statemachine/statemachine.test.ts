@@ -355,9 +355,7 @@ describe("gate conditions re-derive from persisted state", () => {
         reason: "Aktuelle Urteile beider Backends stimmen überein.",
       });
     });
-    expect((await store.read()).claims[0].status).toBe(
-      "auto_confirmed",
-    );
+    expect((await store.read()).claims[0].status).toBe("auto_confirmed");
   });
 
   it("blocks automatic confirmation on a rubric complaint (Stufe 3)", async () => {

@@ -48,7 +48,7 @@ function makeExampleProject(): string {
 const claim = {
   id: "clm_0001",
   text: "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
-  claim_type: "quantitativer_einzelbefund",
+  claim_type: "quantitative_finding",
   briefing_anchor: "p1",
 } as const;
 
@@ -75,13 +75,13 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
     rubric: {
       claim,
       evidence: [evidence],
-      rubric_version: "se-evidenz-rubrik-v1",
+      rubric_version: "se-evidence-rubric-v1",
     },
     repair: {
       claim,
       evidence: [evidence],
       complaint: {
-        categories: ["leitsatz_nicht_herleitbar"],
+        categories: ["claim_not_derivable"],
         reason:
           "Die Verallgemeinerung über Studienkontexte hinaus trägt der Einzelbefund nicht.",
       },

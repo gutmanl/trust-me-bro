@@ -17,9 +17,9 @@ export default async function WarmRunPage(
   const summary = await getProjectSummary(id);
   const frozen = isSourceSetFrozen(register);
   const settled =
-    summary.claim_counts.bestaetigt +
-    summary.claim_counts.automatisch_bestaetigt +
-    summary.claim_counts.verworfen;
+    summary.claim_counts.confirmed +
+    summary.claim_counts.auto_confirmed +
+    summary.claim_counts.discarded;
 
   return (
     <div className="space-y-6">
@@ -40,9 +40,9 @@ export default async function WarmRunPage(
         <p className="mt-1 text-slate-600">{summary.research_question}</p>
         <p className="mt-2 text-xs text-slate-500">
           {settled} abgeschlossene(r) Claim(s) übernehmbar (
-          {summary.claim_counts.bestaetigt} bestätigt,{" "}
-          {summary.claim_counts.automatisch_bestaetigt} automatisch bestätigt,{" "}
-          {summary.claim_counts.verworfen} verworfen) · {summary.source_count}{" "}
+          {summary.claim_counts.confirmed} bestätigt,{" "}
+          {summary.claim_counts.auto_confirmed} automatisch bestätigt,{" "}
+          {summary.claim_counts.discarded} verworfen) · {summary.source_count}{" "}
           Quelle(n), Bestandsrevision {register.project.source_set_revision}.
         </p>
       </div>

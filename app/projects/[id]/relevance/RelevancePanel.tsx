@@ -94,7 +94,7 @@ export function RelevancePanel({
   }
 
   const watching =
-    !stopped && (formState.started === true || state.status === "laeuft");
+    !stopped && (formState.started === true || state.status === "running");
 
   const { lines } = useJobStream({
     streamUrl: `/api/projects/${projectId}/relevance/stream`,
@@ -116,16 +116,16 @@ export function RelevancePanel({
   const canStart =
     !pending &&
     !watching &&
-    (state.status === "nicht_gestartet" ||
-      state.status === "unterbrochen" ||
-      state.status === "angehalten");
+    (state.status === "not_started" ||
+      state.status === "interrupted" ||
+      state.status === "halted");
 
   return (
     <div className="space-y-4">
       {canStart ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>
-            {state.status === "nicht_gestartet"
+            {state.status === "not_started"
               ? "Einschlägigkeitsprüfung starten"
               : "Einschlägigkeitsprüfung fortsetzen"}
           </button>

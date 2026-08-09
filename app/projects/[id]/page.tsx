@@ -110,16 +110,16 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             <span
               className={
                 summary.total_claims > 0 &&
-                summary.claim_counts.erfasst +
-                  summary.claim_counts.existenzgeprueft ===
+                summary.claim_counts.captured +
+                  summary.claim_counts.existence_checked ===
                   0
                   ? "text-green-600"
                   : "text-slate-400"
               }
             >
               {summary.total_claims > 0 &&
-              summary.claim_counts.erfasst +
-                summary.claim_counts.existenzgeprueft ===
+              summary.claim_counts.captured +
+                summary.claim_counts.existence_checked ===
                 0
                 ? "✓"
                 : "○"}
@@ -135,13 +135,13 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             <span
               className={
                 summary.total_claims > 0 &&
-                summary.claim_counts.zur_adjudikation === 0
+                summary.claim_counts.pending_adjudication === 0
                   ? "text-green-600"
                   : "text-slate-400"
               }
             >
               {summary.total_claims > 0 &&
-              summary.claim_counts.zur_adjudikation === 0
+              summary.claim_counts.pending_adjudication === 0
                 ? "✓"
                 : "○"}
             </span>

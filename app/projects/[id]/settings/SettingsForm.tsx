@@ -158,14 +158,14 @@ export function SettingsForm({
           </div>
           <div className="flex items-end gap-2 pb-2">
             <input
-              id="on_relation_not_stuetzt"
-              name="on_relation_not_stuetzt"
+              id="on_relation_not_supports"
+              name="on_relation_not_supports"
               type="checkbox"
               defaultChecked={
-                config.second_opinion?.on_relation_not_stuetzt ?? true
+                config.second_opinion?.on_relation_not_supports ?? true
               }
             />
-            <label htmlFor="on_relation_not_stuetzt" className="text-sm">
+            <label htmlFor="on_relation_not_supports" className="text-sm">
               Zweiturteil auch bei Erst-Relation ungleich „stützt“
             </label>
           </div>

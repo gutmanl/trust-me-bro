@@ -51,7 +51,7 @@ export default async function MetricsPage(
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Claims gesamt</dt>
             <dd className="text-lg font-semibold">
-              {metrics.nachweisvollstaendigkeit.total_claims}
+              {metrics.evidence_completeness.total_claims}
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
@@ -59,13 +59,13 @@ export default async function MetricsPage(
               mit nachgewiesener Fundstelle
             </dt>
             <dd className="text-lg font-semibold">
-              {metrics.nachweisvollstaendigkeit.with_proven_fundstelle}
+              {metrics.evidence_completeness.with_proven_evidence}
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Anteil</dt>
             <dd className="text-lg font-semibold">
-              {formatPercent(metrics.nachweisvollstaendigkeit.ratio)}
+              {formatPercent(metrics.evidence_completeness.ratio)}
             </dd>
           </div>
         </dl>
@@ -77,7 +77,7 @@ export default async function MetricsPage(
         </h2>
         <p className="mt-1 text-xs text-slate-500">
           Verteilung der Unterstützungsgrade über die{" "}
-          {metrics.nachweiskorrektheit.total_terminal} menschlich
+          {metrics.evidence_correctness.total_terminal} menschlich
           abgeschlossenen Claims (bestätigt/verworfen).
         </p>
         <dl className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
@@ -90,14 +90,14 @@ export default async function MetricsPage(
                 {SUPPORT_LABELS[degree]}
               </dt>
               <dd className="text-lg font-semibold">
-                {metrics.nachweiskorrektheit.by_support_degree[degree]}
+                {metrics.evidence_correctness.by_support_degree[degree]}
               </dd>
             </div>
           ))}
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">ohne Bewertung</dt>
             <dd className="text-lg font-semibold">
-              {metrics.nachweiskorrektheit.by_support_degree.unassessed}
+              {metrics.evidence_correctness.by_support_degree.unassessed}
             </dd>
           </div>
         </dl>
@@ -109,38 +109,38 @@ export default async function MetricsPage(
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Adjudikationen</dt>
             <dd className="text-lg font-semibold">
-              {metrics.pruefaufwand.total_decisions}
+              {metrics.review_effort.total_decisions}
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Gesamtdauer</dt>
             <dd className="text-lg font-semibold">
-              {formatSeconds(metrics.pruefaufwand.total_duration_s)}
+              {formatSeconds(metrics.review_effort.total_duration_s)}
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Ø je Adjudikation</dt>
             <dd className="text-lg font-semibold">
-              {formatSeconds(metrics.pruefaufwand.mean_duration_s)}
+              {formatSeconds(metrics.review_effort.mean_duration_s)}
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Reparaturzyklen</dt>
             <dd className="text-lg font-semibold">
-              {metrics.pruefaufwand.total_repair_cycles}
+              {metrics.review_effort.total_repair_cycles}
             </dd>
           </div>
         </dl>
         <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           Stichprobenkontrolle (separat, RQ3):{" "}
-          {metrics.stichprobe.total_decisions} Adjudikation(en),{" "}
-          {formatSeconds(metrics.stichprobe.total_duration_s)}
-          {metrics.stichprobe.claim_ids.length > 0 ? (
+          {metrics.spot_check.total_decisions} Adjudikation(en),{" "}
+          {formatSeconds(metrics.spot_check.total_duration_s)}
+          {metrics.spot_check.claim_ids.length > 0 ? (
             <>
               {" "}
               – Claims{" "}
               <span className="font-mono">
-                {metrics.stichprobe.claim_ids.join(", ")}
+                {metrics.spot_check.claim_ids.join(", ")}
               </span>
             </>
           ) : null}
@@ -172,7 +172,7 @@ export default async function MetricsPage(
                 Einschlägigkeit negativ
               </dt>
               <dd className="text-lg font-semibold">
-                {metrics.warm_run.routed_relevanz_negativ}
+                {metrics.warm_run.routed_negative_relevance}
               </dd>
             </div>
           </dl>
@@ -236,7 +236,7 @@ export default async function MetricsPage(
                     <td className="px-4 py-2 font-mono">{row.claim_id}</td>
                     <td className="px-4 py-2">{STATUS_LABELS[row.status]}</td>
                     <td className="px-4 py-2">
-                      {row.has_proven_fundstelle ? "✓" : "–"}
+                      {row.has_proven_evidence ? "✓" : "–"}
                     </td>
                     <td className="px-4 py-2">
                       {row.support_degree

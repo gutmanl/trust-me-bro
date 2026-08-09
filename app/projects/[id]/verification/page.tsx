@@ -17,23 +17,23 @@ import { VerificationPanel } from "./VerificationPanel";
 export const dynamic = "force-dynamic";
 
 const STATE_BADGES: Record<string, { label: string; className: string }> = {
-  nicht_gestartet: {
+  not_started: {
     label: "Noch nicht gestartet",
     className: "border-slate-200 bg-slate-50 text-slate-700",
   },
-  laeuft: {
+  running: {
     label: "Läuft …",
     className: "border-blue-200 bg-blue-50 text-blue-800",
   },
-  unterbrochen: {
+  interrupted: {
     label: "Unterbrochen – fortsetzen prüft nur die offenen Claims",
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
-  angehalten: {
+  halted: {
     label: "Angehalten – es verbleiben offene Claims",
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
-  abgeschlossen: {
+  completed: {
     label: "Abgeschlossen",
     className: "border-green-200 bg-green-50 text-green-800",
   },
@@ -103,7 +103,7 @@ export default async function VerificationPage(
                     <span>
                       Existenz:{" "}
                       {claim.evidence.every(
-                        (e) => e.existence_check?.status === "bestanden",
+                        (e) => e.existence_check?.status === "passed",
                       )
                         ? "bestanden"
                         : "nicht bestanden"}

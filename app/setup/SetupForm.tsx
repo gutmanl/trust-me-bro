@@ -22,20 +22,20 @@ export function SetupForm() {
     <form action={formAction} className="space-y-4">
       <div>
         <label
-          htmlFor="actor_kuerzel"
+          htmlFor="actor_handle"
           className="block text-sm font-medium text-slate-700"
         >
           Akteurskürzel
         </label>
         <p className="mt-1 text-sm text-slate-500">
           Kurzes Kürzel (z.&nbsp;B. Initialen), das als{" "}
-          <code className="font-mono">human:&lt;kuerzel&gt;</code> in allen
+          <code className="font-mono">human:&lt;handle&gt;</code> in allen
           Verlaufseinträgen erscheint. Erlaubt: Kleinbuchstaben, Ziffern,
           „_&quot; und „-&quot;.
         </p>
         <input
-          id="actor_kuerzel"
-          name="actor_kuerzel"
+          id="actor_handle"
+          name="actor_handle"
           type="text"
           required
           autoFocus

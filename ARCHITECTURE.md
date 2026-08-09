@@ -1,114 +1,111 @@
-# TrustMeBro — Architektur
+# TrustMeBro — Architecture
 
-Normative Grundlage sind die Thesis-Anhänge „Entwurf des Projektdateiformats"
-und „Grobentwurf"; dieses Dokument hält die im Repo umgesetzten Nahtstellen
-fest. Die Strukturregeln werden nicht nur beschrieben, sondern durch
-`tests/architecture.test.ts` erzwungen.
+The normative basis is the thesis appendices "Entwurf des Projektdateiformats"
+("Draft of the Project File Format") and "Grobentwurf" ("Rough Design"); this
+document records the seams as implemented in the repo. The structural rules
+are not just described but enforced by `tests/architecture.test.ts`.
 
-## Schichten
+## Layers
 
 ```
-lib/identity/   Fundament: einziger Leser von process.env und der
-                gespeicherten Erstkonfiguration; beantwortet „aktueller
-                Akteur" und „aktuelle Workspace-Wurzel".
-lib/register/   Domänenkern: claims.json, Hash-Kette, Statusmaschine,
-                Blob-Store. Hängt nur von lib/identity ab.
-lib/export/     Bundle-Kern (.tmb): neben dem Register nutzbar, ohne
-                Pipeline- oder Adapter-Abhängigkeit (CLI-tauglich).
-lib/adapters/   Backend-Interface und Adapter (Claude-CLI, Codex-CLI),
-                Orchestrator (Retry/Trace/Concurrency), Laufzeit-Ports
-                (Prozess-Runner, Trace-Sink, Concurrency-Gate).
-lib/pipeline/   Use-Cases, die die Weboberfläche aufruft; Job-Runner.
-app/            Next.js-Oberfläche; importiert ausschließlich das
-                öffentliche Pipeline-Barrel.
-cli/            Eigenständiges Prüfwerkzeug (tmb verify), nur auf
-                Register- und Export-Barrel.
-proxy.ts        Erstlauf-Gate: leitet bis zur abgeschlossenen Einrichtung
-                jede Anfrage auf /setup um (Next 16 Proxy, Node-Runtime).
+lib/identity/   Foundation: sole reader of process.env and the stored
+                first-run configuration; answers "current actor" and
+                "current workspace root".
+lib/register/   Domain core: claims.json, hash chain, status machine,
+                blob store. Depends only on lib/identity.
+lib/export/     Bundle core (.tmb): usable alongside the register, without
+                a pipeline or adapter dependency (CLI-capable).
+lib/adapters/   Backend interface and adapters (Claude CLI, Codex CLI),
+                orchestrator (retry/trace/concurrency), runtime ports
+                (process runner, trace sink, concurrency gate).
+lib/pipeline/   Use cases invoked by the web UI; job runner.
+app/            Next.js UI; imports only the public pipeline barrel.
+cli/            Standalone verification tool (tmb verify), only against
+                the register and export barrels.
+proxy.ts        First-run gate: redirects every request to /setup until
+                setup is complete (Next 16 proxy, Node runtime).
 ```
 
-## Identität und Workspace (TMB-47)
+## Identity and workspace (TMB-47)
 
-`lib/identity` ist die einzige Stelle, die beantwortet, **wer** handelt und
-**wo** Projekte liegen:
+`lib/identity` is the single place that answers **who** is acting and
+**where** projects live:
 
-- `getCurrentActor(): "human:<kuerzel>"` — Akteurskennung aller
-  Verlaufseinträge.
-- `getWorkspaceRoot(): string` — absolute Workspace-Wurzel.
-- `resolveProjectDir(projectId): string` — einzige Pfadkonstruktion für
-  Projektverzeichnisse (validiert die Projekt-Id, schließt Traversal aus).
+- `getCurrentActor(): "human:<handle>"` — actor identifier of every
+  history entry.
+- `getWorkspaceRoot(): string` — absolute workspace root.
+- `resolveProjectDir(projectId): string` — the sole path construction for
+  project directories (validates the project id, excludes traversal).
 
-Konfigurationsauflösung **je Feld**: Umgebungsvariable →
-gespeicherte Konfigurationsdatei → Code-Default. Das Akteurskürzel hat
-bewusst **keinen** Code-Default: Ist es nirgends konfiguriert, wirft
-`loadIdentityConfig()` `IdentityNotConfiguredError`, und `proxy.ts` leitet
-auf die Ersteinrichtung `/setup` um. Die Datei liegt außerhalb des
-Workspace (Standard `~/.trustmebro/config.json`, Override
-`TMB_CONFIG_PATH`), weil die Workspace-Lage selbst eine ihrer Antworten
-ist. Geschrieben wird sie ausschließlich über
-`writeIdentityConfig` (atomar, zweite sanktionierte Roh-Schreibstelle
-neben dem Atomic-Write-Helfer des Registers — `lib/register` hängt von
-`lib/identity` ab, der umgekehrte Import wäre eine Schichtumkehr).
+Configuration resolution **per field**: environment variable → stored
+configuration file → code default. The actor handle deliberately has
+**no** code default: if it is configured nowhere, `loadIdentityConfig()`
+throws `IdentityNotConfiguredError`, and `proxy.ts` redirects to the
+first-run setup at `/setup`. The file lives outside the workspace
+(default `~/.trustmebro/config.json`, override `TMB_CONFIG_PATH`),
+because the workspace location itself is one of its answers. It is
+written exclusively via `writeIdentityConfig` (atomic, the second
+sanctioned raw write site alongside the register's atomic-write helper —
+`lib/register` depends on `lib/identity`, so the reverse import would be
+a layering inversion).
 
-Erzwungen durch Architektur-Tests: `process.env` nur in `lib/identity`;
-`getWorkspaceRoot`/`resolveProjectDir` nur an den festgeschriebenen
-Aufrufstellen (Register-Store, Projektliste, Bundle-Import, Setup).
+Enforced by architecture tests: `process.env` only in `lib/identity`;
+`getWorkspaceRoot`/`resolveProjectDir` only at the fixed call sites
+(register store, project list, bundle import, setup).
 
-## Betriebsrobustheit (TMB-49/50)
+## Operational robustness (TMB-49/50)
 
-- **Preflight** (`lib/adapters/health/`): je Backend drei Prüfstufen — CLI
-  im Suchpfad, Version kompatibel, Anmeldung funktionsfähig. Stufen 1+2
-  sind kostenlos (ein `--version`-Spawn über den sanktionierten Runner)
-  und laufen bei jedem Seitenaufbau und Laufstart; Stufe 3 ist ein
-  bewusst manueller Testaufruf (kostet Kontingent) mit In-Process-Cache.
-  Extraktion und Einschlägigkeitsprüfung verweigern den Start gegen ein
-  nicht einsatzbereites primäres Backend; die Prüfkaskade läuft weiter
-  (Stufe 1 bleibt nutzbar) und überspringt nur die LLM-Stufen je Claim.
-- **Laufzeitfehler**: Fehlerklassen und Reaktionen sind in
-  `lib/adapters/README.md` („Fehlerklassen und Reaktionen") tabelliert.
-  Nutzerinitiiertes Pausieren/Abbrechen ist ein kooperatives Primitiv des
-  Job-Runners (zwischen Items, nie mitten in einem CLI-Aufruf); da je
-  Claim persistiert wird, ist jeder Abbruch ein wiederaufnehmbarer
-  Zustand.
+- **Preflight** (`lib/adapters/health/`): three check stages per backend —
+  CLI on the search path, version compatible, login functional. Stages
+  1+2 are free (a `--version` spawn via the sanctioned runner) and run on
+  every page load and run start; stage 3 is a deliberately manual test
+  call (costs quota) with an in-process cache. Extraction and the
+  relevance check refuse to start against a primary backend that is not
+  ready; the verification cascade keeps running (stage 1 stays usable)
+  and only skips the LLM stages per claim.
+- **Runtime errors**: error classes and reactions are tabulated in
+  `lib/adapters/README.md` ("Error classes and reactions"). User-initiated
+  pause/cancel is a cooperative primitive of the job runner (between
+  items, never mid CLI call); since state is persisted per claim, every
+  abort is a resumable state.
 
-## Erweiterungspfad Mehrbenutzer-Betrieb (TMB-51)
+## Extension path: multi-user operation (TMB-51)
 
-Der Prototyp ist konsequent single-user. Die spätere
-Mehrbenutzer-Architektur ist ein dokumentierter Erweiterungspfad über
-vier Nahtstellen — entworfen, punktuell belegt, nicht gebaut:
+The prototype is consistently single-user. The later multi-user
+architecture is a documented extension path across four seams —
+designed, spot-proven, not built:
 
-1. **Backend-Interface** (`lib/adapters/core/contracts.ts`, `Backend`):
-   bewusst frei von CLI-Vokabular. Der TMB-51-Spike
-   (`createAnthropicApiBackend`, Anthropic Messages API hinter einem
-   eigenen HTTP-Port analog zum Prozess-Runner) ist der Existenzbeweis:
-   ein API-Backend ist ein weiterer Adapter und besteht denselben
-   Vertragstest (`lib/adapters/__fixtures__/contract-suite.ts`) wie die
-   CLI-Adapter — ohne Änderung an Pipeline oder Register. Der Spike ist
-   doppelt verriegelt (`TMB_ENABLE_API_BACKEND=1` + `ANTHROPIC_API_KEY`),
-   implementiert nur den Auftragstyp Attributionsurteil und ist deshalb
-   ausschließlich als sekundäres Backend wählbar; die Statusseite prüft
-   ihn über Flag/Schlüssel statt Suchpfad/Version. Ohne Schlüssel läuft
-   der Prototyp unverändert.
-2. **Identität** (`lib/identity`): siehe oben — eine Anmeldung ersetzt
-   allein die Auflösung in `loadIdentityConfig` (sitzungs- statt
-   dateigebunden); alle Aufrufer behalten ihre Signaturen.
-3. **Workspace-Abstraktion** (`resolveProjectDir`): heute eine flache
-   Wurzel; Mehrbenutzer-Betrieb bedeutet eine Wurzel je Benutzer in
-   genau dieser einen Funktion — der Architektur-Test garantiert, dass
-   sie die einzige Pfadautorität ist.
-4. **Globale CLI-Warteschlange** (`getGlobalConcurrencyGate`): heute ein
-   prozessweiter Semaphor, der das Kontingent der einen Subskription
-   schützt; Mehrbenutzer-Betrieb ersetzt den Singleton durch eine je
-   Mandant bemessene Kapazität hinter demselben `ConcurrencyGate`-Port.
+1. **Backend interface** (`lib/adapters/core/contracts.ts`, `Backend`):
+   deliberately free of CLI vocabulary. The TMB-51 spike
+   (`createAnthropicApiBackend`, the Anthropic Messages API behind its
+   own HTTP port analogous to the process runner) is the existence
+   proof: an API backend is just another adapter and passes the same
+   contract test (`lib/adapters/__fixtures__/contract-suite.ts`) as the
+   CLI adapters — without any change to the pipeline or register. The
+   spike is double-gated (`TMB_ENABLE_API_BACKEND=1` +
+   `ANTHROPIC_API_KEY`), implements only the attribution-judgment job
+   kind, and is therefore selectable only as a secondary backend; the
+   status page checks it via flag/key instead of search path/version.
+   Without a key, the prototype runs unchanged.
+2. **Identity** (`lib/identity`): as above — a login would only replace
+   the resolution inside `loadIdentityConfig` (session-bound instead of
+   file-bound); all callers keep their signatures.
+3. **Workspace abstraction** (`resolveProjectDir`): today a flat root;
+   multi-user operation means one root per user inside exactly this one
+   function — the architecture test guarantees it is the sole path
+   authority.
+4. **Global CLI queue** (`getGlobalConcurrencyGate`): today a
+   process-wide semaphore protecting the quota of the one subscription;
+   multi-user operation replaces the singleton with a per-tenant capacity
+   behind the same `ConcurrencyGate` port.
 
-**Nutzungsrechtliche Begründung des Single-User-Zuschnitts:** Die
-Standard-Backends sind Agenten-CLIs mit Subskriptionsanmeldung; deren
-Nutzungsbedingungen binden die Kontingente an die persönliche Nutzung
-des Kontoinhabers. Ein Server, der CLI-Aufrufe stellvertretend für
-mehrere Benutzer ausführt, betriebe die Subskription als geteilten
-Dienst und verließe den zulässigen Rahmen. Ein regelkonformer
-Mehrbenutzer-Betrieb führt nur über tokenbasiert abgerechnete
-API-Anbindungen — genau der Pfad, den Nahtstelle 1 mit dem Spike
-offenhält. Zusätzlich wären Anmeldung und Mandantentrennung (Nahtstelle
-2/3) sowie Zugriffskontrolle und Prozess-Isolation nötig; beides ist
-entworfen, aber bewusst nicht Teil des Prototyps.
+**Licensing rationale for the single-user scope:** the default backends
+are agent CLIs with subscription logins; their terms of service tie the
+quota to the account holder's personal use. A server that issues CLI
+calls on behalf of multiple users would operate the subscription as a
+shared service and leave the permitted scope. Compliant multi-user
+operation only works via token-billed API integrations — exactly the
+path seam 1 keeps open with the spike. In addition, login and tenant
+separation (seams 2/3) as well as access control and process isolation
+would be required; both are designed but deliberately not part of the
+prototype.

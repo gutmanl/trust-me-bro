@@ -70,7 +70,7 @@ export function ExtractionPanel({
   }
 
   const watching =
-    !stopped && (formState.started === true || state.status === "laeuft");
+    !stopped && (formState.started === true || state.status === "running");
 
   const { lines } = useJobStream({
     streamUrl: `/api/projects/${projectId}/extraction/stream`,
@@ -85,16 +85,16 @@ export function ExtractionPanel({
   const canStart =
     !pending &&
     !watching &&
-    (state.status === "nicht_gestartet" ||
-      state.status === "unterbrochen" ||
-      state.status === "fehlgeschlagen");
+    (state.status === "not_started" ||
+      state.status === "interrupted" ||
+      state.status === "failed");
 
   return (
     <div className="space-y-4">
       {canStart ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>
-            {state.status === "nicht_gestartet"
+            {state.status === "not_started"
               ? "Claim-Extraktion starten"
               : "Claim-Extraktion erneut starten"}
           </button>

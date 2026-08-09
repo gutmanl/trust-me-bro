@@ -55,7 +55,7 @@ async function runCli(
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-bundle-e2e-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: "proj_bundle-e2e",
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -70,7 +70,7 @@ beforeEach(async () => {
     {
       projectId: "proj_bundle-e2e",
       kind: "upload",
-      sourceType: "begutachtete_publikation",
+      sourceType: "peer_reviewed_publication",
       manual: { title: "Studie", authors: "Studie, A." },
       upload: {
         content: Buffer.from(

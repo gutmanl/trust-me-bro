@@ -18,7 +18,7 @@ const initialState: DecisionFormState = { error: null };
  * button plus the "Etwas stimmt nicht" complaint dialog with the taxonomy
  * categories in examiner language, multi-select, and a justification that
  * becomes mandatory with "Sonstiges". Discarding is deliberately absent —
- * every negative decision routes through beanstandet (repair first). The
+ * every negative decision routes through contested (repair first). The
  * measured duration enters as a hidden field, written at submit time.
  */
 export function ComplaintDialog({
@@ -42,7 +42,7 @@ export function ComplaintDialog({
   );
 
   const pending = confirmPending || complainPending;
-  const sonstigesChecked = checked.includes("sonstiges");
+  const sonstigesChecked = checked.includes("other");
 
   const toggle = (category: ComplaintCategory): void => {
     setChecked((previous) =>

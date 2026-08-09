@@ -28,6 +28,7 @@ export function countClaimsByStatus(
  */
 export function countRepairCycles(claim: Claim): number {
   return claim.history.filter(
-    (entry) => entry.from_status === "contested" && entry.to_status === "revised",
+    (entry) =>
+      entry.from_status === "contested" && entry.to_status === "revised",
   ).length;
 }

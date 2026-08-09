@@ -24,7 +24,7 @@ function describeProgress(event: Record<string, unknown>): string | null {
     case "run_started":
       return "Prüflauf gestartet – jeder Claim durchläuft die fälligen Prüfstufen.";
     case "item_started":
-      return event.itemId === "__stichprobe__"
+      return event.itemId === "__spot_check__"
         ? "Stichprobenzug über die automatisch bestätigten Claims …"
         : `Prüfe ${String(event.itemId)} (Existenz → Attribution → Kalibrierung) …`;
     case "item_completed": {
@@ -100,7 +100,7 @@ export function VerificationPanel({
   }
 
   const watching =
-    !stopped && (formState.started === true || state.status === "laeuft");
+    !stopped && (formState.started === true || state.status === "running");
 
   const { lines } = useJobStream({
     streamUrl: `/api/projects/${projectId}/verification/stream`,
@@ -122,14 +122,14 @@ export function VerificationPanel({
   const canStart =
     !pending &&
     !watching &&
-    (state.openClaims > 0 || state.status === "unterbrochen");
+    (state.openClaims > 0 || state.status === "interrupted");
 
   return (
     <div className="space-y-4">
       {canStart ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>
-            {state.status === "nicht_gestartet"
+            {state.status === "not_started"
               ? "Prüfung starten"
               : state.openClaims > 0
                 ? `Prüfung fortsetzen (${state.openClaims} Claim(s) offen)`

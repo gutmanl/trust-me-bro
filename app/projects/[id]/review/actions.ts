@@ -98,7 +98,7 @@ export async function applyRepairAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  if (result.value.reentryTarget !== "zur_adjudikation") {
+  if (result.value.reentryTarget !== "pending_adjudication") {
     try {
       await startVerification(projectId);
     } catch (error) {
@@ -138,7 +138,7 @@ export async function discardClaimAction(
   return { error: null, decided: true };
 }
 
-/** Complaint: transitions to beanstandet; the repair step follows there. */
+/** Complaint: transitions to contested; the repair step follows there. */
 export async function complainClaimAction(
   projectId: string,
   claimId: string,

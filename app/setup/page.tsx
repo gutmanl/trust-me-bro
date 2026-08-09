@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * First-run setup (TMB-47/48): asks the one question the prototype needs
- * answered before any history entry can be written — the actor kuerzel.
+ * answered before any history entry can be written — the actor handle.
  * proxy.ts redirects every request here until the configuration exists.
  */
 export default function SetupPage() {

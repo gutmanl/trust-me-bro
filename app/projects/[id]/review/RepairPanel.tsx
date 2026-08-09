@@ -20,7 +20,7 @@ const applyInitial: ApplyRepairFormState = { error: null };
 const discardInitial: DecisionFormState = { error: null };
 
 /**
- * The repair step for beanstandet claims (TMB-37): the adapter proposes an
+ * The repair step for contested claims (TMB-37): the adapter proposes an
  * evidence-backed reformulation, the reviewer accepts, adjusts or discards.
  * The accepted wording re-enters only the affected stages (mechanical rule
  * in the pipeline); repeatedly failing repairs escalate instead of

@@ -34,7 +34,7 @@ export const ExistenceCheck = z.strictObject({
 });
 
 /**
- * Evidence merges Fundstelle and Relation of the artifact model: a finding
+ * Evidence merges the evidence locator and relation of the artifact model: a finding
  * always originates in the context of exactly one claim. `relation_type` is
  * the *resolved* relation (set by adjudication on divergence); the raw
  * per-backend judgments stay in `judgments[]` and are never overwritten.

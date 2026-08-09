@@ -33,8 +33,8 @@ export async function updateProjectConfigAction(
         ? {
             secondOpinion: {
               confidenceThreshold: Number(formData.get("confidence_threshold")),
-              onRelationNotStuetzt:
-                formData.get("on_relation_not_stuetzt") === "on",
+              onRelationNotSupports:
+                formData.get("on_relation_not_supports") === "on",
             },
           }
         : {}),

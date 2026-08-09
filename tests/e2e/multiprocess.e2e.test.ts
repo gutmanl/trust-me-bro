@@ -44,7 +44,7 @@ beforeEach(async () => {
     id: "proj_multiprocess",
     research_question: "Serialisiert die Sperre über Prozessgrenzen?",
     config: {
-      rubric_version: "se-evidenz-rubrik-v1",
+      rubric_version: "se-evidence-rubric-v1",
       adjudication_sample_rate: 0.1,
       backends: { primary: { cli: "claude", model_family: "anthropic" } },
     },

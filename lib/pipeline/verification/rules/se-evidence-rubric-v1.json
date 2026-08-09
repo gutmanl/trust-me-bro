@@ -1,6 +1,6 @@
 {
   "rubric_version": "se-evidence-rubric-v1",
-  "prompt_template_sha256": "2cab9f80f618f2584232fff5e1ae14833c243cfb7593edcc8637aced03f28085",
+  "prompt_template_sha256": "69bb1de3d9592ca20a4f623bba8c2e3ce4ec4a3d214f1bb867f45fd618c1bda8",
   "claim_types": {
     "quantitative_finding": {
       "min_pertinent_sources": 1,

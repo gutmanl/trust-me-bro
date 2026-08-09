@@ -203,16 +203,16 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
             id="source_type"
             name="source_type"
             defaultValue={
-              kind === "arxiv" ? "preprint" : "begutachtete_publikation"
+              kind === "arxiv" ? "preprint" : "peer_reviewed_publication"
             }
             className={inputClass}
           >
-            <option value="begutachtete_publikation">
+            <option value="peer_reviewed_publication">
               Begutachtete Publikation
             </option>
             <option value="preprint">Preprint</option>
-            <option value="grauliteratur">Grauliteratur</option>
-            <option value="herstellerdokumentation">
+            <option value="grey_literature">Grauliteratur</option>
+            <option value="vendor_documentation">
               Herstellerdokumentation
             </option>
           </select>

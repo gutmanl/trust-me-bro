@@ -8,44 +8,44 @@ import type {
 
 /** German display labels of the ASCII-transliterated status enum. */
 export const STATUS_LABELS: Record<ClaimStatus, string> = {
-  erfasst: "erfasst",
-  existenzgeprueft: "existenzgeprüft",
-  vorgeprueft: "vorgeprüft",
-  automatisch_bestaetigt: "automatisch bestätigt",
-  zur_adjudikation: "zur Adjudikation",
-  bestaetigt: "bestätigt",
-  beanstandet: "beanstandet",
-  ueberarbeitet: "überarbeitet",
-  verworfen: "verworfen",
-  nachpruefung_erforderlich: "Nachprüfung erforderlich",
+  captured: "erfasst",
+  existence_checked: "existenzgeprüft",
+  prechecked: "vorgeprüft",
+  auto_confirmed: "automatisch bestätigt",
+  pending_adjudication: "zur Adjudikation",
+  confirmed: "bestätigt",
+  contested: "beanstandet",
+  revised: "überarbeitet",
+  discarded: "verworfen",
+  recheck_required: "Nachprüfung erforderlich",
 };
 
 /** Order in which status counts are displayed (workflow order). */
 export const STATUS_ORDER: ClaimStatus[] = [
-  "erfasst",
-  "existenzgeprueft",
-  "vorgeprueft",
-  "automatisch_bestaetigt",
-  "zur_adjudikation",
-  "bestaetigt",
-  "beanstandet",
-  "ueberarbeitet",
-  "verworfen",
-  "nachpruefung_erforderlich",
+  "captured",
+  "existence_checked",
+  "prechecked",
+  "auto_confirmed",
+  "pending_adjudication",
+  "confirmed",
+  "contested",
+  "revised",
+  "discarded",
+  "recheck_required",
 ];
 
 export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
-  begutachtete_publikation: "begutachtete Publikation",
+  peer_reviewed_publication: "begutachtete Publikation",
   preprint: "Preprint",
-  grauliteratur: "Grauliteratur",
-  herstellerdokumentation: "Herstellerdokumentation",
+  grey_literature: "Grauliteratur",
+  vendor_documentation: "Herstellerdokumentation",
 };
 
 export const RELATION_LABELS: Record<RelationType, string> = {
-  stuetzt: "stützt",
-  stuetzt_teilweise: "stützt teilweise",
-  widerspricht: "widerspricht",
-  nicht_einschlaegig: "nicht einschlägig",
+  supports: "stützt",
+  partially_supports: "stützt teilweise",
+  contradicts: "widerspricht",
+  not_relevant: "nicht einschlägig",
 };
 
 export const SUPPORT_LABELS: Record<SupportDegree, string> = {
@@ -56,9 +56,9 @@ export const SUPPORT_LABELS: Record<SupportDegree, string> = {
 };
 
 export const CALIBRATION_LABELS: Record<CalibrationResult, string> = {
-  lizenziert: "lizenziert",
-  abschwaechen: "abschwächen",
-  zur_adjudikation: "zur Adjudikation",
+  licensed: "lizenziert",
+  weakened: "abschwächen",
+  pending_adjudication: "zur Adjudikation",
 };
 
 /** Status pill styling (amber = awaiting adjudication, green = confirmed,
@@ -66,15 +66,15 @@ export const CALIBRATION_LABELS: Record<CalibrationResult, string> = {
  * lists, the briefing markers and the adjudication queue. */
 export function statusBadgeClassName(status: ClaimStatus): string {
   switch (status) {
-    case "zur_adjudikation":
+    case "pending_adjudication":
       return "bg-amber-100 text-amber-800";
-    case "nachpruefung_erforderlich":
+    case "recheck_required":
       return "bg-orange-100 text-orange-800";
-    case "automatisch_bestaetigt":
-    case "bestaetigt":
+    case "auto_confirmed":
+    case "confirmed":
       return "bg-green-100 text-green-800";
-    case "beanstandet":
-    case "verworfen":
+    case "contested":
+    case "discarded":
       return "bg-red-100 text-red-800";
     default:
       return "bg-slate-100 text-slate-600";

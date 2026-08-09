@@ -107,7 +107,7 @@ export function ClaimPanel({
 
       <p className="text-xs text-slate-400">{claim.history.at(-1)?.reason}</p>
 
-      {claim.status === "zur_adjudikation" ? (
+      {claim.status === "pending_adjudication" ? (
         <ComplaintDialog
           projectId={projectId}
           claim={claim}
@@ -115,11 +115,11 @@ export function ClaimPanel({
         />
       ) : null}
 
-      {claim.status === "beanstandet" ? (
+      {claim.status === "contested" ? (
         <RepairPanel projectId={projectId} claim={claim} />
       ) : null}
 
-      {claim.status === "ueberarbeitet" ? (
+      {claim.status === "revised" ? (
         <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
           Überarbeitet – die Neufassung durchläuft die betroffenen Prüfstufen im
           nächsten Prüflauf.
@@ -189,13 +189,13 @@ function EvidenceCard({
         {evidence.existence_check ? (
           <p
             className={`mt-2 text-xs ${
-              evidence.existence_check.status === "bestanden"
+              evidence.existence_check.status === "passed"
                 ? "text-green-700"
                 : "text-red-700"
             }`}
           >
             Existenzprüfung:{" "}
-            {evidence.existence_check.status === "bestanden"
+            {evidence.existence_check.status === "passed"
               ? "bestanden"
               : "nicht bestanden"}
           </p>

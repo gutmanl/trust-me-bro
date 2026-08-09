@@ -92,7 +92,8 @@ function isSampleDecision(claim: Claim, decisionEntry: HistoryEntry): boolean {
   const routingBefore = claim.history
     .filter(
       (entry) =>
-        entry.seq < decisionEntry.seq && entry.to_status === "pending_adjudication",
+        entry.seq < decisionEntry.seq &&
+        entry.to_status === "pending_adjudication",
     )
     .at(-1);
   return routingBefore?.routing === "spot_check";

@@ -2,21 +2,21 @@ import type { RoutingReason } from "@/lib/register";
 
 /** German labels of the structured routing reasons (TMB-36 queue). */
 export const ROUTING_LABELS: Record<RoutingReason, string> = {
-  ohne_beleg: "ohne Beleg extrahiert",
-  existenz_nicht_bestanden: "Existenzprüfung nicht bestanden",
-  divergenz: "Divergenz der Backend-Urteile",
-  negative_vorpruefung: "negative Vorprüfung",
-  stichprobe: "Stichprobe",
-  eskaliert: "eskaliert",
-  einschlaegigkeit_negativ: "Einschlägigkeit (warmer Lauf) negativ/unsicher",
+  no_evidence: "ohne Beleg extrahiert",
+  existence_check_failed: "Existenzprüfung nicht bestanden",
+  divergence: "Divergenz der Backend-Urteile",
+  negative_precheck: "negative Vorprüfung",
+  spot_check: "Stichprobe",
+  escalated: "eskaliert",
+  negative_relevance: "Einschlägigkeit (warmer Lauf) negativ/unsicher",
 };
 
 export const ROUTING_ORDER: RoutingReason[] = [
-  "existenz_nicht_bestanden",
-  "negative_vorpruefung",
-  "divergenz",
-  "ohne_beleg",
-  "einschlaegigkeit_negativ",
-  "stichprobe",
-  "eskaliert",
+  "existence_check_failed",
+  "negative_precheck",
+  "divergence",
+  "no_evidence",
+  "negative_relevance",
+  "spot_check",
+  "escalated",
 ];

@@ -46,7 +46,7 @@ export default async function ReviewPage(
           briefing={briefing}
           queue={buildAdjudicationQueue(register)}
           evidenceDisplay={buildEvidenceDisplayMap(id, register)}
-          verificationActive={verificationState.status === "laeuft"}
+          verificationActive={verificationState.status === "running"}
         />
       ) : (
         <div className="rounded-md border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">

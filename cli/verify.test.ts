@@ -235,7 +235,7 @@ describe("tmb verify on a .tmb bundle", () => {
     const files = unzipBundle(new Uint8Array(fs.readFileSync(original)));
     const truncated = structuredClone(register);
     truncated.claims[0].history.pop();
-    truncated.claims[0].status = "zur_adjudikation";
+    truncated.claims[0].status = "pending_adjudication";
     files["claims.json"] = bundleText.encode(
       `${JSON.stringify(truncated, null, 2)}\n`,
     );

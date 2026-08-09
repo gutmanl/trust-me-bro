@@ -13,77 +13,75 @@ implementation planning lives in the Jira project `TMB`).
 Next.js (App Router) + TypeScript strict, Node.js. No database — the
 project file format on disk is the only source of truth.
 
-## Installation und Start (Evaluatoren, TMB-48)
+## Installation and startup (evaluators, TMB-48)
 
-Voraussetzungen:
+Prerequisites:
 
 - **Node.js ≥ 20.9** (LTS): <https://nodejs.org>
-- **Mindestens eine angemeldete Agenten-CLI** mit eigener Subskription:
-  - Claude Code: `npm install -g @anthropic-ai/claude-code`, dann im
-    Terminal `claude` starten und mit `/login` anmelden.
-  - Codex CLI: `npm install -g @openai/codex`, dann `codex login`.
-- Ohne CLI ist die App startbar; Import, Quellen, Existenzprüfung,
-  Adjudikation, Verlauf und Export bleiben nutzbar — nur die
-  LLM-Prüfschritte sind gesperrt (die Statusseite im Projekt zeigt die
-  dreistufige Diagnose mit konkreten Einrichtungshinweisen).
+- **At least one logged-in agent CLI** with its own subscription:
+  - Claude Code: `npm install -g @anthropic-ai/claude-code`, then run
+    `claude` in the terminal and log in with `/login`.
+  - Codex CLI: `npm install -g @openai/codex`, then `codex login`.
+- The app starts without a CLI; import, sources, existence checking,
+  adjudication, history and export stay usable — only the LLM
+  verification steps are locked (the project's status page shows the
+  three-stage diagnosis with concrete setup pointers).
 
-TrustMeBro wird als npm-Paket verteilt, bewusst **ohne**
-Veröffentlichung im öffentlichen npm-Register (`private: true` als
-harte Sperre); die Installation läuft über das gepackte Tarball aus
-diesem Repository:
+TrustMeBro ships as an npm package, deliberately **without** publishing
+to the public npm registry (`private: true` as a hard block);
+installation runs from the packed tarball built out of this repository:
 
-1. Tarball bauen (einmalig, im Repository):
+1. Build the tarball (once, in the repository):
 
    ```sh
    npm install
    npm pack
    ```
 
-   Das erzeugt `trustmebro-0.1.0.tgz`; der `prepack`-Hook baut den
-   eigenständigen Server (standalone output) automatisch mit.
+   This produces `trustmebro-0.1.0.tgz`; the `prepack` hook builds the
+   standalone server (standalone output) along with it automatically.
 
-2. Installieren und starten (auf dem Zielsystem, beliebiges Verzeichnis):
+2. Install and start (on the target system, any directory):
 
    ```sh
    npm install -g ./trustmebro-0.1.0.tgz
    trustmebro
    ```
 
-   Alternativ ohne globale Installation: `npx ./trustmebro-0.1.0.tgz`.
+   Alternatively, without a global install: `npx ./trustmebro-0.1.0.tgz`.
 
-3. **Erster Start:** Der Befehl startet den Server auf
-   `http://127.0.0.1:4173` (nur Loopback, nie im LAN sichtbar), öffnet
-   den Browser und leitet auf die Ersteinrichtung `/setup`. Dort wird
-   das Akteurskürzel abgefragt und in `~/.trustmebro/config.json`
-   gespeichert; der Workspace liegt unter `~/.trustmebro/workspace`.
-   Ein erneuter Start erkennt die bestehende Konfiguration und springt
-   direkt zur Projektliste.
+3. **First start:** the command starts the server on
+   `http://127.0.0.1:4173` (loopback only, never visible on the LAN),
+   opens the browser and redirects to the first-run setup at `/setup`.
+   There, the actor handle is requested and stored in
+   `~/.trustmebro/config.json`; the workspace lives under
+   `~/.trustmebro/workspace`. A subsequent start detects the existing
+   configuration and jumps straight to the project list.
 
-Umgebungsvariablen des Launchers: `TMB_PORT` (Startport, Standard
-4173; belegte Ports werden automatisch übersprungen),
-`TMB_NO_BROWSER=1` (keinen Browser öffnen), `TMB_WORKSPACE`
-(abweichende Workspace-Wurzel). Alle weiteren Konfigurationsvariablen:
-[.env.example](.env.example).
+Launcher environment variables: `TMB_PORT` (start port, default 4173;
+occupied ports are skipped automatically), `TMB_NO_BROWSER=1` (do not
+open a browser), `TMB_WORKSPACE` (alternate workspace root). All
+further configuration variables: [.env.example](.env.example).
 
 ### Update
 
-Es gibt kein Register, gegen das `npm update` laufen könnte: neues
-Tarball bauen (`npm pack` im aktualisierten Repository) und erneut
-`npm install -g ./trustmebro-<version>.tgz` ausführen. Workspace und
-Konfiguration bleiben unberührt (sie liegen außerhalb des Pakets).
+There is no registry for `npm update` to run against: build a new
+tarball (`npm pack` in the updated repository) and run
+`npm install -g ./trustmebro-<version>.tgz` again. The workspace and
+configuration are untouched (they live outside the package).
 
-### Smoke-Test (dokumentiert, Windows und macOS/Linux)
+### Smoke test (documented, Windows and macOS/Linux)
 
-Auf einem frischen System mit Node und angemeldeter Claude-CLI genügt
-ein Befehl bis zur nutzbaren Oberfläche:
+On a fresh system with Node and a logged-in Claude CLI, a single
+command is enough to reach a usable interface:
 
 **Windows (PowerShell):**
 
 ```powershell
 npm install -g .\trustmebro-0.1.0.tgz
 trustmebro
-# Browser öffnet /setup → Kürzel eingeben → Projekt anlegen
-# → Statusseite des Projekts: Stufen 1+2 grün, „Anmeldung prüfen" ausführen
+# browser opens /setup → enter handle → create project
+# → project status page: stages 1+2 green, run "Anmeldung prüfen"
 ```
 
 **macOS/Linux:**
@@ -91,18 +89,18 @@ trustmebro
 ```sh
 npm install -g ./trustmebro-0.1.0.tgz
 trustmebro
-# identischer Ablauf; Browseröffnung via open/xdg-open
+# identical flow; browser opens via open/xdg-open
 ```
 
-Erwartung: Der Launcher meldet `TrustMeBro läuft:
-http://127.0.0.1:4173/`, `/setup` erscheint beim ersten Start, nach der
-Einrichtung führt die Projektseite durch Briefing-Import → Quellen
-einfrieren → Extraktion → Prüfung. Beenden mit `Strg+C`.
+Expected: the launcher reports `TrustMeBro läuft:
+http://127.0.0.1:4173/`, `/setup` appears on first start, and after
+setup the project page walks through briefing import → freeze sources →
+extraction → verification. Stop with `Ctrl+C`.
 
 ## Getting started (development)
 
 ```bash
-cp .env.example .env   # set your kuerzel and workspace path
+cp .env.example .env   # set your actor handle and workspace path
 npm install
 npm run dev
 ```

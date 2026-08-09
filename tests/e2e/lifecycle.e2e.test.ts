@@ -29,7 +29,7 @@ const repoRoot = path.resolve(
 const tsxCli = path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
 
 const config: ProjectConfig = {
-  rubric_version: "se-evidenz-rubrik-v1",
+  rubric_version: "se-evidence-rubric-v1",
   adjudication_sample_rate: 0.1,
   backends: {
     primary: { cli: "claude", model_family: "anthropic" },
@@ -103,7 +103,7 @@ describe("full project lifecycle", () => {
           type: "article-journal",
           title: "Effects of AI Assistants on Code Review Duration",
           custom: {
-            source_type: "begutachtete_publikation",
+            source_type: "peer_reviewed_publication",
             snapshot: {
               retrieved_at: "2026-08-06T08:02:00Z",
               sha256: snapshotBlob.sha256,
@@ -127,7 +127,7 @@ describe("full project lifecycle", () => {
           claim: {
             id: "clm_0001",
             text: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
-            claim_type: "quantitativer_einzelbefund",
+            claim_type: "quantitative_finding",
             briefing_anchor: "p2",
             provenance: {
               tool: "deep-research-x",
@@ -154,7 +154,7 @@ describe("full project lifecycle", () => {
           claim: {
             id: "clm_0002",
             text: "Langfristig steigt die Codequalität.",
-            claim_type: "wirksamkeitsaussage",
+            claim_type: "effectiveness_statement",
             briefing_anchor: "p3",
             provenance: {
               tool: "deep-research-x",
@@ -173,11 +173,11 @@ describe("full project lifecycle", () => {
       // 3. Stages 1–3 plus the adjudication gate for the supported claim.
       await store.transaction((tx) => {
         tx.setExistenceCheck("clm_0001", "ev_0001", {
-          status: "bestanden",
+          status: "passed",
           at: "2026-08-06T09:00:00Z",
         });
         tx.transitionClaim("clm_0001", {
-          to: "existenzgeprueft",
+          to: "existence_checked",
           actor: "system:existence_check",
           reason: "Wortlaut im eingefrorenen Volltext nachgewiesen.",
           at: "2026-08-06T09:00:01Z",
@@ -185,7 +185,7 @@ describe("full project lifecycle", () => {
         tx.appendJudgment("clm_0001", "ev_0001", {
           backend: "claude",
           model: "claude-sonnet-5",
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.93,
           reasoning: "Zahlenwert und Richtung stimmen überein.",
           at: "2026-08-06T09:05:00Z",
@@ -193,22 +193,22 @@ describe("full project lifecycle", () => {
         tx.appendJudgment("clm_0001", "ev_0001", {
           backend: "codex",
           model: "codex-2",
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.88,
           reasoning: "Auszug deckt die Aussage.",
           at: "2026-08-06T09:06:00Z",
         });
-        tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+        tx.setResolvedRelation("clm_0001", "ev_0001", "supports");
         tx.setSupportDegree("clm_0001", "supported");
-        tx.setCalibrationResult("clm_0001", "lizenziert");
+        tx.setCalibrationResult("clm_0001", "licensed");
         tx.transitionClaim("clm_0001", {
-          to: "vorgeprueft",
+          to: "prechecked",
           actor: "system:attribution",
           reason: "Stufe 2 und 3 abgeschlossen.",
           at: "2026-08-06T09:10:00Z",
         });
         tx.transitionClaim("clm_0001", {
-          to: "automatisch_bestaetigt",
+          to: "auto_confirmed",
           actor: "system:adjudication_gate",
           reason: "Durchgehend positiv, keine Divergenz, Rubrik lizenziert.",
           at: "2026-08-06T09:10:01Z",
@@ -218,13 +218,13 @@ describe("full project lifecycle", () => {
       // 4. Sampling pulls the auto-confirmed claim; the human confirms it.
       await store.transaction((tx) => {
         tx.transitionClaim("clm_0001", {
-          to: "zur_adjudikation",
-          actor: "system:stichprobe",
+          to: "pending_adjudication",
+          actor: "system:spot_check",
           reason: "Stichprobenkontrolle (Rate 0.1).",
           at: "2026-08-06T10:00:00Z",
         });
         tx.transitionClaim("clm_0001", {
-          to: "bestaetigt",
+          to: "confirmed",
           actor: "human:lg",
           reason: "Fundstelle und Zahlenwert im Snapshot verifiziert.",
           at: "2026-08-06T10:02:00Z",
@@ -239,41 +239,41 @@ describe("full project lifecycle", () => {
       // 5. The unsupported claim goes through complaint, repair and discard.
       await store.transaction((tx) => {
         tx.transitionClaim("clm_0002", {
-          to: "beanstandet",
+          to: "contested",
           actor: "human:lg",
           reason: "Keine Fundstelle vorhanden.",
           at: "2026-08-06T10:10:00Z",
           decision: {
-            categories: ["wortlaut_nicht_in_quelle"],
+            categories: ["wording_not_in_source"],
             reviewed_evidence_ids: [],
             duration_s: 40,
           },
         });
         tx.transitionClaim("clm_0002", {
-          to: "ueberarbeitet",
+          to: "revised",
           actor: "system:repair",
           reason: "Reparaturvorschlag erzeugt.",
           at: "2026-08-06T10:11:00Z",
         });
         tx.transitionClaim("clm_0002", {
-          to: "zur_adjudikation",
+          to: "pending_adjudication",
           actor: "system:repair",
           reason: "Reparatur ohne belastbare Fundstelle, eskaliert.",
           at: "2026-08-06T10:12:00Z",
         });
         tx.transitionClaim("clm_0002", {
-          to: "beanstandet",
+          to: "contested",
           actor: "human:lg",
           reason: "Weiterhin unbelegt.",
           at: "2026-08-06T10:13:00Z",
           decision: {
-            categories: ["wortlaut_nicht_in_quelle"],
+            categories: ["wording_not_in_source"],
             reviewed_evidence_ids: [],
             duration_s: 20,
           },
         });
         tx.transitionClaim("clm_0002", {
-          to: "verworfen",
+          to: "discarded",
           actor: "human:lg",
           reason: "Nicht reparierbar; verbleibt mit Begründung im Register.",
           at: "2026-08-06T10:14:00Z",
@@ -284,8 +284,8 @@ describe("full project lifecycle", () => {
       const register = await store.read();
       expect(register.claims).toHaveLength(2);
       expect(register.claims.map((claim) => claim.status)).toEqual([
-        "bestaetigt",
-        "verworfen",
+        "confirmed",
+        "discarded",
       ]);
       const verification = await store.verify();
       expect(verification.errors).toEqual([]);
@@ -331,7 +331,7 @@ describe("full project lifecycle", () => {
       // 11. Tampering is caught by the same CLI: silently "confirming" a
       // discarded claim must fail verification.
       const tampered = JSON.parse(fs.readFileSync(store.claimsPath, "utf8"));
-      tampered.claims[1].status = "bestaetigt";
+      tampered.claims[1].status = "confirmed";
       fs.writeFileSync(store.claimsPath, JSON.stringify(tampered, null, 2));
       const bad = await runCli(projectDir);
       expect(bad.code).toBe(1);

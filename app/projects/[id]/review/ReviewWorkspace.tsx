@@ -72,7 +72,7 @@ export function ReviewWorkspace({
 
   return (
     <div className="space-y-4">
-      {briefing.isGeprueft ? (
+      {briefing.isFullyAdjudicated ? (
         <SuccessBanner>
           Briefing geprüft – kein Claim zur Adjudikation offen
           {briefing.unconfirmedCount > 0

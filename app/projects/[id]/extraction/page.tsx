@@ -11,30 +11,30 @@ import { ExtractionPanel } from "./ExtractionPanel";
 export const dynamic = "force-dynamic";
 
 const CLAIM_TYPE_LABELS: Record<string, string> = {
-  quantitativer_einzelbefund: "Quantitativer Einzelbefund",
-  vergleichende_aussage: "Vergleichende Aussage",
-  wirksamkeitsaussage: "Wirksamkeitsaussage",
-  empfehlung: "Empfehlung",
+  quantitative_finding: "Quantitativer Einzelbefund",
+  comparative_statement: "Vergleichende Aussage",
+  effectiveness_statement: "Wirksamkeitsaussage",
+  recommendation: "Empfehlung",
 };
 
 const STATE_BADGES: Record<string, { label: string; className: string }> = {
-  nicht_gestartet: {
+  not_started: {
     label: "Noch nicht gestartet",
     className: "border-slate-200 bg-slate-50 text-slate-700",
   },
-  laeuft: {
+  running: {
     label: "Läuft …",
     className: "border-blue-200 bg-blue-50 text-blue-800",
   },
-  unterbrochen: {
+  interrupted: {
     label: "Unterbrochen – erneut starten",
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
-  fehlgeschlagen: {
+  failed: {
     label: "Fehlgeschlagen",
     className: "border-red-200 bg-red-50 text-red-800",
   },
-  abgeschlossen: {
+  completed: {
     label: "Abgeschlossen",
     className: "border-green-200 bg-green-50 text-green-800",
   },
@@ -86,7 +86,7 @@ export default async function ExtractionPage(
                   <p className="text-sm">{claim.text}</p>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
-                      claim.status === "zur_adjudikation"
+                      claim.status === "pending_adjudication"
                         ? "bg-amber-100 text-amber-800"
                         : "bg-slate-100 text-slate-600"
                     }`}

@@ -15,27 +15,27 @@ import { RelevancePanel } from "./RelevancePanel";
 export const dynamic = "force-dynamic";
 
 const STATE_BADGES: Record<string, { label: string; className: string }> = {
-  nicht_anwendbar: {
+  not_applicable: {
     label: "Nicht anwendbar – dieses Projekt hat keine übernommenen Claims",
     className: "border-slate-200 bg-slate-50 text-slate-700",
   },
-  nicht_gestartet: {
+  not_started: {
     label: "Noch nicht gestartet",
     className: "border-slate-200 bg-slate-50 text-slate-700",
   },
-  laeuft: {
+  running: {
     label: "Läuft …",
     className: "border-blue-200 bg-blue-50 text-blue-800",
   },
-  unterbrochen: {
+  interrupted: {
     label: "Unterbrochen – fortsetzen",
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
-  angehalten: {
+  halted: {
     label: "Angehalten – Claims verbleiben ungeprüft",
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
-  abgeschlossen: {
+  completed: {
     label: "Abgeschlossen",
     className: "border-green-200 bg-green-50 text-green-800",
   },
@@ -67,7 +67,7 @@ export default async function RelevancePage(
 
       <div className={`rounded-md border p-4 text-sm ${badge.className}`}>
         <p className="font-medium">{badge.label}</p>
-        {state.status !== "nicht_anwendbar" ? (
+        {state.status !== "not_applicable" ? (
           <p className="mt-1">
             {state.pendingClaims} von {state.adoptedClaims} übernommenen
             Claim(s) ausstehend.
@@ -81,7 +81,7 @@ export default async function RelevancePage(
         ) : null}
       </div>
 
-      {state.status !== "nicht_anwendbar" ? (
+      {state.status !== "not_applicable" ? (
         <>
           <BackendHealthNotice projectId={id} health={health} mode="block" />
           <RelevancePanel projectId={id} state={state} />

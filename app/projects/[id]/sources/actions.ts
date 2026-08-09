@@ -13,10 +13,10 @@ export interface SourceFormState {
 }
 
 const SOURCE_TYPES: SourceType[] = [
-  "begutachtete_publikation",
+  "peer_reviewed_publication",
   "preprint",
-  "grauliteratur",
-  "herstellerdokumentation",
+  "grey_literature",
+  "vendor_documentation",
 ];
 
 const CAPTURE_KINDS: CaptureKind[] = ["doi", "arxiv", "url", "upload"];

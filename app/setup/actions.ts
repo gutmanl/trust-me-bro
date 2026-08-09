@@ -13,9 +13,9 @@ export async function completeSetupAction(
   _previous: SetupFormState,
   formData: FormData,
 ): Promise<SetupFormState> {
-  const actorKuerzel = String(formData.get("actor_kuerzel") ?? "").trim();
+  const actorHandle = String(formData.get("actor_handle") ?? "").trim();
   const result = await runPipelineAction(async () =>
-    completeFirstRunSetup({ actorKuerzel }),
+    completeFirstRunSetup({ actorHandle }),
   );
   if (result.error !== null) {
     return { error: result.error };
