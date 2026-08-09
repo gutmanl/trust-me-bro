@@ -6,6 +6,7 @@ import type { ClaimsRegister } from "../schema/register";
 import exampleProject from "../schema/__fixtures__/example-project.json";
 import { ChainAppender, computeEntryHash } from "./appender";
 import { genesisPrevHash } from "./genesis";
+import { computeStateRoot } from "./state-root";
 import { verifyChain } from "./verify";
 
 const identity = {
@@ -17,6 +18,8 @@ const identity = {
 /**
  * Builds a register whose chain entries were minted by ChainAppender:
  * one project event, one claim with two history entries, one more event.
+ * Unsealed — the entries carry no state_root, i.e. the register looks like
+ * a legacy file from before the state-root extension.
  */
 function buildValidRegister(): ClaimsRegister {
   const base = structuredClone(exampleProject) as unknown as ClaimsRegister;
@@ -59,6 +62,44 @@ function buildValidRegister(): ClaimsRegister {
   );
   // Keep the derived status field consistent with the minted history.
   base.claims[0].status = "existenzgeprueft";
+  return base;
+}
+
+/** Like buildValidRegister, but sealed the way the store seals at commit:
+ * every entry carries the state root of the finished register. */
+function buildSealedRegister(): ClaimsRegister {
+  const base = structuredClone(exampleProject) as unknown as ClaimsRegister;
+  base.project = { ...base.project, ...identity };
+  base.claims[0].history = [];
+  base.project_events = [];
+  base.claims[0].status = "existenzgeprueft";
+
+  const appender = new ChainAppender(base);
+  base.project_events.push(
+    appender.append({
+      at: "2026-08-01T08:00:00Z",
+      actor: "human:lg",
+      event: "project_created",
+      reason: "Projekt angelegt.",
+    }) as ClaimsRegister["project_events"][number],
+  );
+  base.claims[0].history.push(
+    appender.append({
+      at: "2026-08-01T08:10:00Z",
+      actor: "system:extraction",
+      from_status: null,
+      to_status: "erfasst",
+      reason: "Aus Briefing extrahiert.",
+    }) as ClaimsRegister["claims"][number]["history"][number],
+    appender.append({
+      at: "2026-08-01T09:00:00Z",
+      actor: "system:existence_check",
+      from_status: "erfasst",
+      to_status: "existenzgeprueft",
+      reason: "Alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+    }) as ClaimsRegister["claims"][number]["history"][number],
+  );
+  appender.seal(base);
   return base;
 }
 
@@ -211,6 +252,111 @@ describe("verifyChain", () => {
       claimId: register.claims[0].id,
       status: "bestaetigt",
       lastHistoryStatus: "existenzgeprueft",
+    });
+  });
+});
+
+describe("state root (content replay)", () => {
+  it("seals every entry of a transaction with the same state root", () => {
+    const register = buildSealedRegister();
+    const roots = [
+      ...register.project_events.map((event) => event.state_root),
+      ...register.claims[0].history.map((entry) => entry.state_root),
+    ];
+    expect(roots).toHaveLength(3);
+    expect(new Set(roots).size).toBe(1);
+    expect(roots[0]).toBe(computeStateRoot(register));
+    expect(verifyChain(register)).toMatchObject({ ok: true, errors: [] });
+  });
+
+  const tamper: [string, (register: ClaimsRegister) => void][] = [
+    ["claim text", (r) => void (r.claims[0].text = "Ganz anderer Claim.")],
+    [
+      "verbatim excerpt",
+      (r) => void (r.claims[0].evidence[0].verbatim_excerpt = "…anderes…"),
+    ],
+    [
+      "resolved relation",
+      (r) => void (r.claims[0].evidence[0].relation_type = "widerspricht"),
+    ],
+    [
+      "judgment confidence",
+      (r) => void (r.claims[0].evidence[0].judgments[0].confidence = 0.01),
+    ],
+    [
+      "support degree",
+      (r) => void (r.claims[0].support_degree = "unsupported"),
+    ],
+    [
+      "calibration result",
+      (r) => void (r.claims[0].calibration_result = "abschwaechen"),
+    ],
+    [
+      "source title",
+      (r) => void ((r.sources[0] as { title?: string }).title = "Anders"),
+    ],
+    [
+      "snapshot retrieval time",
+      (r) =>
+        void (r.sources[0].custom.snapshot!.retrieved_at =
+          "2027-01-01T00:00:00Z"),
+    ],
+    ["configuration", (r) => void (r.config.adjudication_sample_rate = 0.99)],
+    ["source set revision", (r) => void (r.project.source_set_revision = 7)],
+  ];
+
+  for (const [label, mutate] of tamper) {
+    it(`detects a tampered ${label} in a sealed register`, () => {
+      const register = buildSealedRegister();
+      mutate(register);
+      const result = verifyChain(register);
+      expect(result.ok).toBe(false);
+      expect(result.errors).toContainEqual({
+        type: "state_root_mismatch",
+        seq: 3,
+      });
+    });
+  }
+
+  it("cannot be downgraded by stripping the newest state_root", () => {
+    const register = buildSealedRegister();
+    delete register.claims[0].history[1].state_root;
+    const result = verifyChain(register);
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContainEqual({ type: "hash_mismatch", seq: 3 });
+  });
+
+  it("skips the content check for legacy registers without state_root", () => {
+    const register = buildValidRegister();
+    register.claims[0].text = "Unbemerkt geändert.";
+    // Documented boundary: entries from before the extension cannot commit
+    // content — the chain stays formally valid, only status is replayed.
+    expect(verifyChain(register).ok).toBe(true);
+  });
+
+  it("re-verifies after a sealed follow-up transaction on a legacy chain", () => {
+    const register = buildValidRegister();
+    const appender = new ChainAppender(register);
+    register.project_events.push(
+      appender.append({
+        at: "2026-08-02T08:00:00Z",
+        actor: "human:lg",
+        event: "config_changed",
+        reason: "Konfiguration geändert.",
+        config_change: {
+          previous: structuredClone(register.config),
+          next: structuredClone(register.config),
+        },
+      }) as ClaimsRegister["project_events"][number],
+    );
+    appender.seal(register);
+    expect(verifyChain(register).ok).toBe(true);
+    register.claims[0].text = "Jetzt nicht mehr unbemerkt.";
+    const result = verifyChain(register);
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContainEqual({
+      type: "state_root_mismatch",
+      seq: 5,
     });
   });
 });

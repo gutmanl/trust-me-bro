@@ -5,5 +5,6 @@ export { genesisPrevHash } from "./genesis";
 export type { ProjectIdentity } from "./genesis";
 export { ChainAppender, allChainEntries, computeEntryHash } from "./appender";
 export type { ChainLink } from "./appender";
+export { computeStateRoot } from "./state-root";
 export { verifyChain } from "./verify";
 export type { ChainVerificationError, ChainVerificationResult } from "./verify";

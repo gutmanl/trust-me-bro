@@ -74,5 +74,8 @@ export function chainedFixture(): ClaimsRegister {
       }) as never,
     );
   }
+  // Seal like the store does at commit: the fixture represents the current
+  // format, whose entries carry the content state root.
+  appender.seal(register);
   return register;
 }

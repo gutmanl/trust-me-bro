@@ -245,18 +245,18 @@ State “must start with `proj_`” beside the field and use shared client/serve
 
 ## Verification record
 
-| Command/check | Result |
-|---|---|
-| `npm run check` | Passed: ESLint, Prettier, Next type generation, TypeScript, coverage |
-| Test suite | 78 files / 628 tests passed |
-| Coverage | 93.75% statements; 88.63% branches; 96.31% functions; 93.75% lines |
-| `npm run build` | Passed with whole-project tracing warning |
-| `npm run package:build` | Passed with the same warning |
-| `npm audit --omit=dev --json` | 0 reported production vulnerabilities among 53 production dependencies |
-| `npm pack --dry-run --ignore-scripts --json` | 2,020 files; 9,804,676 bytes packed; 39,017,080 unpacked |
-| Built standalone browser smoke | Setup, project dashboard, briefing import, source UI; mobile 375x812 checked |
-| Register tamper reproduction | Schema remained valid and `verifyChain` incorrectly returned `ok: true` |
-| Stored HTML reproduction | Harmless snapshot script executed on application origin |
+| Command/check                                | Result                                                                       |
+| -------------------------------------------- | ---------------------------------------------------------------------------- |
+| `npm run check`                              | Passed: ESLint, Prettier, Next type generation, TypeScript, coverage         |
+| Test suite                                   | 78 files / 628 tests passed                                                  |
+| Coverage                                     | 93.75% statements; 88.63% branches; 96.31% functions; 93.75% lines           |
+| `npm run build`                              | Passed with whole-project tracing warning                                    |
+| `npm run package:build`                      | Passed with the same warning                                                 |
+| `npm audit --omit=dev --json`                | 0 reported production vulnerabilities among 53 production dependencies       |
+| `npm pack --dry-run --ignore-scripts --json` | 2,020 files; 9,804,676 bytes packed; 39,017,080 unpacked                     |
+| Built standalone browser smoke               | Setup, project dashboard, briefing import, source UI; mobile 375x812 checked |
+| Register tamper reproduction                 | Schema remained valid and `verifyChain` incorrectly returned `ok: true`      |
+| Stored HTML reproduction                     | Harmless snapshot script executed on application origin                      |
 
 ## Residual review limits
 

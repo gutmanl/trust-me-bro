@@ -16,12 +16,14 @@ export interface VerifyReport {
 
 /**
  * Verifies a project directory OR a .tmb export bundle: schema validity,
- * hash-chain gaplessness and closure, and blob integrity against the
- * snapshot checksums. Depends only on the register core and the bundle core
- * (lib/export) so it works without the web application — the Git-independent
- * verifiability the file format promises recipients of an export bundle.
- * Bundles are additionally checked against their manifest (per-file
- * checksums and the committed chain head), entirely in memory.
+ * hash-chain gaplessness and closure, the materialized content state against
+ * the newest entry's committed state root (where present), and blob
+ * integrity against the snapshot checksums. Depends only on the register
+ * core and the bundle core (lib/export) so it works without the web
+ * application — the Git-independent verifiability the file format promises
+ * recipients of an export bundle. Bundles are additionally checked against
+ * their manifest (per-file checksums and the committed chain head), entirely
+ * in memory.
  */
 export function runVerify(target: string): VerifyReport {
   let stat: fs.Stats;
@@ -100,9 +102,32 @@ function runVerifyDirectory(projectDir: string): VerifyReport {
     ok: true,
     messages: [
       `hash chain valid: ${result.entryCount} entries, gapless, closed to genesis`,
+      stateRootMessage(parsed.data),
       `blob integrity ok: ${blobPaths.length} blob(s) match their snapshot checksums`,
     ],
   };
+}
+
+/**
+ * Names the exact content-protection scope: registers written since the
+ * state-root extension have their materialized content (claim texts,
+ * evidence, verification results, sources, config) replayed against the
+ * newest entry's committed root; older registers are protected at the
+ * entry/status level only, and the report must not imply more.
+ */
+function stateRootMessage(register: ClaimsRegister): string {
+  let newest: { seq: number; state_root?: string } | undefined;
+  for (const entry of [
+    ...register.claims.flatMap((claim) => claim.history),
+    ...register.project_events,
+  ]) {
+    if (!newest || entry.seq > newest.seq) {
+      newest = entry;
+    }
+  }
+  return newest?.state_root !== undefined
+    ? `content state ok: matches the state root committed by entry ${newest.seq}`
+    : "content state UNVERIFIED: legacy register from before the state-root extension (entries and status transitions are still verified)";
 }
 
 function runVerifyBundle(bundlePath: string): VerifyReport {

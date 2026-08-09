@@ -14,11 +14,16 @@ import { ProjectConfig } from "./project";
  * numbers of all entries of a project form one global, gapless, monotonically
  * increasing sequence; `hash`/`prev_hash` link the entries per the hash-chain
  * construction of the file format appendix (verified in lib/register/chain).
+ * `state_root` commits the register's materialized content state as of the
+ * writing transaction (see lib/register/chain/state-root.ts); optional only
+ * because entries from before this extension lack it — the appender always
+ * sets it (documented extension, additive).
  */
 export const ChainFields = z.strictObject({
   seq: z.int().min(1),
   prev_hash: Sha256Hex,
   hash: Sha256Hex,
+  state_root: Sha256Hex.optional(),
 });
 
 /**
@@ -61,6 +66,7 @@ export const HistoryEntry = z.strictObject({
   revision: Revision.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
+  state_root: ChainFields.shape.state_root,
 });
 export type HistoryEntry = z.infer<typeof HistoryEntry>;
 
@@ -90,5 +96,6 @@ export const ProjectEvent = z.strictObject({
   config_change: ConfigChange.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
+  state_root: ChainFields.shape.state_root,
 });
 export type ProjectEvent = z.infer<typeof ProjectEvent>;

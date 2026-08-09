@@ -3,7 +3,8 @@ import path from "node:path";
 
 import { resolveProjectDir } from "../../identity";
 import type { ActorId } from "../../identity/types";
-import { ChainAppender } from "../chain/appender";
+import { ChainAppender, allChainEntries } from "../chain/appender";
+import { computeStateRoot } from "../chain/state-root";
 import { verifyChain } from "../chain/verify";
 import type { ChainVerificationResult } from "../chain/verify";
 import { createBlobStore } from "../blobs/store";
@@ -247,6 +248,7 @@ export class RegisterStore {
           reason: "Projekt angelegt.",
         }) as ProjectEvent,
       );
+      chain.seal(draft);
       const validated = this.validate(draft);
       writeFileAtomic(this.claimsPath, serializeRegister(validated));
       // The project directory carries the JSON Schema of its schema_version
@@ -304,6 +306,37 @@ export class RegisterStore {
         chain: new ChainAppender(draft),
       };
       const result = await mutator(createTransaction(internals));
+      // A transaction that changed content without minting any entry of its
+      // own (e.g. a source capture) would silently outdate the last committed
+      // state root. Make the change chain-visible instead: append the
+      // content_updated event, then seal. Only detectable once the chain
+      // carries a state root at all — legacy chains stay legacy until their
+      // first entry-minting write.
+      if (internals.chain.mintedCount === 0) {
+        let newest: { seq: number; state_root?: string } | undefined;
+        for (const entry of allChainEntries(draft)) {
+          if (!newest || entry.seq > newest.seq) {
+            newest = entry;
+          }
+        }
+        if (
+          newest?.state_root !== undefined &&
+          newest.state_root !== computeStateRoot(draft)
+        ) {
+          draft.project_events.push(
+            internals.chain.append({
+              at: new Date().toISOString(),
+              actor: "system:register",
+              event: "content_updated",
+              reason:
+                "Inhaltsänderung ohne eigenen Verlaufseintrag versiegelt.",
+            }) as ProjectEvent,
+          );
+        }
+      }
+      // Commit-time sealing: stamp this transaction's entries with the state
+      // root of the state they committed (validate() then replays it).
+      internals.chain.seal(draft);
       const validated = this.validate(draft);
       writeFileAtomic(this.claimsPath, serializeRegister(validated));
       return result;

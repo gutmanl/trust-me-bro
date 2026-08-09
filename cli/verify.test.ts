@@ -14,6 +14,7 @@ import {
 import type { BundleFiles } from "../lib/export";
 import { latestChainLink } from "../lib/register";
 import type { ClaimsRegister } from "../lib/register";
+import { ChainAppender } from "../lib/register/chain/appender";
 import {
   chainedFixture,
   fixtureBlobEntries,
@@ -95,6 +96,50 @@ describe("tmb verify on a project directory", () => {
     const report = runVerify(projectDir);
     expect(report.ok).toBe(false);
     expect(report.messages.join("\n")).toContain("hash_mismatch");
+  });
+
+  it("reports content tampered past the chain via the state root (review S-01 reproduction)", () => {
+    // The software review's reproduction: claim text, evidence excerpt and
+    // source title edited in an otherwise valid register. Before the
+    // state-root extension this passed schema AND chain verification.
+    const register = chainedFixture();
+    register.claims[0].text = "Ganz anders lautender Claim.";
+    register.claims[0].evidence[0].verbatim_excerpt = "…erfundener Auszug…";
+    (register.sources[0] as { title?: string }).title = "Anderer Titel";
+    writeClaims(register);
+    writeBlobs(register);
+    const report = runVerify(projectDir);
+    expect(report.ok).toBe(false);
+    expect(report.messages.join("\n")).toContain("state_root_mismatch");
+  });
+
+  it("names the unverified content state of a legacy register without state roots", () => {
+    // A legacy chain is one minted without commit-time sealing: same entries,
+    // no state_root. Rebuild the fixture's chain accordingly.
+    const register = chainedFixture();
+    const events = register.project_events;
+    const entries = register.claims[0].history;
+    register.project_events = [];
+    register.claims[0].history = [];
+    const appender = new ChainAppender(register);
+    const strip = ({
+      seq: _seq,
+      prev_hash: _prev,
+      hash: _hash,
+      state_root: _root,
+      ...entry
+    }: (typeof entries)[number] | (typeof events)[number]) => entry;
+    for (const event of events) {
+      register.project_events.push(appender.append(strip(event)) as never);
+    }
+    for (const entry of entries) {
+      register.claims[0].history.push(appender.append(strip(entry)) as never);
+    }
+    writeClaims(register);
+    writeBlobs(register);
+    const report = runVerify(projectDir);
+    expect(report.ok).toBe(true);
+    expect(report.messages.join("\n")).toContain("content state UNVERIFIED");
   });
 
   it("reports a corrupted blob against its snapshot checksum", () => {

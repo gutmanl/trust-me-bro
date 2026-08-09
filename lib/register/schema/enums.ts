@@ -144,5 +144,11 @@ export const ProjectEventType = z.enum([
   /** TMB-46: a config change; the event carries the before/after pair in
    * `config_change` (documented extension, additive). */
   "config_changed",
+  /** State-root extension (review fix S-01): auto-appended by the store when
+   * a transaction changed register content without minting any entry of its
+   * own (e.g. a source capture), so the changed content state is committed
+   * to the chain instead of silently outdating the last state root
+   * (documented extension, additive). */
+  "content_updated",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

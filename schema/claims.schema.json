@@ -250,6 +250,9 @@
         "seq": {
           "$ref": "#/$defs/__schema23"
         },
+        "state_root": {
+          "$ref": "#/$defs/__schema25"
+        },
         "to_status": {
           "$ref": "#/$defs/__schema19"
         }
@@ -274,6 +277,9 @@
     "__schema24": {
       "pattern": "^(human|system):[a-z0-9][a-z0-9_-]*$",
       "type": "string"
+    },
+    "__schema25": {
+      "$ref": "#/$defs/__schema2"
     },
     "__schema3": {
       "pattern": "^blobs\\/[0-9a-f]{2}\\/[0-9a-f]{64}\\.[a-z0-9]+$",
@@ -649,7 +655,8 @@
               "verification_run_completed",
               "relevance_run_started",
               "relevance_run_completed",
-              "config_changed"
+              "config_changed",
+              "content_updated"
             ],
             "type": "string"
           },
@@ -665,6 +672,9 @@
           },
           "seq": {
             "$ref": "#/$defs/__schema23"
+          },
+          "state_root": {
+            "$ref": "#/$defs/__schema25"
           }
         },
         "required": [
