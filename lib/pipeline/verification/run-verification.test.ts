@@ -188,7 +188,7 @@ describe("cascading verification run", () => {
     const handle = await runVerification();
 
     const register = await readRegister();
-    const [confirmed, unbelegt] = register.claims;
+    const [confirmed, withoutEvidence] = register.claims;
     expect(confirmed.status).toBe("auto_confirmed");
     expect(confirmed.evidence[0].existence_check?.status).toBe("passed");
     expect(confirmed.evidence[0].judgments).toHaveLength(1);
@@ -203,8 +203,8 @@ describe("cascading verification run", () => {
       "auto_confirmed",
     ]);
     // The claim without evidence was never touched by the run.
-    expect(unbelegt.status).toBe("pending_adjudication");
-    expect(unbelegt.evidence).toHaveLength(0);
+    expect(withoutEvidence.status).toBe("pending_adjudication");
+    expect(withoutEvidence.evidence).toHaveLength(0);
 
     const events = register.project_events
       .filter((event) => event.event.startsWith("verification_run"))

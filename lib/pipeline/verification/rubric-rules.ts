@@ -76,9 +76,9 @@ export function loadRubricRuleSet(rubricVersion: string): RubricRuleSet {
 export function evaluateMechanicalRubric(
   pertinentSourceTypes: readonly SourceType[],
   rule: ClaimTypeRule,
-): "erfuellt" | "nicht_erfuellt" {
+): "met" | "not_met" {
   if (pertinentSourceTypes.length < rule.min_pertinent_sources) {
-    return "nicht_erfuellt";
+    return "not_met";
   }
   if (
     rule.required_source_types_any &&
@@ -86,13 +86,13 @@ export function evaluateMechanicalRubric(
       rule.required_source_types_any?.includes(type),
     )
   ) {
-    return "nicht_erfuellt";
+    return "not_met";
   }
   if (
     rule.min_source_type_diversity !== undefined &&
     new Set(pertinentSourceTypes).size < rule.min_source_type_diversity
   ) {
-    return "nicht_erfuellt";
+    return "not_met";
   }
   if (
     rule.insufficient_if_only &&
@@ -100,9 +100,9 @@ export function evaluateMechanicalRubric(
       rule.insufficient_if_only?.includes(type),
     )
   ) {
-    return "nicht_erfuellt";
+    return "not_met";
   }
-  return "erfuellt";
+  return "met";
 }
 
 /**
@@ -111,10 +111,10 @@ export function evaluateMechanicalRubric(
  * and `pending_adjudication` already sit at or below the cap.
  */
 export function combineCalibrationResult(
-  mechanical: "erfuellt" | "nicht_erfuellt",
+  mechanical: "met" | "not_met",
   llmResult: CalibrationResult,
 ): CalibrationResult {
-  return mechanical === "nicht_erfuellt" && llmResult === "licensed"
+  return mechanical === "not_met" && llmResult === "licensed"
     ? "weakened"
     : llmResult;
 }

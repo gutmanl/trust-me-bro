@@ -455,7 +455,7 @@ async function applyPreCheckResult(
       reason:
         `Stufen 2/3 abgeschlossen: Unterstützungsgrad ${stage23.supportDegree}, ` +
         `Rubrik ${stage23.calibration.result}` +
-        (stage23.calibration.mechanical === "nicht_erfuellt"
+        (stage23.calibration.mechanical === "not_met"
           ? " (mechanisches Rubrik-Minimum verletzt)"
           : "") +
         `. ${stage23.calibration.reasoning}`,

@@ -55,7 +55,7 @@ export interface Stage23Ok {
   calibration: {
     result: CalibrationResult;
     reasoning: string;
-    mechanical: "erfuellt" | "nicht_erfuellt";
+    mechanical: "met" | "not_met";
   } | null;
 }
 
@@ -153,7 +153,7 @@ export async function runAttributionAndRubric(
   const rule = deps.ruleSet.claim_types[claim.claim_type];
   const mechanical = rule
     ? evaluateMechanicalRubric(pertinentTypes, rule)
-    : "erfuellt";
+    : "met";
   const rubricInput: RubricInput = {
     claim: claimContext,
     evidence: claim.evidence.map(evidenceContext),

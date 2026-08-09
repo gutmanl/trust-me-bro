@@ -143,7 +143,7 @@ describe("runAttributionAndRubric", () => {
     expect(outcome).toMatchObject({
       status: "ok",
       supportDegree: "supported",
-      calibration: { result: "licensed", mechanical: "erfuellt" },
+      calibration: { result: "licensed", mechanical: "met" },
     });
     if (outcome.status !== "ok") throw new Error("unreachable");
     expect(outcome.perEvidence[0]).toMatchObject({
@@ -260,7 +260,7 @@ describe("runAttributionAndRubric", () => {
     );
     expect(outcome).toMatchObject({
       status: "ok",
-      calibration: { result: "weakened", mechanical: "nicht_erfuellt" },
+      calibration: { result: "weakened", mechanical: "not_met" },
     });
   });
 

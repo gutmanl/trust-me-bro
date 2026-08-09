@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isIdentityConfigured } from "@/lib/identity";
 
 /**
- * First-run gate (TMB-47/48): until an actor kuerzel is configured (env or
+ * First-run gate (TMB-47/48): until an actor handle is configured (env or
  * stored config file), every page, route handler and server-function POST
  * redirects to /setup. Next 16's proxy always runs on the Node runtime, so
  * the synchronous config-file read in lib/identity is fine here. Root-level
