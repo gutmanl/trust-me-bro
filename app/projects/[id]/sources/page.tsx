@@ -1,6 +1,7 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { formatCitation, isSourceSetFrozen, readProject } from "@/lib/pipeline";
+import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
 import {
   CaptureSourceForm,
@@ -10,11 +11,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  begutachtete_publikation: "Begutachtete Publikation",
+const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
+  peer_reviewed_publication: "Begutachtete Publikation",
   preprint: "Preprint",
-  grauliteratur: "Grauliteratur",
-  herstellerdokumentation: "Herstellerdokumentation",
+  grey_literature: "Grauliteratur",
+  vendor_documentation: "Herstellerdokumentation",
 };
 
 export default async function SourcesPage(
