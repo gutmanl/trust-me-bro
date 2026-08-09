@@ -29,7 +29,7 @@ describe("judgment ↔ trace correlation", () => {
       id: "proj_correlation-test",
       research_question: "Hat jedes Urteil einen Trace?",
       config: {
-        rubric_version: "se-evidenz-rubrik-v1",
+        rubric_version: "se-evidence-rubric-v1",
         adjudication_sample_rate: 0.1,
         backends: { primary: { cli: "claude", model_family: "anthropic" } },
       },
@@ -40,13 +40,13 @@ describe("judgment ↔ trace correlation", () => {
         id: "src_meyer2025",
         type: "article-journal",
         title: "Effects of AI Assistants on Code Review Duration",
-        custom: { source_type: "begutachtete_publikation" },
+        custom: { source_type: "peer_reviewed_publication" },
       } as never);
       tx.addClaim({
         claim: {
           id: "clm_0001",
           text: "LLM-Reviews reduzieren die Reviewzeit.",
-          claim_type: "quantitativer_einzelbefund",
+          claim_type: "quantitative_finding",
           briefing_anchor: "p1",
           provenance: {
             tool: "deep-research-x",
@@ -86,13 +86,13 @@ describe("judgment ↔ trace correlation", () => {
       claim: {
         id: "clm_0001",
         text: "LLM-Reviews reduzieren die Reviewzeit.",
-        claim_type: "quantitativer_einzelbefund",
+        claim_type: "quantitative_finding",
         briefing_anchor: "p1",
       },
       evidence: {
         id: "ev_0001",
         source_id: "src_meyer2025",
-        source_type: "begutachtete_publikation",
+        source_type: "peer_reviewed_publication",
         locator: { page: 6 },
         verbatim_excerpt: "…median review time dropped…",
       },

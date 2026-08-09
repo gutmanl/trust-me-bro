@@ -28,7 +28,7 @@ function fakeBackend(behavior: () => Promise<{ model: string }>): Backend {
       const { model } = await behavior();
       return {
         output: {
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.9,
           reasoning: "ok",
         },

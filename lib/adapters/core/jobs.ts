@@ -71,7 +71,7 @@ export interface RubricInput {
 export interface RepairInput {
   readonly claim: ClaimContext;
   readonly evidence: readonly EvidenceContext[];
-  /** The complaint that put the claim into beanstandet — always at least one
+  /** The complaint that put the claim into contested — always at least one
    * category (multi-select of the adjudication dialog, TMB-35). */
   readonly complaint: {
     readonly categories: readonly ComplaintCategory[];

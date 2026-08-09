@@ -14,7 +14,7 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
     claims: [
       {
         text: "Mock-Claim aus dem Briefing.",
-        claim_type: "quantitativer_einzelbefund",
+        claim_type: "quantitative_finding",
         briefing_anchor: "p1",
         evidence: [
           {
@@ -27,12 +27,12 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
     ],
   },
   attribution: {
-    relation_type: "stuetzt",
+    relation_type: "supports",
     confidence: 0.9,
     reasoning: "Mock-Urteil: Auszug und Claim stimmen überein.",
   },
   rubric: {
-    calibration_result: "lizenziert",
+    calibration_result: "licensed",
     reasoning: "Mock-Vorbewertung: Mindestevidenz der Rubrik liegt vor.",
   },
   repair: {
@@ -40,7 +40,7 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
     reasoning: "Mock-Begründung des Reparaturvorschlags.",
   },
   relevance: {
-    einschlaegig: "ja",
+    relevant: "yes",
     reasoning: "Mock-Einschätzung: Claim betrifft die neue Recherchefrage.",
   },
 };

@@ -13,7 +13,7 @@ import {
 import { createClaudeBackend } from "./claude-backend";
 
 const validPayload = {
-  relation_type: "stuetzt",
+  relation_type: "supports",
   confidence: 0.92,
   reasoning: "Zahlenwert und Richtung stimmen überein.",
 };

@@ -9,7 +9,7 @@ import { AdapterOutputError, AdapterRateLimitError } from "../../core/errors";
 import { createCodexBackend } from "./codex-backend";
 
 const validPayload = {
-  relation_type: "stuetzt",
+  relation_type: "supports",
   confidence: 0.88,
   reasoning: "Der Auszug nennt exakt die berichtete Reduktion.",
 };

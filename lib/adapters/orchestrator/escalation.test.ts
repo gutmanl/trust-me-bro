@@ -14,8 +14,8 @@ import { Orchestrator } from "./orchestrator";
 
 /**
  * End-to-end proof of the TMB-19 escalation contract: an exhausted run is
- * the pipeline's signal to take the ratified existenzgeprueft →
- * zur_adjudikation edge — with the failure documented in the history entry,
+ * the pipeline's signal to take the ratified existence_checked →
+ * pending_adjudication edge — with the failure documented in the history entry,
  * never a silent drop. The register is imported here in TEST code only; the
  * production adapter layer stays register-free.
  */
@@ -30,7 +30,7 @@ describe("adapter failure escalation into the register", () => {
       id: "proj_escalation-test",
       research_question: "Wird ein gescheiterter Adapter-Aufruf eskaliert?",
       config: {
-        rubric_version: "se-evidenz-rubrik-v1",
+        rubric_version: "se-evidence-rubric-v1",
         adjudication_sample_rate: 0.1,
         backends: { primary: { cli: "claude", model_family: "anthropic" } },
       },
@@ -41,13 +41,13 @@ describe("adapter failure escalation into the register", () => {
         id: "src_meyer2025",
         type: "article-journal",
         title: "Effects of AI Assistants on Code Review Duration",
-        custom: { source_type: "begutachtete_publikation" },
+        custom: { source_type: "peer_reviewed_publication" },
       } as never);
       tx.addClaim({
         claim: {
           id: "clm_0001",
           text: "LLM-Reviews reduzieren die Reviewzeit.",
-          claim_type: "quantitativer_einzelbefund",
+          claim_type: "quantitative_finding",
           briefing_anchor: "p1",
           provenance: {
             tool: "deep-research-x",
@@ -69,11 +69,11 @@ describe("adapter failure escalation into the register", () => {
         reason: "Aus dem Briefing extrahiert.",
       });
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-06T09:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
+        to: "existence_checked",
         actor: "system:existence_check",
         reason: "Wortlaut im Snapshot verifiziert.",
       });
@@ -104,13 +104,13 @@ describe("adapter failure escalation into the register", () => {
       claim: {
         id: "clm_0001",
         text: "LLM-Reviews reduzieren die Reviewzeit.",
-        claim_type: "quantitativer_einzelbefund",
+        claim_type: "quantitative_finding",
         briefing_anchor: "p1",
       },
       evidence: {
         id: "ev_0001",
         source_id: "src_meyer2025",
-        source_type: "begutachtete_publikation",
+        source_type: "peer_reviewed_publication",
         locator: { page: 6 },
         verbatim_excerpt: "…median review time dropped…",
       },
@@ -129,16 +129,16 @@ describe("adapter failure escalation into the register", () => {
 
     const entry = await store.transaction((tx) =>
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: "system:adapter",
         reason: `LLM-Prüfaufruf endgültig gescheitert nach ${outcome.attempts} Versuchen: ${outcome.lastError.message}`,
       }),
     );
 
-    expect(entry.to_status).toBe("zur_adjudikation");
+    expect(entry.to_status).toBe("pending_adjudication");
     expect(entry.reason).toContain("2 Versuchen");
     const register = await store.read();
-    expect(register.claims[0].status).toBe("zur_adjudikation");
+    expect(register.claims[0].status).toBe("pending_adjudication");
     const verification = await store.verify();
     expect(verification.ok).toBe(true);
   });

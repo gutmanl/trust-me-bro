@@ -62,20 +62,6 @@ interface MockOutputs {
   primaryScript?: ReadonlyArray<Error | "ok">;
 }
 
-// The mock backend's own canned defaults (lib/adapters, out of this task's
-// scope) still speak the pre-rename German vocabulary, so it is overridden
-// here with schema-valid English defaults whenever a test does not supply
-// its own.
-const DEFAULT_ATTRIBUTION: AttributionOutput = {
-  relation_type: "supports",
-  confidence: 0.9,
-  reasoning: "Mock-Urteil: Auszug und Claim stimmen überein.",
-};
-const DEFAULT_RUBRIC: RubricOutput = {
-  calibration_result: "licensed",
-  reasoning: "Mock-Vorbewertung: Mindestevidenz der Rubrik liegt vor.",
-};
-
 function makeOrchestrator(
   outputs: MockOutputs = {},
   extraction?: ExtractionOutput,
@@ -85,8 +71,8 @@ function makeOrchestrator(
     model: "claude-sonnet-5",
     overrides: {
       ...(extraction ? { extraction } : {}),
-      attribution: outputs.primaryAttribution ?? DEFAULT_ATTRIBUTION,
-      rubric: outputs.rubric ?? DEFAULT_RUBRIC,
+      attribution: outputs.primaryAttribution,
+      rubric: outputs.rubric,
     },
     script: outputs.primaryScript,
   });
@@ -94,7 +80,7 @@ function makeOrchestrator(
     id: "codex",
     model: "gpt-x",
     overrides: {
-      attribution: outputs.secondaryAttribution ?? DEFAULT_ATTRIBUTION,
+      attribution: outputs.secondaryAttribution,
     },
   });
   return new Orchestrator({

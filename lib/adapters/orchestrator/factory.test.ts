@@ -27,7 +27,7 @@ afterEach(() => {
 describe("createProjectOrchestrator", () => {
   it("wires configured backends, file trace sink and global gate into a working orchestrator", async () => {
     const payload = {
-      relation_type: "stuetzt",
+      relation_type: "supports",
       confidence: 0.9,
       reasoning: "Passt.",
     };

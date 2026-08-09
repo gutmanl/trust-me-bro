@@ -33,7 +33,7 @@ describe("createMockBackend", () => {
 
   it("honors per-kind output overrides", async () => {
     const override = {
-      relation_type: "widerspricht",
+      relation_type: "contradicts",
       confidence: 0.4,
       reasoning: "Der Auszug widerspricht der Richtung des Claims.",
     } as const;

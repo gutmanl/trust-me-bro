@@ -2,7 +2,7 @@
 
 Backend interface and agent-CLI adapters (`claude -p`, `codex exec`),
 output validation against the Evidence/Judgment sub-schemas, trace log.
-Built in epic TMB-2 (Adapter-Schicht).
+Built in epic TMB-2 (adapter layer).
 
 Layout (ports-and-adapters):
 
@@ -15,7 +15,11 @@ Layout (ports-and-adapters):
   never edited in place; a changed prompt is a new version) plus pure
   rendering. Templates are read from disk at runtime — if the app is
   ever built as standalone output, `lib/adapters/prompts/**` must be
-  included in Next's file tracing.
+  included in Next's file tracing. Documented exception: the
+  German→English rename of the LLM output enum vocabulary (e.g.
+  `einschlaegig`→`relevant`, `ja`/`nein`/`unsicher`→`yes`/`no`/`uncertain`)
+  was applied in place without a version bump — it is a mechanical relabel
+  of the output contract's literal values, not a behavioral prompt change.
 - `backends/` — concrete backends. Each performs exactly one stateless
   attempt and throws typed `AdapterError`s; retry, tracing and
   concurrency live in the orchestrator.
@@ -38,18 +42,18 @@ Layout (ports-and-adapters):
   `--version` spawn, stage 3 an on-demand minimal real call with an
   in-process result cache.
 
-## Fehlerklassen und Reaktionen (TMB-50)
+## Error classes and reactions (TMB-50)
 
 The runtime error taxonomy (`core/errors.ts`) and its reactions, as
 implemented by `core/retry.ts` (pure decision), the orchestrator (loop)
 and the pipeline runs (persistence/escalation):
 
-| `AdapterErrorKind` | Auslöser                                                                                      | Retry                                            | Eskalation                                                                                  | Lauf-Reaktion                                                                                                                             |
-| ------------------ | --------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `timeout`          | Kindprozess über `timeoutMs`, gekillt                                                         | begrenzt, exponentieller Backoff (`maxAttempts`) | nach Erschöpfung: Claim → `zur_adjudikation` (`routing: eskaliert`, Begründung im Verlauf)  | Lauf fährt mit dem nächsten Claim fort                                                                                                    |
-| `process_failure`  | Exit ≠ 0, Spawn-Fehler, CLI-Fehlermeldung                                                     | wie `timeout`                                    | wie `timeout`                                                                               | wie `timeout`                                                                                                                             |
-| `invalid_output`   | Ausgabe nicht parsebar (`AdapterOutputError`) oder schema-ungültig (`AdapterValidationError`) | wie `timeout`                                    | wie `timeout` — anhaltend schema-ungültige Ausgaben landen so begründet in der Adjudikation | wie `timeout`                                                                                                                             |
-| `rate_limited`     | Rate-Limit-/Kontingentsignal der CLI (Muster in `backends/rate-limit-signal.ts`)              | **nie** (verbraucht kein Retry-Budget)           | **nie**                                                                                     | Lauf pausiert sichtbar: Klammer-Latch überspringt Restclaims ohne Register-Schreiben, Wiederaufnahme = neuer Lauf über die offenen Claims |
+| `AdapterErrorKind` | Trigger                                                                                 | Retry                                        | Escalation                                                                                    | Run reaction                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `timeout`          | Child process killed after `timeoutMs`                                                  | limited, exponential backoff (`maxAttempts`) | after exhaustion: Claim → `pending_adjudication` (`routing: escalated`, reason in history)    | run continues with the next claim                                                                                                     |
+| `process_failure`  | Exit ≠ 0, spawn error, CLI error message                                                | same as `timeout`                            | same as `timeout`                                                                             | same as `timeout`                                                                                                                     |
+| `invalid_output`   | Output not parsable (`AdapterOutputError`) or schema-invalid (`AdapterValidationError`) | same as `timeout`                            | same as `timeout` — persistently schema-invalid outputs land in adjudication with that reason | same as `timeout`                                                                                                                     |
+| `rate_limited`     | Rate-limit/quota signal from the CLI (pattern in `backends/rate-limit-signal.ts`)       | **never** (consumes no retry budget)         | **never**                                                                                     | run pauses visibly: the bracket latch skips the remaining claims without register writes, resumption = a new run over the open claims |
 
 Invariants across all classes: the job runner persists per claim, so no
 CLI error can corrupt the register or lose claims silently; a pause or

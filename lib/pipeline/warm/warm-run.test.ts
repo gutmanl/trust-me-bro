@@ -303,7 +303,7 @@ describe("relevance check", () => {
     const { confirmed, autoConfirmed } = await setupWarmProject();
     const handle = await startRelevanceCheck(WARM, {
       orchestrator: relevanceOrchestrator({
-        einschlaegig: "ja",
+        relevant: "yes",
         reasoning: "Betrifft die Codequalität unmittelbar.",
       }),
       runner,
@@ -354,7 +354,7 @@ describe("relevance check", () => {
     const { confirmed, autoConfirmed } = await setupWarmProject();
     const handle = await startRelevanceCheck(WARM, {
       orchestrator: relevanceOrchestrator({
-        einschlaegig: "nein",
+        relevant: "no",
         reasoning: "Betrifft nur die Reviewzeit, nicht die Codequalität.",
       }),
       runner,
@@ -409,7 +409,7 @@ describe("relevance check", () => {
     const { confirmed, autoConfirmed } = await setupWarmProject();
     const handle = await startRelevanceCheck(WARM, {
       orchestrator: relevanceOrchestrator(
-        { einschlaegig: "ja", reasoning: "Passt." },
+        { relevant: "yes", reasoning: "Passt." },
         [new AdapterRateLimitError("claude", "relevance", "limit erreicht")],
       ),
       runner,
@@ -429,7 +429,7 @@ describe("relevance check", () => {
     // The resumed run sweeps the full remainder and closes the bracket.
     const resumed = await startRelevanceCheck(WARM, {
       orchestrator: relevanceOrchestrator({
-        einschlaegig: "ja",
+        relevant: "yes",
         reasoning: "Passt.",
       }),
       runner,

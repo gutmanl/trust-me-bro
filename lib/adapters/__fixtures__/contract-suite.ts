@@ -20,7 +20,7 @@ import { attributionJob } from "./jobs";
  */
 
 export const CONTRACT_PAYLOAD = {
-  relation_type: "stuetzt",
+  relation_type: "supports",
   confidence: 0.9,
   reasoning: "Beleg deckt die Aussage.",
 } as const;

@@ -31,13 +31,13 @@ const PROBE_INPUT: AttributionInput = {
   claim: {
     id: "clm_probe",
     text: "Die Datei nennt den Wert 42.",
-    claim_type: "quantitativer_einzelbefund",
+    claim_type: "quantitative_finding",
     briefing_anchor: "probe",
   },
   evidence: {
     id: "ev_probe",
     source_id: "src_probe",
-    source_type: "grauliteratur",
+    source_type: "grey_literature",
     locator: { section: "Probe" },
     verbatim_excerpt: "Der Wert betraegt 42.",
   },

@@ -13,12 +13,12 @@ import { validateJobOutput } from "./validate";
  */
 const invalidByKind: Array<[JobKind, string, unknown]> = [
   ["attribution", "empty object", {}],
-  ["attribution", "prose instead of structure", "stuetzt"],
+  ["attribution", "prose instead of structure", "supports"],
   ["attribution", "null", null],
   [
     "attribution",
     "confidence out of range",
-    { relation_type: "stuetzt", confidence: 1.4, reasoning: "x" },
+    { relation_type: "supports", confidence: 1.4, reasoning: "x" },
   ],
   [
     "attribution",
@@ -29,7 +29,7 @@ const invalidByKind: Array<[JobKind, string, unknown]> = [
     "attribution",
     "spoofed provenance fields",
     {
-      relation_type: "stuetzt",
+      relation_type: "supports",
       confidence: 0.5,
       reasoning: "x",
       backend: "claude",
@@ -42,7 +42,7 @@ const invalidByKind: Array<[JobKind, string, unknown]> = [
     "extraction",
     "claim without briefing anchor",
     {
-      claims: [{ text: "x", claim_type: "empfehlung", evidence: [] }],
+      claims: [{ text: "x", claim_type: "recommendation", evidence: [] }],
     },
   ],
   [
@@ -52,7 +52,7 @@ const invalidByKind: Array<[JobKind, string, unknown]> = [
       claims: [
         {
           text: "x",
-          claim_type: "empfehlung",
+          claim_type: "recommendation",
           briefing_anchor: "p1",
           evidence: [
             { source_id: "meyer", locator: {}, verbatim_excerpt: "y" },
@@ -66,7 +66,7 @@ const invalidByKind: Array<[JobKind, string, unknown]> = [
     "free-text calibration result",
     { calibration_result: "passt schon", reasoning: "x" },
   ],
-  ["rubric", "missing reasoning", { calibration_result: "lizenziert" }],
+  ["rubric", "missing reasoning", { calibration_result: "licensed" }],
   ["repair", "empty suggested text", { suggested_text: "", reasoning: "x" }],
   [
     "repair",
@@ -84,7 +84,7 @@ describe("validateJobOutput", () => {
 
   it("returns the parsed output for a valid candidate", () => {
     const valid = {
-      relation_type: "widerspricht",
+      relation_type: "contradicts",
       confidence: 0.3,
       reasoning: "Der Auszug widerspricht dem Claim.",
     };

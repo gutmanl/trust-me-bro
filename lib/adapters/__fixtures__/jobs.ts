@@ -27,14 +27,14 @@ import { renderPromptForJob } from "../prompts";
 export const exampleClaim: ClaimContext = {
   id: "clm_0001",
   text: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
-  claim_type: "quantitativer_einzelbefund",
+  claim_type: "quantitative_finding",
   briefing_anchor: "p12",
 };
 
 export const exampleEvidence: EvidenceContext = {
   id: "ev_0001",
   source_id: "src_meyer2025",
-  source_type: "begutachtete_publikation",
+  source_type: "peer_reviewed_publication",
   locator: { page: 6, section: "4.2" },
   verbatim_excerpt: "…median review time dropped from 42 to 19 minutes (-55%)…",
 };
@@ -53,13 +53,13 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
   rubric: {
     claim: exampleClaim,
     evidence: [exampleEvidence],
-    rubric_version: "se-evidenz-rubrik-v1",
+    rubric_version: "se-evidence-rubric-v1",
   } satisfies RubricInput,
   repair: {
     claim: exampleClaim,
     evidence: [exampleEvidence],
     complaint: {
-      categories: ["leitsatz_nicht_herleitbar"],
+      categories: ["claim_not_derivable"],
       reason: "Der Auszug trägt die Verallgemeinerung nicht.",
     },
   } satisfies RepairInput,
@@ -111,7 +111,7 @@ export function fakeRunner(
 }
 
 export const exampleProjectConfig: ProjectConfig = {
-  rubric_version: "se-evidenz-rubrik-v1",
+  rubric_version: "se-evidence-rubric-v1",
   adjudication_sample_rate: 0.1,
   backends: {
     primary: { cli: "claude", model_family: "anthropic" },

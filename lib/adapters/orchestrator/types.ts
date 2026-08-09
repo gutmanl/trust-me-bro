@@ -15,7 +15,7 @@ export type StampedOutput<K extends JobKind> = K extends "attribution"
  * Terminal outcome of one orchestrated job run (TMB-19): `ok` merges,
  * `paused` surfaces a resumable rate-limit stop (never an escalation), and
  * `exhausted` is the caller's signal to escalate the affected claim to
- * adjudication via the ratified existenzgeprueft → zur_adjudikation edge —
+ * adjudication via the ratified existence_checked → pending_adjudication edge —
  * never to drop it silently.
  */
 export type RunOutcome<K extends JobKind> =

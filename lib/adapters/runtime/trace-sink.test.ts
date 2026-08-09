@@ -19,7 +19,7 @@ function envelope(overrides: Partial<TraceEnvelope> = {}): TraceEnvelope {
     attempt: 1,
     started_at: "2026-08-06T15:30:00.123Z",
     finished_at: "2026-08-06T15:30:21.456Z",
-    result: { relation_type: "stuetzt" },
+    result: { relation_type: "supports" },
     ...overrides,
   });
 }

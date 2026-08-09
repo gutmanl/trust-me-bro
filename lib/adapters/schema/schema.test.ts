@@ -8,7 +8,7 @@ import {
 } from "./index";
 
 const validAttribution = {
-  relation_type: "stuetzt",
+  relation_type: "supports",
   confidence: 0.92,
   reasoning: "Zahlenwert und Richtung stimmen mit dem Auszug überein.",
 };
@@ -17,7 +17,7 @@ const validExtraction = {
   claims: [
     {
       text: "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
-      claim_type: "quantitativer_einzelbefund",
+      claim_type: "quantitative_finding",
       briefing_anchor: "p12",
       evidence: [
         {
@@ -32,7 +32,7 @@ const validExtraction = {
 };
 
 const validRubric = {
-  calibration_result: "lizenziert",
+  calibration_result: "licensed",
   reasoning: "Eine begutachtete Studie mit passendem Kontext liegt vor.",
 };
 
@@ -68,7 +68,7 @@ describe("AttributionOutput", () => {
     expect(
       AttributionOutput.safeParse({
         ...validAttribution,
-        relation_type: "supports",
+        relation_type: "agrees",
       }).success,
     ).toBe(false);
   });

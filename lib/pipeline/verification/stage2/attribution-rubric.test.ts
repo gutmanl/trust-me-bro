@@ -78,20 +78,6 @@ interface Backends {
   secondaryConfigured?: boolean;
 }
 
-// The mock backend's own canned defaults (lib/adapters, out of this task's
-// scope) still speak the pre-rename German vocabulary, so they are
-// overridden here with schema-valid English defaults whenever a test does
-// not supply its own.
-const DEFAULT_ATTRIBUTION: AttributionOutput = {
-  relation_type: "supports",
-  confidence: 0.9,
-  reasoning: "Mock-Urteil: Auszug und Claim stimmen überein.",
-};
-const DEFAULT_RUBRIC: RubricOutput = {
-  calibration_result: "licensed",
-  reasoning: "Mock-Vorbewertung: Mindestevidenz der Rubrik liegt vor.",
-};
-
 function makeDeps(backends: Backends = {}): {
   deps: Stage23Dependencies;
   primaryCalls: () => string[];
@@ -101,8 +87,8 @@ function makeDeps(backends: Backends = {}): {
     id: "claude",
     model: "claude-sonnet-5",
     overrides: {
-      attribution: backends.primary?.attribution ?? DEFAULT_ATTRIBUTION,
-      rubric: backends.primary?.rubric ?? DEFAULT_RUBRIC,
+      attribution: backends.primary?.attribution,
+      rubric: backends.primary?.rubric,
     },
     script: backends.primary?.script,
   });
@@ -110,7 +96,7 @@ function makeDeps(backends: Backends = {}): {
     id: "codex",
     model: "gpt-x",
     overrides: {
-      attribution: backends.secondary?.attribution ?? DEFAULT_ATTRIBUTION,
+      attribution: backends.secondary?.attribution,
     },
   });
   const orchestrator = new Orchestrator({
