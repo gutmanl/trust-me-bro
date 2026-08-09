@@ -31,7 +31,7 @@ const EXTRACTION_OUTPUT: ExtractionOutput = {
   claims: [
     {
       text: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
-      claim_type: "quantitativer_einzelbefund",
+      claim_type: "quantitative_finding",
       briefing_anchor: "p1",
       evidence: [
         {
@@ -43,13 +43,13 @@ const EXTRACTION_OUTPUT: ExtractionOutput = {
     },
     {
       text: "Langfristig steigt die Codequalität.",
-      claim_type: "wirksamkeitsaussage",
+      claim_type: "effectiveness_statement",
       briefing_anchor: "p2",
       evidence: [],
     },
     {
       text: "Die Reviewzeit sinkt deutlich. Zudem steigt die Zufriedenheit im Team.",
-      claim_type: "wirksamkeitsaussage",
+      claim_type: "effectiveness_statement",
       briefing_anchor: "p2",
       evidence: [
         {
@@ -86,7 +86,7 @@ let workspace: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-extraction-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: "proj_extraktion",
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -116,7 +116,7 @@ async function prepareProject(): Promise<void> {
     {
       projectId: "proj_extraktion",
       kind: "upload",
-      sourceType: "begutachtete_publikation",
+      sourceType: "peer_reviewed_publication",
       manual: { title: "Studie", authors: "Studie, A." },
       upload: {
         content: Buffer.from(
@@ -179,12 +179,12 @@ describe("extraction run", () => {
     const store = RegisterStore.forProject("proj_extraktion");
     const register = await store.read();
 
-    // Three claims: evidenced+atomic → erfasst; unbelegt → zur_adjudikation;
-    // gebündelt → zur_adjudikation (Atomaritätsgate) despite evidence.
+    // Three claims: evidenced+atomic → captured; unevidenced → pending_adjudication;
+    // bundled → pending_adjudication (atomicity gate) despite evidence.
     expect(register.claims.map((claim) => [claim.id, claim.status])).toEqual([
-      ["clm_0001", "erfasst"],
-      ["clm_0002", "zur_adjudikation"],
-      ["clm_0003", "zur_adjudikation"],
+      ["clm_0001", "captured"],
+      ["clm_0002", "pending_adjudication"],
+      ["clm_0003", "pending_adjudication"],
     ]);
     expect(register.claims[1].history[0].reason).toContain("Keine Fundstelle");
     expect(register.claims[2].history[0].reason).toContain("Atomaritätsgate");
@@ -207,7 +207,7 @@ describe("extraction run", () => {
     expect((await store.verify()).ok).toBe(true);
     expect(
       getExtractionState("proj_extraktion", register, { runner }).status,
-    ).toBe("abgeschlossen");
+    ).toBe("completed");
     // The projection reflects the new claims.
     const briefingMd = fs.readFileSync(
       path.join(store.projectDir, "briefing.md"),
@@ -233,10 +233,10 @@ describe("extraction run", () => {
     const register = await RegisterStore.forProject("proj_extraktion").read();
     expect(
       getExtractionState("projekt-kopie", register, { runner }).status,
-    ).toBe("laeuft");
+    ).toBe("running");
     expect(
       getExtractionState(register.project.id, register, { runner }).status,
-    ).toBe("nicht_gestartet");
+    ).toBe("not_started");
     release();
     await handle.done;
   });
@@ -269,7 +269,7 @@ describe("extraction run", () => {
       .eventsSoFar()
       .find((event) => event.type === "item_completed");
     expect(completed).toMatchObject({
-      outcome: { status: "ok", result: { outcome: "fehlgeschlagen" } },
+      outcome: { status: "ok", result: { outcome: "failed" } },
     });
 
     const register = await RegisterStore.forProject("proj_extraktion").read();
@@ -278,7 +278,7 @@ describe("extraction run", () => {
     expect(lastEvent?.event).toBe("batch_run_completed");
     expect(lastEvent?.reason).toContain("erschöpft");
     expect(getExtractionState("proj_extraktion", register).status).toBe(
-      "fehlgeschlagen",
+      "failed",
     );
     // Zero claims written → a retry is allowed.
     await expect(
@@ -295,7 +295,7 @@ describe("extraction run", () => {
       claims: [
         {
           text: "Claim mit unbekannter Quelle.",
-          claim_type: "quantitativer_einzelbefund",
+          claim_type: "quantitative_finding",
           briefing_anchor: "p1",
           evidence: [
             {

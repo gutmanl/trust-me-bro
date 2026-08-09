@@ -223,7 +223,7 @@ async function runAttribution(
 }
 
 /** Types of the distinct sources whose resolved relation supports the claim
- * (stuetzt or stuetzt_teilweise) — one entry per source, not per evidence. */
+ * (supports or partially_supports) — one entry per source, not per evidence. */
 function pertinentSourceTypes(
   claim: Claim,
   perEvidence: readonly EvidenceJudgingResult[],
@@ -236,7 +236,7 @@ function pertinentSourceTypes(
     claim.evidence
       .filter((evidence) => {
         const relation = relationByEvidence.get(evidence.id);
-        return relation === "stuetzt" || relation === "stuetzt_teilweise";
+        return relation === "supports" || relation === "partially_supports";
       })
       .map((evidence) => evidence.source_id),
   );

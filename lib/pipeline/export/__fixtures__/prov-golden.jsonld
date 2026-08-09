@@ -38,16 +38,16 @@
   "type": "prov:Bundle",
   "tmb:researchQuestion": "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
   "tmb:documentedSimplifications": [
-    "Keine separaten Reasoning-Knoten: Schlussfolgerung und Kantenaussage fallen in einem judgments[]-Eintrag zusammen, die Begruendung ist ein Literalattribut (tmb:reasoning) der urteilenden Aktivitaet.",
-    "Statusuebergaenge sind punktuelle Aktivitaeten (startedAtTime = endedAtTime); die Bearbeitungsdauer menschlicher Entscheidungen steht als tmb:duration_s an der Aktivitaet.",
-    "Die typisierte Claim-Quelle-Kante verlaeuft ueber den Evidenz-Knoten (wasDerivedFrom zur Quelle, tmb:evidenceOf zum Claim, tmb:relationType als Kantenaussage)."
+    "No separate reasoning nodes: the conclusion and the edge assertion coincide in one judgments[] entry; the justification is a literal attribute (tmb:reasoning) of the judging activity.",
+    "Status transitions are point-in-time activities (startedAtTime = endedAtTime); the processing duration of human decisions is recorded as tmb:duration_s on the activity.",
+    "The typed claim-source edge runs through the evidence node (wasDerivedFrom to the source, tmb:evidenceOf to the claim, tmb:relationType as the edge assertion)."
   ],
   "@graph": [
     {
       "id": "tmb:source/src_meyer2025",
       "type": "prov:Entity",
       "tmb:role": "source",
-      "tmb:sourceType": "begutachtete_publikation",
+      "tmb:sourceType": "peer_reviewed_publication",
       "tmb:title": "Effects of AI Assistants on Code Review Duration"
     },
     {
@@ -55,8 +55,8 @@
       "type": "prov:Entity",
       "tmb:role": "claim",
       "tmb:text": "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
-      "tmb:claimType": "quantitativer_einzelbefund",
-      "tmb:status": "bestaetigt",
+      "tmb:claimType": "quantitative_finding",
+      "tmb:status": "confirmed",
       "tmb:supportDegree": "supported",
       "wasGeneratedBy": "tmb:activity/transition/clm_0001/2",
       "wasAttributedTo": "tmb:agent/system/extraction"
@@ -72,7 +72,7 @@
         "page": 6,
         "section": "4.2"
       },
-      "tmb:relationType": "stuetzt"
+      "tmb:relationType": "supports"
     },
     {
       "id": "tmb:activity/existence-check/clm_0001/ev_0001",
@@ -80,7 +80,7 @@
       "startedAtTime": "2026-07-28T09:12:03Z",
       "endedAtTime": "2026-07-28T09:12:03Z",
       "used": "tmb:evidence/clm_0001/ev_0001",
-      "tmb:result": "bestanden"
+      "tmb:result": "passed"
     },
     {
       "id": "tmb:activity/judgment/clm_0001/ev_0001/1",
@@ -90,7 +90,7 @@
       "used": "tmb:evidence/clm_0001/ev_0001",
       "wasAssociatedWith": "tmb:agent/backend/claude",
       "tmb:model": "claude-sonnet-5",
-      "tmb:relationType": "stuetzt",
+      "tmb:relationType": "supports",
       "tmb:confidence": 0.92,
       "tmb:reasoning": "Zahlenwert und Richtung stimmen mit dem Auszug ueberein.",
       "tmb:traceId": "3f2b41a8-7c15-4e0d-9a2b-5d8f13c07a61"
@@ -104,7 +104,7 @@
       "wasAssociatedWith": "tmb:agent/system/extraction",
       "tmb:seq": 2,
       "tmb:fromStatus": null,
-      "tmb:toStatus": "erfasst",
+      "tmb:toStatus": "captured",
       "tmb:reason": "Aus Briefing-Absatz p12 extrahiert."
     },
     {
@@ -113,12 +113,12 @@
       "startedAtTime": "2026-08-01T13:59:12Z",
       "endedAtTime": "2026-08-01T13:59:12Z",
       "used": "tmb:claim/clm_0001",
-      "wasAssociatedWith": "tmb:agent/system/stichprobe",
+      "wasAssociatedWith": "tmb:agent/system/spot_check",
       "tmb:seq": 8,
-      "tmb:fromStatus": "automatisch_bestaetigt",
-      "tmb:toStatus": "zur_adjudikation",
+      "tmb:fromStatus": "auto_confirmed",
+      "tmb:toStatus": "pending_adjudication",
       "tmb:reason": "Stichprobenkontrolle (Lauf run_0001, Seed run_0001, Rate 0.1).",
-      "tmb:routing": "stichprobe"
+      "tmb:routing": "spot_check"
     },
     {
       "id": "tmb:activity/transition/clm_0001/9",
@@ -128,8 +128,8 @@
       "used": "tmb:claim/clm_0001",
       "wasAssociatedWith": "tmb:agent/human/lg",
       "tmb:seq": 9,
-      "tmb:fromStatus": "zur_adjudikation",
-      "tmb:toStatus": "bestaetigt",
+      "tmb:fromStatus": "pending_adjudication",
+      "tmb:toStatus": "confirmed",
       "tmb:reason": "Stichprobenkontrolle: Fundstelle und Zahlenwert im Snapshot verifiziert.",
       "tmb:decisionCategories": [],
       "tmb:duration_s": 96
@@ -160,9 +160,9 @@
       "tmb:actor": "system:extraction"
     },
     {
-      "id": "tmb:agent/system/stichprobe",
+      "id": "tmb:agent/system/spot_check",
       "type": "prov:SoftwareAgent",
-      "tmb:actor": "system:stichprobe"
+      "tmb:actor": "system:spot_check"
     }
   ]
 }

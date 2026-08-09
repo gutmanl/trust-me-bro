@@ -16,7 +16,7 @@ function claimWith(
       at: "2026-08-01T08:00:00Z",
       actor: "system:extraction",
       from_status: null,
-      to_status: "erfasst" as const,
+      to_status: "captured" as const,
       reason: "Test.",
       prev_hash: "0".repeat(64),
       hash: "1".repeat(64),
@@ -26,9 +26,9 @@ function claimWith(
     history.push({
       seq: confirmedAtSeq,
       at: "2026-08-02T08:00:00Z",
-      actor: "system:vorpruefung",
-      from_status: "vorgeprueft" as never,
-      to_status: "automatisch_bestaetigt" as never,
+      actor: "system:precheck",
+      from_status: "prechecked" as never,
+      to_status: "auto_confirmed" as never,
       reason: "Test.",
       prev_hash: "0".repeat(64),
       hash: "1".repeat(64),
@@ -37,7 +37,7 @@ function claimWith(
   return {
     id,
     text: "T.",
-    claim_type: "quantitativer_einzelbefund",
+    claim_type: "quantitative_finding",
     status,
     briefing_anchor: "p1",
     provenance: {
@@ -66,10 +66,10 @@ function completedEvent(seq: number): ProjectEvent {
 describe("pendingSamplePopulation", () => {
   it("includes confirmations after the last closed bracket, excludes earlier ones", () => {
     const claims = [
-      claimWith("clm_0001", "automatisch_bestaetigt", 5), // before last close
-      claimWith("clm_0002", "automatisch_bestaetigt", 12), // stranded/current
-      claimWith("clm_0003", "zur_adjudikation", 13), // no longer confirmed
-      claimWith("clm_0004", "erfasst"),
+      claimWith("clm_0001", "auto_confirmed", 5), // before last close
+      claimWith("clm_0002", "auto_confirmed", 12), // stranded/current
+      claimWith("clm_0003", "pending_adjudication", 13), // no longer confirmed
+      claimWith("clm_0004", "captured"),
     ];
     expect(pendingSamplePopulation(claims, [completedEvent(10)])).toEqual([
       "clm_0002",
@@ -77,7 +77,7 @@ describe("pendingSamplePopulation", () => {
   });
 
   it("includes every confirmation when no bracket was ever closed", () => {
-    const claims = [claimWith("clm_0001", "automatisch_bestaetigt", 3)];
+    const claims = [claimWith("clm_0001", "auto_confirmed", 3)];
     expect(pendingSamplePopulation(claims, [])).toEqual(["clm_0001"]);
   });
 });

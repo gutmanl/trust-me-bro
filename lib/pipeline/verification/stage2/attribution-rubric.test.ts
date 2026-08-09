@@ -12,7 +12,7 @@ import { loadRubricRuleSet } from "../rubric-rules";
 import { runAttributionAndRubric } from "./attribution-rubric";
 import type { Stage23Dependencies } from "./attribution-rubric";
 
-const RULE_SET = loadRubricRuleSet("se-evidenz-rubrik-v1");
+const RULE_SET = loadRubricRuleSet("se-evidence-rubric-v1");
 
 function makeSource(
   id: string,
@@ -38,7 +38,7 @@ function makeClaim(sourceIds: string[], claimType: Claim["claim_type"]): Claim {
     id: "clm_0001",
     text: "Testclaim.",
     claim_type: claimType,
-    status: "existenzgeprueft",
+    status: "existence_checked",
     briefing_anchor: "p1",
     provenance: {
       tool: "t",
@@ -59,7 +59,7 @@ function makeClaim(sourceIds: string[], claimType: Claim["claim_type"]): Claim {
         at: "2026-08-01T08:00:00Z",
         actor: "system:extraction",
         from_status: null,
-        to_status: "erfasst",
+        to_status: "captured",
         reason: "Test.",
         prev_hash: "0".repeat(64),
         hash: "1".repeat(64),
@@ -78,6 +78,20 @@ interface Backends {
   secondaryConfigured?: boolean;
 }
 
+// The mock backend's own canned defaults (lib/adapters, out of this task's
+// scope) still speak the pre-rename German vocabulary, so they are
+// overridden here with schema-valid English defaults whenever a test does
+// not supply its own.
+const DEFAULT_ATTRIBUTION: AttributionOutput = {
+  relation_type: "supports",
+  confidence: 0.9,
+  reasoning: "Mock-Urteil: Auszug und Claim stimmen überein.",
+};
+const DEFAULT_RUBRIC: RubricOutput = {
+  calibration_result: "licensed",
+  reasoning: "Mock-Vorbewertung: Mindestevidenz der Rubrik liegt vor.",
+};
+
 function makeDeps(backends: Backends = {}): {
   deps: Stage23Dependencies;
   primaryCalls: () => string[];
@@ -87,19 +101,17 @@ function makeDeps(backends: Backends = {}): {
     id: "claude",
     model: "claude-sonnet-5",
     overrides: {
-      ...(backends.primary?.attribution
-        ? { attribution: backends.primary.attribution }
-        : {}),
-      ...(backends.primary?.rubric ? { rubric: backends.primary.rubric } : {}),
+      attribution: backends.primary?.attribution ?? DEFAULT_ATTRIBUTION,
+      rubric: backends.primary?.rubric ?? DEFAULT_RUBRIC,
     },
     script: backends.primary?.script,
   });
   const secondary = createMockBackend({
     id: "codex",
     model: "gpt-x",
-    overrides: backends.secondary?.attribution
-      ? { attribution: backends.secondary.attribution }
-      : {},
+    overrides: {
+      attribution: backends.secondary?.attribution ?? DEFAULT_ATTRIBUTION,
+    },
   });
   const orchestrator = new Orchestrator({
     backends: [primary, secondary],
@@ -118,9 +130,9 @@ function makeDeps(backends: Backends = {}): {
       timeoutMs: 90_000,
       secondOpinion: {
         confidence_threshold: 0.8,
-        on_relation_not_stuetzt: true,
+        on_relation_not_supports: true,
       },
-      rubricVersion: "se-evidenz-rubrik-v1",
+      rubricVersion: "se-evidence-rubric-v1",
       ruleSet: RULE_SET,
     },
     primaryCalls: () => primary.calls.map((job) => job.kind),
@@ -129,33 +141,33 @@ function makeDeps(backends: Backends = {}): {
 }
 
 const sourcesById = new Map<string, Source>([
-  ["src_a", makeSource("src_a", "begutachtete_publikation")],
-  ["src_b", makeSource("src_b", "grauliteratur")],
-  ["src_vendor", makeSource("src_vendor", "herstellerdokumentation")],
+  ["src_a", makeSource("src_a", "peer_reviewed_publication")],
+  ["src_b", makeSource("src_b", "grey_literature")],
+  ["src_vendor", makeSource("src_vendor", "vendor_documentation")],
 ]);
 
 describe("runAttributionAndRubric", () => {
-  it("judges, aggregates and runs the rubric on a confident stuetzt", async () => {
+  it("judges, aggregates and runs the rubric on a confident supports", async () => {
     const { deps, primaryCalls, secondaryCalls } = makeDeps();
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_a"], "quantitativer_einzelbefund"),
+      makeClaim(["src_a"], "quantitative_finding"),
       sourcesById,
       deps,
     );
     expect(outcome).toMatchObject({
       status: "ok",
       supportDegree: "supported",
-      calibration: { result: "lizenziert", mechanical: "erfuellt" },
+      calibration: { result: "licensed", mechanical: "erfuellt" },
     });
     if (outcome.status !== "ok") throw new Error("unreachable");
     expect(outcome.perEvidence[0]).toMatchObject({
-      resolvedRelation: "stuetzt",
+      resolvedRelation: "supports",
     });
     expect(outcome.perEvidence[0].newJudgments[0]).toMatchObject({
       backend: "claude",
       model: "claude-sonnet-5",
     });
-    // No second opinion for a confident stuetzt; rubric on the primary only.
+    // No second opinion for a confident supports; rubric on the primary only.
     expect(primaryCalls()).toEqual(["attribution", "rubric"]);
     expect(secondaryCalls()).toEqual([]);
   });
@@ -164,21 +176,21 @@ describe("runAttributionAndRubric", () => {
     const { deps, secondaryCalls } = makeDeps({
       primary: {
         attribution: {
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.5,
           reasoning: "knapp",
         },
       },
       secondary: {
         attribution: {
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.9,
           reasoning: "klar",
         },
       },
     });
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_a"], "quantitativer_einzelbefund"),
+      makeClaim(["src_a"], "quantitative_finding"),
       sourcesById,
       deps,
     );
@@ -192,21 +204,21 @@ describe("runAttributionAndRubric", () => {
     const { deps, primaryCalls } = makeDeps({
       primary: {
         attribution: {
-          relation_type: "stuetzt_teilweise",
+          relation_type: "partially_supports",
           confidence: 0.9,
           reasoning: "teils",
         },
       },
       secondary: {
         attribution: {
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.9,
           reasoning: "voll",
         },
       },
     });
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_a"], "quantitativer_einzelbefund"),
+      makeClaim(["src_a"], "quantitative_finding"),
       sourcesById,
       deps,
     );
@@ -225,7 +237,7 @@ describe("runAttributionAndRubric", () => {
     const { deps, secondaryCalls } = makeDeps({
       primary: {
         attribution: {
-          relation_type: "widerspricht",
+          relation_type: "contradicts",
           confidence: 0.3,
           reasoning: "widerlegt",
         },
@@ -233,7 +245,7 @@ describe("runAttributionAndRubric", () => {
       secondaryConfigured: false,
     });
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_a"], "quantitativer_einzelbefund"),
+      makeClaim(["src_a"], "quantitative_finding"),
       sourcesById,
       deps,
     );
@@ -245,24 +257,24 @@ describe("runAttributionAndRubric", () => {
   });
 
   it("caps the rubric verdict when the mechanical minimum is unmet", async () => {
-    // Empfehlung backed only by vendor documentation: the LLM may say
-    // lizenziert, the mechanical rule says no — capped to abschwaechen.
+    // Recommendation backed only by vendor documentation: the LLM may say
+    // licensed, the mechanical rule says no — capped to weakened.
     const { deps } = makeDeps({
       primary: {
         rubric: {
-          calibration_result: "lizenziert",
+          calibration_result: "licensed",
           reasoning: "Mock sagt ja.",
         },
       },
     });
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_vendor"], "empfehlung"),
+      makeClaim(["src_vendor"], "recommendation"),
       sourcesById,
       deps,
     );
     expect(outcome).toMatchObject({
       status: "ok",
-      calibration: { result: "abschwaechen", mechanical: "nicht_erfuellt" },
+      calibration: { result: "weakened", mechanical: "nicht_erfuellt" },
     });
   });
 
@@ -273,7 +285,7 @@ describe("runAttributionAndRubric", () => {
       },
     });
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_a", "src_b"], "vergleichende_aussage"),
+      makeClaim(["src_a", "src_b"], "comparative_statement"),
       sourcesById,
       deps,
     );
@@ -284,7 +296,7 @@ describe("runAttributionAndRubric", () => {
     const crash = new AdapterProcessError("claude", "attribution", 1, "boom");
     const { deps } = makeDeps({ primary: { script: [crash, crash] } });
     const outcome = await runAttributionAndRubric(
-      makeClaim(["src_a"], "quantitativer_einzelbefund"),
+      makeClaim(["src_a"], "quantitative_finding"),
       sourcesById,
       deps,
     );

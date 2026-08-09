@@ -13,16 +13,16 @@ export interface QueueEntry {
   /** Structured routing reason; null for entries from before the routing
    * extension or for creation-time atomicity rejections ("ohne Zuordnung"). */
   routing: RoutingReason | null;
-  /** Timestamp of the transition into zur_adjudikation (queue age). */
+  /** Timestamp of the transition into pending_adjudication (queue age). */
   queuedAt: string;
 }
 
 export function buildAdjudicationQueue(register: ClaimsRegister): QueueEntry[] {
   return register.claims
-    .filter((claim) => claim.status === "zur_adjudikation")
+    .filter((claim) => claim.status === "pending_adjudication")
     .map((claim) => {
       const routingEntry = claim.history.findLast(
-        (entry) => entry.to_status === "zur_adjudikation",
+        (entry) => entry.to_status === "pending_adjudication",
       );
       return {
         claim,

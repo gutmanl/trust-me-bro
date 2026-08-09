@@ -17,7 +17,7 @@ let workspace: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-config-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: PROJECT,
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -32,12 +32,12 @@ afterEach(() => {
 });
 
 const CURRENT = {
-  rubricVersion: "se-evidenz-rubrik-v1",
+  rubricVersion: "se-evidence-rubric-v1",
   adjudicationSampleRate: 0.1,
   maxRepairCycles: 2,
   primaryCli: "claude" as const,
   secondaryCli: "codex" as const,
-  secondOpinion: { confidenceThreshold: 0.8, onRelationNotStuetzt: true },
+  secondOpinion: { confidenceThreshold: 0.8, onRelationNotSupports: true },
 };
 
 describe("updateProjectConfig", () => {
@@ -83,7 +83,7 @@ describe("updateProjectConfig", () => {
     expect(result.changedFields).toEqual([
       'backends.secondary: "codex" → –',
       "second_opinion.confidence_threshold: 0.8 → –",
-      "second_opinion.on_relation_not_stuetzt: true → –",
+      "second_opinion.on_relation_not_supports: true → –",
     ]);
   });
 
@@ -96,7 +96,7 @@ describe("updateProjectConfig", () => {
     expect(after).toEqual(before);
   });
 
-  it("rejects both backends on the same model family (Divergenzregel)", async () => {
+  it("rejects both backends on the same model family (divergence rule)", async () => {
     await expect(
       updateProjectConfig(PROJECT, { ...CURRENT, secondaryCli: "claude" }),
     ).rejects.toBeInstanceOf(InvalidProjectInputError);

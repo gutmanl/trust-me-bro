@@ -12,7 +12,7 @@ import { checkSourceCached } from "./source-check";
 /**
  * Stage 1 per claim (TMB-27), deterministic and LLM-free: the live source
  * check (identifier resolution, URL against snapshot) combined with the
- * purely local Wortlaut-Nachweis — the frozen text blob must contain the
+ * purely local verbatim-wording proof — the frozen text blob must contain the
  * verbatim excerpt under the shared normal form (whitespace/hyphenation
  * tolerated, content deviations not). Sources whose text extraction failed
  * can prove no wording and fail visibly. Network errors from the live check
@@ -37,7 +37,7 @@ export async function checkClaimExistence(
       // Referential integrity makes this unreachable; fail visibly anyway.
       results.push({
         evidenceId: evidence.id,
-        status: "nicht_bestanden",
+        status: "failed",
         detail: `Quelle ${evidence.source_id} nicht im Register.`,
       });
       continue;
@@ -46,7 +46,7 @@ export async function checkClaimExistence(
     if (!live.ok) {
       results.push({
         evidenceId: evidence.id,
-        status: "nicht_bestanden",
+        status: "failed",
         detail: live.detail,
       });
       continue;
@@ -68,14 +68,14 @@ function verbatimProof(
   if (!snapshot) {
     return {
       evidenceId,
-      status: "nicht_bestanden",
+      status: "failed",
       detail: `Quelle ${source.id} hat keinen eingefrorenen Schnappschuss.`,
     };
   }
   if (!snapshot.text_blob_path) {
     return {
       evidenceId,
-      status: "nicht_bestanden",
+      status: "failed",
       detail:
         `Kein Text-Blob für Quelle ${source.id} ` +
         `(Extraktion gescheitert: ${snapshot.text_extraction_error ?? "unbekannt"}) – ` +
@@ -86,13 +86,13 @@ function verbatimProof(
   if (!containsNormalized(text, excerpt)) {
     return {
       evidenceId,
-      status: "nicht_bestanden",
+      status: "failed",
       detail: `Wortlaut nicht im eingefrorenen Text von ${source.id} gefunden.`,
     };
   }
   return {
     evidenceId,
-    status: "bestanden",
+    status: "passed",
     detail: `Wortlaut in ${source.id} nachgewiesen.`,
   };
 }

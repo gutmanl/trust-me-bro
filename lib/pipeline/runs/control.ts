@@ -7,7 +7,7 @@ import type { JobRunner } from "./job-runner";
  * verification and relevance share one implementation. Pause and cancel are
  * cooperative (between items, never interrupting an in-flight CLI call);
  * a cancelled verification/relevance run leaves a dangling register bracket
- * that the existing "unterbrochen" recovery of the next start sweeps up —
+ * that the existing "interrupted" recovery of the next start sweeps up —
  * cancellation is therefore never data loss.
  */
 

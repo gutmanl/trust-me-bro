@@ -39,7 +39,7 @@ function extractionOutput(
   return {
     claims: claims.map((claim, index) => ({
       text: `Behauptung Nummer ${index + 1}.`,
-      claim_type: "quantitativer_einzelbefund",
+      claim_type: "quantitative_finding",
       briefing_anchor: `p${index + 1}`,
       evidence:
         claim.excerpt === undefined
@@ -62,6 +62,20 @@ interface MockOutputs {
   primaryScript?: ReadonlyArray<Error | "ok">;
 }
 
+// The mock backend's own canned defaults (lib/adapters, out of this task's
+// scope) still speak the pre-rename German vocabulary, so it is overridden
+// here with schema-valid English defaults whenever a test does not supply
+// its own.
+const DEFAULT_ATTRIBUTION: AttributionOutput = {
+  relation_type: "supports",
+  confidence: 0.9,
+  reasoning: "Mock-Urteil: Auszug und Claim stimmen überein.",
+};
+const DEFAULT_RUBRIC: RubricOutput = {
+  calibration_result: "licensed",
+  reasoning: "Mock-Vorbewertung: Mindestevidenz der Rubrik liegt vor.",
+};
+
 function makeOrchestrator(
   outputs: MockOutputs = {},
   extraction?: ExtractionOutput,
@@ -71,19 +85,17 @@ function makeOrchestrator(
     model: "claude-sonnet-5",
     overrides: {
       ...(extraction ? { extraction } : {}),
-      ...(outputs.primaryAttribution
-        ? { attribution: outputs.primaryAttribution }
-        : {}),
-      ...(outputs.rubric ? { rubric: outputs.rubric } : {}),
+      attribution: outputs.primaryAttribution ?? DEFAULT_ATTRIBUTION,
+      rubric: outputs.rubric ?? DEFAULT_RUBRIC,
     },
     script: outputs.primaryScript,
   });
   const secondary = createMockBackend({
     id: "codex",
     model: "gpt-x",
-    overrides: outputs.secondaryAttribution
-      ? { attribution: outputs.secondaryAttribution }
-      : {},
+    overrides: {
+      attribution: outputs.secondaryAttribution ?? DEFAULT_ATTRIBUTION,
+    },
   });
   return new Orchestrator({
     backends: [primary, secondary],
@@ -101,7 +113,7 @@ let runCounter: number;
 beforeEach(() => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-verification-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   runCounter = 0;
   runner = createJobRunner({ generateRunId: () => `lauf-${++runCounter}` });
 });
@@ -118,7 +130,7 @@ async function createTestProject(
     id: PROJECT,
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
     config: {
-      rubric_version: "se-evidenz-rubrik-v1",
+      rubric_version: "se-evidence-rubric-v1",
       adjudication_sample_rate: 0,
       backends: {
         primary: { cli: "claude", model_family: "anthropic" },
@@ -126,7 +138,7 @@ async function createTestProject(
       },
       second_opinion: {
         confidence_threshold: 0.8,
-        on_relation_not_stuetzt: true,
+        on_relation_not_supports: true,
       },
       ...configOverrides,
     },
@@ -140,7 +152,7 @@ async function extractClaims(output: ExtractionOutput): Promise<void> {
     {
       projectId: PROJECT,
       kind: "upload",
-      sourceType: "begutachtete_publikation",
+      sourceType: "peer_reviewed_publication",
       manual: { title: "Studie", authors: "Studie, A." },
       upload: { content: Buffer.from(SOURCE_TEXT), filename: "studie.txt" },
     },
@@ -177,7 +189,7 @@ describe("startVerification preconditions", () => {
   });
 
   it("rejects an unknown rubric version as unprüfbar", async () => {
-    await createTestProject({ rubric_version: "se-evidenz-rubrik-v99" });
+    await createTestProject({ rubric_version: "se-evidence-rubric-v99" });
     await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));
     await expect(startVerification(PROJECT)).rejects.toThrow(/nicht prüfbar/);
   });
@@ -191,21 +203,21 @@ describe("cascading verification run", () => {
 
     const register = await readRegister();
     const [confirmed, unbelegt] = register.claims;
-    expect(confirmed.status).toBe("automatisch_bestaetigt");
-    expect(confirmed.evidence[0].existence_check?.status).toBe("bestanden");
+    expect(confirmed.status).toBe("auto_confirmed");
+    expect(confirmed.evidence[0].existence_check?.status).toBe("passed");
     expect(confirmed.evidence[0].judgments).toHaveLength(1);
-    expect(confirmed.evidence[0].relation_type).toBe("stuetzt");
+    expect(confirmed.evidence[0].relation_type).toBe("supports");
     expect(confirmed.support_degree).toBe("supported");
-    expect(confirmed.calibration_result).toBe("lizenziert");
-    // Status trail: erfasst → existenzgeprueft → vorgeprueft → automatisch.
+    expect(confirmed.calibration_result).toBe("licensed");
+    // Status trail: captured → existence_checked → prechecked → auto_confirmed.
     expect(confirmed.history.map((entry) => entry.to_status)).toEqual([
-      "erfasst",
-      "existenzgeprueft",
-      "vorgeprueft",
-      "automatisch_bestaetigt",
+      "captured",
+      "existence_checked",
+      "prechecked",
+      "auto_confirmed",
     ]);
-    // The unbelegter claim was never touched by the run.
-    expect(unbelegt.status).toBe("zur_adjudikation");
+    // The claim without evidence was never touched by the run.
+    expect(unbelegt.status).toBe("pending_adjudication");
     expect(unbelegt.evidence).toHaveLength(0);
 
     const events = register.project_events
@@ -217,7 +229,7 @@ describe("cascading verification run", () => {
     ]);
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
     expect(getVerificationState(PROJECT, register, { runner }).status).toBe(
-      "abgeschlossen",
+      "completed",
     );
 
     const itemOutcomes = handle
@@ -227,9 +239,9 @@ describe("cascading verification run", () => {
         event.type === "item_completed" ? event.outcome.result : undefined,
       );
     expect(itemOutcomes[0]).toMatchObject({
-      outcome: "automatisch_bestaetigt",
+      outcome: "auto_confirmed",
     });
-    expect(itemOutcomes[1]).toMatchObject({ outcome: "stichprobe" });
+    expect(itemOutcomes[1]).toMatchObject({ outcome: "spot_check" });
   });
 
   it("routes claims with failed existence checks to adjudication", async () => {
@@ -241,8 +253,8 @@ describe("cascading verification run", () => {
 
     const register = await readRegister();
     const claim = register.claims[0];
-    expect(claim.status).toBe("zur_adjudikation");
-    expect(claim.evidence[0].existence_check?.status).toBe("nicht_bestanden");
+    expect(claim.status).toBe("pending_adjudication");
+    expect(claim.evidence[0].existence_check?.status).toBe("failed");
     expect(claim.evidence[0].judgments).toHaveLength(0); // stages 2/3 skipped
     expect(claim.history.at(-1)?.reason).toContain(
       "Existenzprüfung nicht bestanden",
@@ -254,19 +266,19 @@ describe("cascading verification run", () => {
     await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));
     await runVerification({
       primaryAttribution: {
-        relation_type: "stuetzt_teilweise",
+        relation_type: "partially_supports",
         confidence: 0.9,
         reasoning: "teils",
       },
       secondaryAttribution: {
-        relation_type: "stuetzt",
+        relation_type: "supports",
         confidence: 0.9,
         reasoning: "voll",
       },
     });
 
     const claim = (await readRegister()).claims[0];
-    expect(claim.status).toBe("zur_adjudikation");
+    expect(claim.status).toBe("pending_adjudication");
     expect(claim.evidence[0].judgments.map((j) => j.backend)).toEqual([
       "claude",
       "codex",
@@ -283,11 +295,11 @@ describe("cascading verification run", () => {
     await runVerification({ primaryScript: [crash, crash] });
 
     const claim = (await readRegister()).claims[0];
-    expect(claim.status).toBe("zur_adjudikation");
+    expect(claim.status).toBe("pending_adjudication");
     expect(claim.history.map((entry) => entry.to_status)).toEqual([
-      "erfasst",
-      "existenzgeprueft",
-      "zur_adjudikation",
+      "captured",
+      "existence_checked",
+      "pending_adjudication",
     ]);
     expect(claim.history.at(-1)?.reason).toContain("eskaliert");
   });
@@ -309,14 +321,14 @@ describe("cascading verification run", () => {
     const register = await readRegister();
     // Claim 1 passed stage 1 (persisted), then paused in stage 2: no
     // judgments, no further transition. Claim 2 untouched entirely.
-    expect(register.claims[0].status).toBe("existenzgeprueft");
+    expect(register.claims[0].status).toBe("existence_checked");
     expect(register.claims[0].evidence[0].judgments).toHaveLength(0);
-    expect(register.claims[1].status).toBe("erfasst");
+    expect(register.claims[1].status).toBe("captured");
     const completed = register.project_events.at(-1);
     expect(completed?.event).toBe("verification_run_completed");
     expect(completed?.reason).toContain("pausiert");
     expect(getVerificationState(PROJECT, register, { runner }).status).toBe(
-      "angehalten",
+      "halted",
     );
 
     const outcomes = handle
@@ -327,14 +339,14 @@ describe("cascading verification run", () => {
           ? (event.outcome.result as { outcome: string }).outcome
           : "",
       );
-    expect(outcomes).toEqual(["pausiert", "uebersprungen", "stichprobe"]);
+    expect(outcomes).toEqual(["paused", "skipped", "spot_check"]);
 
     // Resume: a fresh run picks up both claims and finishes them.
     await runVerification();
     const resumed = await readRegister();
     expect(resumed.claims.map((claim) => claim.status)).toEqual([
-      "automatisch_bestaetigt",
-      "automatisch_bestaetigt",
+      "auto_confirmed",
+      "auto_confirmed",
     ]);
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
   });
@@ -356,9 +368,9 @@ describe("cascading verification run", () => {
     const register = await readRegister();
     const claim = register.claims[0];
     // Stage 1 ran and persisted; the LLM stages were skipped, the claim
-    // rests at existenzgeprueft (NOT escalated to adjudication).
-    expect(claim.status).toBe("existenzgeprueft");
-    expect(claim.evidence[0].existence_check?.status).toBe("bestanden");
+    // rests at existence_checked (NOT escalated to adjudication).
+    expect(claim.status).toBe("existence_checked");
+    expect(claim.evidence[0].existence_check?.status).toBe("passed");
     expect(claim.evidence[0].judgments).toHaveLength(0);
     const started = register.project_events.find(
       (event) => event.event === "verification_run_started",
@@ -374,13 +386,11 @@ describe("cascading verification run", () => {
           ? (event.outcome.result as { outcome: string }).outcome
           : "",
       );
-    expect(outcomes).toEqual(["llm_gesperrt", "stichprobe"]);
+    expect(outcomes).toEqual(["llm_locked", "spot_check"]);
 
     // With the backend back, a fresh run sweeps the claim up.
     await runVerification();
-    expect((await readRegister()).claims[0].status).toBe(
-      "automatisch_bestaetigt",
-    );
+    expect((await readRegister()).claims[0].status).toBe("auto_confirmed");
   });
 
   it("disables the divergence rule when the secondary fails preflight (TMB-49)", async () => {
@@ -390,7 +400,7 @@ describe("cascading verification run", () => {
     const handle = await startVerification(PROJECT, {
       orchestrator: makeOrchestrator({
         primaryAttribution: {
-          relation_type: "stuetzt",
+          relation_type: "supports",
           confidence: 0.5,
           reasoning: "unsicher",
         },
@@ -425,10 +435,10 @@ describe("cascading verification run", () => {
     await runVerification();
 
     const claim = (await readRegister()).claims[0];
-    expect(claim.status).toBe("zur_adjudikation");
+    expect(claim.status).toBe("pending_adjudication");
     const last = claim.history.at(-1);
-    expect(last?.from_status).toBe("automatisch_bestaetigt");
-    expect(last?.actor).toBe("system:stichprobe");
+    expect(last?.from_status).toBe("auto_confirmed");
+    expect(last?.actor).toBe("system:spot_check");
     expect(last?.reason).toContain("Stichprobenkontrolle");
     expect(last?.reason).toContain("Seed lauf-2");
 
@@ -449,52 +459,52 @@ describe("cascading verification run", () => {
         actor: "system:verification",
       });
       tx.setExistenceCheck("clm_0001", "ev_0001", {
-        status: "bestanden",
+        status: "passed",
         at: "2026-08-07T10:00:00Z",
       });
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
-        actor: "system:existenzpruefung",
+        to: "existence_checked",
+        actor: "system:existence_check",
         reason: "Test.",
       });
       tx.appendJudgment("clm_0001", "ev_0001", {
         backend: "claude",
         model: "m",
-        relation_type: "stuetzt",
+        relation_type: "supports",
         confidence: 0.9,
         reasoning: "ok",
         at: "2026-08-07T10:00:01Z",
       });
-      tx.setResolvedRelation("clm_0001", "ev_0001", "stuetzt");
+      tx.setResolvedRelation("clm_0001", "ev_0001", "supports");
       tx.setSupportDegree("clm_0001", "supported");
-      tx.setCalibrationResult("clm_0001", "lizenziert");
+      tx.setCalibrationResult("clm_0001", "licensed");
       tx.transitionClaim("clm_0001", {
-        to: "vorgeprueft",
-        actor: "system:vorpruefung",
+        to: "prechecked",
+        actor: "system:precheck",
         reason: "Test.",
       });
       tx.transitionClaim("clm_0001", {
-        to: "automatisch_bestaetigt",
-        actor: "system:vorpruefung",
+        to: "auto_confirmed",
+        actor: "system:precheck",
         reason: "Test.",
       });
     });
     expect(
       getVerificationState(PROJECT, await readRegister(), { runner }).status,
-    ).toBe("unterbrochen");
+    ).toBe("interrupted");
 
     // The recovery run consists of the sample-draw item alone: it sweeps up
     // the stranded confirmation and closes the bracket.
     await runVerification();
     const recovered = await readRegister();
     const claim = recovered.claims[0];
-    expect(claim.status).toBe("zur_adjudikation");
+    expect(claim.status).toBe("pending_adjudication");
     expect(claim.history.at(-1)?.reason).toContain("Stichprobenkontrolle");
     expect(recovered.project_events.at(-1)?.event).toBe(
       "verification_run_completed",
     );
     expect(getVerificationState(PROJECT, recovered, { runner }).status).toBe(
-      "abgeschlossen",
+      "completed",
     );
     expect((await store.verify()).ok).toBe(true);
   });

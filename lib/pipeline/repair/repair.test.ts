@@ -20,7 +20,7 @@ let workspace: string;
 beforeEach(() => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-repair-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
 });
 
 afterEach(() => {
@@ -45,7 +45,7 @@ function evidence(id: string, passed: boolean | null): Evidence {
       ? {}
       : {
           existence_check: {
-            status: passed ? "bestanden" : "nicht_bestanden",
+            status: passed ? "passed" : "failed",
             at: "2026-08-08T09:00:00Z",
           },
         }),
@@ -53,9 +53,9 @@ function evidence(id: string, passed: boolean | null): Evidence {
   } as Evidence;
 }
 
-/** Project with one source and one beanstandet claim. The route into
- * zur_adjudikation respects the gates: failed existence checks take the
- * stage-1 edge, passed ones go through existenzgeprueft (escalation edge). */
+/** Project with one source and one contested claim. The route into
+ * pending_adjudication respects the gates: failed existence checks take the
+ * stage-1 edge, passed ones go through existence_checked (escalation edge). */
 async function projectWithComplainedClaim(
   evidenceEntries: Evidence[],
 ): Promise<RegisterStore> {
@@ -66,20 +66,20 @@ async function projectWithComplainedClaim(
   });
   const store = RegisterStore.forProject(PROJECT_ID);
   const allPassed = evidenceEntries.every(
-    (entry) => entry.existence_check?.status === "bestanden",
+    (entry) => entry.existence_check?.status === "passed",
   );
   await store.transaction((tx) => {
     tx.addSource({
       id: "src_0001",
       type: "article-journal",
       title: "Testquelle",
-      custom: { source_type: "begutachtete_publikation" },
+      custom: { source_type: "peer_reviewed_publication" },
     } as never);
     tx.addClaim({
       claim: {
         id: "clm_0001",
         text: "Reviews reduzieren die Fehlerdichte immer deutlich.",
-        claim_type: "wirksamkeitsaussage",
+        claim_type: "effectiveness_statement",
         briefing_anchor: "p1",
         provenance: {
           tool: "claude",
@@ -94,27 +94,27 @@ async function projectWithComplainedClaim(
     });
     if (allPassed) {
       tx.transitionClaim("clm_0001", {
-        to: "existenzgeprueft",
-        actor: "system:existenzpruefung",
+        to: "existence_checked",
+        actor: "system:existence_check",
         reason: "Existenzprüfung bestanden (Test-Setup).",
       });
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
-        actor: "system:vorpruefung",
+        to: "pending_adjudication",
+        actor: "system:precheck",
         reason: "Eskaliert (Test-Setup).",
-        routing: "eskaliert",
+        routing: "escalated",
       });
     } else {
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
-        actor: "system:existenzpruefung",
+        to: "pending_adjudication",
+        actor: "system:existence_check",
         reason: "Existenzprüfung nicht bestanden (Test-Setup).",
-        routing: "existenz_nicht_bestanden",
+        routing: "existence_check_failed",
       });
     }
   });
   await decideClaim(PROJECT_ID, "clm_0001", {
-    categories: ["leitsatz_nicht_herleitbar"],
+    categories: ["claim_not_derivable"],
     durationS: 30,
   });
   return store;
@@ -161,7 +161,7 @@ describe("proposeRepair", () => {
     expect(calls()).toEqual(["repair"]);
   });
 
-  it("rejects claims that are not beanstandet", async () => {
+  it("rejects claims that are not contested", async () => {
     await projectWithComplainedClaim([evidence("ev_0001", false)]);
     await expect(proposeRepair(PROJECT_ID, "clm_9999")).rejects.toThrow(
       RepairPreconditionError,
@@ -176,10 +176,10 @@ describe("applyRepair", () => {
       newText: "Reviews können die Fehlerdichte reduzieren.",
       source: "vorschlag_uebernommen",
     });
-    expect(result.reentryTarget).toBe("existenzgeprueft");
+    expect(result.reentryTarget).toBe("existence_checked");
     const register = await store.read();
     const claim = register.claims[0];
-    expect(claim.status).toBe("existenzgeprueft");
+    expect(claim.status).toBe("existence_checked");
     expect(claim.text).toBe("Reviews können die Fehlerdichte reduzieren.");
     const revision = claim.history.find((entry) => entry.revision);
     expect(revision?.revision).toEqual({
@@ -197,8 +197,8 @@ describe("applyRepair", () => {
       newText: "Neuformulierung.",
       source: "manuell",
     });
-    expect(result.reentryTarget).toBe("erfasst");
-    expect((await store.read()).claims[0].status).toBe("erfasst");
+    expect(result.reentryTarget).toBe("captured");
+    expect((await store.read()).claims[0].status).toBe("captured");
   });
 
   it("escalates to adjudication after the cycle limit, with routing", async () => {
@@ -208,14 +208,14 @@ describe("applyRepair", () => {
       if (cycle > 1) {
         await store.transaction((tx) => {
           tx.transitionClaim("clm_0001", {
-            to: "zur_adjudikation",
-            actor: "system:vorpruefung",
+            to: "pending_adjudication",
+            actor: "system:precheck",
             reason: "Nicht automatisch bestätigbar (Test-Setup).",
-            routing: "negative_vorpruefung",
+            routing: "negative_precheck",
           });
         });
         await decideClaim(PROJECT_ID, "clm_0001", {
-          categories: ["leitsatz_nicht_herleitbar"],
+          categories: ["claim_not_derivable"],
           durationS: 10,
         });
       }
@@ -226,14 +226,14 @@ describe("applyRepair", () => {
     }
     await store.transaction((tx) => {
       tx.transitionClaim("clm_0001", {
-        to: "zur_adjudikation",
-        actor: "system:vorpruefung",
+        to: "pending_adjudication",
+        actor: "system:precheck",
         reason: "Nicht automatisch bestätigbar (Test-Setup).",
-        routing: "negative_vorpruefung",
+        routing: "negative_precheck",
       });
     });
     await decideClaim(PROJECT_ID, "clm_0001", {
-      categories: ["leitsatz_nicht_herleitbar"],
+      categories: ["claim_not_derivable"],
       durationS: 10,
     });
 
@@ -241,10 +241,10 @@ describe("applyRepair", () => {
       newText: "Dritte Fassung.",
       source: "manuell",
     });
-    expect(result.reentryTarget).toBe("zur_adjudikation");
+    expect(result.reentryTarget).toBe("pending_adjudication");
     const claim = (await store.read()).claims[0];
-    expect(claim.status).toBe("zur_adjudikation");
-    expect(claim.history.at(-1)?.routing).toBe("eskaliert");
+    expect(claim.status).toBe("pending_adjudication");
+    expect(claim.history.at(-1)?.routing).toBe("escalated");
     expect(countRepairCycles(claim)).toBe(3);
   });
 
@@ -258,13 +258,13 @@ describe("applyRepair", () => {
       }),
     ).rejects.toThrow(RepairPreconditionError);
     const claim = (await store.read()).claims[0];
-    expect(claim.status).toBe("beanstandet");
+    expect(claim.status).toBe("contested");
     expect(claim.text).toBe(
       "Reviews reduzieren die Fehlerdichte immer deutlich.",
     );
   });
 
-  it("rejects empty revisions and non-beanstandet claims", async () => {
+  it("rejects empty revisions and non-contested claims", async () => {
     await projectWithComplainedClaim([evidence("ev_0001", true)]);
     await expect(
       applyRepair(PROJECT_ID, "clm_0001", { newText: "  ", source: "manuell" }),
@@ -283,14 +283,14 @@ describe("applyRepair", () => {
 });
 
 describe("discardClaim", () => {
-  it("discards beanstandet claims with a reason; they stay visible", async () => {
+  it("discards contested claims with a reason; they stay visible", async () => {
     const store = await projectWithComplainedClaim([
       evidence("ev_0001", false),
     ]);
     await discardClaim(PROJECT_ID, "clm_0001", "Nicht reparierbar.");
     const register = await store.read();
     expect(register.claims).toHaveLength(1);
-    expect(register.claims[0].status).toBe("verworfen");
+    expect(register.claims[0].status).toBe("discarded");
     expect(register.claims[0].history.at(-1)?.reason).toBe(
       "Nicht reparierbar.",
     );
@@ -307,15 +307,15 @@ describe("discardClaim", () => {
 describe("decideReEntry", () => {
   it("is pure over the claim's history and evidence state", () => {
     const claim = {
-      history: [{ from_status: "beanstandet", to_status: "ueberarbeitet" }],
+      history: [{ from_status: "contested", to_status: "revised" }],
       evidence: [
         {
           id: "ev_0001",
-          existence_check: { status: "bestanden" },
+          existence_check: { status: "passed" },
         },
       ],
     } as unknown as Claim;
-    expect(decideReEntry(claim, 2).target).toBe("existenzgeprueft");
-    expect(decideReEntry(claim, 0).target).toBe("zur_adjudikation");
+    expect(decideReEntry(claim, 2).target).toBe("existence_checked");
+    expect(decideReEntry(claim, 0).target).toBe("pending_adjudication");
   });
 });

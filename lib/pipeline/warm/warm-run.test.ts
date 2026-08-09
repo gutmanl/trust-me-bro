@@ -44,7 +44,7 @@ let sourceId: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-warm-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   runCounter = 0;
   nextClaim = 0;
   runner = createJobRunner({ generateRunId: () => `lauf-${++runCounter}` });
@@ -52,7 +52,7 @@ beforeEach(async () => {
     id: ORIGIN,
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
     config: {
-      rubric_version: "se-evidenz-rubrik-v1",
+      rubric_version: "se-evidence-rubric-v1",
       adjudication_sample_rate: 0,
       backends: { primary: { cli: "claude", model_family: "anthropic" } },
     },
@@ -62,7 +62,7 @@ beforeEach(async () => {
     {
       projectId: ORIGIN,
       kind: "upload",
-      sourceType: "begutachtete_publikation",
+      sourceType: "peer_reviewed_publication",
       manual: { title: "Studie", authors: "Meyer, Anna", year: "2025" },
       upload: { content: Buffer.from(SOURCE_TEXT), filename: "studie.txt" },
     },
@@ -109,7 +109,7 @@ function relevanceOrchestrator(
 
 describe("createWarmRunProject", () => {
   it("rejects an unfrozen origin", async () => {
-    await addOriginClaimAt("bestaetigt");
+    await addOriginClaimAt("confirmed");
     await expect(
       createWarmRunProject({
         originProjectId: ORIGIN,
@@ -120,7 +120,7 @@ describe("createWarmRunProject", () => {
   });
 
   it("rejects an unchanged research question", async () => {
-    await addOriginClaimAt("bestaetigt");
+    await addOriginClaimAt("confirmed");
     await freezeSourceSet(ORIGIN);
     await expect(
       createWarmRunProject({
@@ -132,8 +132,8 @@ describe("createWarmRunProject", () => {
   });
 
   it("rejects an origin without settled claims", async () => {
-    await addOriginClaimAt("erfasst");
-    await addOriginClaimAt("zur_adjudikation");
+    await addOriginClaimAt("captured");
+    await addOriginClaimAt("pending_adjudication");
     await freezeSourceSet(ORIGIN);
     await expect(
       createWarmRunProject({
@@ -145,10 +145,10 @@ describe("createWarmRunProject", () => {
   });
 
   it("adopts settled claims verbatim into a frozen follow-up project", async () => {
-    const confirmed = await addOriginClaimAt("bestaetigt");
-    const autoConfirmed = await addOriginClaimAt("automatisch_bestaetigt");
-    const discarded = await addOriginClaimAt("verworfen");
-    const open = await addOriginClaimAt("zur_adjudikation");
+    const confirmed = await addOriginClaimAt("confirmed");
+    const autoConfirmed = await addOriginClaimAt("auto_confirmed");
+    const discarded = await addOriginClaimAt("discarded");
+    const open = await addOriginClaimAt("pending_adjudication");
     await freezeSourceSet(ORIGIN);
 
     const result = await createWarmRunProject({
@@ -158,9 +158,9 @@ describe("createWarmRunProject", () => {
     });
     expect(result.adoptedCount).toBe(3);
     expect(result.adoptedByStatus).toEqual({
-      bestaetigt: 1,
-      automatisch_bestaetigt: 1,
-      verworfen: 1,
+      confirmed: 1,
+      auto_confirmed: 1,
+      discarded: 1,
     });
     expect(result.copiedSourceCount).toBe(1);
 
@@ -190,16 +190,16 @@ describe("createWarmRunProject", () => {
     // settled origin status, origin referenced in provenance.
     const statusOf = (id: string) =>
       register.claims.find((claim) => claim.id === id)?.status;
-    expect(statusOf(confirmed)).toBe("bestaetigt");
-    expect(statusOf(autoConfirmed)).toBe("automatisch_bestaetigt");
-    expect(statusOf(discarded)).toBe("verworfen");
+    expect(statusOf(confirmed)).toBe("confirmed");
+    expect(statusOf(autoConfirmed)).toBe("auto_confirmed");
+    expect(statusOf(discarded)).toBe("discarded");
     expect(register.claims.map((claim) => claim.id)).not.toContain(open);
     for (const claim of register.claims) {
       expect(claim.provenance.origin_project_id).toBe(ORIGIN);
       expect(claim.history).toHaveLength(1);
       expect(claim.history[0].from_status).toBeNull();
       expect(claim.history[0].reason).toContain(ORIGIN);
-      expect(claim.evidence[0].existence_check?.status).toBe("bestanden");
+      expect(claim.evidence[0].existence_check?.status).toBe("passed");
     }
 
     expect((await store.verify()).ok).toBe(true);
@@ -214,7 +214,7 @@ describe("createWarmRunProject", () => {
   });
 
   it("allows the warm project's own one-shot extraction past the adopted claims", async () => {
-    await addOriginClaimAt("bestaetigt");
+    await addOriginClaimAt("confirmed");
     await freezeSourceSet(ORIGIN);
     await createWarmRunProject({
       originProjectId: ORIGIN,
@@ -235,7 +235,7 @@ describe("createWarmRunProject", () => {
           claims: [
             {
               text: "Neuer Claim zur Codequalität.",
-              claim_type: "wirksamkeitsaussage",
+              claim_type: "effectiveness_statement",
               briefing_anchor: "p1",
               evidence: [
                 {
@@ -275,9 +275,9 @@ describe("relevance check", () => {
     autoConfirmed: string;
     discarded: string;
   }> {
-    const confirmed = await addOriginClaimAt("bestaetigt");
-    const autoConfirmed = await addOriginClaimAt("automatisch_bestaetigt");
-    const discarded = await addOriginClaimAt("verworfen");
+    const confirmed = await addOriginClaimAt("confirmed");
+    const autoConfirmed = await addOriginClaimAt("auto_confirmed");
+    const discarded = await addOriginClaimAt("discarded");
     await freezeSourceSet(ORIGIN);
     await createWarmRunProject({
       originProjectId: ORIGIN,
@@ -296,9 +296,7 @@ describe("relevance check", () => {
         register.project_events,
       ).sort(),
     ).toEqual([confirmed, autoConfirmed].sort());
-    expect(deriveRelevanceState(register, false).status).toBe(
-      "nicht_gestartet",
-    );
+    expect(deriveRelevanceState(register, false).status).toBe("not_started");
   });
 
   it("keeps relevant claims untouched and closes the bracket", async () => {
@@ -316,8 +314,8 @@ describe("relevance check", () => {
     const register = await store.read();
     const statusOf = (id: string) =>
       register.claims.find((claim) => claim.id === id)?.status;
-    expect(statusOf(confirmed)).toBe("bestaetigt");
-    expect(statusOf(autoConfirmed)).toBe("automatisch_bestaetigt");
+    expect(statusOf(confirmed)).toBe("confirmed");
+    expect(statusOf(autoConfirmed)).toBe("auto_confirmed");
     const completedEvent = register.project_events.find(
       (event) => event.event === "relevance_run_completed",
     );
@@ -326,7 +324,7 @@ describe("relevance check", () => {
       pendingRelevancePopulation(register.claims, register.project_events),
     ).toEqual([]);
     expect(getRelevanceState(WARM, register, { runner }).status).toBe(
-      "abgeschlossen",
+      "completed",
     );
     expect((await store.verify()).ok).toBe(true);
 
@@ -366,9 +364,9 @@ describe("relevance check", () => {
     const register = await RegisterStore.forProject(WARM).read();
     for (const id of [confirmed, autoConfirmed]) {
       const claim = register.claims.find((candidate) => candidate.id === id);
-      expect(claim?.status).toBe("zur_adjudikation");
+      expect(claim?.status).toBe("pending_adjudication");
       const entry = claim?.history.at(-1);
-      expect(entry?.routing).toBe("einschlaegigkeit_negativ");
+      expect(entry?.routing).toBe("negative_relevance");
       expect(entry?.reason).toContain("negativ");
     }
     expect(
@@ -394,11 +392,11 @@ describe("relevance check", () => {
 
     const register = await RegisterStore.forProject(WARM).read();
     const routed = register.claims.filter(
-      (claim) => claim.status === "zur_adjudikation",
+      (claim) => claim.status === "pending_adjudication",
     );
     expect(routed).toHaveLength(2);
     for (const claim of routed) {
-      expect(claim.history.at(-1)?.routing).toBe("eskaliert");
+      expect(claim.history.at(-1)?.routing).toBe("escalated");
     }
     expect(
       register.project_events.some(
@@ -420,7 +418,7 @@ describe("relevance check", () => {
 
     let register = await RegisterStore.forProject(WARM).read();
     expect(getRelevanceState(WARM, register, { runner }).status).toBe(
-      "unterbrochen",
+      "interrupted",
     );
     expect(
       register.project_events.some(
@@ -439,11 +437,11 @@ describe("relevance check", () => {
     await resumed.done;
     register = await RegisterStore.forProject(WARM).read();
     expect(getRelevanceState(WARM, register, { runner }).status).toBe(
-      "abgeschlossen",
+      "completed",
     );
     const statusOf = (id: string) =>
       register.claims.find((claim) => claim.id === id)?.status;
-    expect(statusOf(confirmed)).toBe("bestaetigt");
-    expect(statusOf(autoConfirmed)).toBe("automatisch_bestaetigt");
+    expect(statusOf(confirmed)).toBe("confirmed");
+    expect(statusOf(autoConfirmed)).toBe("auto_confirmed");
   });
 });

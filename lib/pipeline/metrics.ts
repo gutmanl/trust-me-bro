@@ -21,7 +21,7 @@ const CSV_COLUMNS: readonly (keyof ClaimMetricsRow)[] = [
   "claim_id",
   "status",
   "claim_type",
-  "has_proven_fundstelle",
+  "has_proven_evidence",
   "support_degree",
   "calibration_result",
   "is_terminal_adjudicated",

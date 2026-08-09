@@ -3,23 +3,24 @@ import { allExistenceChecksPassed } from "../../register";
 import { countRepairCycles } from "../../register";
 
 /**
- * Which re-entry edge a just-revised (`ueberarbeitet`) claim takes (TMB-37,
+ * Which re-entry edge a just-revised (`revised`) claim takes (TMB-37,
  * "nur die betroffenen Prüfstufen"). The rule is mechanical, no text
  * heuristic: a repair only ever changes the wording, never the frozen
  * evidence, so the existing existence checks stay valid — exactly what the
  * `allExistenceChecksPassed` gate verifies. Stage 2/3 always re-run because
  * the next verification pass judges the NEW wording against the excerpts.
  *
- * - cycle budget exhausted → `zur_adjudikation` (escalation to the reviewer
- *   instead of endless iteration; routing "eskaliert")
- * - all existence checks passed (evidence untouched) → `existenzgeprueft`
- *   (skip stage 1: mere Abschwächung/Neuformulierung)
- * - otherwise (new/failed Fundstelle) → `erfasst` (full cascade)
+ * - cycle budget exhausted → `pending_adjudication` (escalation to the
+ *   reviewer instead of endless iteration; routing "escalated")
+ * - all existence checks passed (evidence untouched) → `existence_checked`
+ *   (skip stage 1: mere weakening/reformulation)
+ * - otherwise (new/failed evidence) → `captured` (full cascade)
  *
- * The claim passed in already carries the current cycle's `ueberarbeitet`
+ * The claim passed in already carries the current cycle's `revised`
  * transition; the count therefore includes this cycle.
  */
-export type ReEntryTarget = "erfasst" | "existenzgeprueft" | "zur_adjudikation";
+export type ReEntryTarget =
+  "captured" | "existence_checked" | "pending_adjudication";
 
 export interface ReEntryDecision {
   target: ReEntryTarget;
@@ -33,7 +34,7 @@ export function decideReEntry(
   const cycle = countRepairCycles(claim);
   if (cycle > maxCycles) {
     return {
-      target: "zur_adjudikation",
+      target: "pending_adjudication",
       reason:
         `Eskaliert nach ${cycle - 1} erfolglosen Reparaturzyklen ` +
         `(Limit ${maxCycles}): der Prüfer entscheidet direkt.`,
@@ -41,14 +42,14 @@ export function decideReEntry(
   }
   if (allExistenceChecksPassed(claim).ok) {
     return {
-      target: "existenzgeprueft",
+      target: "existence_checked",
       reason:
         "Fundstellen unverändert und bereits nachgewiesen – Stufe 1 " +
         "übersprungen, Attribution und Kalibrierung prüfen die Neufassung.",
     };
   }
   return {
-    target: "erfasst",
+    target: "captured",
     reason:
       "Wiedereintritt in die volle Prüfkaskade (Fundstellen nicht " +
       "vollständig nachgewiesen).",

@@ -23,7 +23,7 @@ let workspace: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-briefing-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: "proj_briefing",
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",

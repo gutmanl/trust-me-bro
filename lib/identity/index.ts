@@ -22,7 +22,7 @@ export {
   loadFeatureFlags,
   loadIdentityConfig,
 } from "./config";
-export { isValidActorKuerzel } from "./config-file";
+export { isValidActorHandle } from "./config-file";
 export { IdentityNotConfiguredError } from "./errors";
 
 /**
@@ -34,7 +34,7 @@ const PROJECT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 
 /** The acting local user as recorded in history entries. */
 export function getCurrentActor(): HumanActorId {
-  return `human:${loadIdentityConfig().actorKuerzel}`;
+  return `human:${loadIdentityConfig().actorHandle}`;
 }
 
 /** Absolute path of the workspace root (created lazily by the persistence layer). */
@@ -57,7 +57,7 @@ export function resolveProjectDir(projectId: string): string {
 }
 
 /**
- * Whether an actor kuerzel is available from ANY source (env or stored
+ * Whether an actor handle is available from ANY source (env or stored
  * file) — the cheap, never-throwing predicate the first-run gate (proxy.ts)
  * consults on every request (TMB-47).
  */
@@ -65,7 +65,7 @@ export function isIdentityConfigured(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return (
-    env.TMB_ACTOR_KUERZEL !== undefined ||
+    env.TMB_ACTOR_HANDLE !== undefined ||
     readConfigFile(defaultConfigFilePath(env)) !== undefined
   );
 }
@@ -76,11 +76,11 @@ export function isIdentityConfigured(
  * winning even directly after setup).
  */
 export function writeIdentityConfig(input: {
-  actorKuerzel: string;
+  actorHandle: string;
   workspaceRoot?: string;
 }): IdentityConfig {
   writeConfigFile(defaultConfigFilePath(), {
-    actorKuerzel: input.actorKuerzel,
+    actorHandle: input.actorHandle,
     workspaceRoot: input.workspaceRoot,
   });
   return loadIdentityConfig();

@@ -16,25 +16,25 @@ import { z } from "zod";
  * one of the answers the file may provide.
  */
 export interface IdentityConfigFile {
-  actorKuerzel: string;
+  actorHandle: string;
   workspaceRoot?: string;
 }
 
 /**
- * Kuerzel becomes part of actor ids ("human:<kuerzel>") that are hashed into
+ * Handle becomes part of actor ids ("human:<handle>") that are hashed into
  * the register's chain entries, so it is restricted to a stable ASCII subset.
  * Single source of the rule — config.ts and the setup use-case both consume
  * this predicate.
  */
-export const KUERZEL_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
+export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 
-export function isValidActorKuerzel(value: string): boolean {
-  return KUERZEL_PATTERN.test(value);
+export function isValidActorHandle(value: string): boolean {
+  return HANDLE_PATTERN.test(value);
 }
 
 /** Snake_case on disk, matching the register's file conventions. */
 const ConfigFileSchema = z.strictObject({
-  actor_kuerzel: z.string().regex(KUERZEL_PATTERN),
+  actor_handle: z.string().regex(HANDLE_PATTERN),
   workspace_root: z.string().min(1).optional(),
 });
 
@@ -71,7 +71,7 @@ export function readConfigFile(
     return undefined;
   }
   return {
-    actorKuerzel: result.data.actor_kuerzel,
+    actorHandle: result.data.actor_handle,
     workspaceRoot: result.data.workspace_root,
   };
 }
@@ -87,14 +87,14 @@ export function writeConfigFile(
   filePath: string,
   config: IdentityConfigFile,
 ): void {
-  if (!isValidActorKuerzel(config.actorKuerzel)) {
+  if (!isValidActorHandle(config.actorHandle)) {
     throw new Error(
-      `Actor kuerzel "${config.actorKuerzel}" is invalid: expected lowercase letters, digits, "_" or "-".`,
+      `Actor handle "${config.actorHandle}" is invalid: expected lowercase letters, digits, "_" or "-".`,
     );
   }
   const payload = `${JSON.stringify(
     {
-      actor_kuerzel: config.actorKuerzel,
+      actor_handle: config.actorHandle,
       ...(config.workspaceRoot !== undefined
         ? { workspace_root: config.workspaceRoot }
         : {}),

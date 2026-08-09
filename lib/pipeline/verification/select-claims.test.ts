@@ -16,16 +16,16 @@ function registerWithStatuses(statuses: ClaimStatus[]): ClaimsRegister {
 }
 
 describe("pickUnfinishedClaims", () => {
-  it("selects erfasst and existenzgeprueft claims in register order", () => {
+  it("selects captured and existence_checked claims in register order", () => {
     const register = registerWithStatuses([
-      "erfasst",
-      "bestaetigt",
-      "existenzgeprueft",
-      "zur_adjudikation",
-      "automatisch_bestaetigt",
-      "vorgeprueft",
-      "verworfen",
-      "erfasst",
+      "captured",
+      "confirmed",
+      "existence_checked",
+      "pending_adjudication",
+      "auto_confirmed",
+      "prechecked",
+      "discarded",
+      "captured",
     ]);
     expect(pickUnfinishedClaims(register).map((claim) => claim.id)).toEqual([
       "clm_0001",
@@ -36,7 +36,7 @@ describe("pickUnfinishedClaims", () => {
 
   it("returns an empty list when nothing remains", () => {
     expect(
-      pickUnfinishedClaims(registerWithStatuses(["bestaetigt", "verworfen"])),
+      pickUnfinishedClaims(registerWithStatuses(["confirmed", "discarded"])),
     ).toEqual([]);
   });
 });

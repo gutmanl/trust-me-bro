@@ -34,22 +34,22 @@ afterEach(() => {
 });
 
 describe("loadIdentityConfig", () => {
-  it("throws when neither environment nor config file supplies a kuerzel", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+  it("throws when neither environment nor config file supplies a handle", () => {
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_WORKSPACE", undefined);
     expect(() => loadIdentityConfig()).toThrow(IdentityNotConfiguredError);
   });
 
-  it("reads kuerzel and workspace root from the environment", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  it("reads handle and workspace root from the environment", () => {
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     vi.stubEnv("TMB_WORKSPACE", "./tmp/ws");
     const config = loadIdentityConfig();
-    expect(config.actorKuerzel).toBe("lg");
+    expect(config.actorHandle).toBe("lg");
     expect(config.workspaceRoot).toBe(path.resolve("./tmp/ws"));
   });
 
-  it("defaults the workspace root when only the kuerzel is configured", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  it("defaults the workspace root when only the handle is configured", () => {
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     vi.stubEnv("TMB_WORKSPACE", undefined);
     expect(loadIdentityConfig().workspaceRoot).toBe(
       path.resolve("./workspace"),
@@ -59,76 +59,76 @@ describe("loadIdentityConfig", () => {
   it("reads the stored config file when the environment is unset", () => {
     const filePath = scratchConfigPath();
     writeConfigFile(filePath, {
-      actorKuerzel: "aus_datei",
+      actorHandle: "aus_datei",
       workspaceRoot: "./tmp/file-ws",
     });
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_WORKSPACE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", filePath);
     const config = loadIdentityConfig();
-    expect(config.actorKuerzel).toBe("aus_datei");
+    expect(config.actorHandle).toBe("aus_datei");
     expect(config.workspaceRoot).toBe(path.resolve("./tmp/file-ws"));
   });
 
   it("lets the environment override the stored config file", () => {
     const filePath = scratchConfigPath();
-    writeConfigFile(filePath, { actorKuerzel: "aus_datei" });
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "env-wins");
+    writeConfigFile(filePath, { actorHandle: "aus_datei" });
+    vi.stubEnv("TMB_ACTOR_HANDLE", "env-wins");
     vi.stubEnv("TMB_CONFIG_PATH", filePath);
-    expect(loadIdentityConfig().actorKuerzel).toBe("env-wins");
+    expect(loadIdentityConfig().actorHandle).toBe("env-wins");
   });
 
   it("treats a corrupt config file as unconfigured", () => {
     const filePath = scratchConfigPath();
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.appendFileSync(filePath, "{ not json", "utf8");
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", filePath);
     expect(() => loadIdentityConfig()).toThrow(IdentityNotConfiguredError);
   });
 
-  it("rejects a kuerzel outside the allowed ASCII subset", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "Löwe!");
-    expect(() => loadIdentityConfig()).toThrow(/TMB_ACTOR_KUERZEL/);
+  it("rejects a handle outside the allowed ASCII subset", () => {
+    vi.stubEnv("TMB_ACTOR_HANDLE", "Löwe!");
+    expect(() => loadIdentityConfig()).toThrow(/TMB_ACTOR_HANDLE/);
   });
 });
 
 describe("isIdentityConfigured", () => {
   it("is false when neither environment nor config file exists", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     expect(isIdentityConfigured()).toBe(false);
   });
 
   it("is true via the environment alone", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     expect(isIdentityConfigured()).toBe(true);
   });
 
   it("is true via the stored config file alone", () => {
     const filePath = scratchConfigPath();
-    writeConfigFile(filePath, { actorKuerzel: "lg" });
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    writeConfigFile(filePath, { actorHandle: "lg" });
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", filePath);
     expect(isIdentityConfigured()).toBe(true);
   });
 });
 
 describe("writeIdentityConfig", () => {
-  it("persists the kuerzel and returns the now-effective identity", () => {
+  it("persists the handle and returns the now-effective identity", () => {
     const filePath = scratchConfigPath();
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", filePath);
-    const config = writeIdentityConfig({ actorKuerzel: "lg" });
-    expect(config.actorKuerzel).toBe("lg");
+    const config = writeIdentityConfig({ actorHandle: "lg" });
+    expect(config.actorHandle).toBe("lg");
     expect(fs.existsSync(filePath)).toBe(true);
-    expect(loadIdentityConfig().actorKuerzel).toBe("lg");
+    expect(loadIdentityConfig().actorHandle).toBe("lg");
   });
 
   it("keeps an env override effective directly after setup", () => {
     const filePath = scratchConfigPath();
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "env-wins");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "env-wins");
     vi.stubEnv("TMB_CONFIG_PATH", filePath);
-    expect(writeIdentityConfig({ actorKuerzel: "lg" }).actorKuerzel).toBe(
+    expect(writeIdentityConfig({ actorHandle: "lg" }).actorHandle).toBe(
       "env-wins",
     );
   });
@@ -158,8 +158,8 @@ describe("feature flags (TMB-51)", () => {
 });
 
 describe("getCurrentActor", () => {
-  it("formats the actor id as human:<kuerzel>", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  it("formats the actor id as human:<handle>", () => {
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     expect(getCurrentActor()).toBe("human:lg");
   });
 });

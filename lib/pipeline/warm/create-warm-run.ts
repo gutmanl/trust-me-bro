@@ -9,18 +9,18 @@ import {
 import { requireProjectStore } from "../projects";
 import { isSourceSetFrozen } from "../sources/capture";
 
-const ACTOR_ADOPTION = "system:warmlauf" as const;
+const ACTOR_ADOPTION = "system:warm_run" as const;
 
 /** The settled origin statuses a warm run adopts (ratified with TMB-7):
- * bestätigte und automatisch bestätigte Claims sparen Prüfaufwand, verworfene
- * erfüllen A6 — negative Entscheidungen bleiben nachnutzbar. */
+ * confirmed and auto-confirmed claims save review effort, discarded ones
+ * fulfill A6 — negative decisions remain reusable. */
 const ADOPTABLE_STATUSES = new Set([
-  "bestaetigt",
-  "automatisch_bestaetigt",
-  "verworfen",
+  "confirmed",
+  "auto_confirmed",
+  "discarded",
 ]);
 
-type AdoptableStatus = "bestaetigt" | "automatisch_bestaetigt" | "verworfen";
+type AdoptableStatus = "confirmed" | "auto_confirmed" | "discarded";
 
 export interface CreateWarmRunInput {
   originProjectId: string;
@@ -132,9 +132,9 @@ export async function createWarmRunProject(
   copySourceBlobs(originStore, newStore, origin.sources);
 
   const adoptedByStatus: Record<AdoptableStatus, number> = {
-    bestaetigt: 0,
-    automatisch_bestaetigt: 0,
-    verworfen: 0,
+    confirmed: 0,
+    auto_confirmed: 0,
+    discarded: 0,
   };
   await newStore.transaction((tx) => {
     for (const source of origin.sources) {

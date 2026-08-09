@@ -31,7 +31,7 @@ let sourceId: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-revise-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: PROJECT,
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -41,7 +41,7 @@ beforeEach(async () => {
     {
       projectId: PROJECT,
       kind: "upload",
-      sourceType: "grauliteratur",
+      sourceType: "grey_literature",
       manual: { title: "Bericht", year: "2026" },
       upload: { content: V1, filename: "bericht.txt" },
     },
@@ -127,12 +127,12 @@ describe("reviseSource", () => {
   });
 
   it("rotates the snapshot, advances revisions, chains the event and marks settled claims", async () => {
-    const confirmed = await addClaimAt("bestaetigt");
-    const autoConfirmed = await addClaimAt("automatisch_bestaetigt");
-    const preChecked = await addClaimAt("vorgeprueft");
-    const captured = await addClaimAt("erfasst");
-    const awaiting = await addClaimAt("zur_adjudikation");
-    const discarded = await addClaimAt("verworfen");
+    const confirmed = await addClaimAt("confirmed");
+    const autoConfirmed = await addClaimAt("auto_confirmed");
+    const preChecked = await addClaimAt("prechecked");
+    const captured = await addClaimAt("captured");
+    const awaiting = await addClaimAt("pending_adjudication");
+    const discarded = await addClaimAt("discarded");
     await freezeSourceSet(PROJECT);
 
     const result = await reviseSource({
@@ -171,12 +171,12 @@ describe("reviseSource", () => {
     // Exactly the settled claims moved; the others are untouched.
     const statusOf = (id: string) =>
       register.claims.find((claim) => claim.id === id)?.status;
-    expect(statusOf(confirmed)).toBe("nachpruefung_erforderlich");
-    expect(statusOf(autoConfirmed)).toBe("nachpruefung_erforderlich");
-    expect(statusOf(preChecked)).toBe("nachpruefung_erforderlich");
-    expect(statusOf(captured)).toBe("erfasst");
-    expect(statusOf(awaiting)).toBe("zur_adjudikation");
-    expect(statusOf(discarded)).toBe("verworfen");
+    expect(statusOf(confirmed)).toBe("recheck_required");
+    expect(statusOf(autoConfirmed)).toBe("recheck_required");
+    expect(statusOf(preChecked)).toBe("recheck_required");
+    expect(statusOf(captured)).toBe("captured");
+    expect(statusOf(awaiting)).toBe("pending_adjudication");
+    expect(statusOf(discarded)).toBe("discarded");
 
     // Recheck claims are swept up by the next verification run.
     expect(
@@ -188,8 +188,8 @@ describe("reviseSource", () => {
     // Re-admission to the cascade takes the ratified edge.
     await store.transaction((tx) => {
       tx.transitionClaim(confirmed, {
-        to: "erfasst",
-        actor: "system:existenzpruefung",
+        to: "captured",
+        actor: "system:existence_check",
         reason: "Wiederaufnahme nach Bestandsrevision.",
       });
     });
@@ -202,13 +202,13 @@ describe("reviseSource", () => {
       {
         projectId: PROJECT,
         kind: "upload",
-        sourceType: "grauliteratur",
+        sourceType: "grey_literature",
         manual: { title: "Zweitquelle", year: "2026" },
         upload: { content: Buffer.from("Anderer Inhalt."), filename: "b.txt" },
       },
       { fetcher: fakeFetcher({}) },
     );
-    const onFirst = await addClaimAt("bestaetigt");
+    const onFirst = await addClaimAt("confirmed");
     await freezeSourceSet(PROJECT);
 
     const result = await reviseSource({
@@ -223,7 +223,7 @@ describe("reviseSource", () => {
     expect(result.recheckedClaimIds).toEqual([]);
     const register = await RegisterStore.forProject(PROJECT).read();
     expect(register.claims.find((claim) => claim.id === onFirst)?.status).toBe(
-      "bestaetigt",
+      "confirmed",
     );
   });
 });

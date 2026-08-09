@@ -68,7 +68,7 @@ describe("toPlainCsl (F4)", () => {
       type: "article-journal",
       title: "Effects",
       custom: {
-        source_type: "begutachtete_publikation",
+        source_type: "peer_reviewed_publication",
         snapshot: {
           retrieved_at: "2026-08-06T08:00:00Z",
           sha256: "a".repeat(64),
@@ -89,7 +89,7 @@ describe("formatCitation", () => {
   const base = {
     id: "src_meyer2025",
     type: "article-journal",
-    custom: { source_type: "begutachtete_publikation" },
+    custom: { source_type: "peer_reviewed_publication" },
   };
 
   it("formats author, year and container", () => {

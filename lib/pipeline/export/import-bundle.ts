@@ -87,7 +87,7 @@ export async function importProjectBundle(input: {
   // briefing.md is a regenerable projection: re-render it from the frozen
   // blob. A lean bundle (blobs as checksum references) has no briefing blob
   // to render from — the projection simply stays absent, a documented
-  // consequence of the "ohne Blobs" variant.
+  // consequence of the "without blobs" variant.
   const store = RegisterStore.atDirectory(targetDir);
   if (verification.register.project.briefing_import) {
     try {

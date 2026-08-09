@@ -1,9 +1,9 @@
 import type { Judgment, SecondOpinionConfig } from "../../register";
 
 /**
- * Second-opinion trigger of the Divergenzregel (TMB-29): the secondary
+ * Second-opinion trigger of the divergence rule (TMB-29): the secondary
  * backend is asked when the PRIMARY judgment is contentious — confidence
- * below the threshold, or (when enabled) a relation other than `stuetzt`.
+ * below the threshold, or (when enabled) a relation other than `supports`.
  * Evaluated once against the primary judgment only; the secondary's own
  * confidence is never re-evaluated recursively.
  */
@@ -14,5 +14,7 @@ export function needsSecondOpinion(
   if (judgment.confidence < config.confidence_threshold) {
     return true;
   }
-  return config.on_relation_not_stuetzt && judgment.relation_type !== "stuetzt";
+  return (
+    config.on_relation_not_supports && judgment.relation_type !== "supports"
+  );
 }

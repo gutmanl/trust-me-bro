@@ -42,11 +42,11 @@ import type {
  * skipped without register writes, the run closes its bracket normally.
  */
 
-const SAMPLE_ITEM = "__stichprobe__";
+const SAMPLE_ITEM = "__spot_check__";
 const ACTOR_RUN = "system:verification" as const;
-const ACTOR_STAGE1 = "system:existenzpruefung" as const;
-const ACTOR_PRECHECK = "system:vorpruefung" as const;
-const ACTOR_SAMPLE = "system:stichprobe" as const;
+const ACTOR_STAGE1 = "system:existence_check" as const;
+const ACTOR_PRECHECK = "system:precheck" as const;
+const ACTOR_SAMPLE = "system:spot_check" as const;
 
 export interface VerificationDependencies {
   orchestrator?: Orchestrator;
@@ -58,15 +58,15 @@ export interface VerificationDependencies {
 }
 
 export type VerificationItemOutcome =
-  | "existenz_nicht_bestanden"
-  | "automatisch_bestaetigt"
-  | "zur_adjudikation"
-  | "divergenz"
-  | "eskaliert"
-  | "pausiert"
-  | "uebersprungen"
-  | "llm_gesperrt"
-  | "stichprobe";
+  | "existence_check_failed"
+  | "auto_confirmed"
+  | "pending_adjudication"
+  | "divergence"
+  | "escalated"
+  | "paused"
+  | "skipped"
+  | "llm_locked"
+  | "spot_check";
 
 export interface VerificationItemResult {
   /** Absent for the sample-draw pseudo-item. */
@@ -85,7 +85,7 @@ interface RunContext {
   totalEligible: number;
   /** TMB-49: non-null when the primary backend failed preflight — stage 1
    * still runs, the LLM stages are skipped per claim (claims stay
-   * existenzgeprueft and are swept up by a later run). */
+   * existence_checked and are swept up by a later run). */
   llmLockedHint: string | null;
   /** TMB-49: run-visible note when the secondary backend failed preflight
    * and the divergence rule is disabled for this run. */
@@ -117,7 +117,7 @@ export async function startVerification(
   // work even when no claim is open: the recovery run consists of the
   // sample-draw item alone and closes the bracket.
   const interrupted =
-    deriveVerificationState(register, false).status === "unterbrochen";
+    deriveVerificationState(register, false).status === "interrupted";
   if (eligible.length === 0 && !interrupted) {
     throw new VerificationPreconditionError(
       "Kein Claim im Status erfasst oder existenzgeprüft – nichts zu prüfen.",
@@ -288,7 +288,7 @@ async function processClaim(
   if (bracket.pauseReason !== null) {
     return {
       claimId,
-      outcome: "uebersprungen",
+      outcome: "skipped",
       message: `Übersprungen – Lauf pausiert (${bracket.pauseReason}).`,
     };
   }
@@ -298,24 +298,24 @@ async function processClaim(
   );
   if (
     !claim ||
-    (claim.status !== "erfasst" &&
-      claim.status !== "existenzgeprueft" &&
-      claim.status !== "nachpruefung_erforderlich")
+    (claim.status !== "captured" &&
+      claim.status !== "existence_checked" &&
+      claim.status !== "recheck_required")
   ) {
     return {
       claimId,
-      outcome: "uebersprungen",
+      outcome: "skipped",
       message: "Übersprungen – Status hat sich seit Laufbeginn geändert.",
     };
   }
 
-  // Nachprüfung (TMB-44): re-admit to the full cascade — the revised source
+  // Recheck (TMB-44): re-admit to the full cascade — the revised source
   // text can invalidate any stage's determination, so the claim re-enters
-  // at erfasst and rides the existing pipeline unchanged.
-  if (claim.status === "nachpruefung_erforderlich") {
+  // at captured and rides the existing pipeline unchanged.
+  if (claim.status === "recheck_required") {
     claim = await context.store.transaction((tx) => {
       tx.transitionClaim(claimId, {
-        to: "erfasst",
+        to: "captured",
         actor: ACTOR_STAGE1,
         reason:
           "Wiederaufnahme in die Prüfkaskade nach Bestandsrevision der Quelle(n).",
@@ -324,14 +324,14 @@ async function processClaim(
     });
   }
 
-  // Stage 1 (deterministic, always re-checked for erfasst claims).
-  if (claim.status === "erfasst") {
+  // Stage 1 (deterministic, always re-checked for captured claims).
+  if (claim.status === "captured") {
     const results = await checkClaimExistence(claim, context.sourcesById, {
       blobs: context.store.blobs(),
       fetcher: context.fetcher,
       cache: context.cache,
     });
-    const failures = results.filter((result) => result.status !== "bestanden");
+    const failures = results.filter((result) => result.status !== "passed");
     const now = new Date().toISOString();
     claim = await context.store.transaction((tx) => {
       for (const result of results) {
@@ -341,7 +341,8 @@ async function processClaim(
         });
       }
       tx.transitionClaim(claimId, {
-        to: failures.length === 0 ? "existenzgeprueft" : "zur_adjudikation",
+        to:
+          failures.length === 0 ? "existence_checked" : "pending_adjudication",
         actor: ACTOR_STAGE1,
         reason:
           failures.length === 0
@@ -350,29 +351,29 @@ async function processClaim(
                 .map((failure) => failure.detail)
                 .join(" ")}`,
         ...(failures.length > 0
-          ? { routing: "existenz_nicht_bestanden" as const }
+          ? { routing: "existence_check_failed" as const }
           : {}),
       });
       return tx.getClaim(claimId);
     });
-    if (claim.status === "zur_adjudikation") {
+    if (claim.status === "pending_adjudication") {
       bracket.adjudicated += 1;
       return {
         claimId,
-        outcome: "existenz_nicht_bestanden",
+        outcome: "existence_check_failed",
         message: `Existenzprüfung nicht bestanden (${failures.length} Fundstelle(n)) – zur Adjudikation.`,
       };
     }
   }
 
-  // LLM lock (TMB-49): stage 1 is done, the claim rests at existenzgeprueft
+  // LLM lock (TMB-49): stage 1 is done, the claim rests at existence_checked
   // untouched — a later run with a working backend sweeps it up via
   // pickUnfinishedClaims. Deliberately NOT an escalation: adjudication is
   // for content problems, a downed backend is an operations problem.
   if (context.llmLockedHint !== null) {
     return {
       claimId,
-      outcome: "llm_gesperrt",
+      outcome: "llm_locked",
       message:
         `LLM-Prüfstufen gesperrt (${context.llmLockedHint}) – ` +
         "Claim bleibt existenzgeprüft.",
@@ -389,7 +390,7 @@ async function processClaim(
     bracket.pauseReason = stage23.reason;
     return {
       claimId,
-      outcome: "pausiert",
+      outcome: "paused",
       message:
         `Lauf pausiert (Rate-Limit): ${stage23.reason} – Claim unverändert, ` +
         "später erneut starten.",
@@ -398,16 +399,16 @@ async function processClaim(
   if (stage23.status === "exhausted") {
     await context.store.transaction((tx) => {
       tx.transitionClaim(claimId, {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: ACTOR_PRECHECK,
         reason: `Prüfaufrufe endgültig gescheitert – eskaliert: ${stage23.message}`,
-        routing: "eskaliert",
+        routing: "escalated",
       });
     });
     bracket.escalated += 1;
     return {
       claimId,
-      outcome: "eskaliert",
+      outcome: "escalated",
       message: `Adapter erschöpft – zur Adjudikation eskaliert (${stage23.message}).`,
     };
   }
@@ -437,19 +438,19 @@ async function applyPreCheckResult(
     }
     if (stage23.supportDegree === null || stage23.calibration === null) {
       tx.transitionClaim(claimId, {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: ACTOR_PRECHECK,
         reason:
           "Divergenz der Backend-Urteile – Relation bleibt bis zur " +
           "Adjudikation offen, beide Urteile sind sichtbar.",
-        routing: "divergenz",
+        routing: "divergence",
       });
-      return "divergenz" as const;
+      return "divergence" as const;
     }
     tx.setSupportDegree(claimId, stage23.supportDegree);
     tx.setCalibrationResult(claimId, stage23.calibration.result);
     tx.transitionClaim(claimId, {
-      to: "vorgeprueft",
+      to: "prechecked",
       actor: ACTOR_PRECHECK,
       reason:
         `Stufen 2/3 abgeschlossen: Unterstützungsgrad ${stage23.supportDegree}, ` +
@@ -462,24 +463,24 @@ async function applyPreCheckResult(
     const verdict = evaluateAutoConfirmation(tx.getClaim(claimId));
     if (verdict.ok) {
       tx.transitionClaim(claimId, {
-        to: "automatisch_bestaetigt",
+        to: "auto_confirmed",
         actor: ACTOR_PRECHECK,
         reason:
           "Vorprüfung durchgehend positiv – automatisch bestätigt, " +
           "stichprobenweise nachprüfbar.",
       });
-      return "automatisch_bestaetigt" as const;
+      return "auto_confirmed" as const;
     }
     tx.transitionClaim(claimId, {
-      to: "zur_adjudikation",
+      to: "pending_adjudication",
       actor: ACTOR_PRECHECK,
       reason: `Nicht automatisch bestätigbar: ${verdict.reason}.`,
-      routing: "negative_vorpruefung",
+      routing: "negative_precheck",
     });
-    return "zur_adjudikation" as const;
+    return "pending_adjudication" as const;
   });
 
-  if (outcome === "automatisch_bestaetigt") {
+  if (outcome === "auto_confirmed") {
     bracket.autoConfirmed.push(claimId);
     return {
       claimId,
@@ -492,7 +493,7 @@ async function applyPreCheckResult(
     claimId,
     outcome,
     message:
-      outcome === "divergenz"
+      outcome === "divergence"
         ? "Backend-Urteile divergieren – zur Adjudikation."
         : "Vorprüfung nicht durchgehend positiv – zur Adjudikation.",
   };
@@ -504,7 +505,7 @@ async function applyPreCheckResult(
  * The population comes from the REGISTER (confirmations after the last
  * closed bracket), never from run memory: a crash between the last claim
  * and this item strands its confirmations, and the next run's draw sweeps
- * them up instead of letting them escape the Stichprobe. */
+ * them up instead of letting them escape the spot check. */
 async function drawSampleStep(
   context: RunContext,
   runId: string,
@@ -519,10 +520,10 @@ async function drawSampleStep(
     );
     for (const claimId of drawn) {
       tx.transitionClaim(claimId, {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: ACTOR_SAMPLE,
         reason: `Stichprobenkontrolle (Lauf ${runId}, Seed ${runId}, Rate ${sampleRate}).`,
-        routing: "stichprobe",
+        routing: "spot_check",
       });
     }
     const summary =
@@ -539,7 +540,7 @@ async function drawSampleStep(
     });
   });
   return {
-    outcome: "stichprobe",
+    outcome: "spot_check",
     message:
       drawn.length === 0
         ? `Keine Stichprobe gezogen (Rate ${sampleRate}).`

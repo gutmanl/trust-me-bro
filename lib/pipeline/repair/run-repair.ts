@@ -24,12 +24,12 @@ import type { ReEntryTarget } from "./re-entry";
  *   returns it WITHOUT touching the register — the proposal is only ever a
  *   suggestion.
  * - `applyRepair` persists the reviewer's accepted/adjusted wording in ONE
- *   transaction: revise text, transition to `ueberarbeitet` (revision
+ *   transaction: revise text, transition to `revised` (revision
  *   recorded, previous wording preserved), then take the re-entry edge the
  *   mechanical rule selects.
  */
 
-const ACTOR_REPAIR = "system:reparatur" as const;
+const ACTOR_REPAIR = "system:repair" as const;
 
 export type RepairProposalOutcome =
   | { status: "proposed"; suggestion: RepairOutput }
@@ -42,12 +42,12 @@ export interface RepairDependencies {
 
 /** Shared precondition of all three repair verbs; takes the claim list so
  * it works on a read register AND inside a transaction (tx.listClaims). */
-function requireBeanstandet(claims: Claim[], claimId: string): Claim {
+function requireContested(claims: Claim[], claimId: string): Claim {
   const claim = claims.find((candidate) => candidate.id === claimId);
   if (!claim) {
     throw new RepairPreconditionError(`Claim "${claimId}" existiert nicht.`);
   }
-  if (claim.status !== "beanstandet") {
+  if (claim.status !== "contested") {
     throw new RepairPreconditionError(
       `Claim "${claimId}" ist nicht beanstandet (Status: ${claim.status}).`,
     );
@@ -62,10 +62,10 @@ export async function proposeRepair(
 ): Promise<RepairProposalOutcome> {
   const store = requireProjectStore(projectId);
   const register = await store.read();
-  const claim = requireBeanstandet(register.claims, claimId);
+  const claim = requireContested(register.claims, claimId);
 
   const complaintEntry = claim.history.findLast(
-    (entry) => entry.to_status === "beanstandet",
+    (entry) => entry.to_status === "contested",
   );
   const sourcesById = new Map(
     register.sources.map((source) => [source.id, source]),
@@ -82,7 +82,7 @@ export async function proposeRepair(
       source_id: evidence.source_id,
       source_type:
         sourcesById.get(evidence.source_id)?.custom.source_type ??
-        "grauliteratur",
+        "grey_literature",
       locator: evidence.locator,
       verbatim_excerpt: evidence.verbatim_excerpt,
     })),
@@ -143,7 +143,7 @@ export async function applyRepair(
     );
   }
   // Atomicity is re-validated HERE, not left to the re-entry gates: the
-  // existenzgeprueft edge's gate never looks at the wording, and the erfasst
+  // existence_checked edge's gate never looks at the wording, and the captured
   // edge's gate rejection would surface as a crash instead of form feedback.
   // Rejecting keeps the repair loop interactive (the reviewer reformulates
   // immediately) rather than routing a knowingly invalid wording onward.
@@ -155,7 +155,7 @@ export async function applyRepair(
   }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    const claim = requireBeanstandet(tx.listClaims(), claimId);
+    const claim = requireContested(tx.listClaims(), claimId);
     const sourceLabel = {
       vorschlag_uebernommen: "Vorschlag übernommen",
       vorschlag_angepasst: "Vorschlag angepasst",
@@ -167,7 +167,7 @@ export async function applyRepair(
         : "";
     tx.reviseClaimText(claimId, newText);
     const revised = tx.transitionClaim(claimId, {
-      to: "ueberarbeitet",
+      to: "revised",
       actor: getCurrentActor(),
       reason: `Reparatur angenommen (${sourceLabel}).${proposalTrace}`,
       revision: { previous_text: claim.text, new_text: newText },
@@ -181,16 +181,16 @@ export async function applyRepair(
       to: decision.target,
       actor: ACTOR_REPAIR,
       reason: decision.reason,
-      ...(decision.target === "zur_adjudikation"
-        ? { routing: "eskaliert" as const }
+      ...(decision.target === "pending_adjudication"
+        ? { routing: "escalated" as const }
         : {}),
     });
     return { revised, reentryTarget: decision.target };
   });
 }
 
-/** Discard after a failed or declined repair (`beanstandet → verworfen`) —
- * the only path to verworfen; the claim stays visible in the register. */
+/** Discard after a failed or declined repair (`contested → discarded`) —
+ * the only path to discarded; the claim stays visible in the register. */
 export async function discardClaim(
   projectId: string,
   claimId: string,
@@ -204,9 +204,9 @@ export async function discardClaim(
   }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {
-    requireBeanstandet(tx.listClaims(), claimId);
+    requireContested(tx.listClaims(), claimId);
     return tx.transitionClaim(claimId, {
-      to: "verworfen",
+      to: "discarded",
       actor: getCurrentActor(),
       reason: trimmed,
     });

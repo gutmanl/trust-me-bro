@@ -12,11 +12,11 @@ export default defineConfig({
     include: ["lib/**/*.test.ts", "cli/**/*.test.ts", "tests/**/*.test.ts"],
     env: {
       // Hermetic identity (TMB-47): tests must never read a developer's
-      // real ~/.trustmebro/config.json, and the kuerzel mirrors the
+      // real ~/.trustmebro/config.json, and the handle mirrors the
       // pre-TMB-47 built-in fallback so the suite stays deterministic.
       // Tests exercising the unconfigured state stub both to undefined.
       TMB_CONFIG_PATH: "./.vitest-no-config/config.json",
-      TMB_ACTOR_KUERZEL: "user",
+      TMB_ACTOR_HANDLE: "user",
     },
     coverage: {
       provider: "v8",

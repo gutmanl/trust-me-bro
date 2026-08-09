@@ -18,7 +18,7 @@ let workspace: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-export-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: PROJECT,
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -33,7 +33,7 @@ beforeEach(async () => {
     {
       projectId: PROJECT,
       kind: "upload",
-      sourceType: "begutachtete_publikation",
+      sourceType: "peer_reviewed_publication",
       manual: { title: "Studie", authors: "Studie, A." },
       upload: {
         content: Buffer.from(

@@ -10,7 +10,7 @@ import type { Claim, ProjectEvent } from "../../register";
  * marks a claim as swept; a crash mid-run keeps the unswept remainder in
  * the population and the next run picks it up.
  *
- * `verworfen` adopted claims are excluded: a discard concerned the claim's
+ * `discarded` adopted claims are excluded: a discard concerned the claim's
  * validity, not the research question — it is carried for the record (A6),
  * not re-litigated.
  */
@@ -25,8 +25,7 @@ export function pendingRelevancePopulation(
     .filter(
       (claim) =>
         claim.provenance.origin_project_id !== undefined &&
-        (claim.status === "bestaetigt" ||
-          claim.status === "automatisch_bestaetigt"),
+        (claim.status === "confirmed" || claim.status === "auto_confirmed"),
     )
     .filter((claim) => (claim.history[0]?.seq ?? Infinity) > lastCompletedSeq)
     .map((claim) => claim.id);

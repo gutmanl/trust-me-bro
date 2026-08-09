@@ -5,8 +5,8 @@ import { requireProjectStore } from "../projects";
 
 /**
  * The binding human adjudication decision (TMB-35): an empty category set
- * confirms (`zur_adjudikation → bestaetigt`), a non-empty one complains
- * (`→ beanstandet`). Discarding directly is impossible by design — the
+ * confirms (`pending_adjudication → confirmed`), a non-empty one complains
+ * (`→ contested`). Discarding directly is impossible by design — the
  * state machine offers repair first. The decision object versions the
  * multi-select categories, the reviewed evidence and the casually measured
  * duration in the claim's history entry; a silent text change past the
@@ -16,7 +16,7 @@ import { requireProjectStore } from "../projects";
 export interface AdjudicationDecisionInput {
   /** Empty = confirmation; one or more categories = complaint. */
   categories: ComplaintCategory[];
-  /** Free-text justification; mandatory when "sonstiges" is selected. */
+  /** Free-text justification; mandatory when "other" is selected. */
   justification?: string;
   /** Casually measured decision duration (effort measure A5). */
   durationS: number;
@@ -28,7 +28,7 @@ export async function decideClaim(
   input: AdjudicationDecisionInput,
 ): Promise<HistoryEntry> {
   const justification = input.justification?.trim() ?? "";
-  if (input.categories.includes("sonstiges") && justification.length === 0) {
+  if (input.categories.includes("other") && justification.length === 0) {
     throw new AdjudicationPreconditionError(
       "„Sonstiges“ erfordert eine Begründung.",
     );
@@ -47,7 +47,7 @@ export async function decideClaim(
         `Claim "${claimId}" existiert nicht.`,
       );
     }
-    if (claim.status !== "zur_adjudikation") {
+    if (claim.status !== "pending_adjudication") {
       throw new AdjudicationPreconditionError(
         `Claim "${claimId}" steht nicht zur Adjudikation (Status: ${claim.status}).`,
       );
@@ -58,7 +58,7 @@ export async function decideClaim(
       : `Adjudikation: beanstandet (${input.categories.join(", ")}).` +
         (justification ? ` ${justification}` : "");
     return tx.transitionClaim(claimId, {
-      to: confirm ? "bestaetigt" : "beanstandet",
+      to: confirm ? "confirmed" : "contested",
       actor: getCurrentActor(),
       reason,
       decision: {

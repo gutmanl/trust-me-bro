@@ -29,31 +29,31 @@ describe("buildAdjudicationQueue", () => {
       registerWith([
         {
           id: "clm_0002",
-          status: "zur_adjudikation",
+          status: "pending_adjudication",
           history: [
-            { to_status: "erfasst", at: "2026-08-08T09:00:00Z" },
+            { to_status: "captured", at: "2026-08-08T09:00:00Z" },
             {
-              to_status: "zur_adjudikation",
+              to_status: "pending_adjudication",
               at: "2026-08-08T11:00:00Z",
-              routing: "divergenz",
+              routing: "divergence",
             },
           ],
         },
         {
           id: "clm_0001",
-          status: "zur_adjudikation",
+          status: "pending_adjudication",
           history: [
             {
-              to_status: "zur_adjudikation",
+              to_status: "pending_adjudication",
               at: "2026-08-08T10:00:00Z",
-              routing: "ohne_beleg",
+              routing: "no_evidence",
             },
           ],
         },
         {
           id: "clm_0003",
-          status: "bestaetigt",
-          history: [{ to_status: "bestaetigt", at: "2026-08-08T08:00:00Z" }],
+          status: "confirmed",
+          history: [{ to_status: "confirmed", at: "2026-08-08T08:00:00Z" }],
         },
       ]),
     );
@@ -62,8 +62,8 @@ describe("buildAdjudicationQueue", () => {
       "clm_0002",
     ]);
     expect(queue.map((entry) => entry.routing)).toEqual([
-      "ohne_beleg",
-      "divergenz",
+      "no_evidence",
+      "divergence",
     ]);
   });
 
@@ -72,35 +72,35 @@ describe("buildAdjudicationQueue", () => {
       registerWith([
         {
           id: "clm_0001",
-          status: "zur_adjudikation",
+          status: "pending_adjudication",
           history: [
             {
-              to_status: "zur_adjudikation",
+              to_status: "pending_adjudication",
               at: "2026-08-08T09:00:00Z",
-              routing: "existenz_nicht_bestanden",
+              routing: "existence_check_failed",
             },
-            { to_status: "beanstandet", at: "2026-08-08T10:00:00Z" },
-            { to_status: "ueberarbeitet", at: "2026-08-08T11:00:00Z" },
+            { to_status: "contested", at: "2026-08-08T10:00:00Z" },
+            { to_status: "revised", at: "2026-08-08T11:00:00Z" },
             {
-              to_status: "zur_adjudikation",
+              to_status: "pending_adjudication",
               at: "2026-08-08T12:00:00Z",
-              routing: "eskaliert",
+              routing: "escalated",
             },
           ],
         },
         {
           id: "clm_0002",
-          status: "zur_adjudikation",
+          status: "pending_adjudication",
           // Pre-extension entry without routing field.
           history: [
-            { to_status: "zur_adjudikation", at: "2026-08-08T09:30:00Z" },
+            { to_status: "pending_adjudication", at: "2026-08-08T09:30:00Z" },
           ],
         },
       ]),
     );
     const escalated = queue.find((entry) => entry.claim.id === "clm_0001");
     const preExtension = queue.find((entry) => entry.claim.id === "clm_0002");
-    expect(escalated?.routing).toBe("eskaliert");
+    expect(escalated?.routing).toBe("escalated");
     expect(escalated?.queuedAt).toBe("2026-08-08T12:00:00Z");
     expect(preExtension?.routing).toBeNull();
   });
@@ -110,20 +110,20 @@ describe("filterQueue / sortQueue", () => {
   const entries = [
     {
       claim: { id: "c1" },
-      routing: "divergenz",
+      routing: "divergence",
       queuedAt: "2026-08-08T10:00:00Z",
     },
     { claim: { id: "c2" }, routing: null, queuedAt: "2026-08-08T09:00:00Z" },
     {
       claim: { id: "c3" },
-      routing: "stichprobe",
+      routing: "spot_check",
       queuedAt: "2026-08-08T11:00:00Z",
     },
   ] as never[];
 
   it("filters by routing reason and the ohne_zuordnung bucket", () => {
     expect(filterQueue(entries, "alle")).toHaveLength(3);
-    expect(filterQueue(entries, "divergenz").map((e) => e.claim.id)).toEqual([
+    expect(filterQueue(entries, "divergence").map((e) => e.claim.id)).toEqual([
       "c1",
     ]);
     expect(
@@ -138,7 +138,7 @@ describe("filterQueue / sortQueue", () => {
       "c3",
     ]);
     expect(
-      sortQueue(entries, "routing", ["stichprobe", "divergenz"]).map(
+      sortQueue(entries, "routing", ["spot_check", "divergence"]).map(
         (e) => e.claim.id,
       ),
     ).toEqual(["c3", "c1", "c2"]);

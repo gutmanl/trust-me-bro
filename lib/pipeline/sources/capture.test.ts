@@ -37,7 +37,7 @@ let workspace: string;
 beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-sources-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
   await createProject({
     id: "proj_quellen",
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -82,7 +82,7 @@ describe("captureSource via DOI", () => {
         projectId: "proj_quellen",
         kind: "doi",
         identifier: "https://doi.org/10.1109/TSE.2025.3489012",
-        sourceType: "begutachtete_publikation",
+        sourceType: "peer_reviewed_publication",
         documentUrl: "https://publisher.example.org/paper.pdf",
       },
       { fetcher: defaultFetcher() },
@@ -92,7 +92,7 @@ describe("captureSource via DOI", () => {
     expect(source.title).toBe(
       "Effects of AI Assistants on Code Review Duration",
     );
-    expect(source.custom.source_type).toBe("begutachtete_publikation");
+    expect(source.custom.source_type).toBe("peer_reviewed_publication");
     expect(source.custom.identifier_verified?.status).toBe(true);
     expect(source.custom.snapshot?.revision).toBe(1);
     expect(source.custom.snapshot?.blob_path).toContain(
@@ -117,7 +117,7 @@ describe("captureSource via DOI", () => {
           projectId: "proj_quellen",
           kind: "doi",
           identifier: "10.1109/TSE.2025.3489012",
-          sourceType: "begutachtete_publikation",
+          sourceType: "peer_reviewed_publication",
         },
         { fetcher: defaultFetcher() },
       ),
@@ -147,7 +147,7 @@ describe("captureSource via DOI", () => {
           projectId: "proj_quellen",
           kind: "doi",
           identifier: "10.1109/TSE.2025.3489012",
-          sourceType: "begutachtete_publikation",
+          sourceType: "peer_reviewed_publication",
           documentUrl: "https://publisher.example.org/gibtsnicht.pdf",
         },
         { fetcher: defaultFetcher() },
@@ -185,7 +185,7 @@ describe("captureSource via URL and upload", () => {
         projectId: "proj_quellen",
         kind: "url",
         identifier: "https://blog.example.org/post",
-        sourceType: "grauliteratur",
+        sourceType: "grey_literature",
         manual: { title: "Blogbeitrag zu Reviews", year: "2026" },
       },
       { fetcher: defaultFetcher() },
@@ -201,7 +201,7 @@ describe("captureSource via URL and upload", () => {
       {
         projectId: "proj_quellen",
         kind: "upload",
-        sourceType: "herstellerdokumentation",
+        sourceType: "vendor_documentation",
         manual: { title: "Produkt-Whitepaper", authors: "Meyer, Anna" },
         upload: { content: PDF_BYTES, filename: "Whitepaper.PDF" },
       },
@@ -218,7 +218,7 @@ describe("captureSource via URL and upload", () => {
         {
           projectId: "proj_quellen",
           kind: "upload",
-          sourceType: "grauliteratur",
+          sourceType: "grey_literature",
           manual: { title: "  " },
           upload: { content: PDF_BYTES, filename: "x.pdf" },
         },
@@ -231,7 +231,7 @@ describe("captureSource via URL and upload", () => {
     const input = {
       projectId: "proj_quellen",
       kind: "upload" as const,
-      sourceType: "grauliteratur" as const,
+      sourceType: "grey_literature" as const,
       manual: { title: "Bericht", authors: "Meyer, Anna", year: "2026" },
       upload: { content: PDF_BYTES, filename: "a.pdf" },
     };
@@ -254,7 +254,7 @@ describe("full-text extraction at capture (TMB-24)", () => {
       {
         projectId: "proj_quellen",
         kind: "upload",
-        sourceType: "begutachtete_publikation",
+        sourceType: "peer_reviewed_publication",
         manual: { title: "Studie zur Reviewzeit" },
         upload: { content: REAL_PDF, filename: "studie.pdf" },
       },
@@ -276,7 +276,7 @@ describe("full-text extraction at capture (TMB-24)", () => {
       {
         projectId: "proj_quellen",
         kind: "upload",
-        sourceType: "grauliteratur",
+        sourceType: "grey_literature",
         manual: { title: "Kaputtes PDF" },
         upload: { content: PDF_BYTES, filename: "kaputt.pdf" },
       },
@@ -306,7 +306,7 @@ describe("freezeSourceSet", () => {
       {
         projectId: "proj_quellen",
         kind: "upload",
-        sourceType: "grauliteratur",
+        sourceType: "grey_literature",
         manual: { title: "Bericht" },
         upload: { content: PDF_BYTES, filename: "a.pdf" },
       },
@@ -333,7 +333,7 @@ describe("freezeSourceSet", () => {
         {
           projectId: "proj_quellen",
           kind: "upload",
-          sourceType: "grauliteratur",
+          sourceType: "grey_literature",
           manual: { title: "Nachzügler" },
           upload: { content: PDF_BYTES, filename: "b.pdf" },
         },

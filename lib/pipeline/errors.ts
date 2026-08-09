@@ -116,15 +116,15 @@ export class EmptySourceSetError extends PipelineError {
 export class WarmRunPreconditionError extends PipelineError {}
 
 /** The relevance check violates its preconditions (TMB-43): no adopted
- * claims awaiting an Einschlägigkeitsprüfung. */
+ * claims awaiting a relevance check. */
 export class RelevancePreconditionError extends PipelineError {}
 
 /** An adjudication decision violates its preconditions (claim not awaiting
- * adjudication, missing justification for "sonstiges", unmeasurable
+ * adjudication, missing justification for "other", unmeasurable
  * duration). */
 export class AdjudicationPreconditionError extends PipelineError {}
 
-/** A repair step violates its preconditions (claim not beanstandet). */
+/** A repair step violates its preconditions (claim not contested). */
 export class RepairPreconditionError extends PipelineError {}
 
 /** A .tmb bundle failed verification on import (format, manifest checksums,
@@ -144,7 +144,7 @@ export class UnknownBlobError extends PipelineError {
   }
 }
 
-/** First-run setup input is invalid (TMB-47: kuerzel outside the safe
+/** First-run setup input is invalid (TMB-47: handle outside the safe
  * ASCII subset that actor ids hashed into the chain are restricted to). */
 export class InvalidIdentityInputError extends PipelineError {}
 

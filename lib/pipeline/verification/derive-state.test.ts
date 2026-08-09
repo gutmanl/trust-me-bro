@@ -28,62 +28,62 @@ function makeRegister(options: {
 }
 
 describe("deriveVerificationState", () => {
-  it("reports nicht_gestartet without any verification events", () => {
+  it("reports not_started without any verification events", () => {
     const state = deriveVerificationState(
       makeRegister({
-        statuses: ["erfasst"],
+        statuses: ["captured"],
         events: [{ event: "batch_run_started", seq: 1 }],
       }),
       false,
     );
-    expect(state).toMatchObject({ status: "nicht_gestartet", openClaims: 1 });
+    expect(state).toMatchObject({ status: "not_started", openClaims: 1 });
   });
 
-  it("reports laeuft while a live verification run exists", () => {
+  it("reports running while a live verification run exists", () => {
     const state = deriveVerificationState(
       makeRegister({
-        statuses: ["erfasst"],
+        statuses: ["captured"],
         events: [{ event: "verification_run_started", seq: 1 }],
       }),
       true,
     );
-    expect(state.status).toBe("laeuft");
+    expect(state.status).toBe("running");
   });
 
-  it("reports unterbrochen for a start bracket without completion", () => {
+  it("reports interrupted for a start bracket without completion", () => {
     const state = deriveVerificationState(
       makeRegister({
-        statuses: ["existenzgeprueft"],
+        statuses: ["existence_checked"],
         events: [{ event: "verification_run_started", seq: 1 }],
       }),
       false,
     );
-    expect(state).toMatchObject({ status: "unterbrochen", openClaims: 1 });
+    expect(state).toMatchObject({ status: "interrupted", openClaims: 1 });
   });
 
-  it("derives angehalten vs abgeschlossen from remaining claims, not event text", () => {
+  it("derives halted vs completed from remaining claims, not event text", () => {
     const events: Array<{ event: ProjectEvent["event"]; seq: number }> = [
       { event: "verification_run_started", seq: 1 },
       { event: "verification_run_completed", seq: 2 },
     ];
     expect(
       deriveVerificationState(
-        makeRegister({ statuses: ["existenzgeprueft"], events }),
+        makeRegister({ statuses: ["existence_checked"], events }),
         false,
       ).status,
-    ).toBe("angehalten");
+    ).toBe("halted");
     expect(
       deriveVerificationState(
-        makeRegister({ statuses: ["automatisch_bestaetigt"], events }),
+        makeRegister({ statuses: ["auto_confirmed"], events }),
         false,
       ).status,
-    ).toBe("abgeschlossen");
+    ).toBe("completed");
   });
 
   it("ignores extraction batch events entirely", () => {
     const state = deriveVerificationState(
       makeRegister({
-        statuses: ["automatisch_bestaetigt"],
+        statuses: ["auto_confirmed"],
         events: [
           { event: "batch_run_started", seq: 1 },
           { event: "batch_run_completed", seq: 2 },
@@ -91,6 +91,6 @@ describe("deriveVerificationState", () => {
       }),
       false,
     );
-    expect(state.status).toBe("nicht_gestartet");
+    expect(state.status).toBe("not_started");
   });
 });

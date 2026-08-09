@@ -2,38 +2,41 @@ import { describe, expect, it } from "vitest";
 
 import { needsSecondOpinion } from "./second-opinion";
 
-const config = { confidence_threshold: 0.8, on_relation_not_stuetzt: true };
+const config = { confidence_threshold: 0.8, on_relation_not_supports: true };
 
 describe("needsSecondOpinion", () => {
   it("triggers on confidence below the threshold", () => {
     expect(
       needsSecondOpinion(
-        { relation_type: "stuetzt", confidence: 0.79 },
+        { relation_type: "supports", confidence: 0.79 },
         config,
       ),
     ).toBe(true);
   });
 
-  it("does not trigger on a confident stuetzt", () => {
+  it("does not trigger on a confident supports", () => {
     expect(
-      needsSecondOpinion({ relation_type: "stuetzt", confidence: 0.8 }, config),
+      needsSecondOpinion(
+        { relation_type: "supports", confidence: 0.8 },
+        config,
+      ),
     ).toBe(false);
   });
 
-  it("triggers on a relation other than stuetzt when enabled", () => {
+  it("triggers on a relation other than supports when enabled", () => {
     expect(
       needsSecondOpinion(
-        { relation_type: "stuetzt_teilweise", confidence: 0.99 },
+        { relation_type: "partially_supports", confidence: 0.99 },
         config,
       ),
     ).toBe(true);
   });
 
-  it("ignores the relation when on_relation_not_stuetzt is disabled", () => {
+  it("ignores the relation when on_relation_not_supports is disabled", () => {
     expect(
       needsSecondOpinion(
-        { relation_type: "widerspricht", confidence: 0.9 },
-        { ...config, on_relation_not_stuetzt: false },
+        { relation_type: "contradicts", confidence: 0.9 },
+        { ...config, on_relation_not_supports: false },
       ),
     ).toBe(false);
   });

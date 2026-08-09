@@ -29,7 +29,7 @@ export interface UpdateProjectConfigInput {
   secondaryCli?: BackendCli;
   secondOpinion?: {
     confidenceThreshold: number;
-    onRelationNotStuetzt: boolean;
+    onRelationNotSupports: boolean;
   };
 }
 
@@ -122,7 +122,7 @@ function buildConfig(input: UpdateProjectConfigInput): ProjectConfig {
       ? {
           second_opinion: {
             confidence_threshold: input.secondOpinion.confidenceThreshold,
-            on_relation_not_stuetzt: input.secondOpinion.onRelationNotStuetzt,
+            on_relation_not_supports: input.secondOpinion.onRelationNotSupports,
           },
         }
       : {}),
@@ -171,9 +171,9 @@ export function describeConfigChanges(
     next.second_opinion?.confidence_threshold,
   );
   compare(
-    "second_opinion.on_relation_not_stuetzt",
-    previous.second_opinion?.on_relation_not_stuetzt,
-    next.second_opinion?.on_relation_not_stuetzt,
+    "second_opinion.on_relation_not_supports",
+    previous.second_opinion?.on_relation_not_supports,
+    next.second_opinion?.on_relation_not_supports,
   );
   return changes;
 }

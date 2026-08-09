@@ -15,7 +15,7 @@ let workspace: string;
 beforeEach(() => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-adjudication-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
 });
 
 afterEach(() => {
@@ -23,7 +23,7 @@ afterEach(() => {
   fs.rmSync(workspace, { recursive: true, force: true });
 });
 
-/** Creates a project with one claim in zur_adjudikation (ohne Beleg). */
+/** Creates a project with one claim in pending_adjudication (no evidence). */
 async function projectWithOpenClaim(): Promise<string> {
   const projectId = "proj_adjudikation";
   await createProject({
@@ -37,7 +37,7 @@ async function projectWithOpenClaim(): Promise<string> {
       claim: {
         id: "clm_0001",
         text: "Unbelegter Leitsatz.",
-        claim_type: "quantitativer_einzelbefund",
+        claim_type: "quantitative_finding",
         briefing_anchor: "p1",
         provenance: {
           tool: "claude",
@@ -61,37 +61,37 @@ describe("decideClaim", () => {
       categories: [],
       durationS: 42,
     });
-    expect(entry.to_status).toBe("bestaetigt");
+    expect(entry.to_status).toBe("confirmed");
     expect(entry.decision).toMatchObject({
       categories: [],
       reviewed_evidence_ids: [],
       duration_s: 42,
     });
     const register = await RegisterStore.forProject(projectId).read();
-    expect(register.claims[0].status).toBe("bestaetigt");
+    expect(register.claims[0].status).toBe("confirmed");
     expect((await RegisterStore.forProject(projectId).verify()).ok).toBe(true);
   });
 
-  it("complains with multi-select categories into beanstandet", async () => {
+  it("complains with multi-select categories into contested", async () => {
     const projectId = await projectWithOpenClaim();
     const entry = await decideClaim(projectId, "clm_0001", {
-      categories: ["wortlaut_nicht_in_quelle", "quelle_veraltet"],
+      categories: ["wording_not_in_source", "source_outdated"],
       justification: "Wortlaut fehlt, Quelle von 2019.",
       durationS: 77,
     });
-    expect(entry.to_status).toBe("beanstandet");
+    expect(entry.to_status).toBe("contested");
     expect(entry.decision?.categories).toEqual([
-      "wortlaut_nicht_in_quelle",
-      "quelle_veraltet",
+      "wording_not_in_source",
+      "source_outdated",
     ]);
     expect(entry.reason).toContain("Wortlaut fehlt, Quelle von 2019.");
   });
 
-  it("rejects sonstiges without justification", async () => {
+  it("rejects other without justification", async () => {
     const projectId = await projectWithOpenClaim();
     await expect(
       decideClaim(projectId, "clm_0001", {
-        categories: ["sonstiges"],
+        categories: ["other"],
         justification: "   ",
         durationS: 5,
       }),

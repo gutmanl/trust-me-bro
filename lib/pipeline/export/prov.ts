@@ -35,15 +35,15 @@ const CONTEXT = {
 } as const;
 
 const SIMPLIFICATIONS = [
-  "Keine separaten Reasoning-Knoten: Schlussfolgerung und Kantenaussage " +
-    "fallen in einem judgments[]-Eintrag zusammen, die Begruendung ist ein " +
-    "Literalattribut (tmb:reasoning) der urteilenden Aktivitaet.",
-  "Statusuebergaenge sind punktuelle Aktivitaeten (startedAtTime = " +
-    "endedAtTime); die Bearbeitungsdauer menschlicher Entscheidungen steht " +
-    "als tmb:duration_s an der Aktivitaet.",
-  "Die typisierte Claim-Quelle-Kante verlaeuft ueber den Evidenz-Knoten " +
-    "(wasDerivedFrom zur Quelle, tmb:evidenceOf zum Claim, tmb:relationType " +
-    "als Kantenaussage).",
+  "No separate reasoning nodes: the conclusion and the edge assertion " +
+    "coincide in one judgments[] entry; the justification is a literal " +
+    "attribute (tmb:reasoning) of the judging activity.",
+  "Status transitions are point-in-time activities (startedAtTime = " +
+    "endedAtTime); the processing duration of human decisions is recorded " +
+    "as tmb:duration_s on the activity.",
+  "The typed claim-source edge runs through the evidence node " +
+    "(wasDerivedFrom to the source, tmb:evidenceOf to the claim, " +
+    "tmb:relationType as the edge assertion).",
 ] as const;
 
 type Node = Record<string, unknown>;

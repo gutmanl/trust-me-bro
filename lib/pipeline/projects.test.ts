@@ -22,7 +22,7 @@ let workspace: string;
 beforeEach(() => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-pipeline-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
 });
 
 afterEach(() => {
@@ -187,7 +187,7 @@ describe("listProjects", () => {
     ]);
     expect(summaries[0].briefing_imported).toBe(true);
     expect(summaries[0].total_claims).toBe(0);
-    expect(summaries[0].claim_counts.zur_adjudikation).toBe(0);
+    expect(summaries[0].claim_counts.pending_adjudication).toBe(0);
     expect(summaries[0].last_change_at).not.toBe(summaries[0].created_at);
   });
 

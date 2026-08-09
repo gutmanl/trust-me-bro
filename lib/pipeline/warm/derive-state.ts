@@ -5,17 +5,17 @@ import { pendingRelevancePopulation } from "./select-claims";
  * Relevance-check state derived purely from the register (plus the volatile
  * "a live run exists" flag), mirroring the verification derivation: the
  * bracket events say whether a run started/closed, the pending population
- * says what work remains. `nicht_anwendbar` = the project adopted nothing,
+ * says what work remains. `not_applicable` = the project adopted nothing,
  * so the relevance check does not apply (cold run).
  */
 
 export type RelevanceStatus =
-  | "nicht_anwendbar"
-  | "nicht_gestartet"
-  | "laeuft"
-  | "unterbrochen"
-  | "angehalten"
-  | "abgeschlossen";
+  | "not_applicable"
+  | "not_started"
+  | "running"
+  | "interrupted"
+  | "halted"
+  | "completed";
 
 export interface RelevanceState {
   status: RelevanceStatus;
@@ -41,7 +41,7 @@ export function deriveRelevanceState(
     register.project_events,
   ).length;
   if (adoptedClaims === 0) {
-    return { status: "nicht_anwendbar", pendingClaims, adoptedClaims };
+    return { status: "not_applicable", pendingClaims, adoptedClaims };
   }
 
   const started = register.project_events.filter(
@@ -55,7 +55,7 @@ export function deriveRelevanceState(
 
   if (hasActiveRun) {
     return {
-      status: "laeuft",
+      status: "running",
       startedAt: lastStarted?.at,
       pendingClaims,
       adoptedClaims,
@@ -63,7 +63,7 @@ export function deriveRelevanceState(
   }
   if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
     return {
-      status: "unterbrochen",
+      status: "interrupted",
       startedAt: lastStarted.at,
       pendingClaims,
       adoptedClaims,
@@ -71,7 +71,7 @@ export function deriveRelevanceState(
   }
   if (lastCompleted) {
     return {
-      status: pendingClaims > 0 ? "angehalten" : "abgeschlossen",
+      status: pendingClaims > 0 ? "halted" : "completed",
       startedAt: lastStarted?.at,
       completedAt: lastCompleted.at,
       reason: lastCompleted.reason,
@@ -79,5 +79,5 @@ export function deriveRelevanceState(
       adoptedClaims,
     };
   }
-  return { status: "nicht_gestartet", pendingClaims, adoptedClaims };
+  return { status: "not_started", pendingClaims, adoptedClaims };
 }

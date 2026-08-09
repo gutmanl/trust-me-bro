@@ -14,7 +14,7 @@ let workspace: string;
 beforeEach(() => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-blobs-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
-  vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+  vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
 });
 
 afterEach(() => {

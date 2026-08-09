@@ -8,7 +8,7 @@ export type ActorId = HumanActorId | SystemActorId;
 
 export interface IdentityConfig {
   /** Short handle of the local user, e.g. "lg" → actor "human:lg". */
-  actorKuerzel: string;
+  actorHandle: string;
   /** Absolute path of the workspace root (one project directory per project). */
   workspaceRoot: string;
 }

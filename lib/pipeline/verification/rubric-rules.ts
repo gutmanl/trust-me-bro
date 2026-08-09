@@ -69,8 +69,8 @@ export function loadRubricRuleSet(rubricVersion: string): RubricRuleSet {
 
 /**
  * Mechanical minimum-evidence check for one claim: evaluated over the types
- * of the claim's DISTINCT pertinent sources (relation stuetzt or
- * stuetzt_teilweise), one entry per source. Pure — the caller derives the
+ * of the claim's DISTINCT pertinent sources (relation supports or
+ * partially_supports), one entry per source. Pure — the caller derives the
  * list from the register.
  */
 export function evaluateMechanicalRubric(
@@ -107,14 +107,14 @@ export function evaluateMechanicalRubric(
 
 /**
  * A mechanical violation caps the LLM's proposal: it can never upgrade the
- * verdict, only downgrade `lizenziert` to `abschwaechen` — `abschwaechen`
- * and `zur_adjudikation` already sit at or below the cap.
+ * verdict, only downgrade `licensed` to `weakened` — `weakened`
+ * and `pending_adjudication` already sit at or below the cap.
  */
 export function combineCalibrationResult(
   mechanical: "erfuellt" | "nicht_erfuellt",
   llmResult: CalibrationResult,
 ): CalibrationResult {
-  return mechanical === "nicht_erfuellt" && llmResult === "lizenziert"
-    ? "abschwaechen"
+  return mechanical === "nicht_erfuellt" && llmResult === "licensed"
+    ? "weakened"
     : llmResult;
 }

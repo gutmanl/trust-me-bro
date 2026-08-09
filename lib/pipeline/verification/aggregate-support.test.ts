@@ -5,16 +5,16 @@ import { aggregateSupportDegree } from "./aggregate-support";
 
 describe("aggregateSupportDegree", () => {
   const cases: Array<[RelationType[], SupportDegree]> = [
-    [["stuetzt"], "supported"],
-    [["stuetzt", "stuetzt"], "supported"],
-    [["stuetzt", "nicht_einschlaegig"], "supported"],
-    [["stuetzt_teilweise"], "partially_supported"],
-    [["stuetzt", "stuetzt_teilweise"], "partially_supported"],
-    [["widerspricht"], "unsupported"],
-    [["widerspricht", "nicht_einschlaegig"], "unsupported"],
-    [["widerspricht", "stuetzt"], "uncertain"],
-    [["widerspricht", "stuetzt_teilweise"], "uncertain"],
-    [["nicht_einschlaegig"], "unsupported"],
+    [["supports"], "supported"],
+    [["supports", "supports"], "supported"],
+    [["supports", "not_relevant"], "supported"],
+    [["partially_supports"], "partially_supported"],
+    [["supports", "partially_supports"], "partially_supported"],
+    [["contradicts"], "unsupported"],
+    [["contradicts", "not_relevant"], "unsupported"],
+    [["contradicts", "supports"], "uncertain"],
+    [["contradicts", "partially_supports"], "uncertain"],
+    [["not_relevant"], "unsupported"],
     [[], "unsupported"],
   ];
 

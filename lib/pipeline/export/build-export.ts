@@ -27,7 +27,7 @@ import {
 
 /**
  * TMB-39: builds the single export artifact
- * `trustmebro-export_<projekt>_<zeitstempel>.tmb` (ZIP container) with
+ * `trustmebro-export_<project>_<timestamp>.tmb` (ZIP container) with
  * manifest.json, claims.json, briefing.md, schema/, traces/, derived/ and —
  * unless a lean export is requested — blobs/. claims.json travels as the
  * verbatim on-disk bytes (never re-serialized), which is what makes the
@@ -142,7 +142,7 @@ export async function exportProjectBundle(
   };
 }
 
-/** `trustmebro-export_<projekt>_<zeitstempel>.tmb`, timestamp compacted the
+/** `trustmebro-export_<project>_<timestamp>.tmb`, timestamp compacted the
  * same way trace filenames are (NTFS-safe, sorts chronologically). */
 export function buildExportFilename(
   projectId: string,

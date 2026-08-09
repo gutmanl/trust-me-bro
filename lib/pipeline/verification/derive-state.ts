@@ -5,16 +5,12 @@ import { pickUnfinishedClaims } from "./select-claims";
  * Verification state derived purely from the register (plus the volatile
  * "a live run exists" flag). Unlike extraction, a verification run persists
  * per claim, so "work remaining" is recomputed from CURRENT claim statuses —
- * never from event counts. Every non-laufend state is safely restartable:
- * a new run simply picks up the claims still in erfasst/existenzgeprueft.
+ * never from event counts. Every non-running state is safely restartable:
+ * a new run simply picks up the claims still in captured/existence_checked.
  */
 
 export type VerificationStatus =
-  | "nicht_gestartet"
-  | "laeuft"
-  | "unterbrochen"
-  | "angehalten"
-  | "abgeschlossen";
+  "not_started" | "running" | "interrupted" | "halted" | "completed";
 
 export interface VerificationState {
   status: VerificationStatus;
@@ -22,7 +18,7 @@ export interface VerificationState {
   completedAt?: string;
   /** Reason of the last verification_run_completed event. */
   reason?: string;
-  /** Claims still in erfasst/existenzgeprueft. */
+  /** Claims still in captured/existence_checked. */
   openClaims: number;
   totalClaims: number;
 }
@@ -44,18 +40,18 @@ export function deriveVerificationState(
 
   if (hasActiveRun) {
     return {
-      status: "laeuft",
+      status: "running",
       startedAt: lastStarted?.at,
       openClaims,
       totalClaims,
     };
   }
   if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    // Startklammer ohne Abschluss: Prozess wurde unterbrochen. Jeder fertig
-    // geprüfte Claim ist bereits einzeln committet — erneut starten ist
-    // sicher und prüft nur den Rest.
+    // Opening bracket without a close: the process was interrupted. Every
+    // fully checked claim is already committed individually — restarting is
+    // safe and only checks the remainder.
     return {
-      status: "unterbrochen",
+      status: "interrupted",
       startedAt: lastStarted.at,
       openClaims,
       totalClaims,
@@ -63,10 +59,10 @@ export function deriveVerificationState(
   }
   if (lastCompleted) {
     return {
-      // angehalten = ordentlich beendet, aber Claims verbleiben offen
-      // (Rate-Limit-Pause oder Item-Fehler); strukturell aus den
-      // Claim-Statuus abgeleitet, nicht aus dem Ereignistext.
-      status: openClaims > 0 ? "angehalten" : "abgeschlossen",
+      // halted = ended cleanly, but claims remain open (rate-limit pause or
+      // item error); derived structurally from the claim statuses, not from
+      // the event text.
+      status: openClaims > 0 ? "halted" : "completed",
       startedAt: lastStarted?.at,
       completedAt: lastCompleted.at,
       reason: lastCompleted.reason,
@@ -74,5 +70,5 @@ export function deriveVerificationState(
       totalClaims,
     };
   }
-  return { status: "nicht_gestartet", openClaims, totalClaims };
+  return { status: "not_started", openClaims, totalClaims };
 }

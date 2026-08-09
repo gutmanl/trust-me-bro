@@ -8,13 +8,13 @@ const register = {
     {
       id: "clm_0001",
       history: [
-        { seq: 2, to_status: "erfasst" },
-        { seq: 5, to_status: "zur_adjudikation" },
+        { seq: 2, to_status: "captured" },
+        { seq: 5, to_status: "pending_adjudication" },
       ],
     },
     {
       id: "clm_0002",
-      history: [{ seq: 3, to_status: "erfasst" }],
+      history: [{ seq: 3, to_status: "captured" }],
     },
   ],
   project_events: [

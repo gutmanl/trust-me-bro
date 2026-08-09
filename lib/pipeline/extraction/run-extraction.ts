@@ -42,7 +42,7 @@ export interface ExtractionDependencies {
 }
 
 export interface ExtractionRunSummary {
-  outcome: "abgeschlossen" | "fehlgeschlagen";
+  outcome: "completed" | "failed";
   claimsCreated: number;
   claimsEscalated: number;
   message: string;
@@ -196,7 +196,7 @@ async function runExtractionOnce(
         : `Extraktion nach ${outcome.attempts} Versuch(en) erschöpft: ${outcome.lastError.message}`;
     await recordFailedCompletion(store, runId, message);
     return {
-      outcome: "fehlgeschlagen",
+      outcome: "failed",
       claimsCreated: 0,
       claimsEscalated: 0,
       message,
@@ -222,7 +222,7 @@ async function runExtractionOnce(
     }`;
     await recordFailedCompletion(store, runId, message);
     return {
-      outcome: "fehlgeschlagen",
+      outcome: "failed",
       claimsCreated: 0,
       claimsEscalated: 0,
       message,
@@ -264,7 +264,7 @@ function applyExtractionOutput(
       judgments: [],
     }));
     // The creation gate decides the status; the reason classifies the
-    // routing for the history (unbelegt vs. gebündelt vs. regulär).
+    // routing for the history (unevidenced vs. bundled vs. regular).
     const reason =
       extracted.evidence.length === 0
         ? "Keine Fundstelle extrahierbar – unbelegter Claim zur Adjudikation."
@@ -289,7 +289,7 @@ function applyExtractionOutput(
       reason,
       at: now,
     });
-    if (claim.status === "zur_adjudikation") {
+    if (claim.status === "pending_adjudication") {
       escalated += 1;
     }
   }
@@ -304,7 +304,7 @@ function applyExtractionOutput(
   });
 
   return {
-    outcome: "abgeschlossen",
+    outcome: "completed",
     claimsCreated: output.claims.length,
     claimsEscalated: escalated,
     message: `${output.claims.length} Claim(s) extrahiert, ${escalated} zur Adjudikation.`,

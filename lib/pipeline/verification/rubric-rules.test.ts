@@ -21,24 +21,24 @@ const repoRoot = path.resolve(
 
 describe("loadRubricRuleSet", () => {
   it("loads and validates the v1 rule file with a rule per claim type", () => {
-    const rules = loadRubricRuleSet("se-evidenz-rubrik-v1");
-    expect(rules.rubric_version).toBe("se-evidenz-rubrik-v1");
+    const rules = loadRubricRuleSet("se-evidence-rubric-v1");
+    expect(rules.rubric_version).toBe("se-evidence-rubric-v1");
     expect(Object.keys(rules.claim_types).sort()).toEqual([
-      "empfehlung",
-      "quantitativer_einzelbefund",
-      "vergleichende_aussage",
-      "wirksamkeitsaussage",
+      "comparative_statement",
+      "effectiveness_statement",
+      "quantitative_finding",
+      "recommendation",
     ]);
   });
 
   it("rejects unknown rubric versions loudly", () => {
-    expect(() => loadRubricRuleSet("se-evidenz-rubrik-v0")).toThrow(
+    expect(() => loadRubricRuleSet("se-evidence-rubric-v0")).toThrow(
       /no rubric rule file/,
     );
   });
 
   it("pins the prose prompt template: rules and prose change together", () => {
-    const rules = loadRubricRuleSet("se-evidenz-rubrik-v1");
+    const rules = loadRubricRuleSet("se-evidence-rubric-v1");
     const template = fs.readFileSync(
       path.join(repoRoot, "lib", "adapters", "prompts", "rubric", "v1.0.0.md"),
     );
@@ -48,7 +48,7 @@ describe("loadRubricRuleSet", () => {
 });
 
 describe("evaluateMechanicalRubric (rubric v1)", () => {
-  const rules = loadRubricRuleSet("se-evidenz-rubrik-v1");
+  const rules = loadRubricRuleSet("se-evidence-rubric-v1");
   const rule = (claimType: keyof typeof rules.claim_types) => {
     const found = rules.claim_types[claimType];
     if (!found) {
@@ -61,74 +61,74 @@ describe("evaluateMechanicalRubric (rubric v1)", () => {
     types: SourceType[],
   ) => evaluateMechanicalRubric(types, rule(claimType));
 
-  it("quantitativer Einzelbefund requires a peer-reviewed source", () => {
+  it("quantitative finding requires a peer-reviewed source", () => {
     expect(
-      evaluate("quantitativer_einzelbefund", ["begutachtete_publikation"]),
+      evaluate("quantitative_finding", ["peer_reviewed_publication"]),
     ).toBe("erfuellt");
-    expect(evaluate("quantitativer_einzelbefund", ["preprint"])).toBe(
+    expect(evaluate("quantitative_finding", ["preprint"])).toBe(
       "nicht_erfuellt",
     );
-    expect(evaluate("quantitativer_einzelbefund", [])).toBe("nicht_erfuellt");
+    expect(evaluate("quantitative_finding", [])).toBe("nicht_erfuellt");
   });
 
-  it("vergleichende Aussage requires two sources, not vendor-only", () => {
+  it("comparative statement requires two sources, not vendor-only", () => {
     expect(
-      evaluate("vergleichende_aussage", [
-        "herstellerdokumentation",
-        "preprint",
+      evaluate("comparative_statement", ["vendor_documentation", "preprint"]),
+    ).toBe("erfuellt");
+    expect(
+      evaluate("comparative_statement", ["peer_reviewed_publication"]),
+    ).toBe("nicht_erfuellt");
+    expect(
+      evaluate("comparative_statement", [
+        "vendor_documentation",
+        "vendor_documentation",
+      ]),
+    ).toBe("nicht_erfuellt");
+  });
+
+  it("effectiveness statement needs a pertinent source; empirical nature stays semantic", () => {
+    expect(evaluate("effectiveness_statement", ["grey_literature"])).toBe(
+      "erfuellt",
+    );
+    expect(evaluate("effectiveness_statement", [])).toBe("nicht_erfuellt");
+  });
+
+  it("recommendation requires convergent source types beyond vendor docs", () => {
+    expect(
+      evaluate("recommendation", [
+        "peer_reviewed_publication",
+        "grey_literature",
       ]),
     ).toBe("erfuellt");
     expect(
-      evaluate("vergleichende_aussage", ["begutachtete_publikation"]),
-    ).toBe("nicht_erfuellt");
-    expect(
-      evaluate("vergleichende_aussage", [
-        "herstellerdokumentation",
-        "herstellerdokumentation",
-      ]),
-    ).toBe("nicht_erfuellt");
-  });
-
-  it("Wirksamkeitsaussage needs a pertinent source; empirical nature stays semantic", () => {
-    expect(evaluate("wirksamkeitsaussage", ["grauliteratur"])).toBe("erfuellt");
-    expect(evaluate("wirksamkeitsaussage", [])).toBe("nicht_erfuellt");
-  });
-
-  it("Empfehlung requires convergent source types beyond vendor docs", () => {
-    expect(
-      evaluate("empfehlung", ["begutachtete_publikation", "grauliteratur"]),
-    ).toBe("erfuellt");
-    expect(
-      evaluate("empfehlung", [
-        "begutachtete_publikation",
-        "begutachtete_publikation",
+      evaluate("recommendation", [
+        "peer_reviewed_publication",
+        "peer_reviewed_publication",
       ]),
     ).toBe("nicht_erfuellt");
     expect(
-      evaluate("empfehlung", [
-        "herstellerdokumentation",
-        "herstellerdokumentation",
+      evaluate("recommendation", [
+        "vendor_documentation",
+        "vendor_documentation",
       ]),
     ).toBe("nicht_erfuellt");
   });
 });
 
 describe("combineCalibrationResult", () => {
-  it("caps lizenziert to abschwaechen on a mechanical violation", () => {
-    expect(combineCalibrationResult("nicht_erfuellt", "lizenziert")).toBe(
-      "abschwaechen",
+  it("caps licensed to weakened on a mechanical violation", () => {
+    expect(combineCalibrationResult("nicht_erfuellt", "licensed")).toBe(
+      "weakened",
     );
   });
 
   it("passes everything else through unchanged", () => {
-    expect(combineCalibrationResult("erfuellt", "lizenziert")).toBe(
-      "lizenziert",
+    expect(combineCalibrationResult("erfuellt", "licensed")).toBe("licensed");
+    expect(combineCalibrationResult("nicht_erfuellt", "weakened")).toBe(
+      "weakened",
     );
-    expect(combineCalibrationResult("nicht_erfuellt", "abschwaechen")).toBe(
-      "abschwaechen",
-    );
-    expect(combineCalibrationResult("nicht_erfuellt", "zur_adjudikation")).toBe(
-      "zur_adjudikation",
-    );
+    expect(
+      combineCalibrationResult("nicht_erfuellt", "pending_adjudication"),
+    ).toBe("pending_adjudication");
   });
 });

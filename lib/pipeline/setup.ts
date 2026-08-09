@@ -3,7 +3,7 @@ import fs from "node:fs";
 import {
   getWorkspaceRoot,
   isIdentityConfigured,
-  isValidActorKuerzel,
+  isValidActorHandle,
   writeIdentityConfig,
 } from "../identity";
 import { InvalidIdentityInputError } from "./errors";
@@ -20,19 +20,19 @@ export function isSetupComplete(): boolean {
 }
 
 /**
- * Validates and persists the actor kuerzel and eagerly creates the
+ * Validates and persists the actor handle and eagerly creates the
  * workspace root, so the first run leaves both configuration and workspace
  * behind (TMB-48 acceptance: "First-Run-Setup erzeugt Workspace und
  * Konfiguration").
  */
-export function completeFirstRunSetup(input: { actorKuerzel: string }): void {
-  const kuerzel = input.actorKuerzel.trim();
-  if (!isValidActorKuerzel(kuerzel)) {
+export function completeFirstRunSetup(input: { actorHandle: string }): void {
+  const handle = input.actorHandle.trim();
+  if (!isValidActorHandle(handle)) {
     throw new InvalidIdentityInputError(
-      `Kürzel "${input.actorKuerzel}" ist ungültig – erlaubt sind ` +
+      `Kürzel "${input.actorHandle}" ist ungültig – erlaubt sind ` +
         'Kleinbuchstaben, Ziffern, "_" und "-" (Beginn mit Buchstabe oder Ziffer).',
     );
   }
-  writeIdentityConfig({ actorKuerzel: kuerzel });
+  writeIdentityConfig({ actorHandle: handle });
   fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
 }

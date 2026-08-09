@@ -31,7 +31,7 @@ function correlatedEnvelope(): TraceEnvelope {
     attempt: 1,
     started_at: "2026-07-28T09:19:48Z",
     finished_at: "2026-07-28T09:20:11Z",
-    result: { relation_type: "stuetzt" },
+    result: { relation_type: "supports" },
   };
 }
 
@@ -71,18 +71,18 @@ describe("buildProvDocument (TMB-41)", () => {
     // evidence node (wasDerivedFrom → source, evidenceOf → claim).
     expect(byId.get("tmb:source/src_meyer2025")).toMatchObject({
       type: "prov:Entity",
-      "tmb:sourceType": "begutachtete_publikation",
+      "tmb:sourceType": "peer_reviewed_publication",
     });
     expect(byId.get("tmb:claim/clm_0001")).toMatchObject({
       type: "prov:Entity",
-      "tmb:status": "bestaetigt",
+      "tmb:status": "confirmed",
       wasGeneratedBy: "tmb:activity/transition/clm_0001/2",
       wasAttributedTo: "tmb:agent/system/extraction",
     });
     expect(byId.get("tmb:evidence/clm_0001/ev_0001")).toMatchObject({
       wasDerivedFrom: "tmb:source/src_meyer2025",
       "tmb:evidenceOf": "tmb:claim/clm_0001",
-      "tmb:relationType": "stuetzt",
+      "tmb:relationType": "supports",
     });
 
     // The judgment activity picks up the correlated trace's start time and
@@ -123,7 +123,7 @@ describe("buildProvDocument (TMB-41)", () => {
   it("states the documented simplifications in the export itself", () => {
     const document = buildProvDocument(fixtureRegister(), []);
     const notes = document["tmb:documentedSimplifications"] as string[];
-    expect(notes.join(" ")).toContain("Keine separaten Reasoning-Knoten");
+    expect(notes.join(" ")).toContain("No separate reasoning nodes");
   });
 
   it("matches the committed golden file", async () => {

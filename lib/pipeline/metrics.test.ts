@@ -16,13 +16,13 @@ describe("metricsToCsv", () => {
     const csv = metricsToCsv(exampleMetrics());
     const lines = csv.trimEnd().split("\r\n");
     expect(lines[0]).toBe(
-      "claim_id,status,claim_type,has_proven_fundstelle,support_degree," +
+      "claim_id,status,claim_type,has_proven_evidence,support_degree," +
         "calibration_result,is_terminal_adjudicated,is_sample_control," +
         "adjudication_count,adjudication_duration_s,repair_cycles," +
         "routing_reason,is_adopted,origin_project_id",
     );
     expect(lines).toHaveLength(2);
-    expect(lines[1].startsWith("clm_0001,bestaetigt,")).toBe(true);
+    expect(lines[1].startsWith("clm_0001,confirmed,")).toBe(true);
     // Null fields render empty, booleans render literally.
     expect(lines[1]).toContain(",true,");
     expect(lines[1].endsWith(",false,")).toBe(true);

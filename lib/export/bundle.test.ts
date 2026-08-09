@@ -132,7 +132,7 @@ describe("verifyBundleFiles", () => {
     const register = testRegister();
     const files = buildBundle(register, { withBlobs: true });
     register.claims[0].history.pop();
-    register.claims[0].status = "zur_adjudikation"; // keep status consistent
+    register.claims[0].status = "pending_adjudication"; // keep status consistent
     files["claims.json"] = serializeRegister(register);
     const verification = verifyBundleFiles(files);
     expect(verification.ok).toBe(false);

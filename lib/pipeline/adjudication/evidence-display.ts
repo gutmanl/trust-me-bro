@@ -55,7 +55,7 @@ export function buildEvidenceDisplayMap(
       }
       display[`${claim.id}/${evidence.id}`] = {
         citation: source ? formatCitation(source) : evidence.source_id,
-        sourceType: source?.custom.source_type ?? "grauliteratur",
+        sourceType: source?.custom.source_type ?? "grey_literature",
         sourceId: evidence.source_id,
         locatorText: formatLocator(evidence.locator as Record<string, unknown>),
         snapshotHref,

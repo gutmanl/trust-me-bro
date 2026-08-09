@@ -26,19 +26,19 @@ export interface ReviseSourceResult {
    * recheck, no register write (TMB-44 acceptance criterion). */
   revised: boolean;
   newRevision?: number;
-  /** Claims marked nachpruefung_erforderlich by this revision. */
+  /** Claims marked recheck_required by this revision. */
   recheckedClaimIds: string[];
 }
 
 /** Claim statuses a source revision pulls into Nachprüfung: exactly the
  * settled machine/human determinations that referenced the old wording.
- * erfasst self-heals (stage 1 always re-runs), the adjudication/repair
- * statuses are mid human-workflow, verworfen stays terminal. */
+ * captured self-heals (stage 1 always re-runs), the adjudication/repair
+ * statuses are mid human-workflow, discarded stays terminal. */
 const RECHECK_STATUSES = new Set([
-  "existenzgeprueft",
-  "vorgeprueft",
-  "automatisch_bestaetigt",
-  "bestaetigt",
+  "existence_checked",
+  "prechecked",
+  "auto_confirmed",
+  "confirmed",
 ]);
 
 /**
@@ -129,8 +129,8 @@ export async function reviseSource(
       );
     for (const claim of affected) {
       tx.transitionClaim(claim.id, {
-        to: "nachpruefung_erforderlich",
-        actor: "system:bestandsrevision",
+        to: "recheck_required",
+        actor: "system:source_revision",
         reason:
           `Bestandsrevision der Quelle ${input.sourceId} ` +
           `(Snapshot-Revision ${lockedSnapshot.revision} → ${newRevision}): ` +

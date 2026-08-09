@@ -88,7 +88,7 @@ describe("buildEvidenceDisplayMap", () => {
       {
         backend: "claude",
         model: "m1",
-        relation_type: "stuetzt",
+        relation_type: "supports",
         confidence: 0.9,
         reasoning: "…",
         at: "2026-08-08T09:00:00Z",
@@ -96,7 +96,7 @@ describe("buildEvidenceDisplayMap", () => {
       {
         backend: "codex",
         model: "m2",
-        relation_type: "widerspricht",
+        relation_type: "contradicts",
         confidence: 0.8,
         reasoning: "…",
         at: "2026-08-08T09:01:00Z",
@@ -110,7 +110,7 @@ describe("buildEvidenceDisplayMap", () => {
 
     const resolved = buildEvidenceDisplayMap(
       "proj_x",
-      registerWith({ judgments, relation: "stuetzt" }),
+      registerWith({ judgments, relation: "supports" }),
     )["clm_0001/ev_0001"];
     expect(resolved.divergent).toBe(false);
   });

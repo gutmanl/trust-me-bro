@@ -24,7 +24,7 @@ export async function addClaimWalkedTo(options: {
       claim: {
         id: claimId,
         text: `Die Reviewzeit sank messbar (${claimNumber}).`,
-        claim_type: "quantitativer_einzelbefund",
+        claim_type: "quantitative_finding",
         briefing_anchor: `p${claimNumber}`,
         provenance: {
           tool: "test",
@@ -45,57 +45,57 @@ export async function addClaimWalkedTo(options: {
       actor: "system:extraction",
       reason: "Testclaim erzeugt.",
     });
-    if (status === "erfasst") {
+    if (status === "captured") {
       return;
     }
-    tx.setExistenceCheck(claimId, evidenceId, { status: "bestanden", at: now });
+    tx.setExistenceCheck(claimId, evidenceId, { status: "passed", at: now });
     tx.transitionClaim(claimId, {
-      to: "existenzgeprueft",
-      actor: "system:existenzpruefung",
+      to: "existence_checked",
+      actor: "system:existence_check",
       reason: "Existenz nachgewiesen.",
     });
-    if (status === "existenzgeprueft") {
+    if (status === "existence_checked") {
       return;
     }
     tx.appendJudgment(claimId, evidenceId, {
       backend: "claude",
       model: "test",
-      relation_type: "stuetzt",
+      relation_type: "supports",
       confidence: 0.95,
       reasoning: "Deckt sich mit dem Auszug.",
       at: now,
     });
-    tx.setResolvedRelation(claimId, evidenceId, "stuetzt");
+    tx.setResolvedRelation(claimId, evidenceId, "supports");
     tx.setSupportDegree(claimId, "supported");
-    tx.setCalibrationResult(claimId, "lizenziert");
+    tx.setCalibrationResult(claimId, "licensed");
     tx.transitionClaim(claimId, {
-      to: "vorgeprueft",
-      actor: "system:vorpruefung",
+      to: "prechecked",
+      actor: "system:precheck",
       reason: "Stufen 2/3 abgeschlossen.",
     });
-    if (status === "vorgeprueft") {
+    if (status === "prechecked") {
       return;
     }
     tx.transitionClaim(claimId, {
-      to: "automatisch_bestaetigt",
-      actor: "system:vorpruefung",
+      to: "auto_confirmed",
+      actor: "system:precheck",
       reason: "Vorprüfung durchgehend positiv.",
     });
-    if (status === "automatisch_bestaetigt") {
+    if (status === "auto_confirmed") {
       return;
     }
     tx.transitionClaim(claimId, {
-      to: "zur_adjudikation",
-      actor: "system:stichprobe",
+      to: "pending_adjudication",
+      actor: "system:spot_check",
       reason: "Stichprobenkontrolle.",
-      routing: "stichprobe",
+      routing: "spot_check",
     });
-    if (status === "zur_adjudikation") {
+    if (status === "pending_adjudication") {
       return;
     }
-    if (status === "bestaetigt") {
+    if (status === "confirmed") {
       tx.transitionClaim(claimId, {
-        to: "bestaetigt",
+        to: "confirmed",
         actor: "human:lg",
         reason: "Bestätigt.",
         decision: {
@@ -106,19 +106,19 @@ export async function addClaimWalkedTo(options: {
       });
       return;
     }
-    if (status === "verworfen") {
+    if (status === "discarded") {
       tx.transitionClaim(claimId, {
-        to: "beanstandet",
+        to: "contested",
         actor: "human:lg",
         reason: "Trägt nicht.",
         decision: {
-          categories: ["leitsatz_nicht_herleitbar"],
+          categories: ["claim_not_derivable"],
           reviewed_evidence_ids: [evidenceId],
           duration_s: 30,
         },
       });
       tx.transitionClaim(claimId, {
-        to: "verworfen",
+        to: "discarded",
         actor: "human:lg",
         reason: "Nicht reparierbar.",
       });

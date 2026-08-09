@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   defaultConfigFilePath,
-  isValidActorKuerzel,
+  isValidActorHandle,
   readConfigFile,
   writeConfigFile,
 } from "./config-file";
@@ -40,51 +40,51 @@ describe("defaultConfigFilePath", () => {
   });
 });
 
-describe("isValidActorKuerzel", () => {
+describe("isValidActorHandle", () => {
   it.each(["lg", "a1", "team_a", "x-y"])("accepts %j", (value) => {
-    expect(isValidActorKuerzel(value)).toBe(true);
+    expect(isValidActorHandle(value)).toBe(true);
   });
 
   it.each(["", "Löwe", "UPPER", "_lead", " lg", "a b"])(
     "rejects %j",
     (value) => {
-      expect(isValidActorKuerzel(value)).toBe(false);
+      expect(isValidActorHandle(value)).toBe(false);
     },
   );
 });
 
 describe("read/writeConfigFile", () => {
-  it("round-trips kuerzel and workspace root through snake_case JSON", () => {
+  it("round-trips handle and workspace root through snake_case JSON", () => {
     const filePath = path.join(scratchDir(), "config.json");
-    writeConfigFile(filePath, { actorKuerzel: "lg", workspaceRoot: "./ws" });
+    writeConfigFile(filePath, { actorHandle: "lg", workspaceRoot: "./ws" });
     expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
-      actor_kuerzel: "lg",
+      actor_handle: "lg",
       workspace_root: "./ws",
     });
     expect(readConfigFile(filePath)).toEqual({
-      actorKuerzel: "lg",
+      actorHandle: "lg",
       workspaceRoot: "./ws",
     });
   });
 
   it("omits the workspace root when not provided", () => {
     const filePath = path.join(scratchDir(), "config.json");
-    writeConfigFile(filePath, { actorKuerzel: "lg" });
+    writeConfigFile(filePath, { actorHandle: "lg" });
     expect(readConfigFile(filePath)).toEqual({
-      actorKuerzel: "lg",
+      actorHandle: "lg",
       workspaceRoot: undefined,
     });
   });
 
   it("creates missing parent directories on write", () => {
     const filePath = path.join(scratchDir(), "nested", "deep", "config.json");
-    writeConfigFile(filePath, { actorKuerzel: "lg" });
-    expect(readConfigFile(filePath)?.actorKuerzel).toBe("lg");
+    writeConfigFile(filePath, { actorHandle: "lg" });
+    expect(readConfigFile(filePath)?.actorHandle).toBe("lg");
   });
 
-  it("rejects an invalid kuerzel on write", () => {
+  it("rejects an invalid handle on write", () => {
     const filePath = path.join(scratchDir(), "config.json");
-    expect(() => writeConfigFile(filePath, { actorKuerzel: "Nope!" })).toThrow(
+    expect(() => writeConfigFile(filePath, { actorHandle: "Nope!" })).toThrow(
       /invalid/,
     );
     expect(fs.existsSync(filePath)).toBe(false);
@@ -94,8 +94,8 @@ describe("read/writeConfigFile", () => {
     ["missing file", undefined],
     ["unparsable JSON", "{ not json"],
     ["wrong shape", JSON.stringify({ someone: "else" })],
-    ["invalid kuerzel in file", JSON.stringify({ actor_kuerzel: "NO" })],
-    ["unknown extra key", JSON.stringify({ actor_kuerzel: "lg", extra: true })],
+    ["invalid handle in file", JSON.stringify({ actor_handle: "NO" })],
+    ["unknown extra key", JSON.stringify({ actor_handle: "lg", extra: true })],
   ])("degrades %s to undefined instead of throwing", (_label, content) => {
     const filePath = path.join(scratchDir(), "config.json");
     if (content !== undefined) {

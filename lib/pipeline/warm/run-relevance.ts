@@ -18,13 +18,13 @@ import { pendingRelevancePopulation } from "./select-claims";
  * adopted claim, judging ONLY its bearing on the new research question —
  * existence and attribution stand. Positive judgments leave no register
  * trace (derive, don't store; the closed bracket marks the sweep), negative
- * or uncertain ones route to adjudication with einschlaegigkeit_negativ.
+ * or uncertain ones route to adjudication with negative_relevance.
  * Persistence, bracket and pause discipline mirror the verification run.
  */
 
-const COMPLETE_ITEM = "__abschluss__";
-const ACTOR_RUN = "system:relevanzlauf" as const;
-const ACTOR_CHECK = "system:einschlaegigkeit" as const;
+const COMPLETE_ITEM = "__closing__";
+const ACTOR_RUN = "system:relevance_run" as const;
+const ACTOR_CHECK = "system:relevance_check" as const;
 
 export interface RelevanceDependencies {
   orchestrator?: Orchestrator;
@@ -35,12 +35,12 @@ export interface RelevanceDependencies {
 }
 
 export type RelevanceItemOutcome =
-  | "einschlaegig"
-  | "zur_adjudikation"
-  | "eskaliert"
-  | "pausiert"
-  | "uebersprungen"
-  | "abschluss";
+  | "relevant"
+  | "pending_adjudication"
+  | "escalated"
+  | "paused"
+  | "skipped"
+  | "closed";
 
 export interface RelevanceItemResult {
   /** Absent for the closing pseudo-item. */
@@ -81,7 +81,7 @@ export async function startRelevanceCheck(
   // A dangling bracket is resumable work even when nothing is pending: the
   // recovery run consists of the closing item alone (verification pattern).
   const interrupted =
-    deriveRelevanceState(register, false).status === "unterbrochen";
+    deriveRelevanceState(register, false).status === "interrupted";
   if (population.length === 0 && !interrupted) {
     throw new RelevancePreconditionError(
       "Keine übernommenen Claims ohne Einschlägigkeitsprüfung – " +
@@ -213,7 +213,7 @@ async function processClaim(
   if (bracket.pauseReason !== null) {
     return {
       claimId,
-      outcome: "uebersprungen",
+      outcome: "skipped",
       message: `Übersprungen – Lauf pausiert (${bracket.pauseReason}).`,
     };
   }
@@ -223,11 +223,11 @@ async function processClaim(
   if (
     !claim ||
     claim.provenance.origin_project_id === undefined ||
-    (claim.status !== "bestaetigt" && claim.status !== "automatisch_bestaetigt")
+    (claim.status !== "confirmed" && claim.status !== "auto_confirmed")
   ) {
     return {
       claimId,
-      outcome: "uebersprungen",
+      outcome: "skipped",
       message: "Übersprungen – Status hat sich seit Laufbeginn geändert.",
     };
   }
@@ -255,7 +255,7 @@ async function processClaim(
     bracket.pauseReason = outcome.reason;
     return {
       claimId,
-      outcome: "pausiert",
+      outcome: "paused",
       message:
         `Lauf pausiert (Rate-Limit): ${outcome.reason} – Claim unverändert, ` +
         "später erneut starten.",
@@ -264,44 +264,43 @@ async function processClaim(
   if (outcome.status === "exhausted") {
     await context.store.transaction((tx) => {
       tx.transitionClaim(claimId, {
-        to: "zur_adjudikation",
+        to: "pending_adjudication",
         actor: ACTOR_CHECK,
         reason: `Einschlägigkeitsprüfung endgültig gescheitert – eskaliert: ${outcome.lastError.message}`,
-        routing: "eskaliert",
+        routing: "escalated",
       });
     });
     bracket.escalated += 1;
     return {
       claimId,
-      outcome: "eskaliert",
+      outcome: "escalated",
       message: `Adapter erschöpft – zur Adjudikation eskaliert (${outcome.lastError.message}).`,
     };
   }
 
-  if (outcome.output.einschlaegig === "ja") {
+  if (outcome.output.relevant === "yes") {
     // Positive outcome: deliberately no register write — the closed bracket
     // marks the sweep, the trace envelope holds the full judgment.
     bracket.kept += 1;
     return {
       claimId,
-      outcome: "einschlaegig",
+      outcome: "relevant",
       message: `Einschlägig für die neue Frage – Status bleibt. ${outcome.output.reasoning}`,
     };
   }
-  const verdict =
-    outcome.output.einschlaegig === "nein" ? "negativ" : "unsicher";
+  const verdict = outcome.output.relevant === "no" ? "negativ" : "unsicher";
   await context.store.transaction((tx) => {
     tx.transitionClaim(claimId, {
-      to: "zur_adjudikation",
+      to: "pending_adjudication",
       actor: ACTOR_CHECK,
       reason: `Einschlägigkeit für die neue Recherchefrage ${verdict} bewertet: ${outcome.output.reasoning}`,
-      routing: "einschlaegigkeit_negativ",
+      routing: "negative_relevance",
     });
   });
   bracket.routed += 1;
   return {
     claimId,
-    outcome: "zur_adjudikation",
+    outcome: "pending_adjudication",
     message: `Einschlägigkeit ${verdict} – zur Adjudikation.`,
   };
 }
@@ -309,7 +308,7 @@ async function processClaim(
 /** Trailing pseudo-item: closes the bracket — but ONLY after a fully swept
  * run. The closed bracket is what marks the population as done (seq
  * boundary), so a pause or item error must leave the bracket open: the
- * state reads "unterbrochen" and the next run re-sweeps the remainder.
+ * state reads "interrupted" and the next run re-sweeps the remainder.
  * Claims judged positive before the interruption are then re-checked too —
  * the safe direction, mirroring the sample draw's crash semantics. */
 async function closeBracket(
@@ -323,7 +322,7 @@ async function closeBracket(
         ? `pausiert (${bracket.pauseReason})`
         : `${bracket.errors} Fehler`;
     return {
-      outcome: "abschluss",
+      outcome: "closed",
       message: `Lauf ${cause} – Klammer bleibt offen, nächster Lauf setzt fort.`,
     };
   }
@@ -338,7 +337,7 @@ async function closeBracket(
     });
   });
   return {
-    outcome: "abschluss",
+    outcome: "closed",
     message: `${bracket.kept} einschlägig, ${bracket.routed} zur Adjudikation, ${bracket.escalated} eskaliert.`,
   };
 }

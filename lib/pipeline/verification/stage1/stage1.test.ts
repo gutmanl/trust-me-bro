@@ -27,7 +27,7 @@ function makeSource(overrides: Partial<Source> = {}): Source {
     id: "src_a",
     type: "article-journal",
     custom: {
-      source_type: "begutachtete_publikation",
+      source_type: "peer_reviewed_publication",
       snapshot: {
         retrieved_at: "2026-08-01T08:00:00Z",
         sha256: sha256(SNAPSHOT_CONTENT),
@@ -59,7 +59,7 @@ describe("checkSourceLive", () => {
     });
   });
 
-  it("propagates transport failures as run errors, never as nicht_bestanden", async () => {
+  it("propagates transport failures as run errors, never as failed", async () => {
     const failing = {
       fetch: async () => {
         throw new Error("DNS down");
@@ -129,8 +129,8 @@ describe("checkClaimExistence", () => {
     return {
       id: "clm_0001",
       text: "Testclaim.",
-      claim_type: "quantitativer_einzelbefund",
-      status: "erfasst",
+      claim_type: "quantitative_finding",
+      status: "captured",
       briefing_anchor: "p1",
       provenance: {
         tool: "t",
@@ -151,7 +151,7 @@ describe("checkClaimExistence", () => {
           at: "2026-08-01T08:00:00Z",
           actor: "system:extraction",
           from_status: null,
-          to_status: "erfasst",
+          to_status: "captured",
           reason: "Test.",
           prev_hash: "0".repeat(64),
           hash: "1".repeat(64),
@@ -185,7 +185,7 @@ describe("checkClaimExistence", () => {
       cache,
     });
     expect(results).toEqual([
-      expect.objectContaining({ evidenceId: "ev_0001", status: "bestanden" }),
+      expect.objectContaining({ evidenceId: "ev_0001", status: "passed" }),
     ]);
   });
 
@@ -200,7 +200,7 @@ describe("checkClaimExistence", () => {
       fetcher: fakeFetcher({}),
       cache,
     });
-    expect(deviation.status).toBe("nicht_bestanden");
+    expect(deviation.status).toBe("failed");
 
     const broken = makeSource();
     broken.custom.snapshot = {
@@ -212,7 +212,7 @@ describe("checkClaimExistence", () => {
       new Map([["src_a", broken]]),
       { blobs, fetcher: fakeFetcher({}), cache },
     );
-    expect(noText.status).toBe("nicht_bestanden");
+    expect(noText.status).toBe("failed");
     expect(noText.detail).toContain("kein Textlayer");
   });
 
@@ -228,7 +228,7 @@ describe("checkClaimExistence", () => {
       cache,
     });
     expect(result).toMatchObject({
-      status: "nicht_bestanden",
+      status: "failed",
       detail: "HTTP 404",
     });
   });

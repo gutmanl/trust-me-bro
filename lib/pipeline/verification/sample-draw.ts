@@ -11,12 +11,12 @@ import type { Claim, ProjectEvent } from "../../register";
 
 /**
  * Population of the sample draw, derived from the REGISTER, not from run
- * memory: claims currently automatisch_bestaetigt whose confirming history
+ * memory: claims currently auto_confirmed whose confirming history
  * entry lies after the last closed run bracket have never been subject to a
  * sample decision. In an uninterrupted run this is exactly the set the run
  * just confirmed; after a crash between the last claim and the draw it
  * additionally sweeps up the stranded confirmations of the dead run — no
- * claim escapes the Stichprobe because a process died at the wrong moment.
+ * claim escapes the spot check because a process died at the wrong moment.
  */
 export function pendingSamplePopulation(
   claims: readonly Claim[],
@@ -26,10 +26,10 @@ export function pendingSamplePopulation(
     .filter((event) => event.event === "verification_run_completed")
     .reduce((max, event) => Math.max(max, event.seq), 0);
   return claims
-    .filter((claim) => claim.status === "automatisch_bestaetigt")
+    .filter((claim) => claim.status === "auto_confirmed")
     .filter((claim) => {
       const confirmation = claim.history.findLast(
-        (entry) => entry.to_status === "automatisch_bestaetigt",
+        (entry) => entry.to_status === "auto_confirmed",
       );
       return confirmation !== undefined && confirmation.seq > lastCompletedSeq;
     })

@@ -58,17 +58,17 @@ export function allowedBackendClis(): readonly BackendCli[] {
     : ["claude", "codex"];
 }
 
-export const DEFAULT_RUBRIC_VERSION = "se-evidenz-rubrik-v1";
+export const DEFAULT_RUBRIC_VERSION = "se-evidence-rubric-v1";
 export const DEFAULT_ADJUDICATION_SAMPLE_RATE = 0.1;
 /** Repair cycles before the loop escalates to the reviewer (TMB-37); applied
  * at point of use for registers whose config predates the field. */
 export const DEFAULT_MAX_REPAIR_CYCLES = 2;
-/** Second-opinion criteria (Divergenzregel): request the secondary backend's
+/** Second-opinion criteria (divergence rule): request the secondary backend's
  * judgment when the primary confidence is below the threshold or the primary
- * relation is not `stuetzt`. */
+ * relation is not `supports`. */
 export const DEFAULT_SECOND_OPINION = {
   confidence_threshold: 0.8,
-  on_relation_not_stuetzt: true,
+  on_relation_not_supports: true,
 } as const;
 
 export interface CreateProjectInput {

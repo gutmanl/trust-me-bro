@@ -24,38 +24,38 @@ afterEach(() => {
 
 describe("isSetupComplete", () => {
   it("mirrors the identity configuration state", () => {
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     expect(isSetupComplete()).toBe(false);
-    vi.stubEnv("TMB_ACTOR_KUERZEL", "lg");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     expect(isSetupComplete()).toBe(true);
   });
 });
 
 describe("completeFirstRunSetup", () => {
-  it("persists the trimmed kuerzel and creates the workspace root", () => {
+  it("persists the trimmed handle and creates the workspace root", () => {
     const dir = scratch();
     const configPath = path.join(dir, "config.json");
     const workspace = path.join(dir, "workspace");
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", configPath);
     vi.stubEnv("TMB_WORKSPACE", workspace);
 
-    completeFirstRunSetup({ actorKuerzel: "  lg  " });
+    completeFirstRunSetup({ actorHandle: "  lg  " });
 
     expect(isSetupComplete()).toBe(true);
-    expect(JSON.parse(fs.readFileSync(configPath, "utf8")).actor_kuerzel).toBe(
+    expect(JSON.parse(fs.readFileSync(configPath, "utf8")).actor_handle).toBe(
       "lg",
     );
     expect(fs.existsSync(workspace)).toBe(true);
   });
 
-  it("rejects an invalid kuerzel with a PipelineError and writes nothing", () => {
+  it("rejects an invalid handle with a PipelineError and writes nothing", () => {
     const dir = scratch();
     const configPath = path.join(dir, "config.json");
-    vi.stubEnv("TMB_ACTOR_KUERZEL", undefined);
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", configPath);
 
-    expect(() => completeFirstRunSetup({ actorKuerzel: "Löwe!" })).toThrow(
+    expect(() => completeFirstRunSetup({ actorHandle: "Löwe!" })).toThrow(
       InvalidIdentityInputError,
     );
     expect(fs.existsSync(configPath)).toBe(false);

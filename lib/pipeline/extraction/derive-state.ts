@@ -9,11 +9,7 @@ import type { ClaimsRegister } from "../../register";
  */
 
 export type ExtractionStatus =
-  | "nicht_gestartet"
-  | "laeuft"
-  | "unterbrochen"
-  | "fehlgeschlagen"
-  | "abgeschlossen";
+  "not_started" | "running" | "interrupted" | "failed" | "completed";
 
 export interface ExtractionState {
   status: ExtractionStatus;
@@ -39,16 +35,16 @@ export function deriveExtractionState(
   const totalClaims = register.claims.length;
 
   if (hasActiveRun) {
-    return { status: "laeuft", startedAt: lastStarted?.at, totalClaims };
+    return { status: "running", startedAt: lastStarted?.at, totalClaims };
   }
   if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    // Startklammer ohne Abschluss: Prozess wurde unterbrochen; per Invariante
-    // wurden dabei keine Claims geschrieben — erneut starten ist sicher.
-    return { status: "unterbrochen", startedAt: lastStarted.at, totalClaims };
+    // Opening bracket without a close: the process was interrupted; by
+    // invariant no claims were written in that case — restarting is safe.
+    return { status: "interrupted", startedAt: lastStarted.at, totalClaims };
   }
   if (totalClaims > 0) {
     return {
-      status: "abgeschlossen",
+      status: "completed",
       startedAt: lastStarted?.at,
       completedAt: lastCompleted?.at,
       reason: lastCompleted?.reason,
@@ -57,12 +53,12 @@ export function deriveExtractionState(
   }
   if (lastCompleted) {
     return {
-      status: "fehlgeschlagen",
+      status: "failed",
       startedAt: lastStarted?.at,
       completedAt: lastCompleted.at,
       reason: lastCompleted.reason,
       totalClaims,
     };
   }
-  return { status: "nicht_gestartet", totalClaims };
+  return { status: "not_started", totalClaims };
 }

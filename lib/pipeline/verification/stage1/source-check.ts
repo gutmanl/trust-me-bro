@@ -10,7 +10,7 @@ import { resolveArxiv, resolveDoi } from "../../sources/resolve";
  * Live half of stage 1 (TMB-27): identifier re-resolution against the
  * bibliographic services and URL re-fetch compared against the frozen
  * snapshot hash. Definitive negative answers (identifier does not resolve,
- * URL unreachable, document content changed) are `nicht_bestanden`; network
+ * URL unreachable, document content changed) are `failed`; network
  * failures on OUR side throw and become run errors — the claim stays
  * unchanged, never wrongly failed (ratified decision on stage-1 semantics).
  *

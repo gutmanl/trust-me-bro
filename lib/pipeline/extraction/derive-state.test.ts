@@ -33,34 +33,34 @@ function withEvent(
 }
 
 describe("deriveExtractionState", () => {
-  it("reports nicht_gestartet without any batch events", () => {
+  it("reports not_started without any batch events", () => {
     expect(deriveExtractionState(baseRegister(), false).status).toBe(
-      "nicht_gestartet",
+      "not_started",
     );
   });
 
-  it("reports laeuft while a live run exists", () => {
+  it("reports running while a live run exists", () => {
     const register = baseRegister();
     withEvent(register, "batch_run_started", 2);
-    expect(deriveExtractionState(register, true).status).toBe("laeuft");
+    expect(deriveExtractionState(register, true).status).toBe("running");
   });
 
-  it("reports unterbrochen for an unmatched start bracket", () => {
+  it("reports interrupted for an unmatched start bracket", () => {
     const register = baseRegister();
     withEvent(register, "batch_run_started", 2);
-    expect(deriveExtractionState(register, false).status).toBe("unterbrochen");
+    expect(deriveExtractionState(register, false).status).toBe("interrupted");
   });
 
-  it("reports fehlgeschlagen for a completed run without claims", () => {
+  it("reports failed for a completed run without claims", () => {
     const register = baseRegister();
     withEvent(register, "batch_run_started", 2);
     withEvent(register, "batch_run_completed", 3, "Erschöpft.");
     const state = deriveExtractionState(register, false);
-    expect(state.status).toBe("fehlgeschlagen");
+    expect(state.status).toBe("failed");
     expect(state.reason).toBe("Erschöpft.");
   });
 
-  it("reports abgeschlossen once claims exist under a closed bracket", () => {
+  it("reports completed once claims exist under a closed bracket", () => {
     const register = baseRegister();
     withEvent(register, "batch_run_started", 2);
     withEvent(register, "batch_run_completed", 3, "2 Claims.");
@@ -68,7 +68,7 @@ describe("deriveExtractionState", () => {
       structuredClone(exampleProject) as unknown as ClaimsRegister
     ).claims;
     const state = deriveExtractionState(register, false);
-    expect(state.status).toBe("abgeschlossen");
+    expect(state.status).toBe("completed");
     expect(state.totalClaims).toBe(1);
   });
 
@@ -77,6 +77,6 @@ describe("deriveExtractionState", () => {
     withEvent(register, "batch_run_started", 2);
     withEvent(register, "batch_run_completed", 3, "Fehlschlag.");
     withEvent(register, "batch_run_started", 4);
-    expect(deriveExtractionState(register, false).status).toBe("unterbrochen");
+    expect(deriveExtractionState(register, false).status).toBe("interrupted");
   });
 });

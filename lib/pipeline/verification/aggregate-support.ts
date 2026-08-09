@@ -7,11 +7,11 @@ import type { RelationType, SupportDegree } from "../../register";
  * identically. Contradicting evidence stays visible as its own relation;
  * aggregation only routes:
  *
- *   widerspricht + nothing supporting  -> unsupported
- *   widerspricht + something supporting -> uncertain (conflict)
- *   no widerspricht, any stuetzt_teilweise -> partially_supported
- *   no widerspricht, at least one stuetzt  -> supported
- *   only nicht_einschlaegig (or empty)     -> unsupported
+ *   contradicts + nothing supporting  -> unsupported
+ *   contradicts + something supporting -> uncertain (conflict)
+ *   no contradicts, any partially_supports -> partially_supported
+ *   no contradicts, at least one supports  -> supported
+ *   only not_relevant (or empty)     -> unsupported
  *
  * Callers must pass one relation per evidence and only once ALL evidence of
  * the claim has a resolved relation (mirrors the preCheckComplete gate).
@@ -19,17 +19,17 @@ import type { RelationType, SupportDegree } from "../../register";
 export function aggregateSupportDegree(
   resolvedRelations: readonly RelationType[],
 ): SupportDegree {
-  const contradicts = resolvedRelations.includes("widerspricht");
+  const contradicts = resolvedRelations.includes("contradicts");
   const supports = resolvedRelations.some(
-    (relation) => relation === "stuetzt" || relation === "stuetzt_teilweise",
+    (relation) => relation === "supports" || relation === "partially_supports",
   );
   if (contradicts) {
     return supports ? "uncertain" : "unsupported";
   }
-  if (resolvedRelations.includes("stuetzt_teilweise")) {
+  if (resolvedRelations.includes("partially_supports")) {
     return "partially_supported";
   }
-  if (resolvedRelations.includes("stuetzt")) {
+  if (resolvedRelations.includes("supports")) {
     return "supported";
   }
   return "unsupported";
