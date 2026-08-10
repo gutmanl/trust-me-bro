@@ -9,7 +9,9 @@ import { RegisterStore } from "../register";
 import type { ProjectConfig } from "../register";
 import {
   getBackendsHealth,
+  getInstallationBackendsHealth,
   probeBackendUsable,
+  runInstallationLoginProbe,
   runLoginProbe,
   withoutSecondaryBackend,
 } from "./health";
@@ -140,5 +142,59 @@ describe("withoutSecondaryBackend", () => {
     expect(effective.rubric_version).toBe(config.rubric_version);
     // The stored project config is untouched (per-run degradation only).
     expect(config.backends.secondary?.cli).toBe("codex");
+  });
+});
+
+describe("getInstallationBackendsHealth (TMB-54, D7)", () => {
+  it("diagnoses every selectable backend without any project", async () => {
+    // The point of the use-case: no project is created here, and none
+    // exists. getBackendsHealth cannot answer this question at all, which
+    // is why "create a project to find out you cannot use it" was the
+    // status quo.
+    const probed: string[] = [];
+    const result = await getInstallationBackendsHealth({
+      check: async (cli) => {
+        probed.push(cli);
+        return health(cli, cli !== "codex");
+      },
+    });
+    expect(probed).toEqual(["claude", "codex", "mock"]);
+    expect(result.map((backend) => backend.cli)).toEqual([
+      "claude",
+      "codex",
+      "mock",
+    ]);
+    expect(result.map((backend) => backend.usable)).toEqual([
+      true,
+      false,
+      true,
+    ]);
+  });
+
+  it("includes the API spike backend only while its gate is open", async () => {
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", "1");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    const withSpike = await getInstallationBackendsHealth({
+      check: async (cli) => health(cli, true),
+    });
+    expect(withSpike.map((backend) => backend.cli)).toContain("anthropic-api");
+
+    vi.stubEnv("TMB_ENABLE_API_BACKEND", undefined);
+    const withoutSpike = await getInstallationBackendsHealth({
+      check: async (cli) => health(cli, true),
+    });
+    expect(withoutSpike.map((backend) => backend.cli)).not.toContain(
+      "anthropic-api",
+    );
+  });
+});
+
+describe("runInstallationLoginProbe (TMB-54)", () => {
+  it("probes one CLI by id, without a project's role assignment", async () => {
+    const result = await runInstallationLoginProbe("claude", {
+      probe: async (cli) => health(cli, true),
+    });
+    expect(result.cli).toBe("claude");
+    expect(result.usable).toBe(true);
   });
 });

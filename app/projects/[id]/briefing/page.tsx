@@ -1,4 +1,5 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
+import { ResearchGuidance } from "@/app/components/ResearchGuidance";
 import { SubpageHeader } from "@/app/components/ui";
 import { getBriefing } from "@/lib/pipeline";
 import { formatTimestamp } from "../../status-labels";
@@ -51,9 +52,14 @@ export default async function BriefingPage(
           </div>
         </div>
       ) : (
-        <div className="rounded-md border border-slate-200 bg-white p-6">
-          <BriefingForm projectId={id} />
-        </div>
+        <>
+          {/* Import control first: the guidance is a hint and must not push
+              it below the fold (D12). */}
+          <div className="rounded-md border border-slate-200 bg-white p-6">
+            <BriefingForm projectId={id} />
+          </div>
+          <ResearchGuidance />
+        </>
       )}
     </div>
   );

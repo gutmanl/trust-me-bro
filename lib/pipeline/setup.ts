@@ -1,12 +1,15 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import {
   getUnpaywallSetting as identityGetUnpaywallSetting,
   getWorkspaceRoot,
+  getWorkspaceRootSetting as identityGetWorkspaceRootSetting,
   isIdentityConfigured,
   isValidActorHandle,
   writeIdentityConfig,
   writeUnpaywallEmail,
+  writeWorkspaceRoot,
 } from "../identity";
 import type { UnpaywallSetting } from "../identity";
 import { InvalidIdentityInputError } from "./errors";
@@ -41,6 +44,59 @@ export function completeFirstRunSetup(input: { actorHandle: string }): void {
     );
   }
   writeIdentityConfig({ actorHandle: handle });
+  fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
+}
+
+/**
+ * The currently effective workspace root and where it comes from (TMB-54) —
+ * the wizard's second step shows it and offers to change it.
+ */
+export function getWorkspaceRootSetting(): {
+  root: string;
+  source: "env" | "config" | "default";
+} {
+  return identityGetWorkspaceRootSetting();
+}
+
+/**
+ * Persists the workspace root (TMB-54, D5). Deliberately a FIRST-RUN
+ * capability: moving the root once projects exist would orphan them, and
+ * migrating them is out of scope — so the use-case refuses rather than
+ * relying on the wizard being the only caller. An env-provided root is
+ * refused outright, mirroring setUnpaywallEmail.
+ */
+export function setWorkspaceRoot(root: string): void {
+  if (identityGetWorkspaceRootSetting().source === "env") {
+    throw new InvalidIdentityInputError(
+      "Das Arbeitsverzeichnis ist über die Umgebungsvariable TMB_WORKSPACE " +
+        "gesetzt und kann nicht über die Oberfläche geändert werden.",
+    );
+  }
+  const trimmed = root.trim();
+  if (trimmed.length === 0) {
+    throw new InvalidIdentityInputError(
+      "Das Arbeitsverzeichnis darf nicht leer sein.",
+    );
+  }
+  const current = getWorkspaceRoot();
+  if (fs.existsSync(current)) {
+    const hasProjects = fs
+      .readdirSync(current, { withFileTypes: true })
+      .some(
+        (entry) =>
+          entry.isDirectory() &&
+          fs.existsSync(path.join(current, entry.name, "claims.json")),
+      );
+    if (hasProjects) {
+      throw new InvalidIdentityInputError(
+        "Das Arbeitsverzeichnis lässt sich nur vor dem ersten Projekt " +
+          "festlegen – ein Wechsel würde die vorhandenen Projekte " +
+          "zurücklassen. Verschieben Sie die Projektordner von Hand, wenn " +
+          "ein anderer Ort nötig ist.",
+      );
+    }
+  }
+  writeWorkspaceRoot(trimmed);
   fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
 }
 

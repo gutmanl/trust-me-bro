@@ -8,8 +8,10 @@ import { InvalidIdentityInputError } from "./errors";
 import {
   completeFirstRunSetup,
   getUnpaywallSetting,
+  getWorkspaceRootSetting,
   isSetupComplete,
   setUnpaywallEmail,
+  setWorkspaceRoot,
 } from "./setup";
 
 const scratchDirs: string[] = [];
@@ -129,5 +131,81 @@ describe("getUnpaywallSetting / setUnpaywallEmail", () => {
     await expect(setUnpaywallEmail("lg@example.org")).rejects.toBeInstanceOf(
       InvalidIdentityInputError,
     );
+  });
+});
+
+describe("getWorkspaceRootSetting / setWorkspaceRoot (TMB-54, D5)", () => {
+  it("reports the source so the UI knows whether it may offer an edit", () => {
+    const dir = scratch();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+    expect(getWorkspaceRootSetting().source).toBe("default");
+
+    setWorkspaceRoot(path.join(dir, "gewaehlt"));
+    expect(getWorkspaceRootSetting()).toEqual({
+      root: path.resolve(path.join(dir, "gewaehlt")),
+      source: "config",
+    });
+
+    // The environment still wins over the stored value, as everywhere else.
+    vi.stubEnv("TMB_WORKSPACE", path.join(dir, "aus-env"));
+    expect(getWorkspaceRootSetting().source).toBe("env");
+  });
+
+  it("creates the chosen directory so the next step finds a workspace", () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+
+    const target = path.join(dir, "neu", "tief");
+    setWorkspaceRoot(target);
+    expect(fs.existsSync(target)).toBe(true);
+  });
+
+  it("refuses an env-provided root instead of writing a value that cannot win", () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", path.join(dir, "aus-env"));
+
+    expect(() => setWorkspaceRoot(path.join(dir, "andere"))).toThrow(
+      InvalidIdentityInputError,
+    );
+  });
+
+  it("rejects an empty root", () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+
+    expect(() => setWorkspaceRoot("   ")).toThrow(InvalidIdentityInputError);
+  });
+
+  it("refuses to move the root once projects exist (D5: no orphaning)", () => {
+    // The whole reason the workspace root is a first-run-only setting: the
+    // application does not migrate project directories, so a later change
+    // would leave them behind. Enforced in the use-case, not just by the
+    // wizard being the only caller.
+    const dir = scratch();
+    const workspace = path.join(dir, "workspace");
+    fs.mkdirSync(path.join(workspace, "proj_alt"), { recursive: true });
+    fs.writeFileSync(path.join(workspace, "proj_alt", "claims.json"), "{}");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+    setWorkspaceRoot(workspace);
+
+    expect(() => setWorkspaceRoot(path.join(dir, "woanders"))).toThrow(
+      /nur vor dem ersten Projekt/,
+    );
+    // A directory that is not a project does not block the change.
+    fs.rmSync(path.join(workspace, "proj_alt"), { recursive: true });
+    fs.mkdirSync(path.join(workspace, "irgendwas"), { recursive: true });
+    expect(() => setWorkspaceRoot(path.join(dir, "woanders"))).not.toThrow();
   });
 });

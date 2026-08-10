@@ -226,12 +226,20 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.getUnpaywallSetting).toBeDefined();
     expect(surface.setUnpaywallEmail).toBeDefined();
     expect(surface.writeUnpaywallEmail).toBeUndefined();
+    // TMB-54 (D5): the workspace root read accessor and its first-run-only
+    // write use-case; the identity writer stays internal.
+    expect(surface.getWorkspaceRootSetting).toBeDefined();
+    expect(surface.setWorkspaceRoot).toBeDefined();
+    expect(surface.writeWorkspaceRoot).toBeUndefined();
     // TMB-49: backend preflight accessors; probe mechanics and the run
     // precondition seam stay internal.
     expect(surface.getBackendsHealth).toBeDefined();
     expect(surface.runLoginProbe).toBeDefined();
     expect(surface.probeBackendUsable).toBeUndefined();
     expect(surface.withoutSecondaryBackend).toBeUndefined();
+    // TMB-54 (D7): installation-level diagnosis, no project required.
+    expect(surface.getInstallationBackendsHealth).toBeDefined();
+    expect(surface.runInstallationLoginProbe).toBeDefined();
     // TMB-51: the UI's flag accessor; family mapping and allowlist stay
     // internal.
     expect(surface.isApiBackendEnabled).toBeDefined();

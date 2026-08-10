@@ -20,6 +20,7 @@ export type {
 export {
   getUnpaywallEmail,
   getUnpaywallSetting,
+  getWorkspaceRootSetting,
   loadAdapterConfig,
   loadAnthropicApiKey,
   loadFeatureFlags,
@@ -106,6 +107,23 @@ export function writeIdentityConfig(input: {
  * currently effective handle is carried into the newly created file so it
  * stays schema-valid (actor_handle is mandatory on disk).
  */
+/**
+ * Persists the workspace root (TMB-54) while preserving every other field,
+ * exactly like writeUnpaywallEmail. Separate from writeIdentityConfig
+ * because the wizard's workspace step runs after the handle already exists
+ * and must not have to restate it.
+ */
+export function writeWorkspaceRoot(root: string): void {
+  const filePath = defaultConfigFilePath();
+  const existing = readConfigFile(filePath);
+  const actorHandle = existing?.actorHandle ?? loadIdentityConfig().actorHandle;
+  writeConfigFile(filePath, {
+    actorHandle,
+    workspaceRoot: root,
+    unpaywallEmail: existing?.unpaywallEmail,
+  });
+}
+
 export function writeUnpaywallEmail(email: string | null): void {
   const filePath = defaultConfigFilePath();
   const existing = readConfigFile(filePath);

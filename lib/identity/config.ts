@@ -92,6 +92,27 @@ export function getUnpaywallSetting(
   return { email: null, source: "unset" };
 }
 
+/**
+ * The workspace root with its source discriminator (TMB-54), mirroring
+ * getUnpaywallSetting(): the first-run wizard offers to change it, but an
+ * env-provided root is not editable from the UI, and the code default has
+ * to be distinguishable from a deliberately stored choice.
+ */
+export function getWorkspaceRootSetting(env: NodeJS.ProcessEnv = process.env): {
+  root: string;
+  source: "env" | "config" | "default";
+} {
+  const fromEnv = env.TMB_WORKSPACE?.trim();
+  if (fromEnv) {
+    return { root: path.resolve(fromEnv), source: "env" };
+  }
+  const fromFile = readConfigFile(defaultConfigFilePath(env))?.workspaceRoot;
+  if (fromFile) {
+    return { root: path.resolve(fromFile), source: "config" };
+  }
+  return { root: path.resolve(DEFAULT_WORKSPACE), source: "default" };
+}
+
 /** Convenience accessor over getUnpaywallSetting() for call sites that only
  * need the address, not its provenance — the document-url derivation
  * (reference-scan/derive-document-url.ts). */

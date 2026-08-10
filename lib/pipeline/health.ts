@@ -1,7 +1,7 @@
 import { checkCliHealth, runCliLoginProbe } from "../adapters";
 import type { BackendHealth } from "../adapters";
 import type { ProjectConfig } from "../register";
-import { requireProjectStore } from "./projects";
+import { allowedBackendClis, requireProjectStore } from "./projects";
 
 /**
  * Backend health as the web layer and the run preconditions consume it
@@ -33,6 +33,32 @@ export async function getBackendsHealth(
     secondaryCli === undefined ? undefined : check(secondaryCli),
   ]);
   return { primary, ...(secondary === undefined ? {} : { secondary }) };
+}
+
+/**
+ * Installation-level diagnosis (TMB-54, D7): the same three-stage health as
+ * getBackendsHealth, but for every selectable backend and WITHOUT a
+ * project. getBackendsHealth needs a projectId because it reads that
+ * project's config.backends — which is precisely why, before the first
+ * project existed, there was no way to find out that no backend was usable.
+ * The setup wizard and the installation settings page consume this.
+ */
+export async function getInstallationBackendsHealth(
+  deps: HealthDependencies = {},
+): Promise<BackendHealth[]> {
+  const check = deps.check ?? checkCliHealth;
+  return Promise.all(allowedBackendClis().map((cli) => check(cli)));
+}
+
+/**
+ * The installation-level counterpart of runLoginProbe: probes one CLI by id
+ * rather than by a project's role assignment.
+ */
+export async function runInstallationLoginProbe(
+  cli: string,
+  deps: HealthDependencies = {},
+): Promise<BackendHealth> {
+  return (deps.probe ?? runCliLoginProbe)(cli);
 }
 
 /** The quota-spending stage-3 probe, triggered by the status page button. */
