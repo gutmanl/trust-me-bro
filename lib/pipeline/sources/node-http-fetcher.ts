@@ -22,12 +22,32 @@ export const nodeHttpFetcher: HttpFetcher = {
       },
     });
     const contentTypeHeader = response.headers.get("content-type");
+    const retryAfterMs = parseRetryAfter(response.headers.get("retry-after"));
     return {
       status: response.status,
       contentType: contentTypeHeader
         ? contentTypeHeader.split(";")[0].trim().toLowerCase()
         : null,
       body: Buffer.from(await response.arrayBuffer()),
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     };
   },
 };
+
+/** Parses a `Retry-After` header in either of its two RFC-legal forms: a
+ * plain integer number of seconds, or an HTTP-date to wait until. Returns
+ * undefined for a missing or unparseable header rather than guessing. */
+function parseRetryAfter(header: string | null): number | undefined {
+  if (!header) {
+    return undefined;
+  }
+  const seconds = Number(header.trim());
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+  const dateMs = Date.parse(header);
+  if (!Number.isNaN(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+  return undefined;
+}

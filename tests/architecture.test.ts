@@ -175,6 +175,24 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.startVerification).toBeDefined();
     expect(surface.getVerificationState).toBeDefined();
     expect(surface.getVerificationRun).toBeDefined();
+    // Reference auto-import: scan + selective capture use-cases; the
+    // regex/merge/Crossref/review internals stay internal.
+    expect(surface.startReferenceScan).toBeDefined();
+    expect(surface.getReferenceScanState).toBeDefined();
+    expect(surface.getReferenceScanRun).toBeDefined();
+    expect(surface.startReferenceCapture).toBeDefined();
+    expect(surface.getReferenceCaptureRun).toBeDefined();
+    expect(surface.getReferenceCandidates).toBeDefined();
+    expect(surface.scanRegex).toBeUndefined();
+    expect(surface.mergeCandidates).toBeUndefined();
+    expect(surface.candidateId).toBeUndefined();
+    expect(surface.excludeCaptured).toBeUndefined();
+    expect(surface.suggestSourceType).toBeUndefined();
+    expect(surface.searchCrossref).toBeUndefined();
+    expect(surface.scoreMatch).toBeUndefined();
+    expect(surface.titleSimilarity).toBeUndefined();
+    expect(surface.buildCandidateReview).toBeUndefined();
+    expect(surface.deriveReferenceScanState).toBeUndefined();
     // TMB-5: adjudication, repair, history and snapshot use-cases.
     expect(surface.getBriefingViewModel).toBeDefined();
     expect(surface.buildAdjudicationQueue).toBeDefined();

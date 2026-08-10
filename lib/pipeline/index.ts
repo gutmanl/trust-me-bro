@@ -68,6 +68,39 @@ export { reviseSource } from "./sources/revise";
 export type { ReviseSourceInput, ReviseSourceResult } from "./sources/revise";
 export { formatCitation, toPlainCsl } from "./sources/csl";
 export type { ManualMetadata } from "./sources/csl";
+// Reference auto-import: the pipeline cluster that scans a frozen briefing
+// for cited works and lets the user selectively capture them. Internals
+// (scanRegex, mergeCandidates, scoreMatch, buildCandidateReview, Crossref
+// access, …) stay off this barrel — tests reach them via relative imports.
+export {
+  getReferenceScanRun,
+  getReferenceScanState,
+  startReferenceScan,
+} from "./sources/reference-scan/run-reference-scan";
+export type {
+  ReferenceScanDependencies,
+  ReferenceScanRunSummary,
+} from "./sources/reference-scan/run-reference-scan";
+export type {
+  ReferenceScanState,
+  ReferenceScanStatus,
+} from "./sources/reference-scan/derive-state";
+export {
+  getReferenceCaptureRun,
+  startReferenceCapture,
+} from "./sources/reference-scan/run-reference-capture";
+export type {
+  ReferenceCaptureDependencies,
+  ReferenceCaptureItemResult,
+  ReferenceCaptureSelection,
+} from "./sources/reference-scan/run-reference-capture";
+export { getReferenceCandidates } from "./sources/reference-scan/read-candidates";
+export type {
+  CandidateMethod,
+  ReferenceCandidate,
+  ReferenceScanResult,
+} from "./sources/reference-scan/schema";
+export type { ReviewCandidate } from "./sources/reference-scan/review";
 export {
   getExtractionRun,
   getExtractionState,
