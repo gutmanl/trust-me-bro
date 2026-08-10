@@ -7,8 +7,13 @@ your own judgement, and note the ambiguity in the final report rather than redes
 
 Scope: TMB-53 bundle **A** (findings 1–3), plus a documentation rewrite, plus in-UI research
 guidance, plus review finding S-05 folded into the packaging task. Bundles B, C, D are out of
-scope. Automated in-app research is **TMB-55**; review findings S-03, S-06 and S-12 are
-**TMB-56**. Neither is this run.
+scope.
+
+Tonight's queue, in order: **this spec's T1–T8**, then **TMB-56** (review findings S-03, S-06,
+S-12), then **TMB-57** (review finding S-02). Both follow-on tickets are specced to the same
+standard and carry no open questions — see §3's closing note before starting either.
+**TMB-55** (automated in-app research) is **not** in the queue: it needs a thesis-appendix
+changelog entry and a methodological decision that is proposed but not confirmed.
 
 ---
 
