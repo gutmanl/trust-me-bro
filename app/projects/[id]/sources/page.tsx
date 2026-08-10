@@ -1,13 +1,26 @@
+import Link from "next/link";
+
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
-import { formatCitation, isSourceSetFrozen, readProject } from "@/lib/pipeline";
+import {
+  formatCitation,
+  getBackendsHealth,
+  getReferenceCandidates,
+  getReferenceScanState,
+  getUnpaywallSetting,
+  isSourceSetFrozen,
+  readProject,
+} from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
+import { ReferenceCandidateReview } from "./ReferenceCandidateReview";
+import { ReferenceScanPanel } from "./ReferenceScanPanel";
 import {
   CaptureSourceForm,
   FreezeSourceSetForm,
   ReviseSourceForm,
 } from "./SourceForms";
+import { UnpaywallSettingPanel } from "./UnpaywallSettingPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +37,14 @@ export default async function SourcesPage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const frozen = isSourceSetFrozen(register);
+  const briefingImported = register.project.briefing_import !== undefined;
+
+  const referenceScanState = getReferenceScanState(id, register);
+  const unpaywallSetting = getUnpaywallSetting();
+  const [health, candidates] = await Promise.all([
+    getBackendsHealth(id),
+    getReferenceCandidates(id),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -114,6 +135,58 @@ export default async function SourcesPage(
 
       {!frozen ? (
         <>
+          <section className="rounded-md border border-slate-200 bg-white p-5">
+            <h2 className="mb-2 text-sm font-semibold text-slate-700">
+              Referenzen aus dem Briefing importieren
+            </h2>
+            <p className="mb-4 text-sm text-slate-600">
+              Durchsucht das eingefrorene Briefing nach zitierten Quellen (DOI,
+              arXiv-Id, URL sowie im Fließtext genannte Referenzen) und schlägt
+              sie zur Übernahme vor.
+            </p>
+            {!briefingImported ? (
+              <p className="text-sm text-slate-500">
+                Zuerst ein{" "}
+                <Link
+                  href={`/projects/${id}/briefing`}
+                  className="underline decoration-slate-300 hover:text-slate-700"
+                >
+                  Briefing importieren
+                </Link>
+                .
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <UnpaywallSettingPanel
+                  projectId={id}
+                  setting={unpaywallSetting}
+                />
+                <ReferenceScanPanel
+                  projectId={id}
+                  state={referenceScanState}
+                  llmAvailable={health.primary.usable}
+                />
+                {referenceScanState.status !== "not_started" ? (
+                  <p className="text-sm text-slate-600">
+                    {referenceScanState.candidateCount} Kandidat(en) gefunden (
+                    {
+                      candidates.filter(
+                        (candidate) =>
+                          candidate.capturable && !candidate.alreadyCaptured,
+                      ).length
+                    }{" "}
+                    automatisch erfassbar).
+                  </p>
+                ) : null}
+                {candidates.length > 0 ? (
+                  <ReferenceCandidateReview
+                    projectId={id}
+                    candidates={candidates}
+                  />
+                ) : null}
+              </div>
+            )}
+          </section>
           <section className="rounded-md border border-slate-200 bg-white p-5">
             <h2 className="mb-4 text-sm font-semibold text-slate-700">
               Quelle erfassen

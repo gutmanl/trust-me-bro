@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { isSetupComplete } from "@/lib/pipeline";
+import { getUnpaywallSetting, isSetupComplete } from "@/lib/pipeline";
 
 import { SetupForm } from "./SetupForm";
 
@@ -25,7 +25,7 @@ export default function SetupPage() {
           Entscheidungen im revisionssicheren Verlauf erscheinen.
         </p>
       </div>
-      <SetupForm />
+      <SetupForm unpaywallSetting={getUnpaywallSetting()} />
     </div>
   );
 }
