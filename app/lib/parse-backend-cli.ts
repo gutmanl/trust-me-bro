@@ -10,6 +10,7 @@ const BACKEND_CLIS: readonly BackendCli[] = [
   "claude",
   "codex",
   "anthropic-api",
+  "mock",
 ];
 
 export function parseBackendCli(

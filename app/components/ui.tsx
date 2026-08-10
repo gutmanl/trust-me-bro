@@ -134,6 +134,47 @@ export function BackendHealthNotice({
   );
 }
 
+/**
+ * Marks a project whose primary backend is the demonstration backend
+ * (TMB-54). Its findings are canned, so every view that shows the project
+ * says so — the amber vocabulary of BackendHealthNotice, in its compact
+ * form. The durable record is the `system:demo_seed` actor in the chained
+ * history, which no UI can remove; this badge is the readable half of it.
+ */
+export function DemoProjectBadge({ title }: { title?: string }) {
+  return (
+    <span
+      title={
+        title ??
+        "Die Ergebnisse dieses Projekts stammen aus dem Demo-Backend und sind keine echte Verifikation."
+      }
+      className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
+    >
+      Demo-Projekt
+    </span>
+  );
+}
+
+/** Full-width version of the badge for a page header: says what the badge
+ * only hints at. */
+export function DemoProjectNotice() {
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <p>
+        <strong>Demo-Projekt.</strong> Das primäre Backend ist das Demo-Backend:
+        alle Urteile sind vorgefertigt und keine echte Verifikation. Der Ablauf
+        entspricht dem eines regulären Projekts, die Ergebnisse tragen jedoch
+        keine Aussagekraft.
+      </p>
+      <p className="mt-1">
+        Die Herkunft steht dauerhaft in der Historie (Akteur{" "}
+        <code className="font-mono">system:demo_seed</code>) und bleibt auch im
+        Export und unter <code className="font-mono">tmb verify</code> sichtbar.
+      </p>
+    </div>
+  );
+}
+
 export function SubpageHeader({
   projectId,
   title,

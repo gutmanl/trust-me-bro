@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-import { SubpageHeader } from "@/app/components/ui";
+import { DemoProjectBadge, SubpageHeader } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import {
   buildAdjudicationQueue,
   buildEvidenceDisplayMap,
   getBriefingViewModel,
   getVerificationState,
+  isDemoProject,
   readProject,
 } from "@/lib/pipeline";
 import { ReviewWorkspace } from "./ReviewWorkspace";
@@ -30,7 +31,10 @@ export default async function ReviewPage(
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
-        <SubpageHeader projectId={id} title="Adjudikation & Reparatur" />
+        <div className="flex items-center gap-3">
+          <SubpageHeader projectId={id} title="Adjudikation & Reparatur" />
+          {isDemoProject(register.config) ? <DemoProjectBadge /> : null}
+        </div>
         <Link
           href={`/projects/${id}/history`}
           className="shrink-0 text-sm text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"

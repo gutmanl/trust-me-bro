@@ -96,7 +96,13 @@ export function CreateProjectForm({
           >
             <option value="claude">Claude Code (Anthropic)</option>
             <option value="codex">Codex CLI (OpenAI)</option>
+            <option value="mock">Demo-Backend (ohne echte Prüfung)</option>
           </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Das Demo-Backend liefert vorgefertigte Ergebnisse, ohne installierte
+            CLI und ohne Konto. Es dient dazu, den Ablauf kennenzulernen – seine
+            Urteile sind keine Verifikation.
+          </p>
         </div>
         <div>
           <label
@@ -119,6 +125,7 @@ export function CreateProjectForm({
                 Anthropic API (Spike, Familie anthropic)
               </option>
             ) : null}
+            <option value="mock">Demo-Backend (Familie mock)</option>
           </select>
         </div>
       </fieldset>

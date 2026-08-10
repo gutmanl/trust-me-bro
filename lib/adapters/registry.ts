@@ -3,6 +3,7 @@ import type { ProjectConfig } from "../register";
 import { createAnthropicApiBackend } from "./backends/anthropic-api/anthropic-api-backend";
 import { createClaudeBackend } from "./backends/claude/claude-backend";
 import { createCodexBackend } from "./backends/codex/codex-backend";
+import { createMockBackend } from "./backends/mock/mock-backend";
 import type { Backend, HttpPort, ProcessRunner } from "./core/contracts";
 import { UnknownBackendError } from "./core/errors";
 
@@ -29,6 +30,15 @@ function createBackendForRef(
       return createClaudeBackend(options);
     case "codex":
       return createCodexBackend(options);
+    case "mock":
+      // Demonstration backend: canned, schema-valid outputs for every job
+      // kind, no process and no account. Ungated on purpose — it exists so
+      // the application is usable without a paid CLI, which a feature flag
+      // would defeat. Its provenance is carried by the actor
+      // `system:demo_seed` in the chained history instead.
+      // It spawns no process and opens no socket, so neither registry seam
+      // applies to it.
+      return createMockBackend();
     case "anthropic-api": {
       // TMB-51 spike, double-gated: the feature flag AND the key must both
       // be present — otherwise the id degrades exactly like an unknown CLI,

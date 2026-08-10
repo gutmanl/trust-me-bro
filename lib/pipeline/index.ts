@@ -166,6 +166,9 @@ export {
   // TMB-51: lets the UI show the spike backend option only while the
   // feature flag and API key are present.
   isApiBackendEnabled,
+  // TMB-54: the badge predicate for demo projects — every judgement in them
+  // is canned, and the UI has to say so wherever they are shown.
+  isDemoProject,
   listProjects,
   readProject,
 } from "./projects";

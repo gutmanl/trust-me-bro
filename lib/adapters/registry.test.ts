@@ -27,6 +27,18 @@ describe("resolveConfiguredBackends", () => {
     expect(backends.secondary).toBeUndefined();
   });
 
+  it("resolves the demonstration backend without any gate (TMB-54)", () => {
+    // Deliberately ungated, unlike anthropic-api: the demo exists so the
+    // application is usable with no CLI installed and no account, which a
+    // feature flag would defeat.
+    const backends = resolveConfiguredBackends({
+      ...config,
+      backends: { primary: { cli: "mock", model_family: "mock" } },
+    });
+    expect(backends.primary.id).toBe("mock");
+    expect(backends.secondary).toBeUndefined();
+  });
+
   it("throws UnknownBackendError for an unregistered cli value", () => {
     expect(() =>
       resolveConfiguredBackends({

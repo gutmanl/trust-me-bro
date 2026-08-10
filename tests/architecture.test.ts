@@ -237,6 +237,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.isApiBackendEnabled).toBeDefined();
     expect(surface.modelFamilyOf).toBeUndefined();
     expect(surface.allowedBackendClis).toBeUndefined();
+    // TMB-54: the demo-project badge predicate. The backend id constant it
+    // compares against stays internal — the web layer asks the question,
+    // it does not re-implement it.
+    expect(surface.isDemoProject).toBeDefined();
+    expect(surface.DEMO_BACKEND_CLI).toBeUndefined();
     // TMB-46: settings use-case; diff formatter and backends builder stay
     // internal.
     expect(surface.updateProjectConfig).toBeDefined();

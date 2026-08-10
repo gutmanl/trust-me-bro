@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { listProjects } from "@/lib/pipeline";
+import { DemoProjectBadge } from "../components/ui";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "./status-labels";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,7 @@ export default async function ProjectsPage() {
                       importiert aus {project.origin_id}
                     </span>
                   ) : null}
+                  {project.is_demo ? <DemoProjectBadge /> : null}
                   <span>· {project.source_count} Quelle(n)</span>
                   <span>· {project.total_claims} Claim(s)</span>
                   {STATUS_ORDER.filter(

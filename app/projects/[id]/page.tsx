@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { getProjectSummary } from "@/lib/pipeline";
+import { DemoProjectNotice } from "../../components/ui";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "../status-labels";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,8 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
           {formatTimestamp(summary.last_change_at)}
         </p>
       </div>
+
+      {summary.is_demo ? <DemoProjectNotice /> : null}
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">Claim-Status</h2>

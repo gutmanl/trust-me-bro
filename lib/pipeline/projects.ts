@@ -27,14 +27,22 @@ import { pendingRelevancePopulation } from "./warm/select-claims";
 
 /** The backends the registry knows; the model family follows the id. The
  * "anthropic-api" entry is the TMB-51 spike — selectable only while its
- * feature flag is on. */
-export type BackendCli = "claude" | "codex" | "anthropic-api";
+ * feature flag is on. "mock" is the demonstration backend: always
+ * selectable, because it exists precisely for users without a paid CLI. */
+export type BackendCli = "claude" | "codex" | "anthropic-api" | "mock";
 
 const MODEL_FAMILY: Record<BackendCli, string> = {
   claude: "anthropic",
   codex: "openai",
   "anthropic-api": "anthropic",
+  // Its own family, so the divergence rule treats it as distinct from every
+  // real backend and a mock/claude pair stays a valid second opinion.
+  mock: "mock",
 };
+
+/** The demonstration backend's id. A project whose PRIMARY backend is this
+ * one is a demo project: its findings are canned, not verified. */
+export const DEMO_BACKEND_CLI = "mock";
 
 /** The divergence rule compares model FAMILIES, not backend ids: claude and
  * anthropic-api are distinct backends of the same family and therefore no
@@ -54,8 +62,19 @@ export function isApiBackendEnabled(): boolean {
 
 export function allowedBackendClis(): readonly BackendCli[] {
   return isApiBackendEnabled()
-    ? ["claude", "codex", "anthropic-api"]
-    : ["claude", "codex"];
+    ? ["claude", "codex", "anthropic-api", "mock"]
+    : ["claude", "codex", "mock"];
+}
+
+/**
+ * True for a project whose primary backend is the demonstration backend —
+ * every judgement in it is canned, so the UI badges it as such. Derived from
+ * the config rather than stored: there is no demo flag in the file format,
+ * and the durable provenance is the `system:demo_seed` actor in the chained
+ * history, which survives export and `tmb verify`.
+ */
+export function isDemoProject(config: ProjectConfig): boolean {
+  return config.backends.primary.cli === DEMO_BACKEND_CLI;
 }
 
 export const DEFAULT_RUBRIC_VERSION = "se-evidence-rubric-v1";
@@ -98,6 +117,10 @@ export interface ProjectSummary {
   adopted_claims: number;
   /** Adopted claims still awaiting a completed relevance sweep. */
   pending_relevance: number;
+  /** Primary backend is the demonstration backend (TMB-54) — derived, not
+   * stored. The list badges it so a demo project is never mistaken for
+   * verification work. */
+  is_demo: boolean;
 }
 
 /** The backends block from the two-CLI registry; shared by project creation
@@ -221,6 +244,7 @@ function toSummary(
       register.claims,
       register.project_events,
     ).length,
+    is_demo: isDemoProject(register.config),
   };
 }
 

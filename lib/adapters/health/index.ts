@@ -10,7 +10,7 @@ import {
   probePresenceAndVersion,
 } from "./probe";
 import { probeSpecFor } from "./specs";
-import type { BackendHealth, ProbeResult } from "./types";
+import type { BackendHealth, ProbeResult, ProbeStageId } from "./types";
 
 /**
  * Facade of the preflight module (TMB-49): stages 1+2 always fresh (free),
@@ -27,6 +27,7 @@ export interface CliHealthDependencies {
 }
 
 const API_BACKEND_CLI = "anthropic-api";
+const DEMO_BACKEND_CLI = "mock";
 const API_LOGIN_HINT =
   "Testaufruf gescheitert – ANTHROPIC_API_KEY prüfen (gültig? Guthaben?).";
 
@@ -36,7 +37,7 @@ function unknownCliHealth(cli: string): BackendHealth {
     stage: "on_path",
     status: "failed",
     detail,
-    hint: "Projektkonfiguration prüfen (bekannte CLIs: claude, codex).",
+    hint: "Projektkonfiguration prüfen (bekannte CLIs: claude, codex, mock).",
   };
   return buildBackendHealth(
     cli,
@@ -78,11 +79,44 @@ function apiBackendStages(): { onPath: ProbeResult; version: ProbeResult } {
   };
 }
 
+/** All three stages of the demonstration backend: it runs in-process with
+ * canned outputs, so there is nothing to find on PATH, no version to read
+ * and no account to probe — every stage is ok by construction. */
+function demoBackendHealth(): BackendHealth {
+  const checkedAt = new Date().toISOString();
+  const ok = (
+    stage: ProbeStageId,
+    title: string,
+    detail: string,
+  ): ProbeResult => ({ stage, title, status: "ok", detail, checkedAt });
+  return buildBackendHealth(
+    DEMO_BACKEND_CLI,
+    ok(
+      "on_path",
+      "Stufe 1 – kein Programm nötig",
+      "Das Demo-Backend läuft im Prozess der Anwendung.",
+    ),
+    ok(
+      "version_ok",
+      "Stufe 2 – keine Version nötig",
+      "Fest eingebaut, keine externe Installation.",
+    ),
+    ok(
+      "login_ok",
+      "Stufe 3 – keine Anmeldung nötig",
+      "Liefert vorgefertigte Ergebnisse, ohne Konto und ohne Kontingent.",
+    ),
+  );
+}
+
 /** Stages 1+2 fresh plus the cached stage-3 result. */
 export async function checkCliHealth(
   cli: string,
   deps: CliHealthDependencies = {},
 ): Promise<BackendHealth> {
+  if (cli === DEMO_BACKEND_CLI) {
+    return demoBackendHealth();
+  }
   if (cli === API_BACKEND_CLI) {
     const { onPath, version } = apiBackendStages();
     return buildBackendHealth(cli, onPath, version, getCachedLoginProbe(cli));
@@ -100,6 +134,9 @@ export async function runCliLoginProbe(
   cli: string,
   deps: CliHealthDependencies = {},
 ): Promise<BackendHealth> {
+  if (cli === DEMO_BACKEND_CLI) {
+    return demoBackendHealth();
+  }
   if (cli === API_BACKEND_CLI) {
     const { onPath, version } = apiBackendStages();
     const apiKey = loadAnthropicApiKey();

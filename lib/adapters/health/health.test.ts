@@ -255,6 +255,28 @@ describe("checkCliHealth / runCliLoginProbe", () => {
     expect(result.stages[2].status).toBe("unknown");
   });
 
+  it("reports the demonstration backend as ready without probing anything (TMB-54)", async () => {
+    // No env stubbed, no runner injected, nothing on the PATH: the demo
+    // backend has to come out usable on a bare machine, which is its whole
+    // point. All three stages are ok, including the login stage — there is
+    // no account and therefore nothing that could still fail later.
+    const health = await checkCliHealth("mock");
+    expect(health.cli).toBe("mock");
+    expect(health.usable).toBe(true);
+    expect(health.stages.map((stage) => stage.status)).toEqual([
+      "ok",
+      "ok",
+      "ok",
+    ]);
+    expect(health.stages[2].title).toContain("keine Anmeldung");
+
+    // The login probe is a no-op for it rather than an error, so the
+    // existing probe button on the status page needs no special case.
+    const probed = await runCliLoginProbe("mock");
+    expect(probed.usable).toBe(true);
+    expect(probed.stages[2].status).toBe("ok");
+  });
+
   it("usable requires stage 1 ok and stage 2 not failed", () => {
     const ok = {
       stage: "on_path" as const,

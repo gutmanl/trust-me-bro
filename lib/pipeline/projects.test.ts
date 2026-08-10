@@ -13,6 +13,7 @@ import {
 import {
   createProject,
   getProjectSummary,
+  isDemoProject,
   listProjects,
   readProject,
 } from "./projects";
@@ -136,6 +137,52 @@ describe("createProject", () => {
         secondaryCli: "anthropic-api",
       }),
     ).rejects.toThrow(/Unbekanntes Backend/);
+  });
+
+  it("allows the demonstration backend as primary, ungated, and badges it (TMB-54)", async () => {
+    // Unlike the API spike it implements every job kind, so it is usable as
+    // primary — and no flag is stubbed here on purpose: it must be
+    // selectable on a machine with no CLI and no API key at all.
+    const register = await createProject({
+      id: "proj_demo_primary",
+      research_question: "Wirkt X?",
+      primaryCli: "mock",
+    });
+    expect(register.config.backends.primary.cli).toBe("mock");
+    expect(register.config.backends.primary.model_family).toBe("mock");
+    expect(isDemoProject(register.config)).toBe(true);
+    expect((await getProjectSummary("proj_demo_primary")).is_demo).toBe(true);
+  });
+
+  it("treats the demo backend as its own model family for the divergence rule", async () => {
+    // "mock" is a distinct family, so mock/claude is a valid pair while
+    // mock/mock is not — the rule applies to it exactly as to real backends.
+    const register = await createProject({
+      id: "proj_demo_pair",
+      research_question: "Wirkt X?",
+      primaryCli: "mock",
+      secondaryCli: "claude",
+    });
+    expect(register.config.backends.secondary?.cli).toBe("claude");
+    expect(isDemoProject(register.config)).toBe(true);
+    await expect(
+      createProject({
+        id: "proj_demo_same",
+        research_question: "Wirkt X?",
+        primaryCli: "mock",
+        secondaryCli: "mock",
+      }),
+    ).rejects.toThrow(/Modellfamilie/);
+  });
+
+  it("does not badge a project that merely uses the demo backend as secondary", async () => {
+    const register = await createProject({
+      id: "proj_demo_secondary",
+      research_question: "Wirkt X?",
+      primaryCli: "claude",
+      secondaryCli: "mock",
+    });
+    expect(isDemoProject(register.config)).toBe(false);
   });
 
   it("rejects a second creation under the same id", async () => {

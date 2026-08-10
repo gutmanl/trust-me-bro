@@ -50,7 +50,15 @@ export function SettingsForm({
           >
             <option value="claude">claude (Modellfamilie anthropic)</option>
             <option value="codex">codex (Modellfamilie openai)</option>
+            <option value="mock">
+              mock – Demo-Backend (keine echte Prüfung)
+            </option>
           </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Das Demo-Backend liefert vorgefertigte Ergebnisse ohne installierte
+            CLI. Als primäres Backend gewählt, gilt das Projekt als Demo-Projekt
+            und wird überall so gekennzeichnet.
+          </p>
         </div>
         <div>
           <label
@@ -74,6 +82,7 @@ export function SettingsForm({
                 anthropic-api (Spike, Modellfamilie anthropic)
               </option>
             ) : null}
+            <option value="mock">mock (Demo, Modellfamilie mock)</option>
           </select>
           <p className="mt-1 text-xs text-slate-500">
             Muss eine andere Modellfamilie als das primäre Backend sein.
