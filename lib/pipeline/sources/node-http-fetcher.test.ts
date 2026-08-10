@@ -130,6 +130,28 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
     ).rejects.toThrow();
   });
 
+  it("does not accumulate connections across a long redirect chain", async () => {
+    // With redirect: "manual" the intermediate bodies are never read. They
+    // are cancelled instead, so a chain of large redirect responses neither
+    // pulls their bytes nor holds their sockets open — bytes that no size
+    // cap would ever see.
+    const chunk = "x".repeat(50_000);
+    const { url } = await serve((request, response) => {
+      const hop = Number((request.url ?? "/0").slice(1)) || 0;
+      if (hop < 9) {
+        response.writeHead(302, { location: `/${hop + 1}` });
+        response.end(chunk);
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ziel");
+    });
+    for (let i = 0; i < 15; i += 1) {
+      const result = await nodeHttpFetcher.fetch(`${url}/0`);
+      expect(result.body.toString()).toBe("ziel");
+    }
+  }, 30_000);
+
   it("still parses Retry-After for the rate-limit path", async () => {
     const { url } = await serve((_request, response) => {
       response.writeHead(429, { "retry-after": "2" });

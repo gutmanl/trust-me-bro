@@ -53,6 +53,11 @@ export const nodeHttpFetcher: HttpFetcher = {
       ) {
         break;
       }
+      // Release the connection instead of leaving an unread body behind:
+      // with redirect: "manual" the intermediate bodies are never consumed,
+      // and cancelling them is what keeps a long chain from pulling bytes
+      // that no size cap would ever see.
+      await response.body?.cancel();
       redirects += 1;
       if (redirects > MAX_REDIRECTS) {
         throw new ResourceLimitExceededError(

@@ -11,30 +11,10 @@ import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import type { RunHandle } from "../runs/types";
 import { deriveResearchState } from "./derive-state";
+import { RESEARCH_TOOL_PREFIX } from "./provenance";
 import type { ResearchState } from "./derive-state";
 
 const ACTOR = "system:research" as const;
-
-/**
- * Provenance prefix of a briefing this application researched itself. The
- * exact format matters and is binding: the independence notice parses the
- * backend id back out of it (see researchBackendOf). A manually imported
- * briefing keeps whatever tool name the user gave, and is therefore never
- * mistaken for a self-generated one.
- */
-export const RESEARCH_TOOL_PREFIX = "trustmebro-research/";
-
-/** The backend id of a self-researched briefing, or undefined when the
- * briefing was imported from elsewhere. */
-export function researchBackendOf(
-  tool: string | undefined,
-): string | undefined {
-  if (tool === undefined || !tool.startsWith(RESEARCH_TOOL_PREFIX)) {
-    return undefined;
-  }
-  const id = tool.slice(RESEARCH_TOOL_PREFIX.length).trim();
-  return id.length > 0 ? id : undefined;
-}
 
 export interface ResearchDependencies {
   orchestrator?: Orchestrator;

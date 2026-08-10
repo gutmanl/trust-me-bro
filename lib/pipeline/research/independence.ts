@@ -1,7 +1,7 @@
 import type { ClaimsRegister } from "../../register";
 import { modelFamilyOf } from "../projects";
 import type { BackendCli } from "../projects";
-import { researchBackendOf } from "./run-research";
+import { researchBackendOf } from "./provenance";
 
 /**
  * Whether briefing and verification come from the same model family.
