@@ -46,3 +46,6 @@ next-env.d.ts
 
 # npm pack output (TMB-48 distribution tarball)
 *.tgz
+
+# Claude Code personal overrides (never commit)
+.claude/settings.local.json

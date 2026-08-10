@@ -1,0 +1,30 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": {},
+    "feature-dev@claude-plugins-official": {},
+    "atlassian@claude-plugins-official": {},
+    "context7@claude-plugins-official": {},
+    "playwright@claude-plugins-official": {},
+    "frontend-design@claude-plugins-official": {}
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c '[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && [ ! -d node_modules ] && npm install --no-audit --no-fund >/dev/null 2>&1; exit 0'"
+          }
+        ]
+      }
+    ]
+  }
+}
