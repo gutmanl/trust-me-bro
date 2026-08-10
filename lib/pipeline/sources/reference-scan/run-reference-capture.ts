@@ -31,6 +31,11 @@ export interface ReferenceCaptureSelection {
   /** Required for `url`-method candidates with no title of their own;
    * overrides the candidate's own title otherwise. */
   title?: string;
+  /** User-supplied document URL from the review form (reference auto-
+   * import, Task 3b), overriding the candidate's derived `document_url`.
+   * Applies to doi/arxiv/crossref_title candidates; ignored for `url`
+   * (its own url already IS the document). */
+  documentUrl?: string;
 }
 
 export interface ReferenceCaptureDependencies {
@@ -132,23 +137,31 @@ function buildCaptureInput(
       : {}),
   };
 
+  // Document URL precedence (reference auto-import, Task 3b): a user-
+  // supplied override from the review form always wins; otherwise fall
+  // back to the candidate's derived document_url (run-reference-scan.ts's
+  // arXiv PDF > Crossref PDF-link > Unpaywall chain — see
+  // derive-document-url.ts). expectedExt="pdf" guards ONLY the derived
+  // case: a user typed the override themselves and vouches for it, so it
+  // is passed to acquireDocument() unchecked, exactly like a manual
+  // capture's documentUrl always has been.
+  const documentUrlOverride = selection.documentUrl?.trim() || undefined;
+  const documentUrl = documentUrlOverride ?? candidate.document_url;
+  const expectedExt =
+    documentUrlOverride === undefined && candidate.document_url !== undefined
+      ? "pdf"
+      : undefined;
+
   switch (candidate.method) {
     case "doi":
     case "crossref_title":
-      // NOTE: neither channel supplies a document URL here. resolveDoi()
-      // (sources/resolve.ts) deliberately returns bibliographic metadata
-      // only — DOI landing pages are paywalled too often to guess a PDF
-      // link from the DOI alone — so captureSource()'s acquireDocument()
-      // step rejects these with InvalidSourceInputError unless the user
-      // later revises the source with a document URL or upload. Deriving a
-      // document URL automatically (arXiv-style PDF link, Crossref's own
-      // PDF links, Unpaywall) is the immediate follow-up task; this branch
-      // is expected to be revisited once that lands.
       return {
         projectId,
         kind: "doi",
         identifier: candidate.doi,
         sourceType: selection.sourceType,
+        documentUrl,
+        expectedExt,
         autoCapture,
       };
     case "arxiv":
@@ -157,6 +170,8 @@ function buildCaptureInput(
         kind: "arxiv",
         identifier: candidate.arxiv_id,
         sourceType: selection.sourceType,
+        documentUrl,
+        expectedExt,
         autoCapture,
       };
     case "url": {

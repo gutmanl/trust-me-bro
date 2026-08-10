@@ -14,6 +14,12 @@ import type { FetchedResource, HttpFetcher } from "../fetch-port";
  * is waited out ONCE and the request retried ONCE; any other outcome (no/too
  * long Retry-After, a second 429, a network error on retry) gives up and
  * also answers `[]` — Crossref's rate limit never blocks or fails the scan.
+ *
+ * `fetchCrossrefWorkByDoi` (reference auto-import, Task 3b) is the second
+ * entry point: a single-work lookup by DOI, used by derive-document-url.ts
+ * to read a work's `link[]` PDF entry without a bibliographic search. Same
+ * never-throws/429-retry-once discipline, sharing the fetch+retry mechanics
+ * with `searchCrossref` via `fetchCrossrefJson`.
  */
 
 export interface CrossrefWork {
@@ -23,6 +29,12 @@ export interface CrossrefWork {
   authors: string[];
   year?: number;
   venue?: string;
+  /** URL of a Crossref-listed link entry with content-type EXACTLY
+   * "application/pdf" (reference auto-import, Task 3b). Deliberately never
+   * a landing page or `resource.primary.URL` — those are usually paywalls
+   * or abstracts and would poison the frozen corpus if captured as if they
+   * were the paper. Absent when no such link exists. */
+  pdfUrl?: string;
 }
 
 export interface CrossrefDependencies {
@@ -71,6 +83,23 @@ function extractWork(raw: unknown): CrossrefWork | null {
     Array.isArray(containerArray) && typeof containerArray[0] === "string"
       ? containerArray[0]
       : undefined;
+  // Content-type must match EXACTLY — no landing pages, no
+  // resource.primary.URL, no "similarity checking" or other non-PDF link
+  // types (reference auto-import, Task 3b: corpus-integrity requirement).
+  const linkArray = item.link;
+  const pdfLink = Array.isArray(linkArray)
+    ? linkArray.find(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (entry as Record<string, unknown>)["content-type"] ===
+            "application/pdf",
+      )
+    : undefined;
+  const pdfUrl =
+    typeof (pdfLink as Record<string, unknown> | undefined)?.URL === "string"
+      ? ((pdfLink as Record<string, unknown>).URL as string)
+      : undefined;
   if (!doi && !title) {
     return null;
   }
@@ -80,6 +109,7 @@ function extractWork(raw: unknown): CrossrefWork | null {
     authors,
     ...(year !== undefined ? { year } : {}),
     ...(venue ? { venue } : {}),
+    ...(pdfUrl ? { pdfUrl } : {}),
   };
 }
 
@@ -94,17 +124,21 @@ async function tryFetch(
   }
 }
 
-export async function searchCrossref(
-  query: string,
+/** Shared fetch/429-retry-once/JSON-parse mechanics of both Crossref entry
+ * points below — the ONLY difference between a bibliographic search and a
+ * single-work-by-DOI lookup is the URL and what shape `message` has, both
+ * handled by the respective callers. Never throws: any failure at any step
+ * answers `null`, exactly like "Crossref had nothing to say". */
+async function fetchCrossrefJson(
+  url: string,
   fetcher: HttpFetcher,
-  deps: CrossrefDependencies = {},
-): Promise<CrossrefWork[]> {
+  deps: CrossrefDependencies,
+): Promise<unknown | null> {
   const sleep = deps.sleep ?? defaultSleep;
-  const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=${RESULT_ROWS}`;
 
   let resource = await tryFetch(url, fetcher);
   if (resource === null) {
-    return [];
+    return null;
   }
   if (resource.status === 429) {
     const retryAfterMs = resource.retryAfterMs;
@@ -112,20 +146,28 @@ export async function searchCrossref(
       await sleep(retryAfterMs);
       resource = await tryFetch(url, fetcher);
       if (resource === null) {
-        return [];
+        return null;
       }
     }
   }
   if (resource.status !== 200) {
-    return [];
+    return null;
   }
 
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(resource.body.toString("utf8"));
+    return JSON.parse(resource.body.toString("utf8"));
   } catch {
-    return [];
+    return null;
   }
+}
+
+export async function searchCrossref(
+  query: string,
+  fetcher: HttpFetcher,
+  deps: CrossrefDependencies = {},
+): Promise<CrossrefWork[]> {
+  const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=${RESULT_ROWS}`;
+  const parsed = await fetchCrossrefJson(url, fetcher, deps);
   const message = (parsed as Record<string, unknown> | null)?.message as
     Record<string, unknown> | undefined;
   const items = message?.items;
@@ -135,4 +177,22 @@ export async function searchCrossref(
   return items
     .map(extractWork)
     .filter((work): work is CrossrefWork => work !== null);
+}
+
+/**
+ * Single-work Crossref lookup by DOI (reference auto-import, Task 3b): used
+ * by derive-document-url.ts to read a specific work's `link[]` PDF entry
+ * without spending a bibliographic-search call. `null` on any failure
+ * (network error, non-200, exhausted 429 retry, malformed JSON, or a
+ * response with neither a DOI nor a title) — never throws.
+ */
+export async function fetchCrossrefWorkByDoi(
+  doi: string,
+  fetcher: HttpFetcher,
+  deps: CrossrefDependencies = {},
+): Promise<CrossrefWork | null> {
+  const url = `https://api.crossref.org/works/${encodeURIComponent(doi)}`;
+  const parsed = await fetchCrossrefJson(url, fetcher, deps);
+  const message = (parsed as Record<string, unknown> | null)?.message;
+  return extractWork(message);
 }

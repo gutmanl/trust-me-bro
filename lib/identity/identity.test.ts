@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeConfigFile } from "./config-file";
 import {
   getCurrentActor,
+  getUnpaywallEmail,
+  getUnpaywallSetting,
   getWorkspaceRoot,
   IdentityNotConfiguredError,
   isIdentityConfigured,
@@ -16,6 +18,7 @@ import {
   loadIdentityConfig,
   resolveProjectDir,
   writeIdentityConfig,
+  writeUnpaywallEmail,
 } from "./index";
 
 const scratchDirs: string[] = [];
@@ -196,6 +199,97 @@ describe("loadAdapterConfig", () => {
   ])("rejects an invalid %s=%s", (name, value) => {
     vi.stubEnv(name, value);
     expect(() => loadAdapterConfig()).toThrow(new RegExp(name));
+  });
+});
+
+describe("getUnpaywallSetting / getUnpaywallEmail", () => {
+  it("is unset when neither the environment nor the config file supplies an address", () => {
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", scratchConfigPath());
+    expect(getUnpaywallSetting()).toEqual({ email: null, source: "unset" });
+    expect(getUnpaywallEmail()).toBeNull();
+  });
+
+  it("reads the address from the stored config file", () => {
+    const filePath = scratchConfigPath();
+    writeConfigFile(filePath, {
+      actorHandle: "lg",
+      unpaywallEmail: "lg@example.org",
+    });
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+    expect(getUnpaywallSetting()).toEqual({
+      email: "lg@example.org",
+      source: "config",
+    });
+    expect(getUnpaywallEmail()).toBe("lg@example.org");
+  });
+
+  it("lets the environment override the stored config file", () => {
+    const filePath = scratchConfigPath();
+    writeConfigFile(filePath, {
+      actorHandle: "lg",
+      unpaywallEmail: "aus-datei@example.org",
+    });
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", "env-wins@example.org");
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+    expect(getUnpaywallSetting()).toEqual({
+      email: "env-wins@example.org",
+      source: "env",
+    });
+  });
+});
+
+describe("writeUnpaywallEmail", () => {
+  it("persists the address and preserves the existing workspace root", () => {
+    const filePath = scratchConfigPath();
+    writeConfigFile(filePath, { actorHandle: "lg", workspaceRoot: "./ws" });
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+
+    writeUnpaywallEmail("lg@example.org");
+
+    expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      actor_handle: "lg",
+      workspace_root: "./ws",
+      unpaywall_email: "lg@example.org",
+    });
+    expect(getUnpaywallEmail()).toBe("lg@example.org");
+  });
+
+  it("clears the address with null while preserving the other fields", () => {
+    const filePath = scratchConfigPath();
+    writeConfigFile(filePath, {
+      actorHandle: "lg",
+      workspaceRoot: "./ws",
+      unpaywallEmail: "lg@example.org",
+    });
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+
+    writeUnpaywallEmail(null);
+
+    expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      actor_handle: "lg",
+      workspace_root: "./ws",
+    });
+    expect(getUnpaywallEmail()).toBeNull();
+  });
+
+  it("carries the env-provided actor handle into a newly created file", () => {
+    const filePath = scratchConfigPath();
+    vi.stubEnv("TMB_ACTOR_HANDLE", "env-lg");
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+
+    writeUnpaywallEmail("lg@example.org");
+
+    expect(fs.existsSync(filePath)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(filePath, "utf8")).actor_handle).toBe(
+      "env-lg",
+    );
   });
 });
 

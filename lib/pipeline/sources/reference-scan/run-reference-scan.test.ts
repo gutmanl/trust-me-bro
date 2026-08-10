@@ -17,7 +17,10 @@ import { ReferenceScanPreconditionError } from "../../errors";
 import { createProject } from "../../projects";
 import { createJobRunner } from "../../runs/job-runner";
 import { captureSource, freezeSourceSet } from "../capture";
-import { fakeFetcher } from "../__fixtures__/fake-fetcher";
+import {
+  CROSSREF_WORK_WITH_PDF_LINK_RESPONSE,
+  fakeFetcher,
+} from "../__fixtures__/fake-fetcher";
 import { deriveReferenceScanState } from "./derive-state";
 import {
   getReferenceScanState,
@@ -101,6 +104,11 @@ beforeEach(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-refscan-"));
   vi.stubEnv("TMB_WORKSPACE", workspace);
   vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+  // Isolates getUnpaywallEmail() (document-url derivation) from whatever
+  // ~/.trustmebro/config.json happens to exist on the machine running the
+  // tests — points at a file that (by default) never gets created.
+  vi.stubEnv("TMB_CONFIG_PATH", path.join(workspace, "identity-config.json"));
+  vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
   await createProject({
     id: PROJECT_ID,
     research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
@@ -408,6 +416,99 @@ describe("startReferenceScan: atomicity", () => {
     const after = await store.read();
     expect(after.project.reference_scan).toEqual(previousPointer);
     expect(store.blobs().exists(previousPointer!.blob_path)).toBe(true);
+    expect((await store.verify()).ok).toBe(true);
+  });
+});
+
+describe("startReferenceScan: document-url derivation (reference auto-import, Task 3b)", () => {
+  it("derives an arXiv PDF URL for a regex-found arXiv id", async () => {
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: "Siehe arXiv:2401.12345 für Details.",
+      tool: "x",
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      runner: createJobRunner(),
+      preflight: async () => ({ usable: false, hint: "kein Backend." }),
+      fetcher: fakeFetcher({}),
+    });
+    await handle.done;
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    expect(blob.candidates).toHaveLength(1);
+    expect(blob.candidates[0]).toMatchObject({
+      method: "arxiv",
+      document_url: "https://arxiv.org/pdf/2401.12345",
+      document_url_source: "arxiv",
+    });
+  });
+
+  it("derives a Crossref PDF-link document_url for a regex-found DOI", async () => {
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: BRIEFING,
+      tool: "x",
+    });
+    const doiWorkUrl = `https://api.crossref.org/works/${encodeURIComponent("10.1109/TSE.2025.3489012")}`;
+    const handle = await startReferenceScan(PROJECT_ID, {
+      runner: createJobRunner(),
+      preflight: async () => ({ usable: false, hint: "kein Backend." }),
+      fetcher: fakeFetcher({
+        [doiWorkUrl]: {
+          contentType: "application/json",
+          body: Buffer.from(CROSSREF_WORK_WITH_PDF_LINK_RESPONSE),
+        },
+      }),
+    });
+    await handle.done;
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    const doiCandidate = blob.candidates.find(
+      (candidate) => candidate.method === "doi",
+    );
+    expect(doiCandidate).toMatchObject({
+      document_url: "https://publisher.example.org/paper.pdf",
+      document_url_source: "crossref_pdf",
+    });
+  });
+
+  it("never fails the scan when document-url derivation cannot reach Crossref", async () => {
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: BRIEFING,
+      tool: "x",
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      runner: createJobRunner(),
+      preflight: async () => ({ usable: false, hint: "kein Backend." }),
+      fetcher: fakeFetcher({}), // every route 404s
+    });
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    const doiCandidate = blob.candidates.find(
+      (candidate) => candidate.method === "doi",
+    );
+    expect(doiCandidate?.document_url).toBeUndefined();
     expect((await store.verify()).ok).toBe(true);
   });
 });

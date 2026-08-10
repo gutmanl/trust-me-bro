@@ -90,3 +90,86 @@ export const CROSSREF_WORKS_RESPONSE = JSON.stringify({
     ],
   },
 });
+
+/** A single-work Crossref /works/<doi> response (reference auto-import,
+ * Task 3b document-url derivation) whose link[] carries a PDF entry —
+ * `fetchCrossrefWorkByDoi` should extract its URL as `pdfUrl`. */
+export const CROSSREF_WORK_WITH_PDF_LINK_RESPONSE = JSON.stringify({
+  status: "ok",
+  message: {
+    DOI: "10.1109/TSE.2025.3489012",
+    title: ["Effects of AI Assistants on Code Review Duration"],
+    author: [{ family: "Meyer", given: "Anna" }],
+    issued: { "date-parts": [[2025]] },
+    "container-title": ["IEEE Transactions on Software Engineering"],
+    link: [
+      {
+        URL: "https://publisher.example.org/landing/10.1109",
+        "content-type": "text/html",
+        "content-version": "vor",
+        "intended-application": "similarity-checking",
+      },
+      {
+        URL: "https://publisher.example.org/paper.pdf",
+        "content-type": "application/pdf",
+        "content-version": "vor",
+        "intended-application": "text-mining",
+      },
+    ],
+  },
+});
+
+/** Same work, but link[] holds only a non-PDF entry — no pdfUrl should be
+ * extracted (never fall back to a landing page). */
+export const CROSSREF_WORK_NON_PDF_LINK_RESPONSE = JSON.stringify({
+  status: "ok",
+  message: {
+    DOI: "10.1109/TSE.2025.3489012",
+    title: ["Effects of AI Assistants on Code Review Duration"],
+    author: [{ family: "Meyer", given: "Anna" }],
+    link: [
+      {
+        URL: "https://publisher.example.org/landing/10.1109",
+        "content-type": "text/html",
+      },
+    ],
+  },
+});
+
+/** Same work with no link[] at all. */
+export const CROSSREF_WORK_NO_LINK_RESPONSE = JSON.stringify({
+  status: "ok",
+  message: {
+    DOI: "10.1109/TSE.2025.3489012",
+    title: ["Effects of AI Assistants on Code Review Duration"],
+    author: [{ family: "Meyer", given: "Anna" }],
+  },
+});
+
+/** Unpaywall response (reference auto-import, Task 3b) with a best OA
+ * location carrying a PDF URL. */
+export const UNPAYWALL_OA_RESPONSE = JSON.stringify({
+  doi: "10.1109/TSE.2025.3489012",
+  best_oa_location: {
+    url_for_pdf: "https://oa.example.org/best.pdf",
+  },
+  oa_locations: [{ url_for_pdf: "https://oa.example.org/best.pdf" }],
+});
+
+/** Unpaywall response with no best_oa_location but a usable oa_locations[]
+ * fallback entry. */
+export const UNPAYWALL_FALLBACK_LOCATION_RESPONSE = JSON.stringify({
+  doi: "10.1109/TSE.2025.3489012",
+  best_oa_location: null,
+  oa_locations: [
+    { url_for_pdf: null },
+    { url_for_pdf: "https://oa.example.org/fallback.pdf" },
+  ],
+});
+
+/** Unpaywall response for a work with no open-access location at all. */
+export const UNPAYWALL_NO_OA_RESPONSE = JSON.stringify({
+  doi: "10.1109/TSE.2025.3489012",
+  best_oa_location: null,
+  oa_locations: [],
+});

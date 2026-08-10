@@ -82,6 +82,34 @@ describe("read/writeConfigFile", () => {
     expect(readConfigFile(filePath)?.actorHandle).toBe("lg");
   });
 
+  it("round-trips the unpaywall email alongside the other fields", () => {
+    const filePath = path.join(scratchDir(), "config.json");
+    writeConfigFile(filePath, {
+      actorHandle: "lg",
+      workspaceRoot: "./ws",
+      unpaywallEmail: "lg@example.org",
+    });
+    expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      actor_handle: "lg",
+      workspace_root: "./ws",
+      unpaywall_email: "lg@example.org",
+    });
+    expect(readConfigFile(filePath)).toEqual({
+      actorHandle: "lg",
+      workspaceRoot: "./ws",
+      unpaywallEmail: "lg@example.org",
+    });
+  });
+
+  it("omits the unpaywall email when not provided", () => {
+    const filePath = path.join(scratchDir(), "config.json");
+    writeConfigFile(filePath, { actorHandle: "lg" });
+    expect(readConfigFile(filePath)?.unpaywallEmail).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).not.toHaveProperty(
+      "unpaywall_email",
+    );
+  });
+
   it("rejects an invalid handle on write", () => {
     const filePath = path.join(scratchDir(), "config.json");
     expect(() => writeConfigFile(filePath, { actorHandle: "Nope!" })).toThrow(

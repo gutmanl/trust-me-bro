@@ -89,6 +89,18 @@ function baseFetcher() {
       contentType: "text/html",
       body: Buffer.from("<html><body>B</body></html>"),
     },
+    "https://publisher.example.org/derived.pdf": {
+      contentType: "application/pdf",
+      body: PDF_BYTES,
+    },
+    "https://publisher.example.org/derived-paywall.html": {
+      contentType: "text/html",
+      body: Buffer.from("<html><body>Paywall</body></html>"),
+    },
+    "https://user-override.example.org/paper.pdf": {
+      contentType: "application/pdf",
+      body: PDF_BYTES,
+    },
   });
 }
 
@@ -126,6 +138,24 @@ const UNRESOLVED_CANDIDATE: ReferenceCandidate = {
   raw_text: "Eine unklare Referenz.",
   method: "unresolved",
   suggested_source_type: "grey_literature",
+};
+const DOI_CANDIDATE_WITH_DERIVED_URL: ReferenceCandidate = {
+  candidate_id: "cnd_doi_derived",
+  raw_text: "Siehe 10.1109/TSE.2025.3489012.",
+  method: "doi",
+  doi: "10.1109/TSE.2025.3489012",
+  suggested_source_type: "peer_reviewed_publication",
+  document_url: "https://publisher.example.org/derived.pdf",
+  document_url_source: "crossref_pdf",
+};
+const DOI_CANDIDATE_WITH_PAYWALL_DERIVED_URL: ReferenceCandidate = {
+  candidate_id: "cnd_doi_paywall",
+  raw_text: "Siehe 10.1109/TSE.2025.3489012.",
+  method: "doi",
+  doi: "10.1109/TSE.2025.3489012",
+  suggested_source_type: "peer_reviewed_publication",
+  document_url: "https://publisher.example.org/derived-paywall.html",
+  document_url_source: "unpaywall",
 };
 
 describe("startReferenceCapture preconditions", () => {
@@ -249,6 +279,83 @@ describe("startReferenceCapture: url-method title handling", () => {
       expect(outcome.outcome.status).toBe("error");
       expect(outcome.outcome.error).toContain("benötigt einen Titel");
     }
+  });
+});
+
+describe("startReferenceCapture: document-url mapping (reference auto-import, Task 3b)", () => {
+  it("captures a doi candidate using its derived document_url, guarded by expectedExt", async () => {
+    await writeScanResult([DOI_CANDIDATE_WITH_DERIVED_URL]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_doi_derived",
+          sourceType: "peer_reviewed_publication",
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    expect(
+      register.sources[0].custom.snapshot?.blob_path.endsWith(".pdf"),
+    ).toBe(true);
+  });
+
+  it("fails visibly when a derived document_url turns out not to serve a PDF", async () => {
+    await writeScanResult([DOI_CANDIDATE_WITH_PAYWALL_DERIVED_URL]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_doi_paywall",
+          sourceType: "peer_reviewed_publication",
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 0, failed: 1 });
+
+    const outcome = handle
+      .eventsSoFar()
+      .find((event) => event.type === "item_completed");
+    if (outcome?.type === "item_completed") {
+      expect(outcome.outcome.status).toBe("error");
+      expect(outcome.outcome.error).toContain("kein PDF");
+    }
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    expect(register.sources).toHaveLength(0);
+  });
+
+  it("a user-supplied documentUrl override wins over the derived one and is NOT guarded by expectedExt", async () => {
+    // The override points at an HTML page — if expectedExt were (wrongly)
+    // applied to a user override, this would fail; it must succeed.
+    await writeScanResult([DOI_CANDIDATE_WITH_DERIVED_URL]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_doi_derived",
+          sourceType: "peer_reviewed_publication",
+          documentUrl: "https://blog.example.org/post-a",
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    expect(
+      register.sources[0].custom.snapshot?.blob_path.endsWith(".html"),
+    ).toBe(true);
   });
 });
 

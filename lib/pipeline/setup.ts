@@ -1,12 +1,19 @@
 import fs from "node:fs";
 
 import {
+  getUnpaywallSetting as identityGetUnpaywallSetting,
   getWorkspaceRoot,
   isIdentityConfigured,
   isValidActorHandle,
   writeIdentityConfig,
+  writeUnpaywallEmail,
 } from "../identity";
+import type { UnpaywallSetting } from "../identity";
 import { InvalidIdentityInputError } from "./errors";
+
+/** Simple shape check, not a full RFC 5322 validator — good enough to catch
+ * typos before they are sent to Unpaywall with every lookup. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * First-run setup use-cases (TMB-47/48). Thin wrappers so the web layer
@@ -35,4 +42,42 @@ export function completeFirstRunSetup(input: { actorHandle: string }): void {
   }
   writeIdentityConfig({ actorHandle: handle });
   fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
+}
+
+/**
+ * The currently effective Unpaywall setting (reference auto-import, Task
+ * 3b/4): thin wrapper so the web layer never imports lib/identity directly,
+ * mirroring isSetupComplete()'s relationship to isIdentityConfigured(). The
+ * reference-import panel and the /setup form both read this to decide
+ * between the "configure" form and the read-only "provided by environment"
+ * status.
+ */
+export function getUnpaywallSetting(): UnpaywallSetting {
+  return identityGetUnpaywallSetting();
+}
+
+/**
+ * Sets or clears the Unpaywall contact address (reference auto-import, Task
+ * 3b/Amendment 2): installation-level configuration like the actor handle,
+ * so it is stored in the same config file. `email` null or empty clears the
+ * setting — the document-url derivation then simply skips the Unpaywall
+ * step, no error. An env-provided address is never writable from here: the
+ * UI renders read-only in that case, but this use-case also refuses the
+ * write outright rather than trusting that convention alone.
+ */
+export async function setUnpaywallEmail(email: string | null): Promise<void> {
+  if (identityGetUnpaywallSetting().source === "env") {
+    throw new InvalidIdentityInputError(
+      "Die Unpaywall-Adresse ist über die Umgebungsvariable " +
+        "TMB_UNPAYWALL_EMAIL gesetzt und kann nicht über die Oberfläche " +
+        "geändert werden.",
+    );
+  }
+  const trimmed = email?.trim() || null;
+  if (trimmed !== null && !EMAIL_PATTERN.test(trimmed)) {
+    throw new InvalidIdentityInputError(
+      `"${trimmed}" ist keine gültige E-Mail-Adresse.`,
+    );
+  }
+  writeUnpaywallEmail(trimmed);
 }

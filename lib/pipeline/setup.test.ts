@@ -5,7 +5,12 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InvalidIdentityInputError } from "./errors";
-import { completeFirstRunSetup, isSetupComplete } from "./setup";
+import {
+  completeFirstRunSetup,
+  getUnpaywallSetting,
+  isSetupComplete,
+  setUnpaywallEmail,
+} from "./setup";
 
 const scratchDirs: string[] = [];
 
@@ -60,5 +65,69 @@ describe("completeFirstRunSetup", () => {
     );
     expect(fs.existsSync(configPath)).toBe(false);
     expect(isSetupComplete()).toBe(false);
+  });
+});
+
+describe("getUnpaywallSetting / setUnpaywallEmail", () => {
+  it("is unset by default", () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    expect(getUnpaywallSetting()).toEqual({ email: null, source: "unset" });
+  });
+
+  it("persists a valid address and reports it as config-sourced", async () => {
+    const dir = scratch();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+
+    await setUnpaywallEmail("lg@example.org");
+
+    expect(getUnpaywallSetting()).toEqual({
+      email: "lg@example.org",
+      source: "config",
+    });
+    expect(
+      JSON.parse(fs.readFileSync(configPath, "utf8")).unpaywall_email,
+    ).toBe("lg@example.org");
+  });
+
+  it("clears the address with null/empty", async () => {
+    const dir = scratch();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+
+    await setUnpaywallEmail("lg@example.org");
+    await setUnpaywallEmail("");
+
+    expect(getUnpaywallSetting()).toEqual({ email: null, source: "unset" });
+  });
+
+  it("rejects an invalid address without writing anything", async () => {
+    const dir = scratch();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+
+    await expect(setUnpaywallEmail("not-an-email")).rejects.toBeInstanceOf(
+      InvalidIdentityInputError,
+    );
+    expect(fs.existsSync(configPath)).toBe(false);
+  });
+
+  it("refuses to write when an env-provided address is currently active", async () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", "env@example.org");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+
+    await expect(setUnpaywallEmail("lg@example.org")).rejects.toBeInstanceOf(
+      InvalidIdentityInputError,
+    );
   });
 });

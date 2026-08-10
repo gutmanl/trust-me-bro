@@ -15,8 +15,11 @@ export type {
   HumanActorId,
   SystemActorId,
   IdentityConfig,
+  UnpaywallSetting,
 } from "./types";
 export {
+  getUnpaywallEmail,
+  getUnpaywallSetting,
   loadAdapterConfig,
   loadAnthropicApiKey,
   loadFeatureFlags,
@@ -84,4 +87,24 @@ export function writeIdentityConfig(input: {
     workspaceRoot: input.workspaceRoot,
   });
   return loadIdentityConfig();
+}
+
+/**
+ * Persists (or, with `email === null`, clears) the stored Unpaywall address
+ * (reference auto-import, Task 3b/Amendment 2) while preserving every other
+ * field of the config file — reads the current file first so an existing
+ * workspace root is never dropped by an unrelated write. When no file
+ * exists yet (actor handle configured via TMB_ACTOR_HANDLE alone), the
+ * currently effective handle is carried into the newly created file so it
+ * stays schema-valid (actor_handle is mandatory on disk).
+ */
+export function writeUnpaywallEmail(email: string | null): void {
+  const filePath = defaultConfigFilePath();
+  const existing = readConfigFile(filePath);
+  const actorHandle = existing?.actorHandle ?? loadIdentityConfig().actorHandle;
+  writeConfigFile(filePath, {
+    actorHandle,
+    workspaceRoot: existing?.workspaceRoot,
+    unpaywallEmail: email ?? undefined,
+  });
 }

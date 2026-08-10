@@ -31,6 +31,10 @@ export interface CaptureSourceInput {
   manual?: ManualMetadata;
   /** Document URL when the identifier does not determine one (DOI). */
   documentUrl?: string;
+  /** Corpus-integrity guard passed through to acquireDocument (reference
+   * auto-import, Task 3b) — see document.ts's DocumentRequest.expectedExt.
+   * Manual capture never sets this. */
+  expectedExt?: string;
   /** Uploaded document; takes precedence over any URL. */
   upload?: { content: Buffer; filename: string };
   /** Provenance when this capture originates from the reference
@@ -133,6 +137,7 @@ export async function captureSource(
     {
       upload: input.upload,
       documentUrl: input.documentUrl?.trim() || resolved.documentUrl,
+      expectedExt: input.expectedExt,
     },
     fetcher,
   );

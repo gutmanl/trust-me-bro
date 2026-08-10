@@ -220,6 +220,12 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.completeFirstRunSetup).toBeDefined();
     expect(surface.writeIdentityConfig).toBeUndefined();
     expect(surface.isIdentityConfigured).toBeUndefined();
+    // Reference auto-import (Task 3b/Amendment 2): the Unpaywall setting
+    // read accessor and its write use-case; the raw identity write helper
+    // stays internal.
+    expect(surface.getUnpaywallSetting).toBeDefined();
+    expect(surface.setUnpaywallEmail).toBeDefined();
+    expect(surface.writeUnpaywallEmail).toBeUndefined();
     // TMB-49: backend preflight accessors; probe mechanics and the run
     // precondition seam stay internal.
     expect(surface.getBackendsHealth).toBeDefined();

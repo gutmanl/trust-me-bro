@@ -25,6 +25,19 @@ export interface FeatureFlags {
 }
 
 /**
+ * The configured Unpaywall contact address (reference auto-import, Task
+ * 3b): Unpaywall requires an e-mail with every request as its required
+ * identification. Optional, installation-level setting — "unset" is a
+ * normal, fully-supported state (the document-url derivation simply skips
+ * the Unpaywall step). The source discriminator lets the UI tell an
+ * env-provided address (read-only there) from a stored, user-editable one.
+ */
+export interface UnpaywallSetting {
+  email: string | null;
+  source: "env" | "config" | "unset";
+}
+
+/**
  * Runtime configuration of the adapter layer (TMB-19): operational tuning,
  * deliberately NOT part of claims.json — the trace log records what actually
  * happened per attempt, which is what reproducibility needs.

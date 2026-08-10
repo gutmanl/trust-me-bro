@@ -18,6 +18,11 @@ import { z } from "zod";
 export interface IdentityConfigFile {
   actorHandle: string;
   workspaceRoot?: string;
+  /** Unpaywall contact address (reference auto-import, Task 3b/Amendment
+   * 2) — installation-level like the handle, so it lives in the same file.
+   * Absent means "not configured via the file" (env may still supply it;
+   * see config.ts's getUnpaywallSetting for the merged precedence). */
+  unpaywallEmail?: string;
 }
 
 /**
@@ -36,6 +41,7 @@ export function isValidActorHandle(value: string): boolean {
 const ConfigFileSchema = z.strictObject({
   actor_handle: z.string().regex(HANDLE_PATTERN),
   workspace_root: z.string().min(1).optional(),
+  unpaywall_email: z.string().min(1).optional(),
 });
 
 export function defaultConfigFilePath(
@@ -73,6 +79,7 @@ export function readConfigFile(
   return {
     actorHandle: result.data.actor_handle,
     workspaceRoot: result.data.workspace_root,
+    unpaywallEmail: result.data.unpaywall_email,
   };
 }
 
@@ -97,6 +104,9 @@ export function writeConfigFile(
       actor_handle: config.actorHandle,
       ...(config.workspaceRoot !== undefined
         ? { workspace_root: config.workspaceRoot }
+        : {}),
+      ...(config.unpaywallEmail !== undefined
+        ? { unpaywall_email: config.unpaywallEmail }
         : {}),
     },
     null,

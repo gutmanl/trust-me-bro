@@ -16,6 +16,15 @@ export interface DocumentRequest {
   upload?: { content: Buffer; filename: string };
   /** Document URL used when no upload is given. */
   documentUrl?: string;
+  /** Corpus-integrity guard (reference auto-import, Task 3b): when set, the
+   * acquired document's resolved extension must equal this value, or
+   * acquisition fails with a German DocumentFetchError instead of silently
+   * storing whatever was fetched. Auto-import passes "pdf" for every
+   * derived (arXiv/Crossref-PDF-link/Unpaywall) document URL, so a
+   * paywall/abstract HTML page fails the item visibly rather than entering
+   * the frozen corpus as if it were the paper. Manual capture never sets
+   * this — unset is a complete no-op, existing behavior unchanged. */
+  expectedExt?: string;
 }
 
 const EXT_BY_CONTENT_TYPE: Record<string, string> = {
@@ -36,42 +45,57 @@ export async function acquireDocument(
   request: DocumentRequest,
   fetcher: HttpFetcher,
 ): Promise<{ content: Buffer; ext: string }> {
+  let content: Buffer;
+  let ext: string;
+
   if (request.upload && request.upload.content.length > 0) {
-    return {
-      content: request.upload.content,
-      ext: extFromFilename(request.upload.filename),
-    };
+    content = request.upload.content;
+    ext = extFromFilename(request.upload.filename);
+  } else {
+    const documentUrl = request.documentUrl?.trim();
+    if (!documentUrl) {
+      throw new InvalidSourceInputError(
+        "Zum Einfrieren wird das Quellendokument benötigt: " +
+          "Dokument-URL angeben oder Datei hochladen.",
+      );
+    }
+    if (!isHttpUrl(documentUrl)) {
+      throw new InvalidSourceInputError(
+        `"${documentUrl}" ist keine http(s)-URL.`,
+      );
+    }
+    let resource;
+    try {
+      resource = await fetcher.fetch(documentUrl);
+    } catch (error) {
+      throw new DocumentFetchError(
+        `Quellendokument konnte nicht geladen werden (${documentUrl}).`,
+        { cause: error },
+      );
+    }
+    if (resource.status !== 200 || resource.body.length === 0) {
+      throw new DocumentFetchError(
+        `Quellendokument konnte nicht geladen werden (HTTP ${resource.status}, ${documentUrl}).`,
+      );
+    }
+    content = resource.body;
+    ext =
+      (resource.contentType && EXT_BY_CONTENT_TYPE[resource.contentType]) ??
+      extFromFilename(new URL(documentUrl).pathname);
   }
-  const documentUrl = request.documentUrl?.trim();
-  if (!documentUrl) {
-    throw new InvalidSourceInputError(
-      "Zum Einfrieren wird das Quellendokument benötigt: " +
-        "Dokument-URL angeben oder Datei hochladen.",
-    );
-  }
-  if (!isHttpUrl(documentUrl)) {
-    throw new InvalidSourceInputError(
-      `"${documentUrl}" ist keine http(s)-URL.`,
-    );
-  }
-  let resource;
-  try {
-    resource = await fetcher.fetch(documentUrl);
-  } catch (error) {
+
+  // Corpus-integrity guard (reference auto-import, Task 3b): see the
+  // DocumentRequest.expectedExt doc comment. Checked uniformly for both
+  // acquisition paths, though in practice only auto-import's URL-derived
+  // downloads ever set it.
+  if (request.expectedExt && ext !== request.expectedExt) {
     throw new DocumentFetchError(
-      `Quellendokument konnte nicht geladen werden (${documentUrl}).`,
-      { cause: error },
+      `Quellendokument ist kein ${request.expectedExt.toUpperCase()} ` +
+        `(erkannt: "${ext}"): Dokument-URL prüfen oder Datei manuell hochladen.`,
     );
   }
-  if (resource.status !== 200 || resource.body.length === 0) {
-    throw new DocumentFetchError(
-      `Quellendokument konnte nicht geladen werden (HTTP ${resource.status}, ${documentUrl}).`,
-    );
-  }
-  const ext =
-    (resource.contentType && EXT_BY_CONTENT_TYPE[resource.contentType]) ??
-    extFromFilename(new URL(documentUrl).pathname);
-  return { content: resource.body, ext };
+
+  return { content, ext };
 }
 
 export type TextExtraction = { text: string } | { error: string };

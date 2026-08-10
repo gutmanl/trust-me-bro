@@ -25,10 +25,12 @@ import type { CandidateSeed } from "./candidate";
 import type { CrossrefWork } from "./crossref";
 import { searchCrossref } from "./crossref";
 import { MATCH_FLOOR, scoreMatch } from "./crossref-match";
+import { deriveDocumentUrl } from "./derive-document-url";
 import { deriveReferenceScanState } from "./derive-state";
 import type { ReferenceScanState } from "./derive-state";
 import { scanRegex } from "./scan-regex";
 import { ReferenceScanResult } from "./schema";
+import type { ReferenceCandidate } from "./schema";
 
 const ACTOR = "system:reference_scan" as const;
 
@@ -270,7 +272,23 @@ async function runReferenceScanOnce(
     });
   }
 
-  const candidates = mergeCandidates([...preCrossrefPool, ...crossrefSeeds]);
+  const mergedCandidates = mergeCandidates([
+    ...preCrossrefPool,
+    ...crossrefSeeds,
+  ]);
+
+  // Document-url derivation (reference auto-import, Task 3b): arXiv PDF >
+  // Crossref's own PDF link > Unpaywall, per candidate, AFTER merging (so a
+  // regex DOI hit and its Crossref-matched textual twin are derived exactly
+  // once as the single collapsed candidate). Sequential, not Promise.all —
+  // deterministic call order for tests and gentler on Crossref's rate
+  // limit. Every failure is absorbed one level down (derive-document-url.ts
+  // / crossref.ts / unpaywall.ts): nothing here can turn a scan into an
+  // error.
+  const candidates: ReferenceCandidate[] = [];
+  for (const candidate of mergedCandidates) {
+    candidates.push(await attachDocumentUrl(candidate, context));
+  }
 
   const result: ReferenceScanResult = {
     scanned_at: new Date().toISOString(),
@@ -302,6 +320,35 @@ async function runReferenceScanOnce(
   });
 
   return { method, candidateCount: candidates.length, message: reason };
+}
+
+/** Enriches one candidate with its derived document_url (reference auto-
+ * import, Task 3b) — only doi/arxiv/crossref_title candidates carry an
+ * identifier to derive from; `url` (its own URL already IS the document to
+ * capture) and `unresolved` (no identifier at all) pass through unchanged. */
+async function attachDocumentUrl(
+  candidate: ReferenceCandidate,
+  context: Pick<RunContext, "fetcher" | "sleep">,
+): Promise<ReferenceCandidate> {
+  if (
+    candidate.method !== "doi" &&
+    candidate.method !== "arxiv" &&
+    candidate.method !== "crossref_title"
+  ) {
+    return candidate;
+  }
+  const derived = await deriveDocumentUrl(
+    { doi: candidate.doi, arxivId: candidate.arxiv_id },
+    { fetcher: context.fetcher, sleep: context.sleep },
+  );
+  if (!derived.documentUrl) {
+    return candidate;
+  }
+  return {
+    ...candidate,
+    document_url: derived.documentUrl,
+    document_url_source: derived.source,
+  };
 }
 
 interface CrossrefResolution {

@@ -97,6 +97,7 @@ export type {
 export { getReferenceCandidates } from "./sources/reference-scan/read-candidates";
 export type {
   CandidateMethod,
+  DocumentUrlSource,
   ReferenceCandidate,
   ReferenceScanResult,
 } from "./sources/reference-scan/schema";
@@ -171,6 +172,12 @@ export {
 // TMB-47: first-run setup — the gate predicate and the one mutation the
 // /setup page performs. Identity internals stay behind lib/identity.
 export { completeFirstRunSetup, isSetupComplete } from "./setup";
+// Reference auto-import (Task 3b/Amendment 2): the Unpaywall installation
+// setting — read accessor and the use-case that writes/clears it. Identity
+// internals (the config-file writer, env precedence) stay behind
+// lib/identity, same discipline as the setup use-cases above.
+export { getUnpaywallSetting, setUnpaywallEmail } from "./setup";
+export type { UnpaywallSetting } from "../identity";
 // TMB-49: backend preflight for the status page and the panel notices; the
 // probe mechanics and the run-precondition seam stay internal.
 export { getBackendsHealth, runLoginProbe } from "./health";

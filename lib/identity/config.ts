@@ -6,7 +6,12 @@ import {
   readConfigFile,
 } from "./config-file";
 import { IdentityNotConfiguredError } from "./errors";
-import type { AdapterConfig, FeatureFlags, IdentityConfig } from "./types";
+import type {
+  AdapterConfig,
+  FeatureFlags,
+  IdentityConfig,
+  UnpaywallSetting,
+} from "./types";
 
 const DEFAULT_WORKSPACE = "./workspace";
 
@@ -63,6 +68,37 @@ export function loadAnthropicApiKey(
 ): string | undefined {
   const key = env.ANTHROPIC_API_KEY;
   return key === undefined || key === "" ? undefined : key;
+}
+
+/**
+ * The Unpaywall setting (reference auto-import, Task 3b/Amendment 2), with
+ * its source discriminator so the UI can tell an env-provided address
+ * (read-only there) from a stored, user-editable one. Precedence mirrors
+ * the actor handle: env > stored config file > "unset" — there is no code
+ * default, absence is a fully graceful state (the document-url derivation
+ * just skips the Unpaywall step, never an error).
+ */
+export function getUnpaywallSetting(
+  env: NodeJS.ProcessEnv = process.env,
+): UnpaywallSetting {
+  const fromEnv = env.TMB_UNPAYWALL_EMAIL?.trim();
+  if (fromEnv) {
+    return { email: fromEnv, source: "env" };
+  }
+  const fromFile = readConfigFile(defaultConfigFilePath(env))?.unpaywallEmail;
+  if (fromFile) {
+    return { email: fromFile, source: "config" };
+  }
+  return { email: null, source: "unset" };
+}
+
+/** Convenience accessor over getUnpaywallSetting() for call sites that only
+ * need the address, not its provenance — the document-url derivation
+ * (reference-scan/derive-document-url.ts). */
+export function getUnpaywallEmail(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  return getUnpaywallSetting(env).email;
 }
 
 const ADAPTER_DEFAULTS: AdapterConfig = {

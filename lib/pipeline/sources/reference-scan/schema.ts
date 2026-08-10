@@ -21,6 +21,13 @@ export const CandidateMethod = z.enum([
 ]);
 export type CandidateMethod = z.infer<typeof CandidateMethod>;
 
+/** Channel that derived a candidate's `document_url` (reference auto-
+ * import, Task 3b), in the fixed derivation order arXiv PDF > Crossref's
+ * own PDF link > Unpaywall — see derive-document-url.ts, the sole writer of
+ * this field. */
+export const DocumentUrlSource = z.enum(["crossref_pdf", "arxiv", "unpaywall"]);
+export type DocumentUrlSource = z.infer<typeof DocumentUrlSource>;
+
 export const ReferenceCandidate = z.strictObject({
   /** Stable deterministic hash of (method, normalized identifier | raw_text)
    * — see candidate.ts's candidateId(). */
@@ -40,6 +47,15 @@ export const ReferenceCandidate = z.strictObject({
    * "Crossref answered but nothing scored above the floor". */
   crossref_unavailable: z.boolean().optional(),
   suggested_source_type: SourceType,
+  /** PDF URL derived for this identifier (reference auto-import, Task 3b):
+   * arXiv PDF > Crossref's own `link[]` PDF entry > Unpaywall OA PDF, first
+   * hit wins. Absent whenever every step failed or found nothing — never a
+   * landing page or a non-PDF link (those would poison the frozen corpus;
+   * see document.ts's expectedExt guard). The review UI pre-fills its
+   * document-URL field from this; the user may override it. */
+  document_url: z.string().optional(),
+  /** Which step produced `document_url`, absent iff `document_url` is. */
+  document_url_source: DocumentUrlSource.optional(),
 });
 export type ReferenceCandidate = z.infer<typeof ReferenceCandidate>;
 

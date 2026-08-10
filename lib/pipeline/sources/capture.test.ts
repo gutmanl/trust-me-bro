@@ -188,6 +188,75 @@ describe("captureSource via DOI", () => {
   });
 });
 
+describe("captureSource: expectedExt guard (reference auto-import, Task 3b)", () => {
+  it("accepts a document whose resolved extension matches expectedExt", async () => {
+    const source = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "doi",
+        identifier: "10.1109/TSE.2025.3489012",
+        sourceType: "peer_reviewed_publication",
+        documentUrl: "https://publisher.example.org/paper.pdf",
+        expectedExt: "pdf",
+      },
+      { fetcher: defaultFetcher() },
+    );
+    expect(source.custom.snapshot?.blob_path.endsWith(".pdf")).toBe(true);
+  });
+
+  it("fails visibly with a German DocumentFetchError when a derived URL turns out not to be a PDF, leaving the register unchanged", async () => {
+    await expect(
+      captureSource(
+        {
+          projectId: "proj_quellen",
+          kind: "doi",
+          identifier: "10.1109/TSE.2025.3489012",
+          sourceType: "peer_reviewed_publication",
+          documentUrl: "https://blog.example.org/post",
+          expectedExt: "pdf",
+        },
+        { fetcher: defaultFetcher() },
+      ),
+    ).rejects.toThrow(DocumentFetchError);
+
+    try {
+      await captureSource(
+        {
+          projectId: "proj_quellen",
+          kind: "doi",
+          identifier: "10.1109/TSE.2025.3489012",
+          sourceType: "peer_reviewed_publication",
+          documentUrl: "https://blog.example.org/post",
+          expectedExt: "pdf",
+        },
+        { fetcher: defaultFetcher() },
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(DocumentFetchError);
+      expect((error as Error).message).toContain("kein PDF");
+      expect((error as Error).message).toContain('"html"');
+    }
+
+    const store = RegisterStore.forProject("proj_quellen");
+    const register = await store.read();
+    expect(register.sources).toHaveLength(0);
+  });
+
+  it("leaves manual capture (no expectedExt) completely unaffected — an HTML document still captures normally", async () => {
+    const source = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "url",
+        identifier: "https://blog.example.org/post",
+        sourceType: "grey_literature",
+        manual: { title: "Blogbeitrag zu Reviews" },
+      },
+      { fetcher: defaultFetcher() },
+    );
+    expect(source.custom.snapshot?.blob_path.endsWith(".html")).toBe(true);
+  });
+});
+
 describe("captureSource via arXiv", () => {
   it("derives the PDF URL from the id", async () => {
     const fetcher = defaultFetcher();
