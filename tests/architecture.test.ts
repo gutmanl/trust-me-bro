@@ -231,6 +231,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.getWorkspaceRootSetting).toBeDefined();
     expect(surface.setWorkspaceRoot).toBeDefined();
     expect(surface.writeWorkspaceRoot).toBeUndefined();
+    // TMB-54 (D6): the actor handle accessor and its update use-case; the
+    // identity writer and the handle validator stay internal.
+    expect(surface.getActorHandleSetting).toBeDefined();
+    expect(surface.updateActorHandle).toBeDefined();
+    expect(surface.isValidActorHandle).toBeUndefined();
     // TMB-49: backend preflight accessors; probe mechanics and the run
     // precondition seam stay internal.
     expect(surface.getBackendsHealth).toBeDefined();

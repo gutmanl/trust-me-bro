@@ -18,6 +18,7 @@ export type {
   UnpaywallSetting,
 } from "./types";
 export {
+  getActorHandleSetting,
   getUnpaywallEmail,
   getUnpaywallSetting,
   getWorkspaceRootSetting,

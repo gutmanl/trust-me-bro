@@ -187,6 +187,9 @@ export type { UnpaywallSetting } from "../identity";
 // TMB-54 (D5): the workspace root, readable everywhere and settable during
 // the first run only — the use-case itself refuses once projects exist.
 export { getWorkspaceRootSetting, setWorkspaceRoot } from "./setup";
+// TMB-54 (D6): the actor handle, readable and — unless the environment
+// provides it — changeable from the installation settings page.
+export { getActorHandleSetting, updateActorHandle } from "./setup";
 // TMB-49: backend preflight for the status page and the panel notices; the
 // probe mechanics and the run-precondition seam stay internal.
 export { getBackendsHealth, runLoginProbe } from "./health";

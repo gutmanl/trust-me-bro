@@ -23,6 +23,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <span className="text-sm text-slate-500">
               Verifikations-Werkstatt
             </span>
+            <Link
+              href="/settings"
+              className="ml-auto text-sm text-slate-500 hover:text-slate-700"
+            >
+              Einstellungen
+            </Link>
           </div>
         </header>
         <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>

@@ -93,6 +93,29 @@ export function getUnpaywallSetting(
 }
 
 /**
+ * The effective actor handle with its source discriminator (TMB-54, D6).
+ * The handle became editable at installation level, and the settings page
+ * has to distinguish an env-provided handle (not editable there) from a
+ * stored one. Unlike loadIdentityConfig this never throws: an unconfigured
+ * installation reports source "unset", which the caller renders as a
+ * pointer back to the wizard.
+ */
+export function getActorHandleSetting(env: NodeJS.ProcessEnv = process.env): {
+  handle: string | null;
+  source: "env" | "config" | "unset";
+} {
+  const fromEnv = env.TMB_ACTOR_HANDLE?.trim();
+  if (fromEnv) {
+    return { handle: fromEnv, source: "env" };
+  }
+  const fromFile = readConfigFile(defaultConfigFilePath(env))?.actorHandle;
+  if (fromFile) {
+    return { handle: fromFile, source: "config" };
+  }
+  return { handle: null, source: "unset" };
+}
+
+/**
  * The workspace root with its source discriminator (TMB-54), mirroring
  * getUnpaywallSetting(): the first-run wizard offers to change it, but an
  * env-provided root is not editable from the UI, and the code default has

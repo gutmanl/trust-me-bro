@@ -49,7 +49,7 @@ export default async function ProjectsPage() {
               Zurzeit ist keine Agenten-CLI einsatzbereit. Das Beispielprojekt
               und das Demo-Backend funktionieren trotzdem – für eine echte
               Prüfung hilft die{" "}
-              <Link href="/setup?step=3" className="underline">
+              <Link href="/settings" className="underline">
                 Einrichtungsdiagnose
               </Link>{" "}
               weiter.

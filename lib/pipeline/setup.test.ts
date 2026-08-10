@@ -7,11 +7,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { InvalidIdentityInputError } from "./errors";
 import {
   completeFirstRunSetup,
+  getActorHandleSetting,
   getUnpaywallSetting,
   getWorkspaceRootSetting,
   isSetupComplete,
   setUnpaywallEmail,
   setWorkspaceRoot,
+  updateActorHandle,
 } from "./setup";
 
 const scratchDirs: string[] = [];
@@ -207,5 +209,69 @@ describe("getWorkspaceRootSetting / setWorkspaceRoot (TMB-54, D5)", () => {
     fs.rmSync(path.join(workspace, "proj_alt"), { recursive: true });
     fs.mkdirSync(path.join(workspace, "irgendwas"), { recursive: true });
     expect(() => setWorkspaceRoot(path.join(dir, "woanders"))).not.toThrow();
+  });
+});
+
+describe("getActorHandleSetting / updateActorHandle (TMB-54, D6)", () => {
+  it("reports the source and never throws on an unconfigured installation", () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", path.join(dir, "workspace"));
+
+    // loadIdentityConfig would throw here; the settings page needs an
+    // answer instead.
+    expect(getActorHandleSetting()).toEqual({ handle: null, source: "unset" });
+
+    completeFirstRunSetup({ actorHandle: "lg" });
+    expect(getActorHandleSetting()).toEqual({ handle: "lg", source: "config" });
+
+    vi.stubEnv("TMB_ACTOR_HANDLE", "aus-env");
+    expect(getActorHandleSetting().source).toBe("env");
+  });
+
+  it("changes the handle for future entries and leaves the workspace root alone", () => {
+    const dir = scratch();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+    completeFirstRunSetup({ actorHandle: "lg" });
+    setWorkspaceRoot(path.join(dir, "workspace"));
+
+    updateActorHandle("  neu-lg  ");
+
+    const stored = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    expect(stored.actor_handle).toBe("neu-lg");
+    // The unrelated field survives the write, as with every other setter.
+    expect(getWorkspaceRootSetting().root).toBe(
+      path.resolve(path.join(dir, "workspace")),
+    );
+  });
+
+  it("rejects an invalid handle as a German PipelineError", () => {
+    const dir = scratch();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+    vi.stubEnv("TMB_WORKSPACE", path.join(dir, "workspace"));
+    completeFirstRunSetup({ actorHandle: "lg" });
+
+    expect(() => updateActorHandle("Groß Geschrieben")).toThrow(
+      InvalidIdentityInputError,
+    );
+    // Nothing was written.
+    expect(JSON.parse(fs.readFileSync(configPath, "utf8")).actor_handle).toBe(
+      "lg",
+    );
+  });
+
+  it("refuses to change an env-provided handle instead of writing a value that cannot win", () => {
+    const dir = scratch();
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", path.join(dir, "workspace"));
+    vi.stubEnv("TMB_ACTOR_HANDLE", "aus-env");
+
+    expect(() => updateActorHandle("anders")).toThrow(/TMB_ACTOR_HANDLE/);
   });
 });

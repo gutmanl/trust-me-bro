@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  getActorHandleSetting as identityGetActorHandleSetting,
   getUnpaywallSetting as identityGetUnpaywallSetting,
   getWorkspaceRoot,
   getWorkspaceRootSetting as identityGetWorkspaceRootSetting,
@@ -45,6 +46,42 @@ export function completeFirstRunSetup(input: { actorHandle: string }): void {
   }
   writeIdentityConfig({ actorHandle: handle });
   fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
+}
+
+/**
+ * The effective actor handle and where it comes from (TMB-54, D6) — the
+ * installation settings page shows it and, when it is stored rather than
+ * env-provided, offers to change it.
+ */
+export function getActorHandleSetting(): {
+  handle: string | null;
+  source: "env" | "config" | "unset";
+} {
+  return identityGetActorHandleSetting();
+}
+
+/**
+ * Changes the actor handle (TMB-54, D6). It takes effect for FUTURE history
+ * entries only — past entries keep the handle that was recorded when they
+ * were written, which is correct for an append-only audit trail and must be
+ * said plainly in the UI. Rewriting them is not merely undesirable but
+ * impossible: the handle is part of the hashed content of every entry.
+ */
+export function updateActorHandle(handle: string): void {
+  if (identityGetActorHandleSetting().source === "env") {
+    throw new InvalidIdentityInputError(
+      "Das Akteurskürzel ist über die Umgebungsvariable TMB_ACTOR_HANDLE " +
+        "gesetzt und kann nicht über die Oberfläche geändert werden.",
+    );
+  }
+  const trimmed = handle.trim();
+  if (!isValidActorHandle(trimmed)) {
+    throw new InvalidIdentityInputError(
+      `Kürzel "${handle}" ist ungültig – erlaubt sind ` +
+        'Kleinbuchstaben, Ziffern, "_" und "-" (Beginn mit Buchstabe oder Ziffer).',
+    );
+  }
+  writeIdentityConfig({ actorHandle: trimmed });
 }
 
 /**
