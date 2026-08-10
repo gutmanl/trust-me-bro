@@ -4,7 +4,12 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createMockBackend, Orchestrator } from "../../../adapters";
+import {
+  AdapterProcessError,
+  AdapterRateLimitError,
+  createMockBackend,
+  Orchestrator,
+} from "../../../adapters";
 import type { MockBackend, ReferenceParseOutput } from "../../../adapters";
 import { RegisterStore } from "../../../register";
 import { importBriefing } from "../../briefing";
@@ -57,11 +62,13 @@ const CROSSREF_MATCH_RESPONSE = JSON.stringify({
 
 function testOrchestratorWithBackend(options?: {
   output?: ReferenceParseOutput;
+  script?: ReadonlyArray<Error | "ok">;
 }): { orchestrator: Orchestrator; backend: MockBackend } {
   const backend = createMockBackend({
     id: "claude",
     model: "claude-sonnet-5",
     overrides: { reference_parse: options?.output ?? REFERENCE_PARSE_OUTPUT },
+    script: options?.script,
   });
   const orchestrator = new Orchestrator({
     backends: [backend],
@@ -193,6 +200,76 @@ describe("startReferenceScan: regex-only degradation", () => {
     expect(getReferenceScanState(PROJECT_ID, register, { runner }).status).toBe(
       "completed",
     );
+  });
+
+  it("degrades to regex-only, without throwing, when the LLM channel is rate-limited (orchestrator paused)", async () => {
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: BRIEFING,
+      tool: "x",
+    });
+    const { orchestrator, backend } = testOrchestratorWithBackend({
+      script: [
+        new AdapterRateLimitError(
+          "claude",
+          "reference_parse",
+          "Rate-Limit erreicht.",
+        ),
+      ],
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      orchestrator,
+      runner: createJobRunner(),
+      fetcher: scanFetcher(),
+    });
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+    expect(backend.calls).toHaveLength(1);
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    expect(register.project.reference_scan?.method).toBe("regex");
+    expect(register.project.reference_scan?.candidate_count).toBe(1);
+    const completedEvent = register.project_events.find(
+      (event) => event.event === "reference_scan_completed",
+    );
+    expect(completedEvent?.reason).toContain("Rate-Limit");
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("degrades to regex-only, without throwing, when the LLM channel is exhausted after retries", async () => {
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: BRIEFING,
+      tool: "x",
+    });
+    const crash = new AdapterProcessError(
+      "claude",
+      "reference_parse",
+      1,
+      "boom",
+    );
+    const { orchestrator, backend } = testOrchestratorWithBackend({
+      script: [crash, crash],
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      orchestrator,
+      runner: createJobRunner(),
+      fetcher: scanFetcher(),
+    });
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 1, failed: 0 });
+    expect(backend.calls).toHaveLength(2);
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    expect(register.project.reference_scan?.method).toBe("regex");
+    expect(register.project.reference_scan?.candidate_count).toBe(1);
+    const completedEvent = register.project_events.find(
+      (event) => event.event === "reference_scan_completed",
+    );
+    expect(completedEvent?.reason).toContain("erschöpft");
+    expect((await store.verify()).ok).toBe(true);
   });
 });
 

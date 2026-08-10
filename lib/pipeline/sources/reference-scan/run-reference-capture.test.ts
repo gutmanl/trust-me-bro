@@ -271,6 +271,41 @@ describe("startReferenceCapture: stale candidate id", () => {
   });
 });
 
+describe("startReferenceCapture: corrupt scan blob", () => {
+  it("fails the item with the shared German PipelineError message, never a raw parse error", async () => {
+    const store = RegisterStore.forProject(PROJECT_ID);
+    await store.transaction((tx) => {
+      const blob = store.blobs().put("not valid json", "json");
+      tx.recordReferenceScan({
+        sha256: blob.sha256,
+        blob_path: blob.blobPath,
+        method: "regex",
+        candidate_count: 0,
+        actor: "system:reference_scan",
+        reason: "Test-Scan (korrupt).",
+      });
+    });
+
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [{ candidateId: "cnd_x", sourceType: "preprint" }],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 0, failed: 1 });
+    const outcome = handle
+      .eventsSoFar()
+      .find((event) => event.type === "item_completed");
+    if (outcome?.type === "item_completed") {
+      expect(outcome.outcome.status).toBe("error");
+      expect(outcome.outcome.error).toContain("beschädigt");
+      expect(outcome.outcome.error).not.toMatch(
+        /Unexpected token|is not valid JSON|ZodError/i,
+      );
+    }
+  });
+});
+
 describe("startReferenceCapture: freeze mid-batch", () => {
   it("fails the item reached after a freeze happened between items", async () => {
     await writeScanResult([ARXIV_CANDIDATE, URL_TITLED_CANDIDATE]);

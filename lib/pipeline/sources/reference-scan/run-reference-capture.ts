@@ -7,7 +7,7 @@ import type { RunHandle } from "../../runs/types";
 import { captureSource, isSourceSetFrozen } from "../capture";
 import type { CaptureSourceInput } from "../capture";
 import type { HttpFetcher } from "../fetch-port";
-import { ReferenceScanResult } from "./schema";
+import { loadReferenceScanResult } from "./load-scan-result";
 import type { ReferenceCandidate } from "./schema";
 
 /**
@@ -100,8 +100,7 @@ async function captureOneCandidate(
       `Für Projekt "${projectId}" liegt kein Ergebnis eines Referenz-Scans vor.`,
     );
   }
-  const raw = JSON.parse(store.blobs().readText(pointer.blob_path));
-  const candidates = ReferenceScanResult.parse(raw).candidates;
+  const { candidates } = loadReferenceScanResult(store, pointer);
   const candidate = candidates.find(
     (entry) => entry.candidate_id === selection.candidateId,
   );
@@ -136,6 +135,15 @@ function buildCaptureInput(
   switch (candidate.method) {
     case "doi":
     case "crossref_title":
+      // NOTE: neither channel supplies a document URL here. resolveDoi()
+      // (sources/resolve.ts) deliberately returns bibliographic metadata
+      // only — DOI landing pages are paywalled too often to guess a PDF
+      // link from the DOI alone — so captureSource()'s acquireDocument()
+      // step rejects these with InvalidSourceInputError unless the user
+      // later revises the source with a document URL or upload. Deriving a
+      // document URL automatically (arXiv-style PDF link, Crossref's own
+      // PDF links, Unpaywall) is the immediate follow-up task; this branch
+      // is expected to be revisited once that lands.
       return {
         projectId,
         kind: "doi",
