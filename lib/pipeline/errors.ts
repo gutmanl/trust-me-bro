@@ -158,3 +158,12 @@ export class BriefingAlreadyImportedError extends PipelineError {
     );
   }
 }
+
+/** Preconditions of a reference scan are not met (reference auto-import):
+ * no briefing imported yet, or the source set is already frozen. */
+export class ReferenceScanPreconditionError extends PipelineError {}
+
+/** Preconditions of a reference capture batch are not met (reference
+ * auto-import): no candidates selected, or the source set is already
+ * frozen. */
+export class ReferenceCapturePreconditionError extends PipelineError {}

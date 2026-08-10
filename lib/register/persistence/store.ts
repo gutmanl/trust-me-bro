@@ -87,6 +87,23 @@ export interface RegisterTransaction {
     at?: string;
   }): void;
   /**
+   * Records a reference scan of the frozen briefing (reference auto-import):
+   * sets the `reference_scan` pointer to the scan's result blob and appends
+   * the `reference_scan_completed` event. Unlike `recordBriefingImport`,
+   * REPEATABLE — the pointer is simply overwritten and there is no
+   * already-scanned guard, because re-scanning after briefing edits (or to
+   * pick up newly captured sources) is expected, not exceptional.
+   */
+  recordReferenceScan(input: {
+    sha256: string;
+    blob_path: string;
+    method: "regex" | "regex+llm";
+    candidate_count: number;
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): void;
+  /**
    * Creates a claim through the extraction gate: initial status is decided by
    * the evidence-completeness gate (evidence → captured, none → pending
    * adjudication), never by the caller.
@@ -440,6 +457,32 @@ function createTransaction(
           actor,
           event: "briefing_imported",
           reason: `Briefing eingefroren (${tool}).`,
+        }) as ProjectEvent,
+      );
+    },
+    recordReferenceScan({
+      sha256,
+      blob_path,
+      method,
+      candidate_count,
+      actor,
+      reason,
+      at,
+    }) {
+      const scanned_at = at ?? new Date().toISOString();
+      draft.project.reference_scan = {
+        scanned_at,
+        sha256,
+        blob_path,
+        method,
+        candidate_count,
+      };
+      draft.project_events.push(
+        chain.append({
+          at: scanned_at,
+          actor,
+          event: "reference_scan_completed",
+          reason,
         }) as ProjectEvent,
       );
     },

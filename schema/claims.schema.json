@@ -38,6 +38,34 @@
     "__schema13": {
       "additionalProperties": false,
       "properties": {
+        "auto_capture": {
+          "additionalProperties": false,
+          "properties": {
+            "method": {
+              "enum": [
+                "doi",
+                "arxiv",
+                "url",
+                "crossref_title"
+              ],
+              "type": "string"
+            },
+            "raw_text": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "score": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "raw_text",
+            "method"
+          ],
+          "type": "object"
+        },
         "identifier_verified": {
           "additionalProperties": false,
           "properties": {
@@ -599,6 +627,40 @@
         "id": {
           "$ref": "#/$defs/__schema0"
         },
+        "reference_scan": {
+          "additionalProperties": false,
+          "properties": {
+            "blob_path": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "candidate_count": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "method": {
+              "enum": [
+                "regex",
+                "regex+llm"
+              ],
+              "type": "string"
+            },
+            "scanned_at": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "sha256": {
+              "$ref": "#/$defs/__schema2"
+            }
+          },
+          "required": [
+            "scanned_at",
+            "sha256",
+            "blob_path",
+            "method",
+            "candidate_count"
+          ],
+          "type": "object"
+        },
         "research_question": {
           "minLength": 1,
           "type": "string"
@@ -656,7 +718,9 @@
               "relevance_run_started",
               "relevance_run_completed",
               "config_changed",
-              "content_updated"
+              "content_updated",
+              "reference_scan_started",
+              "reference_scan_completed"
             ],
             "type": "string"
           },

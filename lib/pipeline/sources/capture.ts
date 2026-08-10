@@ -33,6 +33,14 @@ export interface CaptureSourceInput {
   documentUrl?: string;
   /** Uploaded document; takes precedence over any URL. */
   upload?: { content: Buffer; filename: string };
+  /** Provenance when this capture originates from the reference
+   * auto-import flow; absent for manual captures. Written verbatim to
+   * `custom.auto_capture`. */
+  autoCapture?: {
+    raw_text: string;
+    method: "doi" | "arxiv" | "url" | "crossref_title";
+    score?: number;
+  };
 }
 
 export interface CaptureDependencies {
@@ -158,6 +166,7 @@ export async function captureSource(
         source_type: input.sourceType,
         ...(verified ? { identifier_verified: { status: true, at: now } } : {}),
         snapshot: buildSnapshot(store.blobs(), blob, extraction, 1, now),
+        ...(input.autoCapture ? { auto_capture: input.autoCapture } : {}),
       },
     };
     tx.addSource(source);

@@ -232,6 +232,55 @@ describe("RegisterTransaction.recordBriefingImport", () => {
   });
 });
 
+describe("RegisterTransaction.recordReferenceScan", () => {
+  it("sets the pointer, appends the event, and overwrites on a second call", async () => {
+    await store.transaction((tx) => {
+      tx.recordReferenceScan({
+        sha256: "a".repeat(64),
+        blob_path: `blobs/aa/${"a".repeat(64)}.json`,
+        method: "regex",
+        candidate_count: 3,
+        actor: "human:lg",
+        reason: "Regelbasierter Scan: 3 Kandidat(en) gefunden.",
+        at: "2026-08-06T10:00:00Z",
+      });
+    });
+    let register = await store.read();
+    expect(register.project.reference_scan?.sha256).toBe("a".repeat(64));
+    expect(register.project.reference_scan?.method).toBe("regex");
+    expect(register.project.reference_scan?.candidate_count).toBe(3);
+    expect(
+      register.project_events.filter(
+        (event) => event.event === "reference_scan_completed",
+      ),
+    ).toHaveLength(1);
+    expect((await store.verify()).ok).toBe(true);
+
+    // Repeatable: a second scan overwrites the pointer without any guard.
+    await store.transaction((tx) => {
+      tx.recordReferenceScan({
+        sha256: "b".repeat(64),
+        blob_path: `blobs/bb/${"b".repeat(64)}.json`,
+        method: "regex+llm",
+        candidate_count: 7,
+        actor: "human:lg",
+        reason: "Regel- und LLM-Scan: 7 Kandidat(en) gefunden.",
+        at: "2026-08-06T11:00:00Z",
+      });
+    });
+    register = await store.read();
+    expect(register.project.reference_scan?.sha256).toBe("b".repeat(64));
+    expect(register.project.reference_scan?.method).toBe("regex+llm");
+    expect(register.project.reference_scan?.candidate_count).toBe(7);
+    expect(
+      register.project_events.filter(
+        (event) => event.event === "reference_scan_completed",
+      ),
+    ).toHaveLength(2);
+    expect((await store.verify()).ok).toBe(true);
+  });
+});
+
 describe("RegisterStore.read", () => {
   it("throws CorruptRegisterError on unparseable JSON", async () => {
     fs.writeFileSync(store.claimsPath, "{ kaputt");

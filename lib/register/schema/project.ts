@@ -15,6 +15,23 @@ export const BriefingImport = z.strictObject({
 export type BriefingImport = z.infer<typeof BriefingImport>;
 
 /**
+ * Reference to the latest reference scan's result blob (reference
+ * auto-import): the durable pointer at the candidates the scan of the frozen
+ * briefing found. Repeatable and overwriting — a re-scan simply replaces the
+ * pointer, unlike the one-shot `briefing_import` (documented extension,
+ * additive).
+ */
+export const ReferenceScanImport = z.strictObject({
+  scanned_at: IsoDateTime,
+  sha256: Sha256Hex,
+  blob_path: BlobPath,
+  /** Which detection channels ran — durable record of graceful degradation. */
+  method: z.enum(["regex", "regex+llm"]),
+  candidate_count: z.int().min(0),
+});
+export type ReferenceScanImport = z.infer<typeof ReferenceScanImport>;
+
+/**
  * Project identity and state. `id`, `research_question` and `created_at` are
  * immutable after creation — a normative invariant of the format: the genesis
  * hash of the chain is derived from exactly these three fields, and a changed
@@ -27,6 +44,7 @@ export const Project = z.strictObject({
   created_at: IsoDateTime,
   source_set_revision: z.int().min(1),
   briefing_import: BriefingImport.optional(),
+  reference_scan: ReferenceScanImport.optional(),
 });
 export type Project = z.infer<typeof Project>;
 

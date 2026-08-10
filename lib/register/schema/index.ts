@@ -21,6 +21,7 @@ export {
   SupportDegree,
 } from "./enums";
 export {
+  AutoCaptureProvenance,
   IdentifierVerification,
   Source,
   SourceCustom,
@@ -40,6 +41,7 @@ export {
   BriefingImport,
   Project,
   ProjectConfig,
+  ReferenceScanImport,
   SecondOpinionConfig,
 } from "./project";
 export { ClaimsRegister, SCHEMA_VERSION } from "./register";

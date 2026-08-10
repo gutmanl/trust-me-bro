@@ -108,6 +108,38 @@ describe("captureSource via DOI", () => {
       store.blobs().read(source.custom.snapshot?.blob_path as string),
     ).toEqual(PDF_BYTES);
     expect((await store.verify()).ok).toBe(true);
+    // Manual capture: no reference auto-import provenance attached.
+    expect(source.custom.auto_capture).toBeUndefined();
+  });
+
+  it("attaches auto_capture provenance when supplied, and it round-trips durably", async () => {
+    const source = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "doi",
+        identifier: "https://doi.org/10.1109/TSE.2025.3489012",
+        sourceType: "peer_reviewed_publication",
+        documentUrl: "https://publisher.example.org/paper.pdf",
+        autoCapture: {
+          raw_text: "Meyer et al. (2025), doi:10.1109/TSE.2025.3489012",
+          method: "doi",
+          score: 0.95,
+        },
+      },
+      { fetcher: defaultFetcher() },
+    );
+
+    expect(source.custom.auto_capture).toEqual({
+      raw_text: "Meyer et al. (2025), doi:10.1109/TSE.2025.3489012",
+      method: "doi",
+      score: 0.95,
+    });
+    expect(Source.safeParse(source).success).toBe(true);
+
+    const store = RegisterStore.forProject("proj_quellen");
+    const register = await store.read();
+    expect(register.sources[0]?.custom.auto_capture?.method).toBe("doi");
+    expect((await store.verify()).ok).toBe(true);
   });
 
   it("requires a document URL or upload for DOIs", async () => {

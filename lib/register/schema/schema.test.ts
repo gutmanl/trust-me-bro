@@ -133,6 +133,72 @@ describe("ClaimsRegister", () => {
     (evidence.judgments as unknown[]).length = 0;
     expect(ClaimsRegister.safeParse(fresh).success).toBe(true);
   });
+
+  it("accepts a project without reference_scan (optional, absent by default)", () => {
+    const withoutScan = clone(exampleProject) as Record<string, unknown>;
+    expect(
+      (withoutScan.project as Record<string, unknown>).reference_scan,
+    ).toBeUndefined();
+    expect(ClaimsRegister.safeParse(withoutScan).success).toBe(true);
+  });
+
+  it("round-trips project.reference_scan", () => {
+    const withScan = clone(exampleProject) as {
+      project: Record<string, unknown>;
+    };
+    withScan.project.reference_scan = {
+      scanned_at: "2026-08-06T10:00:00Z",
+      sha256: "c".repeat(64),
+      blob_path: `blobs/cc/${"c".repeat(64)}.json`,
+      method: "regex+llm",
+      candidate_count: 5,
+    };
+    const result = ClaimsRegister.safeParse(withScan);
+    expect(result.success).toBe(true);
+    expect(
+      (result.data as { project: { reference_scan?: { method?: string } } })
+        .project.reference_scan?.method,
+    ).toBe("regex+llm");
+  });
+
+  it("rejects an unknown reference_scan method", () => {
+    const invalid = clone(exampleProject) as {
+      project: Record<string, unknown>;
+    };
+    invalid.project.reference_scan = {
+      scanned_at: "2026-08-06T10:00:00Z",
+      sha256: "c".repeat(64),
+      blob_path: `blobs/cc/${"c".repeat(64)}.json`,
+      method: "llm-only",
+      candidate_count: 5,
+    };
+    expect(ClaimsRegister.safeParse(invalid).success).toBe(false);
+  });
+
+  it("accepts a source without custom.auto_capture (optional, absent by default)", () => {
+    const source = clone(exampleProject.sources[0]) as {
+      custom: Record<string, unknown>;
+    };
+    expect(source.custom.auto_capture).toBeUndefined();
+    expect(Source.safeParse(source).success).toBe(true);
+  });
+
+  it("round-trips custom.auto_capture", () => {
+    const source = clone(exampleProject.sources[0]) as {
+      custom: Record<string, unknown>;
+    };
+    source.custom.auto_capture = {
+      raw_text: "Meyer et al. (2025), doi:10.1109/TSE.2025.3489012",
+      method: "doi",
+      score: 0.91,
+    };
+    const result = Source.safeParse(source);
+    expect(result.success).toBe(true);
+    expect(
+      (result.data as { custom: { auto_capture?: { method?: string } } }).custom
+        .auto_capture?.method,
+    ).toBe("doi");
+  });
 });
 
 describe("CSL passthrough", () => {

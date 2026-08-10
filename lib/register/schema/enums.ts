@@ -155,5 +155,11 @@ export const ProjectEventType = z.enum([
    * to the chain instead of silently outdating the last state root
    * (documented extension, additive). */
   "content_updated",
+  /** Reference auto-import: brackets of a reference scan of the frozen
+   * briefing, structurally parallel to the extraction/relevance brackets.
+   * No capture bracket events exist alongside these — each capture is
+   * self-durable (documented extension, additive). */
+  "reference_scan_started",
+  "reference_scan_completed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

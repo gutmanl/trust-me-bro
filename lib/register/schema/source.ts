@@ -39,6 +39,20 @@ export const IdentifierVerification = z.strictObject({
 });
 
 /**
+ * Provenance of a source captured through the reference auto-import flow
+ * (reference auto-import): which candidate text it came from and by which
+ * channel it was resolved, kept durable so review UIs can recognize
+ * already-captured candidates across rescans instead of relying on identifier
+ * equality alone (documented extension, additive).
+ */
+export const AutoCaptureProvenance = z.strictObject({
+  raw_text: z.string().min(1),
+  method: z.enum(["doi", "arxiv", "url", "crossref_title"]),
+  score: z.number().min(0).max(1).optional(),
+});
+export type AutoCaptureProvenance = z.infer<typeof AutoCaptureProvenance>;
+
+/**
  * Workshop-specific extension fields, placed in the `custom` object that the
  * CSL-JSON specification designates as extension point: stripping `custom`
  * yields a plain CSL-JSON item (format requirement F4).
@@ -52,6 +66,9 @@ export const SourceCustom = z.strictObject({
    * revision makes them historical, never unreachable (old and new
    * revision coexist; documented extension, additive). */
   previous_snapshots: z.array(SourceSnapshot).optional(),
+  /** Absent for manually captured sources; present when captured via the
+   * reference auto-import flow (documented extension, additive). */
+  auto_capture: AutoCaptureProvenance.optional(),
 });
 
 /**
