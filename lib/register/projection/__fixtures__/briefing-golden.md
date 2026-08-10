@@ -6,6 +6,8 @@
 
 **Prüfstand:** GEPRÜFT – kein Claim zur Adjudikation offen
 
+Die Absätze geben den eingefrorenen Originalwortlaut des Briefings wieder und bleiben unverändert. Die Markierungen darunter geben den geprüften Stand wieder; wurde ein Claim repariert, steht seine geprüfte Fassung dort ausdrücklich.
+
 ---
 
 LLM-gestützte Code-Reviews verändern den Reviewprozess grundlegend.

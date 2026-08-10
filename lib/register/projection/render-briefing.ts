@@ -2,6 +2,7 @@ import type { Claim } from "../schema/claim";
 import type { ClaimsRegister } from "../schema/register";
 import type { ClaimMarkerVM } from "./briefing-view";
 import { buildBriefingViewModel, CONFIRMED_STATUSES } from "./briefing-view";
+import { countRepairCycles } from "./counts";
 import { RELATION_LABEL_DE, STATUS_LABEL_DE } from "./status-display";
 
 /**
@@ -32,13 +33,41 @@ function statusLabel(claim: Claim): string {
   }
 }
 
-function claimLine(claim: Claim, evidenceNumbers: number[]): string {
+/**
+ * The marker block under a paragraph.
+ *
+ * S-02: a repair writes a new `claim.text`, but the paragraphs above are
+ * the frozen original and are never rewritten — so a repaired claim used to
+ * show the original, already-rejected wording next to a confirmation marker
+ * while the accepted correction appeared nowhere at all. That is a
+ * correctness defect in the primary deliverable, not a presentation
+ * question.
+ *
+ * The paragraphs stay untouched: they are frozen source material, and
+ * rewriting them would break the relationship between briefing blob and
+ * projection, undermining the very check that compares quoted wording
+ * against the frozen document. Instead the verified wording is stated
+ * explicitly beneath the marker — and only for claims that were actually
+ * repaired, so the ordinary case, where paragraph and claim agree, gains no
+ * noise.
+ */
+function claimLines(
+  claim: Claim,
+  evidenceNumbers: number[],
+  suffix = "",
+): string[] {
   const marker = CONFIRMED_STATUSES.has(claim.status) ? "✓" : "⚠";
   const refs =
     evidenceNumbers.length > 0
       ? ` · Belege ${evidenceNumbers.map((n) => `[${n}]`).join(" ")}`
       : " · ohne Beleg";
-  return `> ${marker} **${claim.id}** · ${statusLabel(claim)}${refs}`;
+  const lines = [
+    `> ${marker} **${claim.id}** · ${statusLabel(claim)}${refs}${suffix}`,
+  ];
+  if (countRepairCycles(claim) > 0) {
+    lines.push(`> · Geprüfte Fassung: „${claim.text}"`);
+  }
+  return lines;
 }
 
 /**
@@ -86,13 +115,21 @@ export function renderBriefing(
             : "")
       : `**Prüfstand:** IN PRÜFUNG – ${view.openCount} Claim(s) zur Adjudikation offen`,
     "",
+    // Without this the two tiers of the document are easy to confuse: the
+    // paragraphs are frozen input, the markers are the current verified
+    // state, and after a repair the two deliberately differ.
+    "Die Absätze geben den eingefrorenen Originalwortlaut des Briefings" +
+      " wieder und bleiben unverändert. Die Markierungen darunter geben den" +
+      " geprüften Stand wieder; wurde ein Claim repariert, steht seine" +
+      " geprüfte Fassung dort ausdrücklich.",
+    "",
     "---",
   );
 
   for (const paragraph of view.paragraphs) {
     lines.push("", paragraph.text);
     for (const marker of paragraph.claims) {
-      lines.push("", claimLine(marker.claim, marker.evidenceNumbers));
+      lines.push("", ...claimLines(marker.claim, marker.evidenceNumbers));
     }
   }
 
@@ -101,7 +138,11 @@ export function renderBriefing(
     for (const marker of view.unanchored) {
       lines.push(
         "",
-        `${claimLine(marker.claim, marker.evidenceNumbers)} · Anker: ${marker.claim.briefing_anchor}`,
+        ...claimLines(
+          marker.claim,
+          marker.evidenceNumbers,
+          ` · Anker: ${marker.claim.briefing_anchor}`,
+        ),
       );
     }
   }

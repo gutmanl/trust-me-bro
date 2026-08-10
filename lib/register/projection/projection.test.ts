@@ -161,3 +161,68 @@ describe("RegisterStore.renderBriefingFile", () => {
     expect(second).toBe(first);
   });
 });
+
+describe("repaired claims (S-02)", () => {
+  /** A claim whose text was revised by an accepted repair: one accepted
+   * revision is exactly one contested → revised history entry. */
+  function repairedRegister(): ClaimsRegister {
+    const register = baseRegister();
+    const claim = register.claims[0];
+    claim.history.push({
+      at: "2026-08-06T11:00:00Z",
+      actor: "human:lg",
+      from_status: "confirmed",
+      to_status: "contested",
+      reason: "Zahlenwert im Beleg nicht gedeckt.",
+      entry_hash: "x".repeat(64),
+      prev_hash: "y".repeat(64),
+      seq: 99,
+    } as unknown as ClaimsRegister["claims"][number]["history"][number]);
+    claim.history.push({
+      at: "2026-08-06T11:05:00Z",
+      actor: "system:repair",
+      from_status: "contested",
+      to_status: "revised",
+      reason: "Abgeschwächte Formulierung angenommen.",
+      entry_hash: "z".repeat(64),
+      prev_hash: "x".repeat(64),
+      seq: 100,
+    } as unknown as ClaimsRegister["claims"][number]["history"][number]);
+    claim.text = "Die mediane Reviewzeit sinkt in einer Studie um etwa 55 %.";
+    return register;
+  }
+
+  it("states the verified wording of a repaired claim", () => {
+    // The defect: the paragraph above still carries the original, rejected
+    // wording, and without this line the accepted correction appeared
+    // nowhere in the exported document at all.
+    const output = renderBriefing(BRIEFING, repairedRegister());
+    expect(output).toContain(
+      'Geprüfte Fassung: „Die mediane Reviewzeit sinkt in einer Studie um etwa 55 %."',
+    );
+    // The frozen original paragraph is untouched — it is the material
+    // stage 1 checks quoted wording against.
+    expect(output).toContain(
+      "Studien zeigen, dass die mediane Reviewzeit um etwa 55 % sinkt.",
+    );
+  });
+
+  it("adds nothing for a claim that was never repaired", () => {
+    // No noise in the ordinary case, where paragraph and claim agree.
+    expect(renderBriefing(BRIEFING, baseRegister())).not.toContain(
+      "Geprüfte Fassung",
+    );
+  });
+
+  it("explains the two tiers in the header", () => {
+    const output = renderBriefing(BRIEFING, baseRegister());
+    expect(output).toContain("eingefrorenen Originalwortlaut");
+    expect(output).toContain("geprüften Stand");
+  });
+
+  it("stays deterministic with a repaired claim", () => {
+    expect(renderBriefing(BRIEFING, repairedRegister())).toBe(
+      renderBriefing(BRIEFING, repairedRegister()),
+    );
+  });
+});
