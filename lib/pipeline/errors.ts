@@ -38,6 +38,15 @@ export class IdentifierResolutionError extends PipelineError {}
 /** The source document could not be downloaded. */
 export class DocumentFetchError extends PipelineError {}
 
+/**
+ * A fetch exceeded one of its resource limits (S-06): response size, total
+ * time, or number of redirects. Distinct from DocumentFetchError because
+ * the cause is a bound this application chose, not a failure at the other
+ * end — and the message has to say which bound, or the user cannot tell an
+ * oversized document from a broken server.
+ */
+export class ResourceLimitExceededError extends PipelineError {}
+
 /** A run is already active for this project (per-project sequential). */
 export class RunActiveError extends PipelineError {
   constructor(readonly projectId: string) {

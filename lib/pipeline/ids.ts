@@ -1,9 +1,32 @@
+import { ProjectId } from "../register/schema/primitives";
+
 /**
  * Pure id helpers of the pipeline layer. The register validates id shape
  * (schema/primitives.ts) but never invents ids — minting is pipeline
  * responsibility. This module is free of Node APIs so client components may
  * import it directly for live id suggestions.
+ *
+ * The deep import above is deliberate and stays Node-free: primitives.ts is
+ * pure zod, unlike the register barrel, which pulls in node:fs.
  */
+
+/**
+ * S-12: the creation form described the allowed characters but not the
+ * mandatory `proj_` prefix, so replacing the suggested value produced a
+ * server error. The hint is stated once, here, next to the check that
+ * enforces it — writing the pattern out a second time in the form is
+ * exactly how the two drift apart.
+ */
+export const PROJECT_ID_HINT =
+  'Muss mit "proj_" beginnen, danach Kleinbuchstaben, Ziffern, ' +
+  '".", "_" oder "-" (z. B. "proj_beispiel-2026"). ' +
+  "Wird der Verzeichnisname im Arbeitsverzeichnis.";
+
+/** Whether a project id satisfies the register's id pattern. Same authority
+ * the server validates against, so the form cannot disagree with it. */
+export function isValidProjectId(id: string): boolean {
+  return ProjectId.safeParse(id).success;
+}
 
 const MAX_SLUG_LENGTH = 40;
 

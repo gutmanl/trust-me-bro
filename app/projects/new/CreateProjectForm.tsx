@@ -7,7 +7,11 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/app/components/ui";
-import { mintProjectId } from "@/lib/pipeline/ids";
+import {
+  isValidProjectId,
+  mintProjectId,
+  PROJECT_ID_HINT,
+} from "@/lib/pipeline/ids";
 import type { CreateProjectFormState } from "./actions";
 import { createProjectAction } from "./actions";
 
@@ -30,6 +34,9 @@ export function CreateProjectForm({
   );
   const [id, setId] = useState("proj_projekt");
   const [idTouched, setIdTouched] = useState(false);
+  // S-12: the same check the server applies, so an id that would be
+  // rejected is visible as such before submitting rather than after.
+  const idValid = isValidProjectId(id);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -74,9 +81,12 @@ export function CreateProjectForm({
           }}
           className={`${inputClass} font-mono`}
         />
-        <p className="mt-1 text-xs text-slate-500">
-          Wird Verzeichnisname im Workspace; Kleinbuchstaben, Ziffern,
-          &quot;.&quot;, &quot;_&quot;, &quot;-&quot;.
+        <p
+          className={`mt-1 text-xs ${
+            idValid ? "text-slate-500" : "text-amber-800"
+          }`}
+        >
+          {PROJECT_ID_HINT}
         </p>
       </div>
 

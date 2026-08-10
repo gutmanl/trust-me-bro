@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { ProjectId, SourceId } from "../register";
-import { mintProjectId, mintSourceId, slugify } from "./ids";
+import {
+  isValidProjectId,
+  mintProjectId,
+  mintSourceId,
+  PROJECT_ID_HINT,
+  slugify,
+} from "./ids";
 
 describe("slugify", () => {
   it("lowercases and hyphenates free text", () => {
@@ -65,5 +71,31 @@ describe("mintSourceId", () => {
     expect(mintSourceId({ family: "Meyer", year: 2025 }, existing)).toBe(
       "src_meyer2025-3",
     );
+  });
+});
+
+describe("project id validation for the creation form (S-12)", () => {
+  it("accepts what mintProjectId produces", () => {
+    expect(isValidProjectId(mintProjectId("Wirkt X bei Ä-Fragen?"))).toBe(true);
+  });
+
+  it("rejects an id without the proj_ prefix — the case the hint was missing", () => {
+    // The form used to describe the allowed characters only, so replacing
+    // the suggested value with a plain slug produced a server error.
+    expect(isValidProjectId("beispiel-2026")).toBe(false);
+    expect(isValidProjectId("proj_beispiel-2026")).toBe(true);
+  });
+
+  it("rejects uppercase, spaces and separators", () => {
+    expect(isValidProjectId("proj_Beispiel")).toBe(false);
+    expect(isValidProjectId("proj_mit leerzeichen")).toBe(false);
+    expect(isValidProjectId("proj_a/b")).toBe(false);
+    expect(isValidProjectId("proj_")).toBe(false);
+  });
+
+  it("states the prefix in the hint the form renders", () => {
+    // The point of the finding: the requirement has to be readable, not
+    // only enforceable.
+    expect(PROJECT_ID_HINT).toContain("proj_");
   });
 });
