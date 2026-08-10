@@ -10,10 +10,12 @@ guidance, plus review finding S-05 folded into the packaging task. Bundles B, C,
 scope.
 
 Tonight's queue, in order: **this spec's T1–T8**, then **TMB-56** (review findings S-03, S-06,
-S-12), then **TMB-57** (review finding S-02). Both follow-on tickets are specced to the same
-standard and carry no open questions — see §3's closing note before starting either.
-**TMB-55** (automated in-app research) is **not** in the queue: it needs a thesis-appendix
-changelog entry and a methodological decision that is proposed but not confirmed.
+S-12), then **TMB-57** (review finding S-02), then — only with a real runway — **TMB-55**
+(in-app research). All four carry no open questions. See §3's closing note before starting a
+follow-on ticket, §6 for what will hang an unattended run, and §7 before touching TMB-55.
+
+**Read §6 before doing anything else.** It lists the calls that block forever when nobody is
+watching — chief among them: do not touch Jira, and do not ask a question.
 
 ---
 
@@ -125,8 +127,10 @@ are sequential and each is small enough not to need fan-out.
   `lib/adapters/health/index.ts:51-79`, conditional `<option>` in both forms.
 - `lib/pipeline/health.ts:24-36` requires a `projectId` because it reads the project's
   `config.backends` — that is why health is invisible before a project exists.
-- **THESIS REPO IS OUT OF SCOPE.** No change in this spec alters the project file format.
-  Do not edit `trust-me-bro-thesis`.
+- **THESIS REPO IS OUT OF SCOPE** for T1–T8, TMB-56 and TMB-57. None of those changes alters
+  the project file format, so none of them needs a manuscript entry. Do not edit
+  `trust-me-bro-thesis` while working on them. The single exception is **TMB-55**, which adds
+  two `ProjectEventType` values and therefore _requires_ an appendix entry — see §7.
 
 ---
 
@@ -298,9 +302,9 @@ this order, and only in this order:
    that instruction applies to the _documentation rewrite_ only. Regenerating the golden
    fixture is the expected outcome of TMB-57 and must be reviewed as a real diff.
 
-**Do not start TMB-55** (in-app research). It carries a methodological decision recorded in
-that ticket but not settled, and it needs a thesis-appendix changelog entry — both wrong for
-an unattended run.
+3. **TMB-55** — in-app research. No longer blocked on a decision, but by far the largest item
+   and the only one that edits the thesis repo. **Read §7 first**, and do not start it without
+   a genuine runway: abandoning it half-built is worse than not starting it.
 
 Branch: `claude/start-rs0ezk` (already checked out, currently identical to `main`).
 Push with `git push -u origin claude/start-rs0ezk`; retry network failures 4x with backoff.
@@ -494,8 +498,9 @@ Also out of scope: review findings **S-02, S-04, S-08, S-09, S-10, S-11** (see D
 reaches `briefing.md`) and S-03 (frozen HTML served as active same-origin content) are real
 open High findings** — this run fixes neither and must not imply otherwise.
 
-Automated in-app research (a `research` job kind that produces the briefing) is **not** in
-this run — see D12. It is specced as TMB-55 and requires a thesis-appendix changelog entry.
+Automated in-app research (a `research` job kind that produces the briefing) is **not** part of
+T1–T8 — see D12. It is TMB-55, the last item in the follow-on queue, and the only one that
+requires a thesis-appendix changelog entry. Conditions and order of work are in §7.
 
 One documentation-only exception: TMB-53 notes S-01 appears remediated by the `state_root`
 commitment. Leave `review/SOFTWARE_REVIEW.md` alone — it is a dated artifact, and correcting
@@ -633,4 +638,105 @@ message, so the S-05 baseline is not silently regressed.
 directory `npm install ../trustmebro-0.1.0.tgz && npx tmb verify <dir>`. That is literally the
 bug being fixed. If a global install is not possible in the container, say so in the final
 report rather than claiming the fix is verified.
-</content>
+
+---
+
+## 6. Autonomy contract — what will hang an unattended run
+
+Nobody is watching. Anything that waits for a human blocks until the session dies. The
+following are the known gates in this environment.
+
+**Never call these — there is no one to answer:**
+
+- **`AskUserQuestion`.** If you hit something genuinely ambiguous, pick the reading most
+  consistent with §2, write the assumption into the commit message and the final report, and
+  keep going. A recorded assumption is recoverable; a blocked session is not.
+- **Plan mode** (`EnterPlanMode` / `ExitPlanMode`). Exiting plan mode requires human approval
+  and will block indefinitely. Do not enter it.
+- **Jira / Atlassian MCP tools.** They require per-call approval in this environment and will
+  stall the run. **Do not create, comment on, or transition any ticket** — not even to mark
+  TMB-54 done. The commit messages and the final report are the record; the human updates
+  Jira afterwards.
+- **Any other MCP tool** (GitHub, Playwright, browser automation). None of the tasks need one.
+  In particular do not start a dev server to take screenshots.
+
+**Never run these — they do not terminate:**
+
+- `vitest` in watch mode, `npm run test:watch`, `next dev`. Use `npx vitest run <path>`.
+  (`CLAUDE.md` already says this; it matters far more when nobody can hit Ctrl-C.)
+- Interactive git (`git rebase -i`, `git add -i`) — unsupported here.
+- Foreground `sleep` as a way to wait for something — the harness blocks it. If you need to
+  wait for a background command, use its completion notification (those are reliable, unlike
+  subagent ones — see §0).
+
+**Expected to work, but report rather than fight if they don't:**
+
+- `git push -u origin claude/start-rs0ezk`. Retry network failures 4× with backoff
+  (2s, 4s, 8s, 16s). If push is refused for a permissions reason, that is a session
+  configuration problem — stop pushing, keep committing locally, and say so prominently in
+  the final report so the work can be recovered.
+- `npm install -g` for T1's full acceptance test. May be unavailable in the container. Say so
+  rather than claiming the fix is verified.
+
+**Do not open a pull request.** Not at the end of a task, not at the end of the run.
+
+**Session configuration is the human's job, not yours** — but if you find yourself being
+prompted for permission on ordinary Bash or Edit calls, the session was started in the wrong
+mode. Record it in the final report; do not try to work around it.
+
+---
+
+## 7. TMB-55 — executable, but only with a real runway
+
+TMB-55 (in-app research) is **no longer blocked on a decision**: see the ticket comments, which
+settle the methodology, the UI warning and the `briefing.md` notice. It is nonetheless the
+**last** item in the queue and by far the largest — a new job kind touching every layer, plus a
+schema change. **Do not start it unless everything before it is green and pushed and you have a
+genuine runway.** Starting it and abandoning it half-built is worse than not starting it.
+
+**This is the one ticket that legitimately edits the thesis repo.** The blanket
+"THESIS REPO IS OUT OF SCOPE" rule in §1 governs T1–T8, TMB-56 and TMB-57. It does not govern
+TMB-55, which cannot be completed correctly without a manuscript entry.
+
+Order of work:
+
+1. **Adapter layer.** New `JobKind` `research` with its input/output schema
+   (`lib/adapters/core/jobs.ts`, `lib/adapters/schema/**`); new **versioned** prompt template
+   `lib/adapters/prompts/research/v1.0.0.md` (output in German, like every sibling); a
+   `research` entry in the mock backend's `DEFAULT_OUTPUTS` so the demo path from TMB-54
+   exercises it too. Every backend is covered by the shared contract suite
+   (`lib/adapters/__fixtures__/contract-suite.ts`) — a partially-implementing backend throws
+   `AdapterOutputError` for the kind, as `anthropic-api` already does.
+2. **Register schema — additive.** Add `research_run_started` / `research_run_completed` to
+   `ProjectEventType` (`lib/register/schema/enums.ts:136-165`), structurally parallel to the
+   existing bracket pairs. Then **`npm run generate:schema`** — `schema/claims.schema.json` is
+   generated and must never be hand-edited. Note each project directory carries its own copy of
+   the schema, written at create time.
+3. **Thesis appendix — required, same change.** In `trust-me-bro-thesis`, branch
+   `claude/start-rs0ezk`, file `manuscript/appendix/dateiformat-entwurf.md`: append a dated
+   `HINWEIS` entry to the changelog block in the HTML comment near the end of the file, in
+   German, in the established style. Read the two existing entries (09.08.2026 and 10.08.2026)
+   first and match them — they describe _what_ was added and _why the shape was chosen_, not
+   just that something changed. The existing entries deliberately preserve the terminology of
+   their time; do not retro-edit them. Commit and push that repo separately.
+4. **Pipeline.** Use-case with its own SSE run and its own `derive-state`, modelled on
+   extraction (`lib/pipeline/extraction/`). Barrel export **and** the pinned list in
+   `tests/architecture.test.ts`. On success the generated briefing goes through the existing
+   freeze path, recording `briefing_import.tool` as **`trustmebro-research/<backend-id>`** —
+   that exact format, because the independence warning parses the backend back out of it.
+5. **UI.** A run page in the established three-layer shape (`page.tsx` server →
+   `<Feature>Panel.tsx` client → `actions.ts`), plus the independence warning on the project
+   dashboard and the verification page: amber, non-dismissible, German, shown when the
+   research backend and the primary verification backend share a model family.
+6. **`briefing.md` notice.** One line in the header block near `Prüfstand:`. **Layering trap:**
+   `modelFamilyOf` lives in `lib/pipeline` and `lib/register/projection/**` must not import it.
+   Compute the flag in the pipeline and pass it down through `renderBriefing` and
+   `RegisterStore.renderBriefingFile()` as an **optional** parameter — that method is called
+   with no arguments today, including in `tests/e2e/lifecycle.e2e.test.ts:317-324`.
+   This file and its golden fixture are also touched by TMB-57; TMB-57 runs first, so build on
+   it rather than reapplying it.
+
+Acceptance: `npm run check` green; a research run against the mock backend produces a
+schema-valid briefing that then extracts and verifies; golden tests cover both the
+shared-family and different-family `briefing.md` output; the thesis appendix entry is committed
+and pushed.
