@@ -172,6 +172,9 @@ export {
   listProjects,
   readProject,
 } from "./projects";
+// TMB-54: the example project, created on explicit request. The seeding
+// actors and the scripted content stay internal.
+export { createDemoProject, DEMO_PROJECT_ID } from "./demo";
 // TMB-47: first-run setup — the gate predicate and the one mutation the
 // /setup page performs. Identity internals stay behind lib/identity.
 export { completeFirstRunSetup, isSetupComplete } from "./setup";

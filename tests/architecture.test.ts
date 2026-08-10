@@ -242,6 +242,10 @@ describe("public surface of lib/pipeline", () => {
     // it does not re-implement it.
     expect(surface.isDemoProject).toBeDefined();
     expect(surface.DEMO_BACKEND_CLI).toBeUndefined();
+    // TMB-54: the example project use-case and the fixed id the UI needs to
+    // link to it. The seeding actors stay internal.
+    expect(surface.createDemoProject).toBeDefined();
+    expect(surface.DEMO_PROJECT_ID).toBeDefined();
     // TMB-46: settings use-case; diff formatter and backends builder stay
     // internal.
     expect(surface.updateProjectConfig).toBeDefined();
