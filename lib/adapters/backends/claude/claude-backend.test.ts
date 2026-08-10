@@ -143,12 +143,16 @@ describe("createClaudeBackend", () => {
     expect(result.model).toBe("claude-sonnet-4-5-20250929");
   });
 
-  it("falls back to the backend id when the envelope reports no model", async () => {
+  it("records an unresolved model as unknown, never as the backend id (S-11)", async () => {
+    // This test previously asserted the opposite — that an unresolved model
+    // is recorded as "claude". S-11: that made the provenance record
+    // indistinguishable from a run that really used a model of that name.
     const backend = createClaudeBackend({
       processRunner: fakeRunner({ stdout: envelope({ model: undefined }) }),
     });
     const result = await backend.invoke(attributionJob());
-    expect(result.model).toBe("claude");
+    expect(result.model).toBe("unknown");
+    expect(result.model).not.toBe("claude");
   });
 });
 

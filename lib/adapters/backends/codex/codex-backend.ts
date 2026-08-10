@@ -1,3 +1,4 @@
+import { UNKNOWN_MODEL } from "../../core/contracts";
 import type {
   Backend,
   InvokeResult,
@@ -97,7 +98,8 @@ export function createCodexBackend(options: CodexBackendOptions = {}): Backend {
           job.kind,
           parsePayload(job.kind, payload),
         ),
-        model: findModel(events) ?? BACKEND_ID,
+        // S-11: an honest gap beats the backend id posing as a model.
+        model: findModel(events) ?? UNKNOWN_MODEL,
       };
     },
   };

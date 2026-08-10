@@ -12,6 +12,22 @@ export interface InvokeResult<K extends JobKind = JobKind> {
 }
 
 /**
+ * Recorded as the model when a backend cannot determine which model served
+ * the request (S-11).
+ *
+ * The alternative that used to be in place — falling back to the backend id,
+ * so an unresolved model was recorded as "claude" — made the provenance
+ * record look more precise than it was: a reader cannot tell a run that
+ * really used a model named "claude" from one where the CLI simply did not
+ * say. In a tool whose product is a trustworthy audit trail, an honest gap
+ * beats a plausible-looking value.
+ *
+ * An English sentinel, like the enum values and actor tokens: it is stored
+ * data, not display copy, and the display tier translates it.
+ */
+export const UNKNOWN_MODEL = "unknown";
+
+/**
  * One LLM backend behind the adapter interface (concept: Backend-Interface,
  * extension seam 1 — an API-based backend is a further implementation of
  * this port, which is why no child-process or CLI vocabulary appears here).

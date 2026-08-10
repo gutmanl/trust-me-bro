@@ -1,3 +1,4 @@
+import { UNKNOWN_MODEL } from "../../core/contracts";
 import type { Backend, ProcessRunner } from "../../core/contracts";
 import type { InvokeResult } from "../../core/contracts";
 import {
@@ -32,6 +33,10 @@ interface ClaudeEnvelope {
 /**
  * The envelope's model field has moved across CLI versions; current versions
  * (observed with 2.1.223) report per-model usage under `modelUsage` instead.
+ * When neither field carries a model, the result is UNKNOWN_MODEL rather
+ * than the backend id (S-11): recording "claude" as the model would make the
+ * provenance record indistinguishable from a run that really used a model of
+ * that name.
  */
 function modelOf(envelope: ClaudeEnvelope): string {
   if (typeof envelope.model === "string" && envelope.model !== "") {
@@ -43,7 +48,7 @@ function modelOf(envelope: ClaudeEnvelope): string {
       return first;
     }
   }
-  return BACKEND_ID;
+  return UNKNOWN_MODEL;
 }
 
 export interface ClaudeBackendOptions {

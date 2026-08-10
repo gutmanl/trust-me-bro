@@ -64,6 +64,20 @@ export const CALIBRATION_LABELS: Record<CalibrationResult, string> = {
 /** Status pill styling (amber = awaiting adjudication, green = confirmed,
  * red = complained/discarded, slate = in-pipeline) shared by the claim
  * lists, the briefing markers and the adjudication queue. */
+/**
+ * Display form of a recorded model name (S-11). The adapter layer stores the
+ * English sentinel "unknown" when a backend could not determine which model
+ * served a request; the display tier names that gap in German instead of
+ * showing the raw token. Any real model name passes through verbatim — it is
+ * provenance, not copy.
+ *
+ * The sentinel is restated here rather than imported, exactly like the enum
+ * values keying the label maps above: app/ reads the pipeline barrel only.
+ */
+export function formatModel(model: string): string {
+  return model === "unknown" ? "Modell nicht ermittelt" : model;
+}
+
 export function statusBadgeClassName(status: ClaimStatus): string {
   switch (status) {
     case "pending_adjudication":

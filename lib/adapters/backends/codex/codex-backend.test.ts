@@ -137,7 +137,7 @@ describe("createCodexBackend", () => {
     );
   });
 
-  it("falls back to the backend id when no event reports a model", async () => {
+  it("records an unresolved model as unknown, never as the backend id (S-11)", async () => {
     const stdout = JSON.stringify({
       id: "1",
       msg: { type: "agent_message", message: JSON.stringify(validPayload) },
@@ -146,7 +146,8 @@ describe("createCodexBackend", () => {
       processRunner: fakeRunner({ stdout }),
     });
     const result = await backend.invoke(attributionJob());
-    expect(result.model).toBe("codex");
+    expect(result.model).toBe("unknown");
+    expect(result.model).not.toBe("codex");
   });
 });
 

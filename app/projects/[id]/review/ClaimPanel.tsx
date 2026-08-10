@@ -3,6 +3,7 @@
 import type { Claim, Evidence } from "@/lib/pipeline";
 import {
   CALIBRATION_LABELS,
+  formatModel,
   RELATION_LABELS,
   SOURCE_TYPE_LABELS,
   STATUS_LABELS,
@@ -226,7 +227,7 @@ function EvidenceCard({
                   {RELATION_LABELS[judgment.relation_type]} ·{" "}
                   {Math.round(judgment.confidence * 100)} %
                   <span className="ml-2 font-normal text-slate-500">
-                    {judgment.backend} ({judgment.model})
+                    {judgment.backend} ({formatModel(judgment.model)})
                   </span>
                 </p>
                 <p className="mt-1 text-slate-600">{judgment.reasoning}</p>
