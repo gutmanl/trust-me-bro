@@ -15,6 +15,7 @@ import type {
   ReferenceParseInput,
   RelevanceInput,
   RepairInput,
+  ResearchInput,
   RubricInput,
 } from "../core/jobs";
 import { renderPromptForJob } from "../prompts";
@@ -41,6 +42,10 @@ export const exampleEvidence: EvidenceContext = {
 };
 
 export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
+  research: {
+    research_question:
+      "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
+  } satisfies ResearchInput,
   extraction: {
     research_question:
       "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",

@@ -10,6 +10,20 @@ import type { JobIO, JobKind, JobRequest } from "../../core/jobs";
  */
 
 const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
+  // Shaped like a real briefing — Markdown, one checkable statement per
+  // paragraph, a cited source — so the demonstration path exercises the
+  // extraction that runs on it afterwards instead of collapsing on
+  // placeholder text.
+  research: {
+    briefing_markdown: [
+      "# Mock-Briefing zur Forschungsfrage",
+      "Der Einsatz von Musterwerkzeugen senkt die mediane Bearbeitungszeit " +
+        'um 40 % (Musterstudie A, doi:10.0000/mock.1, S. 4): "Die mediane ' +
+        'Bearbeitungszeit sank von 50 auf 30 Minuten je Aufgabe."',
+      "Ein Einfluss auf die Ergebnisqualität ist in der herangezogenen " +
+        "Literatur nicht belegt.",
+    ].join("\n\n"),
+  },
   extraction: {
     claims: [
       {

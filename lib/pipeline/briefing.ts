@@ -6,6 +6,7 @@ import {
   InvalidBriefingInputError,
 } from "./errors";
 import { requireProjectStore } from "./projects";
+import { briefingRenderContext } from "./research/independence";
 
 export interface ImportBriefingInput {
   projectId: string;
@@ -48,8 +49,8 @@ export async function importBriefing(
       actor: getCurrentActor(),
     });
   });
-  await store.renderBriefingFile();
   const register = await store.read();
+  await store.renderBriefingFile(briefingRenderContext(register));
   return register.project.briefing_import as BriefingImport;
 }
 

@@ -17,6 +17,7 @@ import {
   sha256FromBlobPath,
 } from "../../register";
 import { requireProjectStore } from "../projects";
+import { briefingRenderContext } from "../research/independence";
 import { buildProvDocument } from "./prov";
 import { buildReferencesCsl } from "./references";
 import {
@@ -75,7 +76,9 @@ export async function exportProjectBundle(
     ),
   };
   if (register.project.briefing_import) {
-    files["briefing.md"] = bundleText.encode(await store.renderBriefingFile());
+    files["briefing.md"] = bundleText.encode(
+      await store.renderBriefingFile(briefingRenderContext(register)),
+    );
   }
 
   for (const { name, content } of readTraceFiles(store.projectDir)) {

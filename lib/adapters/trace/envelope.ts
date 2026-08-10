@@ -15,6 +15,7 @@ export const TraceEnvelope = z
   .strictObject({
     trace_id: z.uuid(),
     method: z.enum([
+      "research",
       "extraction",
       "attribution",
       "rubric",

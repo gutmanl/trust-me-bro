@@ -226,3 +226,37 @@ describe("repaired claims (S-02)", () => {
     );
   });
 });
+
+describe("independence notice (TMB-55)", () => {
+  it("states the shared-model-family limitation when the flag is set", () => {
+    // The flag is computed in lib/pipeline (where modelFamilyOf lives) and
+    // passed in: the projection must not import it, or the layering inverts.
+    const output = renderBriefing(BRIEFING, baseRegister(), {
+      sharedModelFamily: true,
+    });
+    expect(output).toContain("Hinweis zur Unabhängigkeit");
+    expect(output).toContain("derselben Modellfamilie");
+    expect(output).toContain("Stufen 2 und 3");
+    // The limitation is bounded, and saying so is the point: stage 1 is
+    // deterministic and unaffected.
+    expect(output).toContain("nicht betroffen");
+  });
+
+  it("emits byte-identical output without the flag", () => {
+    // Different families, or an externally imported briefing: nothing
+    // changes at all, so the notice cannot creep into unrelated exports.
+    const withoutContext = renderBriefing(BRIEFING, baseRegister());
+    expect(renderBriefing(BRIEFING, baseRegister(), {})).toBe(withoutContext);
+    expect(
+      renderBriefing(BRIEFING, baseRegister(), { sharedModelFamily: false }),
+    ).toBe(withoutContext);
+    expect(withoutContext).not.toContain("Hinweis zur Unabhängigkeit");
+  });
+
+  it("stays deterministic with the notice", () => {
+    const context = { sharedModelFamily: true } as const;
+    expect(renderBriefing(BRIEFING, baseRegister(), context)).toBe(
+      renderBriefing(BRIEFING, baseRegister(), context),
+    );
+  });
+});

@@ -720,7 +720,9 @@
               "config_changed",
               "content_updated",
               "reference_scan_started",
-              "reference_scan_completed"
+              "reference_scan_completed",
+              "research_run_started",
+              "research_run_completed"
             ],
             "type": "string"
           },

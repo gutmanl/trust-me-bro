@@ -11,6 +11,7 @@ import type { ExtractionOutput } from "../schema/extraction";
 import type { ReferenceParseOutput } from "../schema/reference-parse";
 import type { RelevanceOutput } from "../schema/relevance";
 import type { RepairOutput } from "../schema/repair";
+import type { ResearchOutput } from "../schema/research";
 import type { RubricOutput } from "../schema/rubric";
 
 /**
@@ -23,6 +24,7 @@ import type { RubricOutput } from "../schema/rubric";
  * individually repeatable (divergence rule, RQ3 reruns).
  */
 export type JobKind =
+  | "research"
   | "extraction"
   | "attribution"
   | "rubric"
@@ -56,6 +58,15 @@ export interface SourceContext {
   readonly id: string;
   /** Human-readable citation label, e.g. "Meyer (2025), IEEE TSE". */
   readonly citation: string;
+}
+
+/**
+ * Initial research: produces the briefing that everything downstream then
+ * verifies. The only job whose input is not already-frozen project
+ * material — there is nothing frozen yet at this point.
+ */
+export interface ResearchInput {
+  readonly research_question: string;
 }
 
 export interface ExtractionInput {
@@ -111,6 +122,7 @@ export interface ReferenceParseInput {
  * exact result type per kind.
  */
 export interface JobIO {
+  research: { input: ResearchInput; output: ResearchOutput };
   extraction: { input: ExtractionInput; output: ExtractionOutput };
   attribution: { input: AttributionInput; output: AttributionOutput };
   rubric: { input: RubricInput; output: RubricOutput };

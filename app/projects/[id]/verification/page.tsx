@@ -1,7 +1,12 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
-import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
+import {
+  BackendHealthNotice,
+  IndependenceNotice,
+  SubpageHeader,
+} from "@/app/components/ui";
 import {
   getBackendsHealth,
+  getBriefingIndependence,
   getVerificationState,
   readProject,
 } from "@/lib/pipeline";
@@ -45,6 +50,7 @@ export default async function VerificationPage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const state = getVerificationState(id, register);
+  const independence = getBriefingIndependence(register);
   const health = await getBackendsHealth(id);
   const badge = STATE_BADGES[state.status];
 
@@ -60,6 +66,12 @@ export default async function VerificationPage(
           entschieden.
         </p>
       </div>
+
+      {/* Placed here on purpose: stages 2 and 3, the ones the shared model
+          family affects, run on this page. */}
+      {independence.sharedModelFamily ? (
+        <IndependenceNotice modelFamily={independence.modelFamily} />
+      ) : null}
 
       <div className={`rounded-md border p-4 text-sm ${badge.className}`}>
         <p className="font-medium">{badge.label}</p>

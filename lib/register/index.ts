@@ -34,6 +34,7 @@ export {
   resolveEvidenceRelation,
 } from "./statemachine/divergence";
 export type { TransitionRequest } from "./statemachine/engine";
+export type { BriefingRenderContext } from "./projection/render-briefing";
 export { formatLocator, renderBriefing } from "./projection/render-briefing";
 export {
   buildBriefingViewModel,

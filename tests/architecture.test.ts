@@ -259,6 +259,16 @@ describe("public surface of lib/pipeline", () => {
     // link to it. The seeding actors stay internal.
     expect(surface.createDemoProject).toBeDefined();
     expect(surface.DEMO_PROJECT_ID).toBeDefined();
+    // TMB-55: in-app initial research. The run use-case, its state and the
+    // independence finding are public; the provenance-prefix parsing and
+    // the state derivation stay internal.
+    expect(surface.startResearch).toBeDefined();
+    expect(surface.getResearchState).toBeDefined();
+    expect(surface.getResearchRun).toBeDefined();
+    expect(surface.getBriefingIndependence).toBeDefined();
+    expect(surface.researchBackendOf).toBeUndefined();
+    expect(surface.deriveResearchState).toBeUndefined();
+    expect(surface.RESEARCH_TOOL_PREFIX).toBeUndefined();
     // TMB-46: settings use-case; diff formatter and backends builder stay
     // internal.
     expect(surface.updateProjectConfig).toBeDefined();

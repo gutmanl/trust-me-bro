@@ -7,6 +7,7 @@ import {
   ReferenceParseOutput,
   RelevanceOutput,
   RepairOutput,
+  ResearchOutput,
   RubricOutput,
 } from "../../schema";
 import type { JobKind } from "../../core/jobs";
@@ -14,6 +15,7 @@ import { AdapterTimeoutError } from "../../core/errors";
 import { createMockBackend } from "./mock-backend";
 
 const outputSchemas = {
+  research: ResearchOutput,
   extraction: ExtractionOutput,
   attribution: AttributionOutput,
   rubric: RubricOutput,

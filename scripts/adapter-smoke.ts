@@ -62,6 +62,10 @@ const evidence = {
 
 function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
   const inputs = {
+    research: {
+      research_question:
+        "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
+    },
     extraction: {
       research_question:
         "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
@@ -110,6 +114,7 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
     timeoutMs: TIMEOUT_MS,
   });
   return {
+    research: make("research"),
     extraction: make("extraction"),
     attribution: make("attribution"),
     rubric: make("rubric"),

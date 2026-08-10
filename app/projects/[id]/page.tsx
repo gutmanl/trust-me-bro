@@ -1,8 +1,12 @@
 import Link from "next/link";
 
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
-import { getProjectSummary } from "@/lib/pipeline";
-import { DemoProjectNotice } from "../../components/ui";
+import {
+  getBriefingIndependence,
+  getProjectSummary,
+  readProject,
+} from "@/lib/pipeline";
+import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "../status-labels";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   const { id } = await props.params;
   const summary = await loadProjectOrNotFound(() => getProjectSummary(id));
+  const independence = getBriefingIndependence(await readProject(id));
 
   return (
     <div className="space-y-6">
@@ -32,6 +37,9 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       </div>
 
       {summary.is_demo ? <DemoProjectNotice /> : null}
+      {independence.sharedModelFamily ? (
+        <IndependenceNotice modelFamily={independence.modelFamily} />
+      ) : null}
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">Claim-Status</h2>
@@ -78,6 +86,17 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             >
               Briefing importieren
             </Link>
+            {summary.briefing_imported ? null : (
+              <span className="text-slate-500">
+                oder{" "}
+                <Link
+                  href={`/projects/${summary.id}/research`}
+                  className="underline decoration-slate-300 hover:decoration-slate-600"
+                >
+                  in der Anwendung recherchieren
+                </Link>
+              </span>
+            )}
           </li>
           <li className="flex items-center gap-2">
             <span

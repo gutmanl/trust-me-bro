@@ -6,12 +6,14 @@ import {
   ReferenceParseOutput,
   RelevanceOutput,
   RepairOutput,
+  ResearchOutput,
   RubricOutput,
 } from "../schema";
 import { AdapterValidationError } from "./errors";
 import type { JobIO, JobKind } from "./jobs";
 
 const OUTPUT_SCHEMA: { [K in JobKind]: ZodType<JobIO[K]["output"]> } = {
+  research: ResearchOutput,
   extraction: ExtractionOutput,
   attribution: AttributionOutput,
   rubric: RubricOutput,

@@ -7,6 +7,7 @@ import type {
   RelevanceInput,
   RenderedPrompt,
   RepairInput,
+  ResearchInput,
   RubricInput,
 } from "../core/jobs";
 import { loadPromptTemplate } from "./load";
@@ -18,6 +19,7 @@ import { substitute } from "./render";
  * so RQ3 reruns can pin the exact prompt an earlier run used.
  */
 export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
+  research: "1.0.0",
   extraction: "1.0.0",
   attribution: "1.0.0",
   rubric: "1.0.0",
@@ -30,6 +32,10 @@ const json = (value: unknown): string => JSON.stringify(value, null, 2);
 
 function buildVars(kind: JobKind, input: unknown): Record<string, string> {
   switch (kind) {
+    case "research": {
+      const typed = input as ResearchInput;
+      return { research_question: typed.research_question };
+    }
     case "extraction": {
       const typed = input as ExtractionInput;
       return {

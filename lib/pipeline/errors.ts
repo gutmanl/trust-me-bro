@@ -65,6 +65,9 @@ export class NoActiveRunError extends PipelineError {
   }
 }
 
+/** Preconditions of the initial research run are not met. */
+export class ResearchPreconditionError extends PipelineError {}
+
 /** Preconditions of the extraction run are not met. */
 export class ExtractionPreconditionError extends PipelineError {}
 

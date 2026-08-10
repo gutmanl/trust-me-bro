@@ -25,6 +25,7 @@ import {
 import { withProjectLock } from "./lock";
 import { findIntegrityProblems } from "./validate";
 import { renderBriefing } from "../projection/render-briefing";
+import type { BriefingRenderContext } from "../projection/render-briefing";
 import {
   adoptClaim,
   applyTransition,
@@ -295,7 +296,9 @@ export class RegisterStore {
    * register state and writes it atomically next to claims.json. The file is
    * a projection: deterministic, regenerable, carrying no truth of its own.
    */
-  async renderBriefingFile(): Promise<string> {
+  async renderBriefingFile(
+    context: BriefingRenderContext = {},
+  ): Promise<string> {
     const register = await this.readFromDisk();
     const briefingImport = register.project.briefing_import;
     if (!briefingImport) {
@@ -304,7 +307,7 @@ export class RegisterStore {
       );
     }
     const original = this.blobs().readText(briefingImport.blob_path);
-    const rendered = renderBriefing(original, register);
+    const rendered = renderBriefing(original, register, context);
     writeFileAtomic(path.join(this.projectDir, "briefing.md"), rendered);
     return rendered;
   }

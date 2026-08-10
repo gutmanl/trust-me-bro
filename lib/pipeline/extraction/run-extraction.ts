@@ -23,6 +23,7 @@ import { permissiveBackendPreflight, probeBackendUsable } from "../health";
 import type { BackendPreflight } from "../health";
 import { evidenceIdAt, nextClaimId } from "../ids";
 import { requireProjectStore } from "../projects";
+import { briefingRenderContext } from "../research/independence";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import type { RunHandle } from "../runs/types";
@@ -211,7 +212,7 @@ async function runExtractionOnce(
         runId,
       }),
     );
-    await store.renderBriefingFile();
+    await store.renderBriefingFile(briefingRenderContext(await store.read()));
     return summary;
   } catch (error) {
     // The register rejected the bundle as a whole (duplicate ids, unknown

@@ -16,6 +16,7 @@ export type {
   RelevanceInput,
   RenderedPrompt,
   RepairInput,
+  ResearchInput,
   RubricInput,
   SourceContext,
 } from "./core/jobs";

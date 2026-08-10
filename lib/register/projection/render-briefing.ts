@@ -93,9 +93,22 @@ export function formatLocator(locator: Record<string, unknown>): string {
   return parts.join(", ");
 }
 
+/**
+ * Optional findings the projection cannot compute itself without inverting
+ * the layering. `sharedModelFamily` says that the briefing was researched
+ * by this application with a backend of the same model family as the
+ * primary verification backend — determined in lib/pipeline, where
+ * modelFamilyOf lives, and passed down. Absent means "no such finding",
+ * which is also what every existing caller passing nothing gets.
+ */
+export interface BriefingRenderContext {
+  sharedModelFamily?: boolean;
+}
+
 export function renderBriefing(
   briefingOriginal: string,
   register: ClaimsRegister,
+  context: BriefingRenderContext = {},
 ): string {
   const view = buildBriefingViewModel(briefingOriginal, register);
 
@@ -115,6 +128,20 @@ export function renderBriefing(
             : "")
       : `**Prüfstand:** IN PRÜFUNG – ${view.openCount} Claim(s) zur Adjudikation offen`,
     "",
+    ...(context.sharedModelFamily
+      ? [
+          // Travels with the artifact rather than living only on screen:
+          // whoever reads the bundle later sees the limitation without the
+          // application.
+          "**Hinweis zur Unabhängigkeit:** Briefing und Prüfung stammen aus" +
+            " derselben Modellfamilie. Die Urteile der Stufen 2 und 3" +
+            " (Attributionsprüfung, Kalibrierung gegen die Rubrik) sind" +
+            " dadurch nicht unabhängig. Stufe 1 – die Existenzprüfung des" +
+            " zitierten Wortlauts gegen das eingefrorene Dokument – ist" +
+            " davon nicht betroffen.",
+          "",
+        ]
+      : []),
     // Without this the two tiers of the document are easy to confuse: the
     // paragraphs are frozen input, the markers are the current verified
     // state, and after a repair the two deliberately differ.

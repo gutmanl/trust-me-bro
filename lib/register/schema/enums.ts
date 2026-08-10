@@ -161,5 +161,10 @@ export const ProjectEventType = z.enum([
    * self-durable (documented extension, additive). */
   "reference_scan_started",
   "reference_scan_completed",
+  /** In-app initial research: brackets of a run that produces the briefing
+   * from the research question, structurally parallel to the extraction and
+   * reference-scan brackets (documented extension, additive). */
+  "research_run_started",
+  "research_run_completed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

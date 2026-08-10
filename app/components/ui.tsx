@@ -175,6 +175,41 @@ export function DemoProjectNotice() {
   );
 }
 
+/**
+ * Independence notice (TMB-55). Shown when the briefing was researched by
+ * this application with a backend of the same model family as the primary
+ * verification backend.
+ *
+ * Deliberately NOT dismissible: a warning you can click away is worthless
+ * in a verification tool. Equally deliberately, it is not an alarm — this
+ * is an admissible mode of operation, not a misconfiguration, so it names
+ * what is the case and what follows from it, without telling the user to
+ * reconfigure anything.
+ */
+export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <p>
+        <strong>Briefing und Prüfung aus derselben Modellfamilie</strong>
+        {modelFamily ? (
+          <>
+            {" "}
+            (<span className="font-mono">{modelFamily}</span>)
+          </>
+        ) : null}
+        . Das Briefing wurde in dieser Anwendung erzeugt; die Urteile der Stufen
+        2 und 3 – Attributionsprüfung und Kalibrierung gegen die Rubrik – sind
+        dadurch nicht unabhängig vom Modell, das den Text geschrieben hat.
+      </p>
+      <p className="mt-1">
+        Stufe 1, die Existenzprüfung des zitierten Wortlauts gegen das
+        eingefrorene Dokument, ist davon nicht betroffen: sie ist
+        deterministisch und modellunabhängig.
+      </p>
+    </div>
+  );
+}
+
 export function SubpageHeader({
   projectId,
   title,

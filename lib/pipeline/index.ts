@@ -175,6 +175,19 @@ export {
 // TMB-54: the example project, created on explicit request. The seeding
 // actors and the scripted content stay internal.
 export { createDemoProject, DEMO_PROJECT_ID } from "./demo";
+// TMB-55: in-app initial research — the run use-case, its derived state and
+// the run handle for the SSE stream. The prompt rendering, the provenance
+// prefix parsing and the state derivation stay internal.
+export {
+  getResearchRun,
+  getResearchState,
+  startResearch,
+} from "./research/run-research";
+export type { ResearchRunSummary } from "./research/run-research";
+export type { ResearchState, ResearchStatus } from "./research/derive-state";
+// The independence finding the UI and the briefing projection both show.
+export { getBriefingIndependence } from "./research/independence";
+export type { BriefingIndependence } from "./research/independence";
 // TMB-47: first-run setup — the gate predicate and the one mutation the
 // /setup page performs. Identity internals stay behind lib/identity.
 export { completeFirstRunSetup, isSetupComplete } from "./setup";
