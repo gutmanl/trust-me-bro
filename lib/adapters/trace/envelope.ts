@@ -20,6 +20,7 @@ export const TraceEnvelope = z
       "rubric",
       "repair",
       "relevance",
+      "reference_parse",
     ]),
     params: z.unknown(),
     backend: z.string().min(1),

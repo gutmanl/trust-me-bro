@@ -63,6 +63,17 @@ describe("renderPromptForJob", () => {
     expect(a).toEqual(b);
   });
 
+  it("interpolates the briefing text and already-detected spans into the reference_parse prompt", () => {
+    const prompt = renderPromptForJob(
+      "reference_parse",
+      inputs.reference_parse,
+    );
+    expect(prompt.text).toContain(inputs.reference_parse.briefing_text);
+    for (const span of inputs.reference_parse.already_detected) {
+      expect(prompt.text).toContain(span);
+    }
+  });
+
   it("throws a helpful error for an unknown template version", () => {
     expect(() =>
       renderPromptForJob(

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   AttributionOutput,
   ExtractionOutput,
+  ReferenceParseOutput,
   RepairOutput,
   RubricOutput,
 } from "./index";
@@ -40,6 +41,18 @@ const validRepair = {
   suggested_text:
     "Eine Einzelstudie berichtet eine Reduktion der medianen Reviewzeit um 55 %.",
   reasoning: "Abschwächung auf Einzelquellen-Kennzeichnung gemäß Rubrik.",
+};
+
+const validReferenceParse = {
+  references: [
+    {
+      raw_text: "Meyer et al. (2025)",
+      authors: ["Meyer, A.", "Schmidt, B."],
+      year: 2025,
+      title: "Impact of LLM-assisted code review on review latency",
+      venue: "IEEE TSE",
+    },
+  ],
 };
 
 describe("AttributionOutput", () => {
@@ -142,5 +155,47 @@ describe("RepairOutput", () => {
     expect(
       RepairOutput.safeParse({ ...validRepair, severity: "high" }).success,
     ).toBe(false);
+  });
+});
+
+describe("ReferenceParseOutput", () => {
+  it("accepts a valid reference-parse result", () => {
+    expect(ReferenceParseOutput.parse(validReferenceParse)).toEqual(
+      validReferenceParse,
+    );
+  });
+
+  it("accepts an empty references array (no textual citations found)", () => {
+    expect(ReferenceParseOutput.parse({ references: [] })).toEqual({
+      references: [],
+    });
+  });
+
+  it("accepts a reference with only the required fields (optionals omitted)", () => {
+    const minimal = {
+      references: [
+        { raw_text: "Some raw citation text", authors: [], title: "A title" },
+      ],
+    };
+    expect(ReferenceParseOutput.parse(minimal)).toEqual(minimal);
+  });
+
+  it("rejects a reference without a title", () => {
+    const bad = structuredClone(validReferenceParse) as Record<string, unknown>;
+    delete (bad.references as Array<Record<string, unknown>>)[0].title;
+    expect(ReferenceParseOutput.safeParse(bad).success).toBe(false);
+  });
+
+  it("rejects a reasoning field — reference_parse is extraction-shaped, never judgment-shaped", () => {
+    const bad = {
+      references: [{ ...validReferenceParse.references[0], reasoning: "x" }],
+    };
+    expect(ReferenceParseOutput.safeParse(bad).success).toBe(false);
+  });
+
+  it("rejects references as an object instead of an array", () => {
+    expect(ReferenceParseOutput.safeParse({ references: {} }).success).toBe(
+      false,
+    );
   });
 });

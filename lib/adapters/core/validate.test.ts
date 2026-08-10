@@ -73,6 +73,23 @@ const invalidByKind: Array<[JobKind, string, unknown]> = [
     "extra fields",
     { suggested_text: "x", reasoning: "y", diff: "z" },
   ],
+  [
+    "reference_parse",
+    "references as object instead of array",
+    { references: {} },
+  ],
+  [
+    "reference_parse",
+    "reference without a title",
+    { references: [{ raw_text: "x", authors: [] }] },
+  ],
+  [
+    "reference_parse",
+    "reference carrying a reasoning field (judgment-shaped, not allowed here)",
+    {
+      references: [{ raw_text: "x", authors: [], title: "y", reasoning: "z" }],
+    },
+  ],
 ];
 
 describe("validateJobOutput", () => {

@@ -1,6 +1,6 @@
 /**
  * Manual smoke check for the real agent-CLI backends (TMB-17/TMB-18): runs
- * all four job kinds against a throwaway example project and reports whether
+ * every job kind against a throwaway example project and reports whether
  * the outputs are schema-valid. Deliberately NOT part of the vitest suite —
  * it spends real subscription quota and needs an authenticated CLI.
  *
@@ -93,6 +93,14 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
         "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
       claim,
     },
+    reference_parse: {
+      briefing_text:
+        "p1: Eine kontrollierte Studie (Meyer 2025) zeigt: LLM-gestuetzte " +
+        "Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 % " +
+        '("median review time dropped from 42 to 19 minutes (-55%)", S. 1). ' +
+        "Siehe auch Braun & Kohl (2024), Journal of Software Engineering.",
+      already_detected: [],
+    },
   } as const;
   const make = <K extends JobKind>(kind: K): JobRequest<K> => ({
     kind,
@@ -107,6 +115,7 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
     rubric: make("rubric"),
     repair: make("repair"),
     relevance: make("relevance"),
+    reference_parse: make("reference_parse"),
   };
 }
 

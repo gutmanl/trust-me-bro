@@ -8,6 +8,7 @@ import type {
 } from "../../register";
 import type { AttributionOutput } from "../schema/attribution";
 import type { ExtractionOutput } from "../schema/extraction";
+import type { ReferenceParseOutput } from "../schema/reference-parse";
 import type { RelevanceOutput } from "../schema/relevance";
 import type { RepairOutput } from "../schema/repair";
 import type { RubricOutput } from "../schema/rubric";
@@ -15,13 +16,19 @@ import type { RubricOutput } from "../schema/rubric";
 /**
  * Job model of the adapter layer: the LLM verification steps of the concept
  * (extraction, attribution judgment, rubric pre-assessment, repair proposal,
- * and — since TMB-43 — the relevance check of warm runs) as data. A job is
+ * the relevance check of warm runs since TMB-43, and — since TMB-52 — the
+ * textual-citation parse of the reference auto-import) as data. A job is
  * stateless and self-contained — everything the backend needs, including the
  * rendered prompt, travels in the request, so any single call is
  * individually repeatable (divergence rule, RQ3 reruns).
  */
 export type JobKind =
-  "extraction" | "attribution" | "rubric" | "repair" | "relevance";
+  | "extraction"
+  | "attribution"
+  | "rubric"
+  | "repair"
+  | "relevance"
+  | "reference_parse";
 
 type LocatorValue = z.infer<typeof Locator>;
 
@@ -89,6 +96,15 @@ export interface RelevanceInput {
   readonly claim: ClaimContext;
 }
 
+/** Textual-citation extraction of a briefing (TMB-52 reference auto-import):
+ * finds citations the regex channel (DOI/arXiv/URL pattern matching) could
+ * NOT find. `already_detected` carries the regex channel's spans so the LLM
+ * hunts only for OTHER citations instead of re-reporting them. */
+export interface ReferenceParseInput {
+  readonly briefing_text: string;
+  readonly already_detected: readonly string[];
+}
+
 /**
  * Compile-time mapping job kind → input/output shapes. `Backend.invoke<K>`
  * indexes into this instead of switching over a union, so callers get the
@@ -100,6 +116,10 @@ export interface JobIO {
   rubric: { input: RubricInput; output: RubricOutput };
   repair: { input: RepairInput; output: RepairOutput };
   relevance: { input: RelevanceInput; output: RelevanceOutput };
+  reference_parse: {
+    input: ReferenceParseInput;
+    output: ReferenceParseOutput;
+  };
 }
 
 /** A prompt template resolved to concrete text, identified for the trace. */

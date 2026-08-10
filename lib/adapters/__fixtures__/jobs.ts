@@ -12,6 +12,7 @@ import type {
   JobIO,
   JobKind,
   JobRequest,
+  ReferenceParseInput,
   RelevanceInput,
   RepairInput,
   RubricInput,
@@ -70,6 +71,10 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
       "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
     claim: exampleClaim,
   } satisfies RelevanceInput,
+  reference_parse: {
+    briefing_text: "Briefing-Absatz p12 … siehe Meyer et al. (2025) …",
+    already_detected: ["https://doi.org/10.1000/mock"],
+  } satisfies ReferenceParseInput,
 };
 
 export function jobFor<K extends JobKind>(

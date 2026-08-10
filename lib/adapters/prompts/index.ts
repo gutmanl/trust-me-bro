@@ -3,6 +3,7 @@ import type {
   ExtractionInput,
   JobIO,
   JobKind,
+  ReferenceParseInput,
   RelevanceInput,
   RenderedPrompt,
   RepairInput,
@@ -22,6 +23,7 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   rubric: "1.0.0",
   repair: "1.0.0",
   relevance: "1.0.0",
+  reference_parse: "1.0.0",
 };
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);
@@ -65,6 +67,13 @@ function buildVars(kind: JobKind, input: unknown): Record<string, string> {
         research_question: typed.research_question,
         previous_research_question: typed.previous_research_question,
         claim_json: json(typed.claim),
+      };
+    }
+    case "reference_parse": {
+      const typed = input as ReferenceParseInput;
+      return {
+        briefing_text: typed.briefing_text,
+        already_detected_json: json(typed.already_detected),
       };
     }
   }

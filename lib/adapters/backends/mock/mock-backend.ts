@@ -2,7 +2,7 @@ import type { Backend, InvokeResult } from "../../core/contracts";
 import type { JobIO, JobKind, JobRequest } from "../../core/jobs";
 
 /**
- * In-memory backend for tests: covers all four job types with schema-valid
+ * In-memory backend for tests: covers every job kind with schema-valid
  * canned outputs, supports per-kind overrides and a scripted failure
  * sequence, and records every received job. It exercises exactly the same
  * orchestrator path as the CLI backends, so retry, tracing and concurrency
@@ -42,6 +42,16 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
   relevance: {
     relevant: "yes",
     reasoning: "Mock-Einschätzung: Claim betrifft die neue Recherchefrage.",
+  },
+  reference_parse: {
+    references: [
+      {
+        raw_text: "Mock-Referenz im Fließtext (2025).",
+        authors: ["Mock Author"],
+        year: 2025,
+        title: "Mock-Titel der referenzierten Arbeit",
+      },
+    ],
   },
 };
 

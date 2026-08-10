@@ -4,6 +4,7 @@ import { jobFor } from "../../__fixtures__/jobs";
 import {
   AttributionOutput,
   ExtractionOutput,
+  ReferenceParseOutput,
   RelevanceOutput,
   RepairOutput,
   RubricOutput,
@@ -18,6 +19,7 @@ const outputSchemas = {
   rubric: RubricOutput,
   repair: RepairOutput,
   relevance: RelevanceOutput,
+  reference_parse: ReferenceParseOutput,
 } as const;
 
 describe("createMockBackend", () => {
