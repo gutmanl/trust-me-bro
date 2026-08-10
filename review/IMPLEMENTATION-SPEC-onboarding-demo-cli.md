@@ -5,8 +5,10 @@ run** and is written to be executed unattended: every design question TMB-53 lef
 answered here. **If something still seems ambiguous, prefer the decision recorded in §2 over
 your own judgement, and note the ambiguity in the final report rather than redesigning.**
 
-Scope: TMB-53 bundle **A** (findings 1–3) plus a documentation rewrite. Bundles B, C, D are
-out of scope.
+Scope: TMB-53 bundle **A** (findings 1–3), plus a documentation rewrite, plus four
+re-verified findings from `review/SOFTWARE_REVIEW.md` (S-03, S-05, S-06 partial, S-12), plus
+in-UI research guidance. Bundles B, C, D are out of scope. Automated in-app research is
+TMB-55, not this run.
 
 ---
 
@@ -30,6 +32,52 @@ If `npm ci` fails, stop and report; do not proceed on a partial install.
 
 `AGENTS.md` also says `next dev` rewrites its own text block. If it reappears as an
 uncommitted change, commit it with the work rather than reverting it.
+
+### If you dispatch subagents: notifications are unreliable here — do not wait on them
+
+Observed in this environment: background **Bash** completion notifications fire reliably.
+Background **subagent** notifications do **not** — three exploration agents completed
+successfully and never notified, and `ListAgents` then reported "No reachable agents". A
+fourth agent notified normally. Treat notification as best-effort, never as a signal you
+can block on. `run_in_background: false` does **not** make an agent synchronous here.
+
+**Never idle-wait for a subagent.** If one appears to hang, recover its result from its
+transcript instead — the work is usually finished even when the notification is lost:
+
+```
+# The agent's output_file is a JSONL transcript. NEVER cat/Read it whole (~300KB, will
+# blow up your context). Extract only the final assistant message:
+python3 - <<'PY'
+import json
+p = "<output_file path from the Agent tool result>"
+last = None
+for line in open(p, encoding="utf-8", errors="replace"):
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        d = json.loads(line)
+    except Exception:
+        continue
+    if d.get("type") == "assistant":
+        c = d.get("message", {}).get("content", [])
+        if isinstance(c, list):
+            t = "".join(b.get("text", "") for b in c
+                        if isinstance(b, dict) and b.get("type") == "text")
+            if t.strip():
+                last = t
+open("/tmp/agent-report.md", "w", encoding="utf-8").write(last or "")
+print(len(last or ""))
+PY
+```
+
+Then `Read` `/tmp/agent-report.md`. A non-zero length means the agent finished and the
+report is usable. Note also that `stat` size/mtime on these transcripts is unreliable in
+this container (reports 110 bytes for a 300KB file) — use `wc -l` to judge activity, not
+`ls -l`.
+
+Given the above, prefer doing this work directly over dispatching subagents. The tasks below
+are sequential and each is small enough not to need fan-out.
 
 ---
 
@@ -165,6 +213,58 @@ See §3 T7 for exact scope. Do **not** touch `CLAUDE.md`, `AGENTS.md`,
 (golden fixture — editing it fails tests), or `lib/adapters/prompts/**`.
 Do **not** sweep `TMB-nnn` comments out of source files (301 refs / 142 files) — out of scope.
 
+### D11 — Review findings pulled into this run
+
+`review/SOFTWARE_REVIEW.md` is dated 2026-08-08 and is **not** wholesale current — TMB-53
+already found S-01 remediated by the `state_root` commitment. The following were
+**re-verified against the code on 2026-08-10** and are still open; they are in scope because
+they are exactly what "release-ready, used by end users" means:
+
+- **S-12 (Low)** — `app/projects/new/CreateProjectForm.tsx:78` still describes the id as
+  "Kleinbuchstaben, Ziffern, …" without stating the required `proj_` prefix, while
+  `lib/register/schema/primitives.ts` enforces `^proj_[a-z0-9][a-z0-9._-]*$`. A user who
+  edits the prefilled value gets a server error. → **T7**
+- **S-03 (High)** — `app/api/projects/[id]/blobs/[...path]/route.ts:21-27` still returns
+  stored bytes with only `content-type` and `cache-control`. No `X-Content-Type-Options`,
+  no `Content-Disposition`, no sandbox CSP. A captured HTML snapshot therefore executes as
+  active same-origin content. → **T8**
+- **S-05 (High)** — `next.config.ts` still has no `outputFileTracingIncludes/Excludes` and
+  the packaged tarball is assembled by tracing, not by an allowlist. The review measured
+  2,020 files / 39 MB unpacked, including tests, coverage and — if a workspace sits under
+  the repo root — real user project data. T1 is the one task that already touches packaging,
+  so the guard belongs there rather than in a separate pass. → folded into **T1**
+- **S-06 (Medium)** — no byte/time/redirect caps on source fetching, no entry-count or
+  expansion caps on bundle import. Scoped down: implement the caps, which are cheap and
+  self-contained. Full SSRF address-space filtering is **not** in scope. → **T9**
+
+Deliberately **not** pulled in, with reasons — do not start these:
+
+- **S-02 (High, repaired claim text never reaches `briefing.md`)** — a real correctness bug
+  in the primary deliverable, but fixing it properly means a projection redesign (claim
+  spans, or a mandatory current-claim block) and it rewrites the
+  `briefing-golden.md` fixture. That deserves its own ticket and its own spec, not a slot in
+  an overnight run whose other tasks must not be destabilised.
+- **S-10 (browser E2E coverage)** — large new test suite; separate effort.
+- **S-04, S-08, S-09, S-11** — unchanged from TMB-53's assessment; orthogonal to this bundle.
+
+### D12 — Research guidance in the UI: yes. Automated research: separate ticket.
+
+The tool verifies a briefing the user researched **elsewhere**, but nothing in the UI says
+where or how to produce one — a new user with no briefing simply dead-ends. Adding short,
+concrete guidance is squarely an onboarding fix and belongs here (**T4**).
+
+**Generating the briefing in-app is a separate feature and is NOT in this run.** It needs a
+new `research` job kind, a new versioned prompt template, mock outputs, a pipeline use-case
+with its own SSE run, and — decisively — two new `ProjectEventType` enum values for the run
+bracket. `ProjectEventType` is a `z.enum` (`lib/register/schema/enums.ts:136-165`), so that
+is an additive project-file-format change requiring a dated German changelog entry in the
+thesis appendix, exactly as TMB-52 did. That coupling makes it the wrong shape for an
+unattended run bundled with unrelated work. It is specced separately as **TMB-55**.
+
+(Useful for that later ticket, verified now: `BriefingImport.tool` is `z.string().min(1)`
+(`lib/register/schema/project.ts:9-14`), so a self-generated briefing can record its own
+provenance in the existing field with no schema change.)
+
 ---
 
 ## 3. Tasks — execute in this order, one commit each
@@ -172,6 +272,12 @@ Do **not** sweep `TMB-nnn` comments out of source files (301 refs / 142 files) �
 Each task is independently landable and independently verifiable. **Commit and push after
 each task passes its own verification.** Do not batch. If a task cannot be completed, commit
 what is green, record the blocker, and continue with the next task — do not abandon the run.
+
+**The order is a priority order.** T1–T6 are the bundle proper; T7–T9 are the re-verified
+review findings; T10–T11 close the run. If time or context runs out, stop cleanly after the
+task in hand, push, and report exactly where you stopped — **do not skip ahead to later
+tasks** and do not leave a half-finished task uncommitted. Finishing six tasks properly beats
+starting eleven.
 
 Branch: `claude/start-rs0ezk` (already checked out, currently identical to `main`).
 Push with `git push -u origin claude/start-rs0ezk`; retry network failures 4x with backoff.
@@ -182,9 +288,20 @@ Push with `git push -u origin claude/start-rs0ezk`; retry network failures 4x wi
 Fixes TMB-53 finding 2. See the packaging addendum in §5 for the chosen mechanism, which is
 binding.
 
+**Also fold in S-05 here** (D11): the packaged tarball is currently assembled by Next's
+tracing rather than an allowlist, which the review measured at 2,020 files / 39 MB unpacked
+including tests and coverage — and, if a workspace directory sits under the repo root, real
+user project data. Constrain it: add `outputFileTracingIncludes`/`outputFileTracingExcludes`
+to `next.config.ts` (or an equivalent documented staging allowlist in
+`scripts/prepare-standalone.mjs`), and assert in the T1 verification that no `workspace/`,
+`coverage/`, `tests/` or `.ts` source leaks into the tarball. Do not let the new `dist/`
+entries widen the surface.
+
 Acceptance:
 
 - A tarball built with `npm pack` contains a runnable verify entry point and a `tmb` bin.
+- `npm pack --dry-run` contains no `workspace/`, no `coverage/`, no `tests/`, and no `.ts`
+  or `.tsbuildinfo` files.
 - `tests/e2e/lifecycle.e2e.test.ts` and `tests/e2e/bundle.e2e.test.ts` invoke the **shipped**
   artifact, not `node_modules/tsx/dist/cli.mjs`, so the tests prove what actually ships.
 - `tests/architecture.test.ts` rule 15 still passes unmodified.
@@ -255,6 +372,17 @@ Verify: `npx vitest run lib/pipeline tests/architecture.test.ts`
 - Step 5 offers "create first project" and "create demo project".
 - Keep `app/setup/actions.ts`'s ordering rule: handle first, always.
 - Empty `/projects` page gains a backend-health hint and a demo-project affordance.
+- **Research guidance (D12).** The user researches the briefing outside this tool, and
+  nothing currently says so. Add short, concrete German guidance at the two places a user
+  actually needs it: the final wizard step, and the briefing-import page
+  (`app/projects/[id]/briefing/`). It must cover: that the briefing is researched elsewhere
+  (an agent CLI or a chat assistant) and imported here; that the briefing should cite its
+  sources, because stage-1 verification checks quoted wording against the frozen document;
+  that plain Markdown with one claim per paragraph extracts best; and that sources should be
+  publicly retrievable (DOI/arXiv/URL) so auto-import can freeze them. Include a
+  copy-to-clipboard prompt template the user can paste into their assistant. Keep it to a
+  collapsible block — this is a hint, not a wall of text, and it must not push the actual
+  import control below the fold.
 
 Verify: `npx vitest run tests/first-run-setup.test.ts tests/architecture.test.ts lib/pipeline`
 
@@ -279,7 +407,54 @@ existing port-scan/readiness/browser-open flow. Keep the file's language consist
 
 Verify: `node bin/trustmebro.mjs --help`-equivalent smoke, plus `npm run check`.
 
-### T7 — Rewrite documentation in release-ready product voice
+### T7 — State the `proj_` prefix on the create-project form (S-12)
+
+`app/projects/new/CreateProjectForm.tsx:78` describes the allowed characters but not the
+required `proj_` prefix, which `lib/register/schema/primitives.ts` enforces. Add it to the
+German hint beside the field. Prefer deriving the message from the shared validator over
+restating the regex in a second place.
+
+Verify: `npx vitest run lib/register` and a manual read of the rendered hint.
+
+### T8 — Stop serving stored HTML as active same-origin content (S-03)
+
+`app/api/projects/[id]/blobs/[...path]/route.ts:21-27` returns captured bytes with only
+`content-type` and `cache-control`. A malicious HTML snapshot therefore runs scripts on the
+application's own origin. Minimum fix, all on that response:
+
+- `X-Content-Type-Options: nosniff`
+- `Content-Security-Policy: sandbox` (plus `default-src 'none'`) for HTML content types
+- `Content-Disposition: attachment` for `text/html` — the frozen snapshot is evidence to be
+  inspected, not a page to be rendered inline
+
+Do **not** attempt a separate-origin renderer or an HTML sanitiser here; that is a larger
+design and out of scope. Keep non-HTML blobs (PDF, text) behaving as they do today, since
+the source viewer depends on them.
+
+Add a route test asserting the headers for an HTML blob and that a PDF blob is unaffected.
+Note `app/**` is outside the coverage gate, so this test exists for correctness, not ratio.
+
+Verify: `npx vitest run` on the new test plus `npx vitest run lib/pipeline`.
+
+### T9 — Caps on source fetching and bundle import (S-06, scoped)
+
+Implement the cheap, self-contained half only:
+
+- `lib/pipeline/sources/node-http-fetcher.ts`: maximum response bytes, a request timeout,
+  and a maximum redirect-hop count. Exceeding any of them is a German `PipelineError`.
+- `lib/export/zip.ts` / `app/projects/import/actions.ts`: entry-count cap, per-entry
+  uncompressed size cap, total-expansion cap, and a compression-ratio guard before/while
+  extracting.
+
+**Out of scope for this task:** SSRF address-space filtering (rejecting loopback,
+private, link-local and metadata addresses). It needs DNS resolution and per-redirect
+re-validation, and it is a separate ticket. Do not start it.
+
+Tests go next to the modules, in `lib/`, and are inside the coverage gate.
+
+Verify: `npx vitest run lib/pipeline/sources lib/export`
+
+### T10 — Rewrite documentation in release-ready product voice
 
 Rewrite so the software reads as a shipped product, not a thesis artifact. Remove
 evaluator/thesis/"Großer Beleg"/prototype framing and `TMB-nnn` ticket references from the
@@ -307,7 +482,7 @@ in-app display tier stays German regardless.
 Verify: `npm run format:check` (Prettier reflows Markdown — run `npm run format` if it fails),
 then confirm no `TMB-` or thesis references remain in the in-scope files.
 
-### T8 — Final gate
+### T11 — Final gate
 
 ```
 npm run check          # lint → format:check → typecheck → test:coverage
@@ -328,9 +503,13 @@ boundaries (`app/error.tsx` / `not-found.tsx`), the `SUPPORT_LABELS` German viol
 progress counters, step rail / breadcrumbs, config-file versioning and migration, token/cost
 accounting, the in-app trace viewer, prose chain-break reporting.
 
-Also out of scope: review findings S-02, S-03, S-04, S-08, S-09, S-11. **S-03 (stored XSS in
-frozen HTML snapshots) is a real open High finding** — it is not part of this bundle, and this
-run must not pretend otherwise.
+Also out of scope: review findings **S-02, S-04, S-08, S-09, S-10, S-11**, and SSRF
+address-space filtering (the half of S-06 excluded in T9). See D11 for why each was left out.
+**S-02 (repaired claim text never reaches `briefing.md`) is a real open High finding** — this
+run does not fix it and must not imply otherwise.
+
+Automated in-app research (a `research` job kind that produces the briefing) is **not** in
+this run — see D12. It is specced as TMB-55 and requires a thesis-appendix changelog entry.
 
 One documentation-only exception: TMB-53 notes S-01 appears remediated by the `state_root`
 commitment. Leave `review/SOFTWARE_REVIEW.md` alone — it is a dated artifact, and correcting
