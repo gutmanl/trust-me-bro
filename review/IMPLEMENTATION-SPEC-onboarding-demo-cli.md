@@ -5,10 +5,10 @@ run** and is written to be executed unattended: every design question TMB-53 lef
 answered here. **If something still seems ambiguous, prefer the decision recorded in §2 over
 your own judgement, and note the ambiguity in the final report rather than redesigning.**
 
-Scope: TMB-53 bundle **A** (findings 1–3), plus a documentation rewrite, plus four
-re-verified findings from `review/SOFTWARE_REVIEW.md` (S-03, S-05, S-06 partial, S-12), plus
-in-UI research guidance. Bundles B, C, D are out of scope. Automated in-app research is
-TMB-55, not this run.
+Scope: TMB-53 bundle **A** (findings 1–3), plus a documentation rewrite, plus in-UI research
+guidance, plus review finding S-05 folded into the packaging task. Bundles B, C, D are out of
+scope. Automated in-app research is **TMB-55**; review findings S-03, S-06 and S-12 are
+**TMB-56**. Neither is this run.
 
 ---
 
@@ -213,31 +213,35 @@ See §3 T7 for exact scope. Do **not** touch `CLAUDE.md`, `AGENTS.md`,
 (golden fixture — editing it fails tests), or `lib/adapters/prompts/**`.
 Do **not** sweep `TMB-nnn` comments out of source files (301 refs / 142 files) — out of scope.
 
-### D11 — Review findings pulled into this run
+### D11 — Review findings: one folded in, three split out to TMB-56
 
 `review/SOFTWARE_REVIEW.md` is dated 2026-08-08 and is **not** wholesale current — TMB-53
-already found S-01 remediated by the `state_root` commitment. The following were
-**re-verified against the code on 2026-08-10** and are still open; they are in scope because
-they are exactly what "release-ready, used by end users" means:
+already found S-01 remediated by the `state_root` commitment. Every finding below was
+**re-verified against the code on 2026-08-10** and is still open.
 
-- **S-12 (Low)** — `app/projects/new/CreateProjectForm.tsx:78` still describes the id as
-  "Kleinbuchstaben, Ziffern, …" without stating the required `proj_` prefix, while
-  `lib/register/schema/primitives.ts` enforces `^proj_[a-z0-9][a-z0-9._-]*$`. A user who
-  edits the prefilled value gets a server error. → **T7**
-- **S-03 (High)** — `app/api/projects/[id]/blobs/[...path]/route.ts:21-27` still returns
-  stored bytes with only `content-type` and `cache-control`. No `X-Content-Type-Options`,
-  no `Content-Disposition`, no sandbox CSP. A captured HTML snapshot therefore executes as
-  active same-origin content. → **T8**
+Only one is in this run:
+
 - **S-05 (High)** — `next.config.ts` still has no `outputFileTracingIncludes/Excludes` and
   the packaged tarball is assembled by tracing, not by an allowlist. The review measured
   2,020 files / 39 MB unpacked, including tests, coverage and — if a workspace sits under
   the repo root — real user project data. T1 is the one task that already touches packaging,
   so the guard belongs there rather than in a separate pass. → folded into **T1**
-- **S-06 (Medium)** — no byte/time/redirect caps on source fetching, no entry-count or
-  expansion caps on bundle import. Scoped down: implement the caps, which are cheap and
-  self-contained. Full SSRF address-space filtering is **not** in scope. → **T9**
 
-Deliberately **not** pulled in, with reasons — do not start these:
+**S-12, S-03 and S-06 were moved out of this spec into TMB-56** to keep this run finishable.
+They are re-verified and ready to implement, but they are not this run's job — **do not start
+them here**, even if a task finishes early:
+
+- **S-12 (Low)** — `app/projects/new/CreateProjectForm.tsx:78` describes the id as
+  "Kleinbuchstaben, Ziffern, …" without stating the required `proj_` prefix, while
+  `lib/register/schema/primitives.ts` enforces `^proj_[a-z0-9][a-z0-9._-]*$`.
+- **S-03 (High)** — `app/api/projects/[id]/blobs/[...path]/route.ts:21-27` returns stored
+  bytes with only `content-type` and `cache-control`: no `X-Content-Type-Options`, no
+  `Content-Disposition`, no sandbox CSP, so a captured HTML snapshot executes as active
+  same-origin content.
+- **S-06 (Medium)** — no byte/time/redirect caps on source fetching, no entry-count or
+  expansion caps on bundle import.
+
+Deliberately not pulled into **either** ticket, with reasons — do not start these:
 
 - **S-02 (High, repaired claim text never reaches `briefing.md`)** — a real correctness bug
   in the primary deliverable, but fixing it properly means a projection redesign (claim
@@ -273,11 +277,13 @@ Each task is independently landable and independently verifiable. **Commit and p
 each task passes its own verification.** Do not batch. If a task cannot be completed, commit
 what is green, record the blocker, and continue with the next task — do not abandon the run.
 
-**The order is a priority order.** T1–T6 are the bundle proper; T7–T9 are the re-verified
-review findings; T10–T11 close the run. If time or context runs out, stop cleanly after the
-task in hand, push, and report exactly where you stopped — **do not skip ahead to later
-tasks** and do not leave a half-finished task uncommitted. Finishing six tasks properly beats
-starting eleven.
+**The order is a priority order.** T1–T6 are the bundle proper; T7–T8 close the run. If time
+or context runs out, stop cleanly after the task in hand, push, and report exactly where you
+stopped — **do not skip ahead to later tasks** and do not leave a half-finished task
+uncommitted. Finishing five tasks properly beats starting eight.
+
+If you finish everything with time to spare, **stop**. Do not pull work forward from TMB-55 or
+TMB-56; both carry decisions that were deliberately not made for this run.
 
 Branch: `claude/start-rs0ezk` (already checked out, currently identical to `main`).
 Push with `git push -u origin claude/start-rs0ezk`; retry network failures 4x with backoff.
@@ -407,54 +413,7 @@ existing port-scan/readiness/browser-open flow. Keep the file's language consist
 
 Verify: `node bin/trustmebro.mjs --help`-equivalent smoke, plus `npm run check`.
 
-### T7 — State the `proj_` prefix on the create-project form (S-12)
-
-`app/projects/new/CreateProjectForm.tsx:78` describes the allowed characters but not the
-required `proj_` prefix, which `lib/register/schema/primitives.ts` enforces. Add it to the
-German hint beside the field. Prefer deriving the message from the shared validator over
-restating the regex in a second place.
-
-Verify: `npx vitest run lib/register` and a manual read of the rendered hint.
-
-### T8 — Stop serving stored HTML as active same-origin content (S-03)
-
-`app/api/projects/[id]/blobs/[...path]/route.ts:21-27` returns captured bytes with only
-`content-type` and `cache-control`. A malicious HTML snapshot therefore runs scripts on the
-application's own origin. Minimum fix, all on that response:
-
-- `X-Content-Type-Options: nosniff`
-- `Content-Security-Policy: sandbox` (plus `default-src 'none'`) for HTML content types
-- `Content-Disposition: attachment` for `text/html` — the frozen snapshot is evidence to be
-  inspected, not a page to be rendered inline
-
-Do **not** attempt a separate-origin renderer or an HTML sanitiser here; that is a larger
-design and out of scope. Keep non-HTML blobs (PDF, text) behaving as they do today, since
-the source viewer depends on them.
-
-Add a route test asserting the headers for an HTML blob and that a PDF blob is unaffected.
-Note `app/**` is outside the coverage gate, so this test exists for correctness, not ratio.
-
-Verify: `npx vitest run` on the new test plus `npx vitest run lib/pipeline`.
-
-### T9 — Caps on source fetching and bundle import (S-06, scoped)
-
-Implement the cheap, self-contained half only:
-
-- `lib/pipeline/sources/node-http-fetcher.ts`: maximum response bytes, a request timeout,
-  and a maximum redirect-hop count. Exceeding any of them is a German `PipelineError`.
-- `lib/export/zip.ts` / `app/projects/import/actions.ts`: entry-count cap, per-entry
-  uncompressed size cap, total-expansion cap, and a compression-ratio guard before/while
-  extracting.
-
-**Out of scope for this task:** SSRF address-space filtering (rejecting loopback,
-private, link-local and metadata addresses). It needs DNS resolution and per-redirect
-re-validation, and it is a separate ticket. Do not start it.
-
-Tests go next to the modules, in `lib/`, and are inside the coverage gate.
-
-Verify: `npx vitest run lib/pipeline/sources lib/export`
-
-### T10 — Rewrite documentation in release-ready product voice
+### T7 — Rewrite documentation in release-ready product voice
 
 Rewrite so the software reads as a shipped product, not a thesis artifact. Remove
 evaluator/thesis/"Großer Beleg"/prototype framing and `TMB-nnn` ticket references from the
@@ -482,7 +441,7 @@ in-app display tier stays German regardless.
 Verify: `npm run format:check` (Prettier reflows Markdown — run `npm run format` if it fails),
 then confirm no `TMB-` or thesis references remain in the in-scope files.
 
-### T11 — Final gate
+### T8 — Final gate
 
 ```
 npm run check          # lint → format:check → typecheck → test:coverage
@@ -503,10 +462,10 @@ boundaries (`app/error.tsx` / `not-found.tsx`), the `SUPPORT_LABELS` German viol
 progress counters, step rail / breadcrumbs, config-file versioning and migration, token/cost
 accounting, the in-app trace viewer, prose chain-break reporting.
 
-Also out of scope: review findings **S-02, S-04, S-08, S-09, S-10, S-11**, and SSRF
-address-space filtering (the half of S-06 excluded in T9). See D11 for why each was left out.
-**S-02 (repaired claim text never reaches `briefing.md`) is a real open High finding** — this
-run does not fix it and must not imply otherwise.
+Also out of scope: review findings **S-02, S-04, S-08, S-09, S-10, S-11** (see D11), and
+**S-03, S-06, S-12 — those are TMB-56**, not this run. **S-02 (repaired claim text never
+reaches `briefing.md`) and S-03 (frozen HTML served as active same-origin content) are real
+open High findings** — this run fixes neither and must not imply otherwise.
 
 Automated in-app research (a `research` job kind that produces the briefing) is **not** in
 this run — see D12. It is specced as TMB-55 and requires a thesis-appendix changelog entry.
