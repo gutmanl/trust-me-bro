@@ -1,174 +1,216 @@
 # TrustMeBro
 
-Prototype of a verification workshop for researched briefings: it binds
-every claim of an imported briefing to verifiable evidence in a frozen
-source corpus, routes doubtful claims to human adjudication, and keeps a
-tamper-evident, append-only history. Developed as part of the thesis
-"Großer Beleg" (see the thesis appendices _Entwurf des
-Projektdateiformats_ and _Grobentwurf_ for the normative design;
-implementation planning lives in the Jira project `TMB`).
+A verification workshop for researched briefings.
 
-## Stack
+You bring a briefing — a piece of research writing that cites sources.
+TrustMeBro breaks it into individual claims, binds each claim to the wording
+that is supposed to support it, and freezes the cited documents so that
+wording can be checked against something that cannot change afterwards.
+Claims that do not hold up are routed to you for a decision. Every step,
+including your decisions, is recorded in an append-only, hash-chained
+history that anyone can re-verify later without the application.
 
-Next.js (App Router) + TypeScript strict, Node.js. No database — the
-project file format on disk is the only source of truth.
+It is built for the case where the briefing came out of an LLM: the dominant
+failure mode there is a source that does not say what it is claimed to say,
+or does not exist at all. The first verification stage is deterministic and
+model-independent for exactly that reason — it compares quoted wording
+against the frozen document, byte by byte.
 
-## Installation and startup (evaluators, TMB-48)
+## What it does
 
-Prerequisites:
+- **Import and freeze.** A briefing is stored verbatim and hashed. Its
+  sources are fetched and frozen as documents, so later verification always
+  refers to the same bytes.
+- **Extract claims.** The briefing is split into individual, checkable
+  statements, each anchored to the paragraph it came from.
+- **Verify in three stages.** Stage 1 checks the quoted wording against the
+  frozen document — deterministic, no model involved. Stages 2 and 3 ask a
+  model whether the evidence actually supports the claim and whether it
+  meets the configured evidence rubric.
+- **Adjudicate.** Anything doubtful goes to a queue for a human decision,
+  along with a spot-check sample of what was auto-confirmed. Contested
+  claims can be repaired and re-checked, or discarded with a reason.
+- **Export and re-verify.** A project exports as a self-contained `.tmb`
+  bundle. The bundled `tmb verify` command re-runs the hash chain, the
+  manifest and the blob integrity check independently of this application.
 
-- **Node.js ≥ 20.9** (LTS): <https://nodejs.org>
-- **At least one logged-in agent CLI** with its own subscription:
+There is no database. A project is a directory on disk, and that directory
+is the only source of truth.
+
+## Requirements
+
+- **Node.js 20.9 or newer** (LTS): <https://nodejs.org>
+- **Optionally, a logged-in agent CLI** for the model-backed steps:
   - Claude Code: `npm install -g @anthropic-ai/claude-code`, then run
-    `claude` in the terminal and log in with `/login`.
+    `claude` and log in with `/login`.
   - Codex CLI: `npm install -g @openai/codex`, then `codex login`.
-- The app starts without a CLI; import, sources, existence checking,
-  adjudication, history and export stay usable — only the LLM
-  verification steps are locked (the project's status page shows the
-  three-stage diagnosis with concrete setup pointers).
 
-TrustMeBro ships as an npm package, deliberately **without** publishing
-to the public npm registry (`private: true` as a hard block);
-installation runs from the packed tarball built out of this repository:
+The application runs without any CLI installed. Import, sources, stage-1
+existence checking, adjudication, history and export all stay usable; only
+the model-backed verification stages are locked, and the setup wizard and
+the settings page show a three-stage diagnosis per backend with concrete
+pointers for what is missing.
 
-1. Build the tarball (once, in the repository):
+If you want to see the whole workflow before installing anything, choose the
+**demonstration backend** during setup. It produces canned results without a
+CLI and without an account. Its results are not verification, and everything
+produced with it is labelled as a demo — in the interface, and permanently
+in the hash chain, so a demo bundle still identifies itself as one after
+export.
 
-   ```sh
-   npm install
-   npm pack
-   ```
+## Installation
 
-   This produces `trustmebro-0.1.0.tgz`; the `prepack` hook builds the
-   standalone server (standalone output) along with it automatically.
+TrustMeBro is distributed as a packed npm tarball rather than through the
+public registry. Build it once from a checkout:
 
-2. Install and start (on the target system, any directory):
-
-   ```sh
-   npm install -g ./trustmebro-0.1.0.tgz
-   trustmebro
-   ```
-
-   Alternatively, without a global install: `npx ./trustmebro-0.1.0.tgz`.
-
-3. **First start:** the command starts the server on
-   `http://127.0.0.1:4173` (loopback only, never visible on the LAN),
-   opens the browser and redirects to the first-run setup at `/setup`.
-   There, the actor handle is requested and stored in
-   `~/.trustmebro/config.json`; the workspace lives under
-   `~/.trustmebro/workspace`. A subsequent start detects the existing
-   configuration and jumps straight to the project list.
-
-Launcher environment variables: `TMB_PORT` (start port, default 4173;
-occupied ports are skipped automatically), `TMB_NO_BROWSER=1` (do not
-open a browser), `TMB_WORKSPACE` (alternate workspace root). All
-further configuration variables: [.env.example](.env.example).
-
-### Update
-
-There is no registry for `npm update` to run against: build a new
-tarball (`npm pack` in the updated repository) and run
-`npm install -g ./trustmebro-<version>.tgz` again. The workspace and
-configuration are untouched (they live outside the package).
-
-### Smoke test (documented, Windows and macOS/Linux)
-
-On a fresh system with Node and a logged-in Claude CLI, a single
-command is enough to reach a usable interface:
-
-**Windows (PowerShell):**
-
-```powershell
-npm install -g .\trustmebro-0.1.0.tgz
-trustmebro
-# browser opens /setup → enter handle → create project
-# → project status page: stages 1+2 green, run "Anmeldung prüfen"
+```sh
+npm install
+npm pack
 ```
 
-**macOS/Linux:**
+That produces `trustmebro-<version>.tgz`; the `prepack` hook builds the
+server and the `tmb` command with it.
+
+Then, on the target machine, in any directory:
 
 ```sh
 npm install -g ./trustmebro-0.1.0.tgz
 trustmebro
-# identical flow; browser opens via open/xdg-open
 ```
 
-Expected: the launcher reports `TrustMeBro läuft:
-http://127.0.0.1:4173/`, `/setup` appears on first start, and after
-setup the project page walks through briefing import → freeze sources →
-extraction → verification. Stop with `Ctrl+C`.
+Or without a global install: `npx ./trustmebro-0.1.0.tgz`.
 
-## Getting started (development)
+### First start
 
-```bash
-cp .env.example .env   # set your actor handle and workspace path
+`trustmebro` starts the server on `http://127.0.0.1:4173`, bound to
+loopback only and never visible on the network, then opens a browser at the
+setup wizard.
+
+The wizard asks for five things, and only the first is required:
+
+1. **Your handle** — a short identifier recorded as
+   `human:<handle>` in every history entry you cause.
+2. **The workspace directory** — where project directories are stored.
+   Settable now only: moving it later would leave existing projects behind,
+   and nothing migrates them.
+3. **Backend diagnosis** — which agent CLIs were found and whether they are
+   usable, including an optional live login probe.
+4. **An Unpaywall address** (optional) — enables looking up open-access
+   copies of sources. Without it that lookup is skipped.
+5. **Getting started** — create your first project, or create the example
+   project to walk through a filled-in register first.
+
+The configuration is stored in `~/.trustmebro/config.json`, the workspace
+under `~/.trustmebro/workspace`. Later starts skip the wizard and go
+straight to the project list. Installation-wide settings, including a
+change of handle, stay reachable at **Einstellungen** in the header.
+
+### Updating
+
+Build a new tarball from the updated checkout and install it again:
+
+```sh
+npm pack
+npm install -g ./trustmebro-<version>.tgz
+```
+
+Your workspace and configuration live outside the package and are untouched.
+
+## Verifying a project independently
+
+Installing the package also installs `tmb`, which re-checks a project
+directory or an exported bundle without starting the application:
+
+```sh
+tmb verify ~/.trustmebro/workspace/proj_beispiel
+tmb verify ./projekt-export.tmb
+```
+
+It re-runs the hash chain, confirms the content matches the state root
+committed by the last entry, and checks every stored document against its
+recorded checksum. It exits `0` when everything holds and `1` when it does
+not, so it fits into a script or a CI step. This is the check a recipient of
+a bundle can run without trusting — or installing — the application that
+produced it.
+
+## Environment variables
+
+The launcher reads `TMB_PORT` (start port, default 4173; occupied ports are
+skipped), `TMB_NO_BROWSER=1` (do not open a browser) and `TMB_WORKSPACE`
+(alternate workspace root). Anything set in the environment takes precedence
+over the stored configuration and is shown as read-only in the interface.
+All variables are documented in [.env.example](.env.example).
+
+## Development
+
+```sh
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-## Scripts
+| Script                                    | Purpose                                           |
+| ----------------------------------------- | ------------------------------------------------- |
+| `npm run dev`                             | Start the web app in development mode             |
+| `npm test`                                | Run all test suites (unit, guard, E2E)            |
+| `npm run test:coverage`                   | Tests with enforced coverage thresholds           |
+| `npm run check`                           | Everything CI runs: lint, format, types, coverage |
+| `npm run typecheck`                       | TypeScript strict check without emit              |
+| `npm run lint`                            | ESLint, including the architecture boundary rules |
+| `npm run format`                          | Prettier over the repository                      |
+| `npm run build:cli`                       | Compile the `tmb` CLI to `dist/`                  |
+| `npm run package:build`                   | Standalone build and asset staging                |
+| `npm pack`                                | Distribution tarball (runs package:build)         |
+| `npm run tmb -- verify <dir\|bundle.tmb>` | Run the integrity check from a checkout           |
 
-| Script                                    | Purpose                                               |
-| ----------------------------------------- | ----------------------------------------------------- |
-| `npm run dev`                             | Start the web app in development mode                 |
-| `npm test`                                | Run all test suites (unit, guard, E2E)                |
-| `npm run test:coverage`                   | Tests with enforced coverage thresholds               |
-| `npm run check`                           | Everything CI runs: lint, format, types, coverage     |
-| `npm run typecheck`                       | TypeScript strict check without emit                  |
-| `npm run lint`                            | ESLint (includes architecture boundary rules)         |
-| `npm run format`                          | Prettier over the repository                          |
-| `npm run package:build`                   | Standalone build + asset staging (TMB-48)             |
-| `npm pack`                                | Distribution tarball (runs package:build via prepack) |
-| `npm run tmb -- verify <dir\|bundle.tmb>` | Standalone integrity check                            |
+### Testing
 
-## Testing
+Four layers, all of them run in CI on Ubuntu **and** Windows, because the
+register's rename and locking semantics are OS-sensitive:
 
-The suite has four layers, and all of them run in CI (Ubuntu **and**
-Windows, since the register's rename/lock semantics are OS-sensitive):
-
-1. **Unit tests** next to each module (`lib/**/*.test.ts`) — schema
-   validation, RFC 8785 vectors, chain tampering, gates, projection
+1. **Unit tests** beside each module (`lib/**/*.test.ts`) — schema
+   validation, RFC 8785 vectors, chain tampering, gates, the projection
    golden file.
-2. **Architecture guards** (`tests/architecture.test.ts`) — fail when a
-   change erodes a structural invariant: the public barrel leaking the
-   chain minter or raw engine, `app/` imports in the domain core,
+2. **Architecture guards** (`tests/architecture.test.ts`) — these fail when
+   a change erodes a structural invariant: a public barrel leaking the chain
+   minter or the raw engine, `app/` imports in the domain core,
    `process.env` outside `lib/identity`, filesystem access in the pure
-   chain/projection modules, raw writes outside the sanctioned write
-   sites, or any edit to the status transition table (which must be
-   changed consciously in code _and_ test).
-3. **End-to-end** (`tests/e2e/lifecycle.e2e.test.ts`) — one project
-   walked from creation through freezing, all verification stages,
-   sampling, adjudication and repair to the rendered `briefing.md`,
-   validated against the committed JSON Schema and verified by the
-   real `tmb verify` CLI as a separate OS process (including a
-   tamper-detection case).
-4. **Cross-process concurrency**
-   (`tests/e2e/multiprocess.e2e.test.ts`) — three OS processes write
-   the same project concurrently; the chain must come out gapless.
+   chain and projection modules, raw writes outside the sanctioned write
+   sites, or any edit to the status transition table, which has to be
+   changed deliberately in both code and test.
+3. **End-to-end** (`tests/e2e/lifecycle.e2e.test.ts`) — one project walked
+   from creation through freezing, every verification stage, sampling,
+   adjudication and repair to the rendered `briefing.md`, validated against
+   the committed JSON Schema and verified by the real `tmb verify` binary
+   as a separate OS process, including a tamper-detection case.
+4. **Cross-process concurrency** (`tests/e2e/multiprocess.e2e.test.ts`) —
+   three OS processes write the same project at once; the chain has to come
+   out gapless.
 
-Coverage thresholds (`vitest.config.ts`) are a ratchet: raise them
-when coverage grows, never lower them to make a change pass.
+Coverage thresholds in `vitest.config.ts` are a ratchet: raise them as
+coverage grows, never lower them to make a change pass.
 
 ## Structure
 
 ```
-app/            Next.js routes: pages + API (incl. SSE), /setup first run
+app/            Next.js routes: pages + API (incl. SSE), setup wizard, settings
 lib/register/   Domain core: schema, persistence, blob store, hash chain,
                 status machine, briefing projection
 lib/adapters/   Backend interface + agent-CLI adapters, preflight health,
-                API-backend spike (feature-flagged)
+                demonstration backend
 lib/pipeline/   Extraction/verification/relevance runs, run control,
                 adjudication, export, setup use-cases
 lib/export/     .tmb export bundle
-lib/identity/   Actor + workspace root + stored first-run config
+lib/identity/   Actor + workspace root + stored configuration
                 (single-user; extension seam)
-cli/            Standalone tools (tmb verify)
-bin/            npx launcher for the packaged standalone server
+cli/            The tmb command (verify)
+bin/            Launcher for the packaged standalone server
 proxy.ts        First-run gate: redirects to /setup until configured
-workspace/      Runtime data, one project directory per project (gitignored)
+workspace/      Runtime data, one directory per project (gitignored)
 ```
 
 Two architecture rules are lint-enforced: `lib/` and `cli/` never import
-from `app/`, and only `lib/identity` reads the environment. The full
-seam documentation (multi-user extension path, ToS rationale) lives in
-[ARCHITECTURE.md](ARCHITECTURE.md); the CLI error-class/reaction table
-in [lib/adapters/README.md](lib/adapters/README.md).
+from `app/`, and only `lib/identity` reads the environment. The full seam
+documentation lives in [ARCHITECTURE.md](ARCHITECTURE.md); the CLI
+error-class and reaction table in
+[lib/adapters/README.md](lib/adapters/README.md).

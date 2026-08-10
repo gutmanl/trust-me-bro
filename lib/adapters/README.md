@@ -2,7 +2,9 @@
 
 Backend interface and agent-CLI adapters (`claude -p`, `codex exec`),
 output validation against the Evidence/Judgment sub-schemas, trace log.
-Built in epic TMB-2 (adapter layer).
+Also home to the demonstration backend, which answers every job kind with
+canned, schema-valid output and needs neither an installed CLI nor an
+account.
 
 Layout (ports-and-adapters):
 
@@ -29,7 +31,7 @@ Layout (ports-and-adapters):
   production wiring factory `createProjectOrchestrator`.
 - `trace/` — JSON-RPC-like trace envelope schema. Traces are written as
   one immutable JSON file per adapter call to `<project>/traces/`
-  (ratified TMB-20 decision) and travel with the export bundle; a
+  and travel with the export bundle; a
   successful attribution envelope's `finished_at` equals the merged
   judgment's `at` — the register↔trace correlation.
 - `runtime/` — impure port implementations: child-process runner (the
@@ -37,12 +39,12 @@ Layout (ports-and-adapters):
   deep import of the register's atomic-write helper), concurrency gate
   (global CLI cap, protects the subscription quota).
 
-- `health/` — preflight diagnosis (TMB-49): per CLI three stages (on
+- `health/` — preflight diagnosis: per CLI three stages (on
   PATH, version compatible, login works), stages 1+2 free via one
   `--version` spawn, stage 3 an on-demand minimal real call with an
   in-process result cache.
 
-## Error classes and reactions (TMB-50)
+## Error classes and reactions
 
 The runtime error taxonomy (`core/errors.ts`) and its reactions, as
 implemented by `core/retry.ts` (pure decision), the orchestrator (loop)
@@ -58,7 +60,7 @@ and the pipeline runs (persistence/escalation):
 Invariants across all classes: the job runner persists per claim, so no
 CLI error can corrupt the register or lose claims silently; a pause or
 abort is a resumable state, never data loss. User-initiated pause/cancel
-(TMB-50) is a separate, cooperative mechanism between items in
+is a separate, cooperative mechanism between items in
 `lib/pipeline/runs/job-runner.ts` — it never interrupts an in-flight
 attempt.
 

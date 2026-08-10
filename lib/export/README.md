@@ -1,6 +1,6 @@
 # lib/export
 
-Bundle core of the `.tmb` export format (epic TMB-6): in-memory ZIP
+Bundle core of the `.tmb` export format: in-memory ZIP
 pack/unpack (fflate, confined to `zip.ts`), the manifest with per-file
 SHA-256 checksums and chain-head commitment, blob-reference collection,
 the shared bundle verification and the atomic bundle materializer for
