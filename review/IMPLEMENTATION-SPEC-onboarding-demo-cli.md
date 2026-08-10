@@ -282,8 +282,20 @@ or context runs out, stop cleanly after the task in hand, push, and report exact
 stopped — **do not skip ahead to later tasks** and do not leave a half-finished task
 uncommitted. Finishing five tasks properly beats starting eight.
 
-If you finish everything with time to spare, **stop**. Do not pull work forward from TMB-55 or
-TMB-56; both carry decisions that were deliberately not made for this run.
+**If you finish all eight tasks with time to spare**, continue into the follow-on queue, in
+this order, and only in this order:
+
+1. **TMB-56** — review findings S-03, S-06, S-12. Fully specced in the ticket, no open
+   questions. Same commit-per-task, push-after-each discipline.
+2. **TMB-57** — review finding S-02 (repaired claim text never reaches `briefing.md`). Fully
+   specced in the ticket. Note it deliberately rewrites
+   `lib/register/projection/__fixtures__/briefing-golden.md`, which T7 told you not to touch —
+   that instruction applies to the _documentation rewrite_ only. Regenerating the golden
+   fixture is the expected outcome of TMB-57 and must be reviewed as a real diff.
+
+**Do not start TMB-55** (in-app research). It carries a methodological decision recorded in
+that ticket but not settled, and it needs a thesis-appendix changelog entry — both wrong for
+an unattended run.
 
 Branch: `claude/start-rs0ezk` (already checked out, currently identical to `main`).
 Push with `git push -u origin claude/start-rs0ezk`; retry network failures 4x with backoff.
@@ -298,10 +310,19 @@ binding.
 tracing rather than an allowlist, which the review measured at 2,020 files / 39 MB unpacked
 including tests and coverage — and, if a workspace directory sits under the repo root, real
 user project data. Constrain it: add `outputFileTracingIncludes`/`outputFileTracingExcludes`
-to `next.config.ts` (or an equivalent documented staging allowlist in
-`scripts/prepare-standalone.mjs`), and assert in the T1 verification that no `workspace/`,
-`coverage/`, `tests/` or `.ts` source leaks into the tarball. Do not let the new `dist/`
-entries widen the surface.
+to `next.config.ts`, and assert in the T1 verification that no `workspace/`, `coverage/`,
+`tests/` or `.ts` source leaks into the tarball. Do not let the new `dist/` entries widen the
+surface.
+
+**Mechanism is decided — do not deliberate.** Use `outputFileTracingExcludes` in
+`next.config.ts`, under the same `TMB_BUILD_TARGET === "package"` branch that already sets
+`output: "standalone"`. Exclude at minimum `**/coverage/**`, `**/tests/**`, `**/*.test.ts`,
+`**/__fixtures__/**`, `**/workspace/**`, `**/.git/**`. Measure with `npm pack --dry-run`
+before and after. **If that alone does not bring the count down**, do not redesign: add an
+explicit prune step to `scripts/prepare-standalone.mjs` that deletes those directories from
+`.next/standalone` after the copy, and make the script fail loudly if a `workspace/`
+directory is found there at all. Belt-and-braces is the intended outcome, not a fallback to
+choose between.
 
 Acceptance:
 
@@ -319,7 +340,8 @@ Verify: `npx vitest run tests/e2e cli` then `npm pack --dry-run --json`.
 ### T2 — Make the mock backend reachable and visibly badged
 
 - `lib/adapters/registry.ts`: add `case "mock": return createMockBackend(options)`.
-- `lib/pipeline/projects.ts`: add `"mock"` to `BackendCli`, `MODEL_FAMILY` (own family, so
+- `lib/pipeline/projects.ts`: add `"mock"` to `BackendCli`, and to `MODEL_FAMILY` with the
+  family value `"mock"` (its own family, so
   the divergence rule treats it as distinct) and `allowedBackendClis()`. It is allowed as
   **primary** (unlike `anthropic-api`, it implements every job kind).
 - `app/lib/parse-backend-cli.ts`: add `"mock"` to `BACKEND_CLIS`.
@@ -345,7 +367,7 @@ Verify: `npx vitest run lib/adapters lib/pipeline tests/architecture.test.ts`
 New use-case `createDemoProject()` in `lib/pipeline`, exported from the barrel and pinned in
 `tests/architecture.test.ts`.
 
-- Fixed project id (e.g. `proj_demo`); a second call surfaces the existing
+- Project id is exactly `proj_demo` — fixed, not generated. A second call surfaces the existing
   `ProjectAlreadyExistsError` as a normal German `PipelineError`.
 - Built with `createProject(...)` then a scripted `store.transaction(...)` sequence modelled on
   `tests/e2e/lifecycle.e2e.test.ts:77-281` — briefing blob + `recordBriefingImport`, two or
