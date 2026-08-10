@@ -15,7 +15,8 @@ S-12), then **TMB-57** (review finding S-02), then — only with a real runway �
 follow-on ticket, §6 for what will hang an unattended run, and §7 before touching TMB-55.
 
 **Read §6 before doing anything else.** It lists the calls that block forever when nobody is
-watching — chief among them: do not touch Jira, and do not ask a question.
+watching — above all, never ask a question. Jira is the one exception: a single read-only
+burst at kickoff while the human is still present, then never again.
 
 ---
 
@@ -653,10 +654,16 @@ following are the known gates in this environment.
   keep going. A recorded assumption is recoverable; a blocked session is not.
 - **Plan mode** (`EnterPlanMode` / `ExitPlanMode`). Exiting plan mode requires human approval
   and will block indefinitely. Do not enter it.
-- **Jira / Atlassian MCP tools.** They require per-call approval in this environment and will
-  stall the run. **Do not create, comment on, or transition any ticket** — not even to mark
-  TMB-54 done. The commit messages and the final report are the record; the human updates
-  Jira afterwards.
+- **Jira / Atlassian MCP tools — one read-only burst at the very start, then never again.**
+  Every call needs approval here, so they are only safe while the human is still present at
+  kickoff. Fetch TMB-54, TMB-55, TMB-56 and TMB-57 **once**, with their comments, before any
+  other work, and immediately write each to a file outside the repo so it survives context
+  compaction. After that burst, treat Jira as forbidden for the rest of the run.
+  **Never create, comment on, or transition a ticket** — not even to mark TMB-54 done. The
+  commit messages and the final report are the record; the human updates Jira afterwards.
+  If a Jira call is denied, errors, or does not return promptly: **do not retry and do not
+  wait.** Proceed from this spec, which summarises all four tickets (§3's closing note, D11,
+  D12, §7), and say in the final report that the tickets could not be read.
 - **Any other MCP tool** (GitHub, Playwright, browser automation). None of the tasks need one.
   In particular do not start a dev server to take screenshots.
 
