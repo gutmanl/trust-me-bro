@@ -60,15 +60,34 @@ for (const [from, to] of copies) {
  * from the trace; this step is what makes the guarantee testable, and it is
  * the only place that can refuse to build outright.
  *
- * A `workspace/` directory here means real project data — briefings, frozen
- * source documents, the audit trail — was about to be published inside the
- * tarball. That is never recoverable after the fact, so it fails the build
- * rather than being pruned quietly.
+ * Two kinds of finding are treated differently. Build leftovers are pruned
+ * quietly — they are only bloat. Anything that carries PROJECT DATA fails
+ * the build instead: publishing a user's briefings, frozen source documents
+ * or audit trail is not recoverable after the fact, so it must not be
+ * possible to do it by accident.
  */
 const PRUNED_DIRS = new Set(["coverage", "tests", "__fixtures__", ".git"]);
 // TypeScript sources (including .d.ts) never run: the standalone server is
 // the compiled output under .next/. Shipping them only inflated the tarball.
-const PRUNED_FILE = /\.tsx?$|\.tsbuildinfo$/;
+//
+// Archives are the case that actually bit: `npm pack` leaves its tarball in
+// the repository root, Next's tracing copies it into the staged tree, and
+// the NEXT pack then embeds the previous one — measured at +24 MB, doubling
+// with every round. Nothing in an archive is needed at runtime.
+const PRUNED_FILE = /\.tsx?$|\.tsbuildinfo$|\.(tgz|tar|tar\.gz|zip)$/;
+// A .tmb bundle is an exported project: same data as a workspace directory,
+// same refusal.
+const PROJECT_DATA_FILE = /\.tmb$/;
+const PROJECT_DATA_DIRS = new Set(["workspace"]);
+
+function refuse(full, what) {
+  console.error(
+    `Refusing to package: ${what} found at ${path.relative(repoRoot, full)}. ` +
+      "Move it outside the repository before packing — project data must " +
+      "never be published inside the tarball.",
+  );
+  process.exit(1);
+}
 
 let prunedCount = 0;
 
@@ -76,12 +95,8 @@ function prune(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === "workspace") {
-        console.error(
-          `Refusing to package: project data found at ${path.relative(repoRoot, full)}. ` +
-            "Move the workspace directory outside the repository before packing.",
-        );
-        process.exit(1);
+      if (PROJECT_DATA_DIRS.has(entry.name)) {
+        refuse(full, "a workspace directory");
       }
       if (PRUNED_DIRS.has(entry.name)) {
         fs.rmSync(full, { recursive: true, force: true });
@@ -89,6 +104,8 @@ function prune(dir) {
         continue;
       }
       prune(full);
+    } else if (PROJECT_DATA_FILE.test(entry.name)) {
+      refuse(full, "an exported project bundle");
     } else if (PRUNED_FILE.test(entry.name)) {
       fs.rmSync(full, { force: true });
       prunedCount += 1;
