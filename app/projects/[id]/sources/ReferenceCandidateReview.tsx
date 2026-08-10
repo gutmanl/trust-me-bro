@@ -88,9 +88,16 @@ function CandidateMeta({ candidate }: { candidate: ReviewCandidate }) {
  * Candidate list of a reference scan as ONE uncontrolled form: a checkbox
  * per selectable row submits `select_<candidateId>` together with its own
  * `source_type_<id>` / `title_<id>` / `document_url_<id>` inputs, parsed by
- * parseCaptureSelections(). Already-captured and not-(yet)-capturable rows
- * are always shown, never hidden — greyed/informational, with the reason —
- * so nothing about the scan result disappears from view.
+ * parseCaptureSelections(). Every candidate except `unresolved` (no
+ * identifier at all — nothing to capture) and already-captured ones is
+ * selectable: a `url`-method candidate with no title of its own still gets
+ * a row, just with an empty, required title input (`selected` defaults to
+ * false there — see review.ts — but the capture path handles a supplied
+ * title exactly like a candidate that already had one, see
+ * run-reference-capture.ts's `ReferenceCaptureSelection.title`). Already-
+ * captured and unresolved candidates are always shown, never hidden —
+ * greyed/informational, with the reason — so nothing about the scan result
+ * disappears from view.
  */
 export function ReferenceCandidateReview({
   projectId,
@@ -126,11 +133,14 @@ export function ReferenceCandidateReview({
   });
 
   const alreadyCaptured = candidates.filter((c) => c.alreadyCaptured);
+  // Selectable: everything but already-captured and unresolved candidates —
+  // including a `url`-method candidate with no title, whose row still gets
+  // a checkbox (default unchecked, see review.ts's `selected`) and a
+  // required title input the user fills in before submitting (see
+  // buildCaptureInput's url branch, which only ever needs ONE of
+  // selection.title / candidate.title).
   const selectableRows = candidates.filter(
-    (c) => !c.alreadyCaptured && c.capturable,
-  );
-  const notCapturable = candidates.filter(
-    (c) => !c.alreadyCaptured && !c.capturable && c.method !== "unresolved",
+    (c) => !c.alreadyCaptured && c.method !== "unresolved",
   );
   const unresolved = candidates.filter(
     (c) => !c.alreadyCaptured && c.method === "unresolved",
@@ -193,6 +203,12 @@ export function ReferenceCandidateReview({
                       defaultValue={candidate.title ?? ""}
                       className={inputClass}
                     />
+                    {!candidate.title ? (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Kein Titel ermittelt – bitte eintragen, sonst schlägt
+                        die Übernahme fehl.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {usesDerivedDocumentUrl(candidate.method) ? (
@@ -240,7 +256,7 @@ export function ReferenceCandidateReview({
         ) : null}
       </form>
 
-      {alreadyCaptured.length > 0 || notCapturable.length > 0 ? (
+      {alreadyCaptured.length > 0 ? (
         <ul className="space-y-1 text-sm text-slate-500">
           {alreadyCaptured.map((candidate) => (
             <li
@@ -249,15 +265,6 @@ export function ReferenceCandidateReview({
             >
               {candidate.title ?? candidate.raw_text} – bereits erfasst als{" "}
               <span className="font-mono">{candidate.capturedAsSourceId}</span>.
-            </li>
-          ))}
-          {notCapturable.map((candidate) => (
-            <li
-              key={candidate.candidate_id}
-              className="rounded-md bg-slate-50 px-3 py-2 opacity-70"
-            >
-              {candidate.raw_text} – kein Titel ermittelt, kann nicht
-              automatisch übernommen werden. Bitte manuell erfassen.
             </li>
           ))}
         </ul>
