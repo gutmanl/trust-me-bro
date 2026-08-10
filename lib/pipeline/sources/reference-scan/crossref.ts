@@ -7,13 +7,17 @@ import type { FetchedResource, HttpFetcher } from "../fetch-port";
  * field extraction mirrors resolve.ts — Crossref's JSON is read field by
  * field, tolerant of a shifting external schema, never trusted blindly.
  *
- * Never throws: a network error or non-200 answers with an empty array, same
- * as "genuinely no results" — the caller (run-reference-scan.ts) treats an
- * empty array as "Crossref had nothing usable" and marks the candidate
- * `crossref_unavailable`. A 429 with a `Retry-After` of at most 10 seconds
- * is waited out ONCE and the request retried ONCE; any other outcome (no/too
- * long Retry-After, a second 429, a network error on retry) gives up and
- * also answers `[]` — Crossref's rate limit never blocks or fails the scan.
+ * Never throws: a network error, non-200, exhausted 429 retry or malformed
+ * JSON body sets `unavailable: true` with an empty `works` array — the
+ * caller (run-reference-scan.ts) marks the candidate `crossref_unavailable`
+ * ONLY in that case (I3 fix: this is truthfully "Crossref could not be
+ * reached/answered at all", distinct from a normal 200 response that simply
+ * carries zero or no matching items, which answers `unavailable: false` with
+ * an empty `works` array — Crossref genuinely had nothing, a retry would not
+ * help). A 429 with a `Retry-After` of at most 10 seconds is waited out ONCE
+ * and the request retried ONCE; any other outcome (no/too long Retry-After,
+ * a second 429, a network error on retry) gives up and also answers
+ * `unavailable: true` — Crossref's rate limit never blocks or fails the scan.
  *
  * `fetchCrossrefWorkByDoi` (reference auto-import, Task 3b) is the second
  * entry point: a single-work lookup by DOI, used by derive-document-url.ts
@@ -161,22 +165,37 @@ async function fetchCrossrefJson(
   }
 }
 
+export interface CrossrefSearchResult {
+  works: CrossrefWork[];
+  /** True ONLY when Crossref could not be reached/answered at all for this
+   * query (network error, non-200, exhausted 429 retry, malformed JSON) —
+   * see the module doc comment. False for a normal 200 response, even one
+   * with zero matching items: Crossref answered, it just had nothing. */
+  unavailable: boolean;
+}
+
 export async function searchCrossref(
   query: string,
   fetcher: HttpFetcher,
   deps: CrossrefDependencies = {},
-): Promise<CrossrefWork[]> {
+): Promise<CrossrefSearchResult> {
   const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=${RESULT_ROWS}`;
   const parsed = await fetchCrossrefJson(url, fetcher, deps);
-  const message = (parsed as Record<string, unknown> | null)?.message as
+  if (parsed === null) {
+    return { works: [], unavailable: true };
+  }
+  const message = (parsed as Record<string, unknown>).message as
     Record<string, unknown> | undefined;
   const items = message?.items;
   if (!Array.isArray(items)) {
-    return [];
+    return { works: [], unavailable: false };
   }
-  return items
-    .map(extractWork)
-    .filter((work): work is CrossrefWork => work !== null);
+  return {
+    works: items
+      .map(extractWork)
+      .filter((work): work is CrossrefWork => work !== null),
+    unavailable: false,
+  };
 }
 
 /**

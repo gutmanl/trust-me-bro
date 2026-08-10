@@ -135,7 +135,31 @@ describe("mergeCandidates", () => {
     expect(result).toHaveLength(1);
     expect(result[0].method).toBe("doi");
     expect(result[0].raw_text).toBe("Siehe 10.1109/TSE.2025.3489012.");
-    // match_score survives as enrichment even though doi "won" the identity.
+    // I5 regression: the fuzzy title-match score must NOT survive onto the
+    // doi winner — the DOI was found verbatim in the briefing, not guessed
+    // by title similarity, so a score here would misrepresent it.
+    expect(result[0].match_score).toBeUndefined();
+  });
+
+  it("keeps match_score when two crossref_title seeds resolve to the same DOI (I5)", () => {
+    const result = mergeCandidates([
+      {
+        raw_text: "Fuzzy citation one",
+        method: "crossref_title",
+        doi: "10.1109/TSE.2025.3489012",
+        match_score: 0.8,
+      },
+      {
+        raw_text: "Fuzzy citation two",
+        method: "crossref_title",
+        doi: "10.1109/TSE.2025.3489012",
+        match_score: 0.6,
+      },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].method).toBe("crossref_title");
+    // The winning crossref_title candidate keeps ITS OWN score (first-seen),
+    // never silently swapped for the other seed's.
     expect(result[0].match_score).toBe(0.8);
   });
 

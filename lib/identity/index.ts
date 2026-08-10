@@ -76,15 +76,23 @@ export function isIdentityConfigured(
 /**
  * Persists the first-run configuration and returns the now-effective
  * identity (re-read through the regular layering, so an env override keeps
- * winning even directly after setup).
+ * winning even directly after setup). Reads the current file first and
+ * carries every field the caller did not explicitly supply — most notably
+ * `unpaywallEmail` (C1 fix): setup's Unpaywall step can run either side of
+ * this call, and a previously-stored address must survive either order
+ * instead of being silently dropped by a write that only ever knew about
+ * `actorHandle`/`workspaceRoot`.
  */
 export function writeIdentityConfig(input: {
   actorHandle: string;
   workspaceRoot?: string;
 }): IdentityConfig {
-  writeConfigFile(defaultConfigFilePath(), {
+  const filePath = defaultConfigFilePath();
+  const existing = readConfigFile(filePath);
+  writeConfigFile(filePath, {
     actorHandle: input.actorHandle,
-    workspaceRoot: input.workspaceRoot,
+    workspaceRoot: input.workspaceRoot ?? existing?.workspaceRoot,
+    unpaywallEmail: existing?.unpaywallEmail,
   });
   return loadIdentityConfig();
 }

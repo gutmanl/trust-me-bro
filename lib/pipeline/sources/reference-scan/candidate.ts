@@ -111,9 +111,13 @@ function seedToCandidate(seed: CandidateSeed): ReferenceCandidate {
  * merged candidate's method/raw_text over a `crossref_title` seed sharing
  * the same identifier — a directly-found identifier is more authoritative
  * than a fuzzy title match — while richer metadata (title/authors/year/
- * venue/match_score) from either side fills in whatever the winner lacks.
- * Seeds without any identifier (`unresolved`) never share a merge key and
- * always survive as their own candidate.
+ * venue) from either side fills in whatever the winner lacks. `match_score`
+ * is the one field NOT carried across method boundaries this way (I5 fix):
+ * it is a title-similarity confidence, meaningful only when the WINNING
+ * method is itself `crossref_title` — copying a `crossref_title` twin's
+ * score onto a doi/arxiv/url winner would misrepresent a directly-found
+ * identifier as a fuzzy guess. Seeds without any identifier (`unresolved`)
+ * never share a merge key and always survive as their own candidate.
  */
 export function mergeCandidates(
   seeds: readonly CandidateSeed[],
@@ -142,7 +146,15 @@ export function mergeCandidates(
       authors: primary.authors ?? secondary.authors,
       year: primary.year ?? secondary.year,
       venue: primary.venue ?? secondary.venue,
-      match_score: primary.match_score ?? secondary.match_score,
+      // I5 fix: only a crossref_title WINNER may carry a fuzzy match_score
+      // forward. primary.match_score is already undefined for every other
+      // method (only crossref_title seeds ever set it — see
+      // run-reference-scan.ts), so this only ever suppresses secondary's
+      // score from leaking onto a doi/arxiv/url winner.
+      match_score:
+        primary.method === "crossref_title"
+          ? (primary.match_score ?? secondary.match_score)
+          : undefined,
     });
   }
 

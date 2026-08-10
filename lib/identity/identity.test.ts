@@ -135,6 +135,26 @@ describe("writeIdentityConfig", () => {
       "env-wins",
     );
   });
+
+  it("preserves an existing unpaywallEmail and workspaceRoot instead of dropping them (C1)", () => {
+    const filePath = scratchConfigPath();
+    writeConfigFile(filePath, {
+      actorHandle: "old",
+      workspaceRoot: "./ws",
+      unpaywallEmail: "lg@example.org",
+    });
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+
+    writeIdentityConfig({ actorHandle: "new" });
+
+    const onDisk = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    expect(onDisk).toEqual({
+      actor_handle: "new",
+      workspace_root: "./ws",
+      unpaywall_email: "lg@example.org",
+    });
+  });
 });
 
 describe("feature flags (TMB-51)", () => {

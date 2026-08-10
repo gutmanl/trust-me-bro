@@ -91,6 +91,15 @@ export const CROSSREF_WORKS_RESPONSE = JSON.stringify({
   },
 });
 
+/** A healthy Crossref /works response with zero matching items (reference
+ * auto-import, I3): status 200, valid JSON, genuinely nothing found — distinct
+ * from a network error / non-200 / malformed body, which is what actually
+ * makes Crossref "unavailable" (see crossref.ts's `unavailable` flag). */
+export const CROSSREF_EMPTY_RESULTS_RESPONSE = JSON.stringify({
+  status: "ok",
+  message: { items: [] },
+});
+
 /** A single-work Crossref /works/<doi> response (reference auto-import,
  * Task 3b document-url derivation) whose link[] carries a PDF entry —
  * `fetchCrossrefWorkByDoi` should extract its URL as `pdfUrl`. */

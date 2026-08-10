@@ -91,10 +91,16 @@ function CandidateMeta({ candidate }: { candidate: ReviewCandidate }) {
  * parseCaptureSelections(). Every candidate except `unresolved` (no
  * identifier at all — nothing to capture) and already-captured ones is
  * selectable: a `url`-method candidate with no title of its own still gets
- * a row, just with an empty, required title input (`selected` defaults to
- * false there — see review.ts — but the capture path handles a supplied
- * title exactly like a candidate that already had one, see
- * run-reference-capture.ts's `ReferenceCaptureSelection.title`). Already-
+ * a row, just with an empty title input (`selected` defaults to false there
+ * — see review.ts — but the capture path handles a supplied title exactly
+ * like a candidate that already had one, see run-reference-capture.ts's
+ * `ReferenceCaptureSelection.title`). The title input is deliberately NOT
+ * `required` (I1 fix): native constraint validation applies to every
+ * enabled control in the form regardless of its row's checkbox, so a single
+ * unchecked title-less row would otherwise block submission of every other
+ * candidate. A checked title-less row instead fails server-side with the
+ * existing German per-item message (run-reference-capture.ts's
+ * `buildCaptureInput` url branch) without aborting its siblings. Already-
  * captured and unresolved candidates are always shown, never hidden —
  * greyed/informational, with the reason — so nothing about the scan result
  * disappears from view.
@@ -135,9 +141,9 @@ export function ReferenceCandidateReview({
   const alreadyCaptured = candidates.filter((c) => c.alreadyCaptured);
   // Selectable: everything but already-captured and unresolved candidates —
   // including a `url`-method candidate with no title, whose row still gets
-  // a checkbox (default unchecked, see review.ts's `selected`) and a
-  // required title input the user fills in before submitting (see
-  // buildCaptureInput's url branch, which only ever needs ONE of
+  // a checkbox (default unchecked, see review.ts's `selected`) and a title
+  // input the user fills in before submitting (see buildCaptureInput's url
+  // branch, which only ever needs ONE of
   // selection.title / candidate.title).
   const selectableRows = candidates.filter(
     (c) => !c.alreadyCaptured && c.method !== "unresolved",
@@ -199,7 +205,6 @@ export function ReferenceCandidateReview({
                     <input
                       id={`title_${candidate.candidate_id}`}
                       name={`title_${candidate.candidate_id}`}
-                      required
                       defaultValue={candidate.title ?? ""}
                       className={inputClass}
                     />
@@ -230,7 +235,10 @@ export function ReferenceCandidateReview({
                     <p className="mt-1 text-xs text-slate-500">
                       {candidate.document_url
                         ? "Automatisch ermittelt – bei Bedarf überschreiben."
-                        : "Keine Dokument-URL automatisch ermittelt – DOI-Quellen benötigen eine, sonst schlägt die Übernahme fehl."}
+                        : "Keine Dokument-URL automatisch ermittelt – DOI-Quellen benötigen eine, sonst schlägt die Übernahme fehl."}{" "}
+                      Bei einer manuell eingetragenen URL entfällt die
+                      automatische Prüfung, ob das Dokument tatsächlich ein PDF
+                      ist.
                     </p>
                   </div>
                 ) : null}
@@ -278,8 +286,13 @@ export function ReferenceCandidateReview({
           <ul className="space-y-1 text-sm text-slate-500">
             {unresolved.map((candidate) => (
               <li key={candidate.candidate_id}>
-                {candidate.raw_text} – kann nicht automatisch übernommen werden
-                – bitte manuell erfassen.
+                {candidate.raw_text} –{" "}
+                {candidate.crossref_unavailable
+                  ? // I3 fix: distinct from a genuine no-match — Crossref
+                    // itself could not be reached/answered for this
+                    // citation, so a retry (rescan) might still find it.
+                    "Crossref war bei diesem Scan nicht erreichbar – ein erneuter Scan könnte einen Treffer finden, andernfalls bitte manuell erfassen."
+                  : "kann nicht automatisch übernommen werden – bitte manuell erfassen."}
               </li>
             ))}
           </ul>

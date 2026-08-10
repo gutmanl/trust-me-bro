@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  CROSSREF_EMPTY_RESULTS_RESPONSE,
   CROSSREF_WORK_NON_PDF_LINK_RESPONSE,
   CROSSREF_WORK_NO_LINK_RESPONSE,
   CROSSREF_WORK_WITH_PDF_LINK_RESPONSE,
@@ -14,43 +15,75 @@ const CROSSREF_WORK_URL =
   "https://api.crossref.org/works/10.1109%2FTSE.2025.3489012";
 
 describe("searchCrossref", () => {
-  it("returns the extracted works on a 200 response", async () => {
+  it("returns the extracted works on a 200 response, unavailable: false", async () => {
     const fetcher = fakeFetcher({
       [CROSSREF_URL]: {
         contentType: "application/json",
         body: Buffer.from(CROSSREF_WORKS_RESPONSE),
       },
     });
-    const works = await searchCrossref("Effects of AI on Code Review", fetcher);
-    expect(works).toEqual([
-      {
-        doi: "10.1109/TSE.2025.3489012",
-        title: "Effects of AI Assistants on Code Review Duration",
-        authors: ["Meyer"],
-        year: 2025,
-        venue: "IEEE Transactions on Software Engineering",
-      },
-    ]);
+    const result = await searchCrossref(
+      "Effects of AI on Code Review",
+      fetcher,
+    );
+    expect(result).toEqual({
+      unavailable: false,
+      works: [
+        {
+          doi: "10.1109/TSE.2025.3489012",
+          title: "Effects of AI Assistants on Code Review Duration",
+          authors: ["Meyer"],
+          year: 2025,
+          venue: "IEEE Transactions on Software Engineering",
+        },
+      ],
+    });
     expect(fetcher.calls[0].url).toContain("query.bibliographic=");
   });
 
-  it("returns [] on a network error, never throwing", async () => {
+  // I3 regression: a healthy 200 response with zero matching items is
+  // "Crossref answered, nothing matched" — NOT unavailable. Conflating the
+  // two used to make `crossref_unavailable` untruthful (schema.ts's doc
+  // comment already promised this distinction; the code did not honor it).
+  it("returns unavailable: false with an empty works array on a 200 response with zero items", async () => {
+    const fetcher = fakeFetcher({
+      [CROSSREF_URL]: {
+        contentType: "application/json",
+        body: Buffer.from(CROSSREF_EMPTY_RESULTS_RESPONSE),
+      },
+    });
+    await expect(searchCrossref("x", fetcher)).resolves.toEqual({
+      works: [],
+      unavailable: false,
+    });
+  });
+
+  it("returns unavailable: true on a network error, never throwing", async () => {
     const fetcher = {
       fetch: vi.fn().mockRejectedValue(new Error("ECONNRESET")),
     };
-    await expect(searchCrossref("x", fetcher)).resolves.toEqual([]);
+    await expect(searchCrossref("x", fetcher)).resolves.toEqual({
+      works: [],
+      unavailable: true,
+    });
   });
 
-  it("returns [] on a non-200, non-429 response", async () => {
+  it("returns unavailable: true on a non-200, non-429 response", async () => {
     const fetcher = fakeFetcher({ [CROSSREF_URL]: { status: 500 } });
-    await expect(searchCrossref("x", fetcher)).resolves.toEqual([]);
+    await expect(searchCrossref("x", fetcher)).resolves.toEqual({
+      works: [],
+      unavailable: true,
+    });
   });
 
-  it("returns [] on malformed JSON", async () => {
+  it("returns unavailable: true on malformed JSON", async () => {
     const fetcher = fakeFetcher({
       [CROSSREF_URL]: { status: 200, body: Buffer.from("not json") },
     });
-    await expect(searchCrossref("x", fetcher)).resolves.toEqual([]);
+    await expect(searchCrossref("x", fetcher)).resolves.toEqual({
+      works: [],
+      unavailable: true,
+    });
   });
 
   it("waits once and retries once on a 429 with a Retry-After <= 10s, then succeeds", async () => {
@@ -64,10 +97,11 @@ describe("searchCrossref", () => {
       ],
     });
     const sleep = vi.fn().mockResolvedValue(undefined);
-    const works = await searchCrossref("x", fetcher, { sleep });
+    const result = await searchCrossref("x", fetcher, { sleep });
     expect(sleep).toHaveBeenCalledTimes(1);
     expect(sleep).toHaveBeenCalledWith(5_000);
-    expect(works).toHaveLength(1);
+    expect(result.unavailable).toBe(false);
+    expect(result.works).toHaveLength(1);
     expect(fetcher.calls).toHaveLength(2);
   });
 
@@ -79,8 +113,8 @@ describe("searchCrossref", () => {
       ],
     });
     const sleep = vi.fn().mockResolvedValue(undefined);
-    const works = await searchCrossref("x", fetcher, { sleep });
-    expect(works).toEqual([]);
+    const result = await searchCrossref("x", fetcher, { sleep });
+    expect(result).toEqual({ works: [], unavailable: true });
     expect(sleep).toHaveBeenCalledTimes(1);
     expect(fetcher.calls).toHaveLength(2);
   });
@@ -88,8 +122,8 @@ describe("searchCrossref", () => {
   it("gives up immediately on a 429 with no Retry-After header", async () => {
     const fetcher = fakeFetcher({ [CROSSREF_URL]: { status: 429 } });
     const sleep = vi.fn();
-    const works = await searchCrossref("x", fetcher, { sleep });
-    expect(works).toEqual([]);
+    const result = await searchCrossref("x", fetcher, { sleep });
+    expect(result).toEqual({ works: [], unavailable: true });
     expect(sleep).not.toHaveBeenCalled();
     expect(fetcher.calls).toHaveLength(1);
   });
@@ -99,8 +133,8 @@ describe("searchCrossref", () => {
       [CROSSREF_URL]: { status: 429, retryAfterMs: 15_000 },
     });
     const sleep = vi.fn();
-    const works = await searchCrossref("x", fetcher, { sleep });
-    expect(works).toEqual([]);
+    const result = await searchCrossref("x", fetcher, { sleep });
+    expect(result).toEqual({ works: [], unavailable: true });
     expect(sleep).not.toHaveBeenCalled();
     expect(fetcher.calls).toHaveLength(1);
   });
@@ -119,7 +153,7 @@ describe("searchCrossref", () => {
         ),
       },
     });
-    const works = await searchCrossref("x", fetcher);
+    const { works } = await searchCrossref("x", fetcher);
     expect(works[0]?.pdfUrl).toBe("https://publisher.example.org/paper.pdf");
   });
 
@@ -137,7 +171,7 @@ describe("searchCrossref", () => {
         ),
       },
     });
-    const works = await searchCrossref("x", fetcher);
+    const { works } = await searchCrossref("x", fetcher);
     expect(works[0]?.pdfUrl).toBeUndefined();
   });
 
@@ -155,7 +189,7 @@ describe("searchCrossref", () => {
         ),
       },
     });
-    const works = await searchCrossref("x", fetcher);
+    const { works } = await searchCrossref("x", fetcher);
     expect(works[0]?.pdfUrl).toBeUndefined();
   });
 });

@@ -361,11 +361,13 @@ interface CrossrefResolution {
   crossref_unavailable?: boolean;
 }
 
-/** Resolves one identifier-less parsed citation via Crossref: no results at
- * all (network error, non-200, exhausted 429 retry — see crossref.ts) marks
- * the candidate `crossref_unavailable`; results below the match floor leave
- * it unresolved without that flag (Crossref answered, just found nothing
- * confident enough). */
+/** Resolves one identifier-less parsed citation via Crossref: Crossref not
+ * being reachable/answerable at all (network error, non-200, exhausted 429
+ * retry — see crossref.ts's `unavailable` flag) marks the candidate
+ * `crossref_unavailable`; a normal response with zero or no confident-enough
+ * results leaves it unresolved without that flag (Crossref answered, just
+ * found nothing — I3 fix: these two cases used to be conflated because both
+ * produced an empty `works` array). */
 async function resolveViaCrossref(
   reference: ParsedReference,
   fetcher: HttpFetcher,
@@ -374,8 +376,12 @@ async function resolveViaCrossref(
   const query = [reference.title, reference.authors.join(" ")]
     .filter((part) => part.trim().length > 0)
     .join(" ");
-  const works = await searchCrossref(query, fetcher, sleep ? { sleep } : {});
-  if (works.length === 0) {
+  const { works, unavailable } = await searchCrossref(
+    query,
+    fetcher,
+    sleep ? { sleep } : {},
+  );
+  if (unavailable) {
     return { crossref_unavailable: true };
   }
 

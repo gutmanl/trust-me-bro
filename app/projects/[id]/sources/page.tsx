@@ -31,6 +31,18 @@ const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   vendor_documentation: "Herstellerdokumentation",
 };
 
+/** I4 fix: German label per auto-import method, for the provenance badge
+ * rendered next to every automatically captured source below. */
+const AUTO_CAPTURE_METHOD_LABELS: Record<
+  "doi" | "arxiv" | "url" | "crossref_title",
+  string
+> = {
+  doi: "DOI im Text gefunden",
+  arxiv: "arXiv-Id im Text gefunden",
+  url: "URL im Text gefunden",
+  crossref_title: "Titelabgleich",
+};
+
 export default async function SourcesPage(
   props: PageProps<"/projects/[id]/sources">,
 ) {
@@ -39,12 +51,19 @@ export default async function SourcesPage(
   const frozen = isSourceSetFrozen(register);
   const briefingImported = register.project.briefing_import !== undefined;
 
-  const referenceScanState = getReferenceScanState(id, register);
-  const unpaywallSetting = getUnpaywallSetting();
-  const [health, candidates] = await Promise.all([
-    getBackendsHealth(id),
-    getReferenceCandidates(id),
-  ]);
+  // M5 fix: none of this renders for a frozen project or one with no
+  // briefing yet (see the `!frozen` / `!briefingImported` branches below) —
+  // gate the work accordingly. getBackendsHealth in particular spawns CLI
+  // child processes on every call, so computing it unconditionally cost a
+  // process spawn on every load of an already-frozen or briefing-less page.
+  const showReferenceImport = !frozen && briefingImported;
+  const referenceScanState = showReferenceImport
+    ? getReferenceScanState(id, register)
+    : null;
+  const unpaywallSetting = showReferenceImport ? getUnpaywallSetting() : null;
+  const [health, candidates] = showReferenceImport
+    ? await Promise.all([getBackendsHealth(id), getReferenceCandidates(id)])
+    : [null, null];
 
   return (
     <div className="space-y-6">
@@ -93,6 +112,25 @@ export default async function SourcesPage(
                     {source.custom.identifier_verified?.status ? (
                       <span className="text-green-600">
                         ✓ Identifier verifiziert
+                      </span>
+                    ) : null}
+                    {source.custom.auto_capture ? (
+                      // I4 fix: a fuzzy crossref_title match resolved a REAL
+                      // DOI (identifier_verified above is correctly true),
+                      // but the identifier was GUESSED by title similarity,
+                      // not found verbatim in the text — this badge keeps
+                      // that provenance legible instead of looking identical
+                      // to a hand-typed, directly-found identifier.
+                      <span
+                        className={
+                          source.custom.auto_capture.method === "crossref_title"
+                            ? "text-amber-700"
+                            : "text-slate-500"
+                        }
+                      >
+                        {source.custom.auto_capture.method === "crossref_title"
+                          ? `⚠ automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.crossref_title} (${Math.round((source.custom.auto_capture.score ?? 0) * 100)}% Übereinstimmung)`
+                          : `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS[source.custom.auto_capture.method]}`}
                       </span>
                     ) : null}
                     {snapshot ? (
@@ -155,7 +193,10 @@ export default async function SourcesPage(
                 </Link>
                 .
               </p>
-            ) : (
+            ) : referenceScanState &&
+              unpaywallSetting &&
+              health &&
+              candidates ? (
               <div className="space-y-4">
                 <UnpaywallSettingPanel
                   projectId={id}
@@ -165,6 +206,7 @@ export default async function SourcesPage(
                   projectId={id}
                   state={referenceScanState}
                   llmAvailable={health.primary.usable}
+                  lastScanMethod={register.project.reference_scan?.method}
                 />
                 {referenceScanState.status !== "not_started" ? (
                   <p className="text-sm text-slate-600">
@@ -185,7 +227,7 @@ export default async function SourcesPage(
                   />
                 ) : null}
               </div>
-            )}
+            ) : null}
           </section>
           <section className="rounded-md border border-slate-200 bg-white p-5">
             <h2 className="mb-4 text-sm font-semibold text-slate-700">

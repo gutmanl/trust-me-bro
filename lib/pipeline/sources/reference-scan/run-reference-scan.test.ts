@@ -18,6 +18,7 @@ import { createProject } from "../../projects";
 import { createJobRunner } from "../../runs/job-runner";
 import { captureSource, freezeSourceSet } from "../capture";
 import {
+  CROSSREF_EMPTY_RESULTS_RESPONSE,
   CROSSREF_WORK_WITH_PDF_LINK_RESPONSE,
   fakeFetcher,
 } from "../__fixtures__/fake-fetcher";
@@ -350,6 +351,41 @@ describe("startReferenceScan: full path (regex + llm + crossref)", () => {
       (candidate) => candidate.method === "unresolved",
     );
     expect(unresolved?.crossref_unavailable).toBe(true);
+  });
+
+  // I3 regression: a healthy Crossref response with zero matching items is
+  // "genuinely no match", NOT an outage — crossref_unavailable must stay
+  // false so the review UI doesn't invite a pointless retry.
+  it("does NOT mark a citation crossref_unavailable when Crossref answers 200 with zero items", async () => {
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: BRIEFING,
+      tool: "x",
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      orchestrator: testOrchestrator(),
+      runner: createJobRunner(),
+      fetcher: fakeFetcher({
+        "https://api.crossref.org/works": {
+          contentType: "application/json",
+          body: Buffer.from(CROSSREF_EMPTY_RESULTS_RESPONSE),
+        },
+      }),
+    });
+    await handle.done;
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    const unresolved = blob.candidates.find(
+      (candidate) => candidate.method === "unresolved",
+    );
+    expect(unresolved).toBeDefined();
+    expect(unresolved?.crossref_unavailable).toBeUndefined();
   });
 });
 

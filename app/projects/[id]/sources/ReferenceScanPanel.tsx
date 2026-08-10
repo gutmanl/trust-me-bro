@@ -47,10 +47,15 @@ export function ReferenceScanPanel({
   projectId,
   state,
   llmAvailable,
+  lastScanMethod,
 }: {
   projectId: string;
   state: ReferenceScanState;
   llmAvailable: boolean;
+  /** Durable `method` of the last committed scan pointer (I2 fix) —
+   * `"regex"` means the LLM channel was skipped for that run, whatever the
+   * CURRENT live backend health says. Undefined before any scan ever ran. */
+  lastScanMethod?: "regex" | "regex+llm";
 }) {
   const router = useRouter();
   const [formState, formAction, pending] = useActionState(
@@ -89,6 +94,23 @@ export function ReferenceScanPanel({
           Fließtext-Erkennung (LLM) derzeit nicht verfügbar – primäres Backend
           nicht angemeldet. Die regelbasierte Erkennung (DOI/arXiv/URL)
           funktioniert unabhängig davon.
+        </div>
+      ) : null}
+
+      {/* I2 fix: derived from the DURABLE pointer (`method`), not the live
+          health probe above — a rate-limited backend still counts as
+          "usable" there, so without this a degraded scan would become
+          indistinguishable from a complete one once the SSE feed is gone. */}
+      {lastScanMethod === "regex" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="font-medium">
+            Fließtext-Erkennung im letzten Scan übersprungen
+          </p>
+          <p className="mt-1">
+            Nur DOI/arXiv/URL wurden regelbasiert erkannt.
+            {state.reason ? ` ${state.reason}` : ""} Ein erneuter Scan versucht
+            die Fließtext-Erkennung erneut.
+          </p>
         </div>
       ) : null}
 
