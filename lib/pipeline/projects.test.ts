@@ -14,6 +14,7 @@ import {
   createProject,
   getProjectSummary,
   isDemoProject,
+  knownModelFamilyOf,
   listProjects,
   readProject,
 } from "./projects";
@@ -280,5 +281,30 @@ describe("getProjectSummary / readProject", () => {
     await expect(readProject("böse/../id")).rejects.toBeInstanceOf(
       UnknownProjectError,
     );
+  });
+});
+
+describe("knownModelFamilyOf", () => {
+  it("answers for the backends this installation knows", () => {
+    expect(knownModelFamilyOf("claude")).toBe("anthropic");
+    // Same family, different id — the case an id comparison would miss.
+    expect(knownModelFamilyOf("anthropic-api")).toBe("anthropic");
+    expect(knownModelFamilyOf("codex")).toBe("openai");
+    expect(knownModelFamilyOf("mock")).toBe("mock");
+  });
+
+  it("returns undefined for an id it does not know instead of guessing", () => {
+    // Reachable in practice: a bundle imported from another installation can
+    // name a backend that does not exist here.
+    expect(knownModelFamilyOf("gemini")).toBeUndefined();
+    expect(knownModelFamilyOf("")).toBeUndefined();
+  });
+
+  it("is not fooled by inherited Object properties", () => {
+    // A plain-object lookup would answer "constructor" and "toString" with
+    // something truthy; a backend id is attacker-adjacent free-string data.
+    expect(knownModelFamilyOf("constructor")).toBeUndefined();
+    expect(knownModelFamilyOf("toString")).toBeUndefined();
+    expect(knownModelFamilyOf("__proto__")).toBeUndefined();
   });
 });

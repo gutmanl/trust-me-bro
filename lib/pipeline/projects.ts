@@ -51,6 +51,24 @@ export function modelFamilyOf(cli: BackendCli): string {
   return MODEL_FAMILY[cli];
 }
 
+/**
+ * Family of a backend id that is NOT known to be one of ours — an id read
+ * out of a free-string field, e.g. `briefing_import.tool` in a bundle
+ * imported from another installation. Returns undefined for anything this
+ * installation does not know, so the caller has to decide what an unknown
+ * backend means instead of being handed a confident wrong answer.
+ *
+ * Separate from modelFamilyOf on purpose: the validated call sites (project
+ * creation, settings) check against allowedBackendClis first and genuinely
+ * cannot get undefined, and widening their return type would make a
+ * hazard look present where there is none.
+ */
+export function knownModelFamilyOf(cli: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(MODEL_FAMILY, cli)
+    ? MODEL_FAMILY[cli as BackendCli]
+    : undefined;
+}
+
 /** TMB-51: the API spike backend is selectable only while its feature flag
  * AND the API key are both present — without them the option disappears
  * from the UI and server-side validation alike. */
