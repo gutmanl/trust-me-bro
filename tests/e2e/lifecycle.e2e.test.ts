@@ -6,7 +6,7 @@
  * directory. If any module composition breaks, this test breaks — it is the
  * epic's definition of done in executable form.
  */
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -15,7 +15,7 @@ import { promisify } from "node:util";
 
 import { Ajv2020 } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { RegisterStore } from "../../lib/register";
 import type { ProjectConfig } from "../../lib/register";
@@ -26,7 +26,11 @@ const repoRoot = path.resolve(
   "..",
   "..",
 );
-const tsxCli = path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
+// The compiled artifact, not the TypeScript source: this is what the tarball
+// ships as the `tmb` bin, so the test proves the thing users actually run.
+// dist/cli/tmb.js is invoked directly rather than through the `tmb` shim —
+// that sidesteps Windows .cmd quoting while exercising the same file.
+const compiledCli = path.join(repoRoot, "dist", "cli", "tmb.js");
 
 const config: ProjectConfig = {
   rubric_version: "se-evidence-rubric-v1",
@@ -46,6 +50,19 @@ const BRIEFING = [
 let projectDir: string;
 let store: RegisterStore;
 
+// `npx vitest run <path>` bypasses npm lifecycle hooks, so the build has to
+// happen here. `incremental: true` keeps repeat runs near-instant.
+beforeAll(() => {
+  const build = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "build-cli.mjs")],
+    { cwd: repoRoot, stdio: "inherit" },
+  );
+  if (build.status !== 0) {
+    throw new Error("CLI build failed");
+  }
+}, 180_000);
+
 beforeEach(() => {
   projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "tmb-e2e-"));
   store = RegisterStore.atDirectory(projectDir);
@@ -59,7 +76,7 @@ async function runCli(dir: string): Promise<{ code: number; stdout: string }> {
   try {
     const { stdout } = await execFileAsync(
       process.execPath,
-      [tsxCli, path.join(repoRoot, "cli", "tmb.ts"), "verify", dir],
+      [compiledCli, "verify", dir],
       { cwd: repoRoot },
     );
     return { code: 0, stdout };

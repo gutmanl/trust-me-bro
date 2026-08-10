@@ -6,7 +6,26 @@ const nextConfig: NextConfig = {
   // everyday dev loop (next dev / next build / next start) keeps the
   // regular output, which `next start` requires.
   ...(process.env.TMB_BUILD_TARGET === "package"
-    ? { output: "standalone" as const }
+    ? {
+        output: "standalone" as const,
+        // S-05: the tarball used to be assembled purely by Next's tracing,
+        // which swept in test suites, coverage output, TypeScript sources and
+        // — when a workspace directory sits under the repo root — real user
+        // project data. Tracing stays, but never reaches these.
+        // scripts/prepare-standalone.mjs prunes the same set again after the
+        // copy; the two guards are deliberately redundant.
+        outputFileTracingExcludes: {
+          "/*": [
+            "**/coverage/**",
+            "**/tests/**",
+            "**/*.test.ts",
+            "**/*.test.tsx",
+            "**/__fixtures__/**",
+            "**/workspace/**",
+            "**/.git/**",
+          ],
+        },
+      }
     : {}),
   experimental: {
     serverActions: {

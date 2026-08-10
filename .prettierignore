@@ -4,3 +4,5 @@ workspace/
 package-lock.json
 # generated artifact, owned by npm run generate:schema
 schema/claims.schema.json
+# compiled tmb CLI, owned by npm run build:cli
+dist/

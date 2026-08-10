@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "trustmebro": "bin/trustmebro.mjs"
+    "trustmebro": "bin/trustmebro.mjs",
+    "tmb": "dist/cli/tmb.js"
   },
   "files": [
     "bin",
+    "dist/cli",
+    "dist/lib",
     ".next/standalone",
     "README.md"
   ],
@@ -26,6 +29,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:schema": "tsx scripts/generate-schema.ts",
+    "build:cli": "node scripts/build-cli.mjs",
     "package:build": "node scripts/package-build.mjs",
     "prepack": "npm run package:build",
     "tmb": "tsx cli/tmb.ts"

@@ -1,9 +1,10 @@
+#!/usr/bin/env node
 /**
  * Standalone TrustMeBro CLI. Currently: `tmb verify <project-dir|bundle.tmb>`
  * — re-runs the hash-chain, manifest and blob-integrity verification without
  * the web application, for a project directory or a .tmb export bundle.
- * Run via `npm run tmb -- verify <target>` (packaging as a bin is part of
- * the installation epic).
+ * Installed packages expose it as the `tmb` bin; inside the repo it also runs
+ * via `npm run tmb -- verify <target>`.
  */
 import { runVerify } from "./verify";
 

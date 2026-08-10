@@ -5,14 +5,22 @@
  * directory passes the same CLI — the Git-independent verifiability the
  * file format promises recipients, in executable form.
  */
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { bundleText, unzipBundle, zipBundle } from "../../lib/export";
 import { importBriefing } from "../../lib/pipeline/briefing";
@@ -31,9 +39,24 @@ const repoRoot = path.resolve(
   "..",
   "..",
 );
-const tsxCli = path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
+// The compiled artifact the tarball ships as the `tmb` bin — see the note in
+// lifecycle.e2e.test.ts.
+const compiledCli = path.join(repoRoot, "dist", "cli", "tmb.js");
 
 let workspace: string;
+
+// `npx vitest run <path>` bypasses npm lifecycle hooks, so the build has to
+// happen here.
+beforeAll(() => {
+  const build = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "build-cli.mjs")],
+    { cwd: repoRoot, stdio: "inherit" },
+  );
+  if (build.status !== 0) {
+    throw new Error("CLI build failed");
+  }
+}, 180_000);
 
 async function runCli(
   target: string,
@@ -42,7 +65,7 @@ async function runCli(
   try {
     const { stdout } = await execFileAsync(
       process.execPath,
-      [tsxCli, path.join(repoRoot, "cli", "tmb.ts"), "verify", target],
+      [compiledCli, "verify", target],
       { cwd: repoRoot, env },
     );
     return { code: 0, stdout };

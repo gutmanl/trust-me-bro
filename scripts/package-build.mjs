@@ -29,4 +29,16 @@ const stage = spawnSync(
   [path.join(repoRoot, "scripts", "prepare-standalone.mjs")],
   { cwd: repoRoot, stdio: "inherit" },
 );
-process.exit(stage.status ?? 1);
+if (stage.status !== 0) {
+  process.exit(stage.status ?? 1);
+}
+
+// The `tmb` bin ships as compiled JavaScript, independent of the Next build:
+// prepack must always produce dist/, not only when the standalone server was
+// rebuilt.
+const cli = spawnSync(
+  process.execPath,
+  [path.join(repoRoot, "scripts", "build-cli.mjs")],
+  { cwd: repoRoot, stdio: "inherit" },
+);
+process.exit(cli.status ?? 1);

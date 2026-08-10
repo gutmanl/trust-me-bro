@@ -64,6 +64,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "workspace/**",
     "coverage/**",
+    // Compiled CLI output, owned by npm run build:cli.
+    "dist/**",
   ]),
 ]);
 

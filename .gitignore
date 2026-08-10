@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Claude Code personal overrides (never commit)
 .claude/settings.local.json
+
+# compiled tmb CLI (built at pack time)
+/dist/
