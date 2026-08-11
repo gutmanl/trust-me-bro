@@ -20,6 +20,7 @@ const RUN_KIND_LABELS: Record<string, string> = {
   reference_capture: "Quellenerfassung",
   research: "Recherche",
   relevance: "Relevanzprüfung",
+  existence_check: "Existenzprüfung",
 };
 
 export function runKindLabel(kind: string | null): string {

@@ -20,7 +20,7 @@ import { deriveVerificationState } from "./derive-state";
 import type { VerificationState } from "./derive-state";
 import { drawSample, pendingSamplePopulation } from "./sample-draw";
 import { pickUnfinishedClaims } from "./select-claims";
-import { checkClaimExistence } from "./stage1/existence-check";
+import { runStage1ForClaim } from "./stage1/run-stage1-claim";
 import type { SourceCheckCache } from "./stage1/source-check";
 import { loadRubricRuleSet } from "./rubric-rules";
 import type { RubricRuleSet } from "./rubric-rules";
@@ -44,7 +44,6 @@ import type {
 
 const SAMPLE_ITEM = "__spot_check__";
 const ACTOR_RUN = "system:verification" as const;
-const ACTOR_STAGE1 = "system:existence_check" as const;
 const ACTOR_PRECHECK = "system:precheck" as const;
 const ACTOR_SAMPLE = "system:spot_check" as const;
 
@@ -294,59 +293,27 @@ async function processClaim(
     };
   }
 
-  // Recheck (TMB-44): re-admit to the full cascade — the revised source
-  // text can invalidate any stage's determination, so the claim re-enters
-  // at captured and rides the existing pipeline unchanged.
-  if (claim.status === "recheck_required") {
-    claim = await context.store.transaction((tx) => {
-      tx.transitionClaim(claimId, {
-        to: "captured",
-        actor: ACTOR_STAGE1,
-        reason:
-          "Wiederaufnahme in die Prüfkaskade nach Bestandsrevision der Quelle(n).",
-      });
-      return tx.getClaim(claimId);
-    });
-  }
-
-  // Stage 1 (deterministic, always re-checked for captured claims).
-  if (claim.status === "captured") {
-    const results = await checkClaimExistence(claim, context.sourcesById, {
-      blobs: context.store.blobs(),
+  // Stage 1 (deterministic, always re-checked for captured claims;
+  // recheck_required re-admits to captured first) — runStage1ForClaim is
+  // the exact block this cascade used to run inline, now shared with the
+  // standalone existence-check run (TMB-4 workbench epic). This cascade
+  // keeps its own per-claim bracket accounting through the returned claim.
+  if (claim.status === "captured" || claim.status === "recheck_required") {
+    claim = await runStage1ForClaim(claim, {
+      store: context.store,
+      sourcesById: context.sourcesById,
       fetcher: context.fetcher,
       cache: context.cache,
     });
-    const failures = results.filter((result) => result.status !== "passed");
-    const now = new Date().toISOString();
-    claim = await context.store.transaction((tx) => {
-      for (const result of results) {
-        tx.setExistenceCheck(claimId, result.evidenceId, {
-          status: result.status,
-          at: now,
-        });
-      }
-      tx.transitionClaim(claimId, {
-        to:
-          failures.length === 0 ? "existence_checked" : "pending_adjudication",
-        actor: ACTOR_STAGE1,
-        reason:
-          failures.length === 0
-            ? "Existenzprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen."
-            : `Existenzprüfung nicht bestanden: ${failures
-                .map((failure) => failure.detail)
-                .join(" ")}`,
-        ...(failures.length > 0
-          ? { routing: "existence_check_failed" as const }
-          : {}),
-      });
-      return tx.getClaim(claimId);
-    });
     if (claim.status === "pending_adjudication") {
       bracket.adjudicated += 1;
+      const failedCount = claim.evidence.filter(
+        (evidence) => evidence.existence_check?.status !== "passed",
+      ).length;
       return {
         claimId,
         outcome: "existence_check_failed",
-        message: `Existenzprüfung nicht bestanden (${failures.length} Fundstelle(n)) – zur Adjudikation.`,
+        message: `Existenzprüfung nicht bestanden (${failedCount} Fundstelle(n)) – zur Adjudikation.`,
       };
     }
   }

@@ -151,6 +151,14 @@ export type {
   VerificationState,
   VerificationStatus,
 } from "./verification/derive-state";
+// Workbench epic: stage 1 (deterministic, LLM-free existence check) as its
+// own auto-runnable check, standalone from the cascade above. The per-claim
+// stage-1 mechanics stay internal, reachable only through this run and the
+// cascade that still uses them.
+export {
+  getOpenExistenceCheckCount,
+  startExistenceCheck,
+} from "./verification/run-existence-check";
 // TMB-43: warm runs — follow-up project creation with claim adoption and
 // the relevance check. Selection and state derivation stay internal.
 export { createWarmRunProject } from "./warm/create-warm-run";

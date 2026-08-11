@@ -194,6 +194,9 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.startVerification).toBeDefined();
     expect(surface.getVerificationState).toBeDefined();
     expect(surface.getVerificationRun).toBeDefined();
+    // Workbench epic: stage 1 as its own auto-runnable, LLM-free check.
+    expect(surface.startExistenceCheck).toBeDefined();
+    expect(surface.getOpenExistenceCheckCount).toBeDefined();
     // Reference auto-import: scan + selective capture use-cases; the
     // regex/merge/Crossref/review internals stay internal.
     expect(surface.startReferenceScan).toBeDefined();
