@@ -208,6 +208,7 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.getReferencesCsl).toBeDefined();
     expect(surface.getProvDocument).toBeDefined();
     expect(surface.getTracesAggregate).toBeDefined();
+    expect(surface.summarizeTraces).toBeDefined();
     expect(surface.buildReferencesCsl).toBeUndefined();
     expect(surface.buildProvDocument).toBeUndefined();
     expect(surface.buildTracesAggregate).toBeUndefined();

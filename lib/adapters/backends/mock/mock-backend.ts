@@ -111,7 +111,9 @@ export function createMockBackend(
       const output =
         (overrides[job.kind] as JobIO[K]["output"] | undefined) ??
         DEFAULT_OUTPUTS[job.kind];
-      return { output, model };
+      // Canned usage so the demo pipeline shows non-empty token accounting
+      // (finding 6); deterministic, not derived from the prompt.
+      return { output, model, usage: { inputTokens: 1200, outputTokens: 300 } };
     },
   };
 }

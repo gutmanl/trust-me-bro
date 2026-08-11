@@ -1,6 +1,6 @@
 import { UNKNOWN_MODEL } from "../../core/contracts";
 import type { Backend, ProcessRunner } from "../../core/contracts";
-import type { InvokeResult } from "../../core/contracts";
+import type { InvokeResult, TokenUsage } from "../../core/contracts";
 import {
   AdapterOutputError,
   AdapterProcessError,
@@ -49,6 +49,40 @@ function modelOf(envelope: ClaudeEnvelope): string {
     }
   }
   return UNKNOWN_MODEL;
+}
+
+/**
+ * Token usage summed across the per-model entries under `modelUsage` (finding
+ * 6). The CLI reports usage keyed by model name; a single call normally uses
+ * one model, but summing is correct if it reports more. Absent/malformed
+ * counts are skipped, and if nothing usable is present the usage is undefined
+ * rather than a fabricated zero.
+ */
+function usageOf(envelope: ClaudeEnvelope): TokenUsage | undefined {
+  if (typeof envelope.modelUsage !== "object" || envelope.modelUsage === null) {
+    return undefined;
+  }
+  let input: number | undefined;
+  let output: number | undefined;
+  for (const entry of Object.values(envelope.modelUsage)) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    if (typeof record.inputTokens === "number") {
+      input = (input ?? 0) + record.inputTokens;
+    }
+    if (typeof record.outputTokens === "number") {
+      output = (output ?? 0) + record.outputTokens;
+    }
+  }
+  if (input === undefined && output === undefined) {
+    return undefined;
+  }
+  return {
+    ...(input !== undefined ? { inputTokens: input } : {}),
+    ...(output !== undefined ? { outputTokens: output } : {}),
+  };
 }
 
 export interface ClaudeBackendOptions {
@@ -143,9 +177,11 @@ export function createClaudeBackend(
           ? envelope.structured_output
           : parseResultPayload(job.kind, envelope.result);
 
+      const usage = usageOf(envelope);
       return {
         output: validateJobOutput(BACKEND_ID, job.kind, candidate),
         model,
+        ...(usage !== undefined ? { usage } : {}),
       };
     },
   };

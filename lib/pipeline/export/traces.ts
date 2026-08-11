@@ -71,3 +71,51 @@ export async function getTracesAggregate(
   const register = await store.read();
   return buildTracesAggregate(register, readTraceEnvelopes(store.projectDir));
 }
+
+/**
+ * Run accounting over the trace envelopes (finding 6): wall-clock duration
+ * summed from each attempt's start/finish, and token totals summed from the
+ * usage the backends reported. `usageReported` is false when no attempt
+ * reported any tokens (e.g. a Codex-only run), so the UI can say "nicht
+ * gemeldet" instead of a misleading zero.
+ */
+export interface TraceSummary {
+  attempts: number;
+  failedAttempts: number;
+  totalDurationMs: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  usageReported: boolean;
+}
+
+export function summarizeTraces(
+  traces: readonly TraceEnvelope[],
+): TraceSummary {
+  let totalDurationMs = 0;
+  let failedAttempts = 0;
+  let inputTokens: number | undefined;
+  let outputTokens: number | undefined;
+  for (const trace of traces) {
+    totalDurationMs += Math.max(
+      0,
+      Date.parse(trace.finished_at) - Date.parse(trace.started_at),
+    );
+    if (trace.error !== undefined) {
+      failedAttempts += 1;
+    }
+    if (trace.usage?.input_tokens !== undefined) {
+      inputTokens = (inputTokens ?? 0) + trace.usage.input_tokens;
+    }
+    if (trace.usage?.output_tokens !== undefined) {
+      outputTokens = (outputTokens ?? 0) + trace.usage.output_tokens;
+    }
+  }
+  return {
+    attempts: traces.length,
+    failedAttempts,
+    totalDurationMs,
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    usageReported: inputTokens !== undefined || outputTokens !== undefined,
+  };
+}

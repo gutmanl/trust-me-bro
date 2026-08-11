@@ -1,14 +1,27 @@
 import type { JobIO, JobKind, JobRequest } from "./jobs";
 
 /**
+ * Token usage a backend reports for one call, if any (finding 6). Both fields
+ * are optional and best-effort: the Claude CLI and the Anthropic API report
+ * them, the Codex CLI does not, so the trace records what is available and
+ * marks the rest as not reported rather than inventing a number.
+ */
+export interface TokenUsage {
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+}
+
+/**
  * What one backend call resolves with: the schema-valid job output plus the
  * model that actually served the request (as reported by the backend, e.g.
  * the model field of the Claude CLI's JSON envelope — a configured alias
- * like "opus" is not enough for the provenance record).
+ * like "opus" is not enough for the provenance record), and the token usage
+ * the backend reported (absent when it reports none).
  */
 export interface InvokeResult<K extends JobKind = JobKind> {
   readonly output: JobIO[K]["output"];
   readonly model: string;
+  readonly usage?: TokenUsage;
 }
 
 /**

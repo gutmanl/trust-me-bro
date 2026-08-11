@@ -32,6 +32,15 @@ export const TraceEnvelope = z
     attempt: z.int().min(1),
     started_at: IsoDateTime,
     finished_at: IsoDateTime,
+    /** Token usage the backend reported for this attempt (finding 6).
+     * Best-effort: present for backends that report it (Claude CLI, Anthropic
+     * API), absent for those that do not (Codex CLI) — never invented. */
+    usage: z
+      .strictObject({
+        input_tokens: z.int().nonnegative().optional(),
+        output_tokens: z.int().nonnegative().optional(),
+      })
+      .optional(),
     result: z.unknown().optional(),
     error: z
       .strictObject({

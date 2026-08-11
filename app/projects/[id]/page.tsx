@@ -215,6 +215,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             Auswertung (Messgrößen) ansehen
           </Link>
           <Link
+            href={`/projects/${summary.id}/traces`}
+            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+          >
+            Trace-Log der LLM-Aufrufe ansehen
+          </Link>
+          <Link
             href={`/projects/${summary.id}/settings`}
             className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
           >

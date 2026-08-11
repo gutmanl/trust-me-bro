@@ -143,6 +143,29 @@ describe("createClaudeBackend", () => {
     expect(result.model).toBe("claude-sonnet-4-5-20250929");
   });
 
+  it("reports token usage summed from modelUsage (finding 6)", async () => {
+    const backend = createClaudeBackend({
+      processRunner: fakeRunner({
+        stdout: envelope({
+          modelUsage: {
+            "claude-sonnet-4-5": { inputTokens: 100, outputTokens: 40 },
+            "claude-haiku-4-5": { inputTokens: 20 },
+          },
+        }),
+      }),
+    });
+    const result = await backend.invoke(attributionJob());
+    expect(result.usage).toEqual({ inputTokens: 120, outputTokens: 40 });
+  });
+
+  it("reports no usage when the envelope carries no modelUsage", async () => {
+    const backend = createClaudeBackend({
+      processRunner: fakeRunner({ stdout: envelope() }),
+    });
+    const result = await backend.invoke(attributionJob());
+    expect(result.usage).toBeUndefined();
+  });
+
   it("records an unresolved model as unknown, never as the backend id (S-11)", async () => {
     // This test previously asserted the opposite — that an unresolved model
     // is recorded as "claude". S-11: that made the provenance record

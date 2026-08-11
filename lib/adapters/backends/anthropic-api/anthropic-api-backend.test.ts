@@ -62,6 +62,28 @@ describe("createAnthropicApiBackend", () => {
     expect(body.messages).toEqual([{ role: "user", content: job.prompt.text }]);
   });
 
+  it("reports token usage from the API usage block (finding 6)", async () => {
+    const backend = createAnthropicApiBackend({
+      apiKey: "sk-test",
+      httpPort: fakeHttpPort({
+        body: messagesResponse({
+          usage: { input_tokens: 512, output_tokens: 88 },
+        }),
+      }),
+    });
+    const result = await backend.invoke(attributionJob());
+    expect(result.usage).toEqual({ inputTokens: 512, outputTokens: 88 });
+  });
+
+  it("reports no usage when the response omits the usage block", async () => {
+    const backend = createAnthropicApiBackend({
+      apiKey: "sk-test",
+      httpPort: fakeHttpPort({ body: messagesResponse() }),
+    });
+    const result = await backend.invoke(attributionJob());
+    expect(result.usage).toBeUndefined();
+  });
+
   it("rejects job kinds outside the spike scope as invalid_output", async () => {
     const backend = createAnthropicApiBackend({
       apiKey: "sk-test",

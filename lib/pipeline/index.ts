@@ -232,8 +232,9 @@ export type { ClaimMetricsRow, ProjectMetrics } from "../register";
 // internal; the web layer sees only the per-project accessors.
 export { getReferencesCsl } from "./export/references";
 export { getProvDocument } from "./export/prov";
-export { getTracesAggregate } from "./export/traces";
-export type { TracesAggregate } from "./export/traces";
+export { getTracesAggregate, summarizeTraces } from "./export/traces";
+export type { TracesAggregate, TraceSummary } from "./export/traces";
+export type { TraceEnvelope } from "../adapters";
 // TMB-39: the .tmb bundle download.
 export { exportProjectBundle } from "./export/build-export";
 export type { ExportBundleResult } from "./export/build-export";

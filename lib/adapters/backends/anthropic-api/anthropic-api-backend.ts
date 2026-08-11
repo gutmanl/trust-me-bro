@@ -1,4 +1,9 @@
-import type { Backend, HttpPort, InvokeResult } from "../../core/contracts";
+import type {
+  Backend,
+  HttpPort,
+  InvokeResult,
+  TokenUsage,
+} from "../../core/contracts";
 import {
   AdapterOutputError,
   AdapterProcessError,
@@ -23,6 +28,10 @@ interface MessagesEnvelope {
   readonly model?: unknown;
   readonly stop_reason?: unknown;
   readonly content?: unknown;
+  readonly usage?: {
+    readonly input_tokens?: unknown;
+    readonly output_tokens?: unknown;
+  };
   readonly error?: { readonly type?: unknown; readonly message?: unknown };
 }
 
@@ -156,12 +165,27 @@ export function createAnthropicApiBackend(
         );
       }
 
+      const usage = usageOf(envelope);
       return {
         output: validateJobOutput(BACKEND_ID, job.kind, candidate),
         model: typeof envelope.model === "string" ? envelope.model : model,
+        ...(usage !== undefined ? { usage } : {}),
       };
     },
   };
+}
+
+/** The Messages API `usage` block (finding 6), when present and numeric. */
+function usageOf(envelope: MessagesEnvelope): TokenUsage | undefined {
+  const input = envelope.usage?.input_tokens;
+  const output = envelope.usage?.output_tokens;
+  const usage: TokenUsage = {
+    ...(typeof input === "number" ? { inputTokens: input } : {}),
+    ...(typeof output === "number" ? { outputTokens: output } : {}),
+  };
+  return usage.inputTokens === undefined && usage.outputTokens === undefined
+    ? undefined
+    : usage;
 }
 
 /** Concatenates the text blocks (thinking blocks stream with empty text). */

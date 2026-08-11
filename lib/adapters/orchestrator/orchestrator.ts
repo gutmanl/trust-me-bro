@@ -4,6 +4,7 @@ import type {
   Backend,
   Clock,
   ConcurrencyGate,
+  TokenUsage,
   TraceSink,
 } from "../core/contracts";
 import { AdapterError, UnknownBackendError } from "../core/errors";
@@ -82,6 +83,7 @@ export class Orchestrator {
         await this.writeTrace(job, backend.id, attempt, startedAt, finishedAt, {
           model: invoked.model,
           result: stamped,
+          usage: invoked.usage,
         });
         return {
           status: "ok",
@@ -129,8 +131,13 @@ export class Orchestrator {
     startedAt: string,
     finishedAt: string,
     outcome:
-      { model: string; result: unknown } | { model: null; error: AdapterError },
+      | { model: string; result: unknown; usage?: TokenUsage }
+      | { model: null; error: AdapterError },
   ): Promise<void> {
+    const usage =
+      "usage" in outcome && outcome.usage !== undefined
+        ? toEnvelopeUsage(outcome.usage)
+        : undefined;
     const envelope: TraceEnvelope = {
       trace_id: this.generateTraceId(),
       method: job.kind,
@@ -142,6 +149,7 @@ export class Orchestrator {
       attempt,
       started_at: startedAt,
       finished_at: finishedAt,
+      ...(usage !== undefined ? { usage } : {}),
       ...("result" in outcome
         ? { result: outcome.result }
         : {
@@ -161,6 +169,22 @@ export class Orchestrator {
       );
     }
   }
+}
+
+/** Maps a backend's TokenUsage to the envelope's snake_case shape, dropping
+ * absent fields; undefined when the backend reported no counts at all, so a
+ * trace never carries an empty usage object. */
+function toEnvelopeUsage(
+  usage: TokenUsage,
+): { input_tokens?: number; output_tokens?: number } | undefined {
+  const mapped: { input_tokens?: number; output_tokens?: number } = {};
+  if (usage.inputTokens !== undefined) {
+    mapped.input_tokens = usage.inputTokens;
+  }
+  if (usage.outputTokens !== undefined) {
+    mapped.output_tokens = usage.outputTokens;
+  }
+  return Object.keys(mapped).length > 0 ? mapped : undefined;
 }
 
 function stampOutput<K extends JobKind>(
