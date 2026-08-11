@@ -23,7 +23,11 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // 1.1.0: pins the briefing_anchor counting convention (blank-line blocks,
   // headings included) — 1.0.0 left it open and models skipped the title,
   // anchoring every claim one paragraph too early.
-  extraction: "1.1.0",
+  // 2.0.0 (workbench epic): the model never counts paragraphs anymore — it
+  // quotes one (`anchor_quote`) and the pipeline resolves the position. The
+  // pass is scoped to one source (or the unevidenced sweep) and reports
+  // findings for already-known claims through `additional_evidence`.
+  extraction: "2.0.0",
   attribution: "1.0.0",
   rubric: "1.0.0",
   repair: "1.0.0",
@@ -45,6 +49,8 @@ function buildVars(kind: JobKind, input: unknown): Record<string, string> {
         research_question: typed.research_question,
         briefing_text: typed.briefing_text,
         sources_json: json(typed.sources),
+        target_source_json: json(typed.target_source),
+        known_claims_json: json(typed.known_claims),
       };
     }
     case "attribution": {

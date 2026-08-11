@@ -63,6 +63,29 @@ describe("renderPromptForJob", () => {
     expect(a).toEqual(b);
   });
 
+  it("interpolates the pass scope and the known claims into the extraction prompt", () => {
+    const input = inputs.extraction;
+    const prompt = renderPromptForJob("extraction", input);
+    expect(prompt.text).toContain(input.briefing_text);
+    expect(prompt.text).toContain(input.research_question);
+    // The scoped source travels as its own JSON block, separate from the
+    // full citable corpus — the pass focuses on it, but may cite the rest.
+    expect(prompt.text).toContain(JSON.stringify(input.target_source, null, 2));
+    expect(prompt.text).toContain(JSON.stringify(input.known_claims, null, 2));
+    expect(prompt.text).toContain("anchor_quote");
+    expect(prompt.text).not.toContain("briefing_anchor");
+  });
+
+  it("renders the sweep pass with a null scope, not an omitted one", () => {
+    const prompt = renderPromptForJob("extraction", {
+      ...inputs.extraction,
+      target_source: null,
+      known_claims: [],
+    });
+    expect(prompt.text).toContain("null");
+    expect(prompt.text).not.toMatch(/\{\{/);
+  });
+
   it("interpolates the briefing text and already-detected spans into the reference_parse prompt", () => {
     const prompt = renderPromptForJob(
       "reference_parse",

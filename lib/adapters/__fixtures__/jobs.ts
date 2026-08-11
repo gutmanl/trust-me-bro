@@ -51,6 +51,14 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
       "Reduzieren LLM-gestuetzte Code-Review-Werkzeuge die Reviewzeit messbar?",
     briefing_text: "Briefing-Absatz p12 …",
     sources: [{ id: "src_meyer2025", citation: "Meyer (2025), IEEE TSE" }],
+    target_source: { id: "src_meyer2025", citation: "Meyer (2025), IEEE TSE" },
+    known_claims: [
+      {
+        id: exampleClaim.id,
+        text: exampleClaim.text,
+        claim_type: exampleClaim.claim_type,
+      },
+    ],
   } satisfies ExtractionInput,
   attribution: {
     claim: exampleClaim,

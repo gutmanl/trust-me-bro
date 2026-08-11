@@ -12,6 +12,7 @@ export type {
   JobIO,
   JobKind,
   JobRequest,
+  KnownClaimContext,
   ReferenceParseInput,
   RelevanceInput,
   RenderedPrompt,
@@ -55,6 +56,7 @@ export {
 } from "./core/errors";
 export type { AdapterErrorKind } from "./core/errors";
 export {
+  AdditionalEvidence,
   AttributionOutput,
   ExtractedClaim,
   ExtractedEvidence,

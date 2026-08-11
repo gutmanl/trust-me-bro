@@ -69,10 +69,30 @@ export interface ResearchInput {
   readonly research_question: string;
 }
 
+/** A claim the register already holds — so an incremental pass extracts it
+ * no second time and reports new findings for it as additional evidence. */
+export interface KnownClaimContext {
+  readonly id: string;
+  readonly text: string;
+  readonly claim_type: ClaimType;
+}
+
+/**
+ * One extraction pass. Since the workbench epic the pass is SCOPED: either
+ * to a single captured source (the incremental per-source extraction) or —
+ * with `target_source: null` — to the sweep for claims that cite no captured
+ * source at all. `sources` still carries the full citable corpus, because a
+ * sentence focused on the target source may cite a second one alongside it.
+ */
 export interface ExtractionInput {
   readonly research_question: string;
   readonly briefing_text: string;
+  /** All captured sources (the only citable ones). */
   readonly sources: readonly SourceContext[];
+  /** The one source this pass focuses on; null = sweep for claims citing
+   * no captured source (unevidenced pass). */
+  readonly target_source: SourceContext | null;
+  readonly known_claims: readonly KnownClaimContext[];
 }
 
 export interface AttributionInput {

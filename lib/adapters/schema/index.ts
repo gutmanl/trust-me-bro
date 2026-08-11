@@ -7,6 +7,7 @@
  */
 export { AttributionOutput } from "./attribution";
 export {
+  AdditionalEvidence,
   ExtractedClaim,
   ExtractedEvidence,
   ExtractionOutput,

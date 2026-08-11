@@ -19,7 +19,7 @@ const validExtraction = {
     {
       text: "LLM-gestuetzte Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 %.",
       claim_type: "quantitative_finding",
-      briefing_anchor: "p12",
+      anchor_quote: "reduzieren die mediane Reviewzeit um etwa 55 %",
       evidence: [
         {
           source_id: "src_meyer2025",
@@ -28,6 +28,16 @@ const validExtraction = {
             "…median review time dropped from 42 to 19 minutes (-55%)…",
         },
       ],
+    },
+  ],
+  additional_evidence: [
+    {
+      claim_text_match: "LLM-Reviews senken die Zahl der Nachbesserungen.",
+      evidence: {
+        source_id: "src_meyer2025",
+        locator: { page: 7 },
+        verbatim_excerpt: "…rework rate fell from 18% to 11%…",
+      },
     },
   ],
 };
@@ -95,8 +105,36 @@ describe("ExtractionOutput", () => {
   it("accepts a claim without evidence (routed to adjudication by the creation gate, not dropped)", () => {
     const withoutEvidence = {
       claims: [{ ...validExtraction.claims[0], evidence: [] }],
+      additional_evidence: [],
     };
     expect(ExtractionOutput.parse(withoutEvidence)).toEqual(withoutEvidence);
+  });
+
+  it("defaults additional_evidence to empty — a pass that found none may omit it", () => {
+    const withoutChannel = { claims: [] };
+    expect(ExtractionOutput.parse(withoutChannel)).toEqual({
+      claims: [],
+      additional_evidence: [],
+    });
+  });
+
+  it("requires an anchor quote — the model quotes, the pipeline positions", () => {
+    const bad = structuredClone(validExtraction) as Record<string, unknown>;
+    delete (bad.claims as Array<Record<string, unknown>>)[0].anchor_quote;
+    expect(ExtractionOutput.safeParse(bad).success).toBe(false);
+  });
+
+  it("rejects a briefing_anchor — v2 never lets the model count paragraphs", () => {
+    const bad = structuredClone(validExtraction) as Record<string, unknown>;
+    (bad.claims as Array<Record<string, unknown>>)[0].briefing_anchor = "p12";
+    expect(ExtractionOutput.safeParse(bad).success).toBe(false);
+  });
+
+  it("rejects additional evidence without a claim to match", () => {
+    const bad = structuredClone(validExtraction) as Record<string, unknown>;
+    delete (bad.additional_evidence as Array<Record<string, unknown>>)[0]
+      .claim_text_match;
+    expect(ExtractionOutput.safeParse(bad).success).toBe(false);
   });
 
   it("rejects a malformed source id", () => {

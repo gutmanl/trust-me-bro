@@ -74,6 +74,11 @@ function jobs(projectDir: string): { [K in JobKind]: JobRequest<K> } {
         "Code-Reviews reduzieren die mediane Reviewzeit um etwa 55 % " +
         '("median review time dropped from 42 to 19 minutes (-55%)", S. 1).',
       sources: [{ id: "src_meyer2025", citation: "Meyer (2025), IEEE TSE" }],
+      target_source: {
+        id: "src_meyer2025",
+        citation: "Meyer (2025), IEEE TSE",
+      },
+      known_claims: [],
     },
     attribution: { claim, evidence },
     rubric: {

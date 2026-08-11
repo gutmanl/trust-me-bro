@@ -24,12 +24,15 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
         "Literatur nicht belegt.",
     ].join("\n\n"),
   },
+  // The anchor quote occurs verbatim in the research output above — the
+  // pipeline resolves the paragraph by searching for it, so a canned quote
+  // that does not occur there would land every demo claim unanchored.
   extraction: {
     claims: [
       {
-        text: "Mock-Claim aus dem Briefing.",
+        text: "Der Einsatz von Musterwerkzeugen senkt die mediane Bearbeitungszeit um 40 %.",
         claim_type: "quantitative_finding",
-        briefing_anchor: "p1",
+        anchor_quote: "senkt die mediane Bearbeitungszeit um 40 %",
         evidence: [
           {
             source_id: "src_mock",
@@ -39,6 +42,7 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
         ],
       },
     ],
+    additional_evidence: [],
   },
   attribution: {
     relation_type: "supports",
