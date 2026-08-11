@@ -530,7 +530,6 @@ describe("web-layer boundary", () => {
     const allowedRuntime = new Set([
       "@/lib/pipeline",
       "@/lib/pipeline/adjudication/effort-timer",
-      "@/lib/pipeline/adjudication/queue",
       "@/lib/pipeline/ids",
     ]);
     const files = appSourceFiles();

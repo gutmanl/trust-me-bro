@@ -15,10 +15,11 @@ import { ReviewWorkspace } from "./ReviewWorkspace";
 export const dynamic = "force-dynamic";
 
 /**
- * The integrated review workspace (TMB-5): briefing with inline evidence
- * anchors in the center, evidence detail panel on the right, adjudication
- * queue alongside. Durable data renders server-side; the workspace client
- * component adds selection state and the live refresh during pipeline runs.
+ * The integrated review workspace (TMB-5): the frozen briefing as reading
+ * column with every claim as a margin card beside its anchor paragraph, and
+ * the adjudication progress in a sticky bar on top. Durable data renders
+ * server-side; the workspace client component adds selection state and the
+ * live refresh during pipeline runs.
  */
 export default async function ReviewPage(
   props: PageProps<"/projects/[id]/review">,
@@ -46,7 +47,6 @@ export default async function ReviewPage(
       {briefing ? (
         <ReviewWorkspace
           projectId={id}
-          register={register}
           briefing={briefing}
           queue={buildAdjudicationQueue(register)}
           evidenceDisplay={buildEvidenceDisplayMap(id, register)}

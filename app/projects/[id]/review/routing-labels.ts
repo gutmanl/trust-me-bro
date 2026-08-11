@@ -10,13 +10,3 @@ export const ROUTING_LABELS: Record<RoutingReason, string> = {
   escalated: "eskaliert",
   negative_relevance: "Einschlägigkeit (warmer Lauf) negativ/unsicher",
 };
-
-export const ROUTING_ORDER: RoutingReason[] = [
-  "existence_check_failed",
-  "negative_precheck",
-  "divergence",
-  "no_evidence",
-  "negative_relevance",
-  "spot_check",
-  "escalated",
-];

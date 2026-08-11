@@ -6,12 +6,8 @@
 export * from "./errors";
 export { decideClaim } from "./adjudication/decide";
 export type { AdjudicationDecisionInput } from "./adjudication/decide";
-export {
-  buildAdjudicationQueue,
-  filterQueue,
-  sortQueue,
-} from "./adjudication/queue";
-export type { QueueEntry, QueueRoutingFilter } from "./adjudication/queue";
+export { buildAdjudicationQueue } from "./adjudication/queue";
+export type { QueueEntry } from "./adjudication/queue";
 export { buildEvidenceDisplayMap } from "./adjudication/evidence-display";
 export type { EvidenceDisplay } from "./adjudication/evidence-display";
 export { buildTimeline } from "./timeline";
