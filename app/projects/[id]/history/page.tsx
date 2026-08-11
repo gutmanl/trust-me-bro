@@ -7,6 +7,8 @@ import {
   getChainVerification,
   readProject,
 } from "@/lib/pipeline";
+import type { ChainVerificationResult } from "@/lib/pipeline";
+import type { ClaimStatus } from "@/lib/register";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
 import { COMPLAINT_CATEGORY_LABELS } from "../review/complaint-labels";
 import { ROUTING_LABELS } from "../review/routing-labels";
@@ -33,6 +35,43 @@ const EVENT_LABELS: Record<string, string> = {
   relevance_run_completed: "Einschlägigkeitsprüfung beendet",
   config_changed: "Konfiguration geändert",
 };
+
+/** Human-readable status for a chain-error message, German where known. */
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status as ClaimStatus] ?? status;
+}
+
+/**
+ * A chain-verification failure as one German sentence saying what broke and,
+ * where it points at tampering, that the register was changed after the fact
+ * — instead of a raw JSON dump of the error variant.
+ */
+function describeChainError(
+  error: ChainVerificationResult["errors"][number],
+): string {
+  switch (error.type) {
+    case "empty_chain":
+      return "Die Kette ist leer – es gibt keine verketteten Einträge.";
+    case "missing_seq_start":
+      return `Die Kette beginnt nicht bei Eintrag 1 (erster Eintrag: ${error.firstSeq}).`;
+    case "duplicate_seq":
+      return `Eintrag ${error.seq} kommt mehrfach vor.`;
+    case "gap":
+      return `Lücke in der Kette: erwartet wurde Eintrag ${error.expectedSeq}, gefunden ${error.foundSeq}.`;
+    case "prev_hash_mismatch":
+      return `Eintrag ${error.seq} verweist nicht auf den Hash seines Vorgängers – die Kette wurde nachträglich verändert.`;
+    case "hash_mismatch":
+      return `Der Inhalt von Eintrag ${error.seq} passt nicht zu seinem Hash – der Eintrag wurde nachträglich verändert.`;
+    case "status_mismatch":
+      return `Claim ${error.claimId} trägt den Status „${statusLabel(
+        error.status,
+      )}", die verkettete Historie endet aber bei „${statusLabel(
+        error.lastHistoryStatus,
+      )}".`;
+    case "state_root_mismatch":
+      return `Der Inhaltszustand (Eintrag ${error.seq}) weicht vom festgeschriebenen Prüfwert ab – Claims, Belege, Quellen oder Konfiguration wurden seit dem letzten Schreiben verändert.`;
+  }
+}
 
 export default async function HistoryPage(
   props: PageProps<"/projects/[id]/history">,
@@ -61,13 +100,13 @@ export default async function HistoryPage(
             ? "Kettenintegrität geprüft – die Historie ist lückenlos verkettet."
             : "Kettenintegrität GEBROCHEN"}
         </p>
-        {!verification.ok
-          ? verification.errors.map((error, index) => (
-              <p key={index} className="mt-1 font-mono text-xs">
-                {JSON.stringify(error)}
-              </p>
-            ))
-          : null}
+        {!verification.ok ? (
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {verification.errors.map((error, index) => (
+              <li key={index}>{describeChainError(error)}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
