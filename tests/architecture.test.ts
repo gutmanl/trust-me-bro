@@ -197,6 +197,12 @@ describe("public surface of lib/pipeline", () => {
     // Workbench epic: stage 1 as its own auto-runnable, LLM-free check.
     expect(surface.startExistenceCheck).toBeDefined();
     expect(surface.getOpenExistenceCheckCount).toBeDefined();
+    // Workbench epic: the auto-chain drain queue's three app-facing
+    // functions; the factory and the singleton-getter stay internal.
+    expect(surface.enqueueSourceExtraction).toBeDefined();
+    expect(surface.enqueueExistenceCheck).toBeDefined();
+    expect(surface.pendingTriggerCount).toBeDefined();
+    expect(surface.createAutoChain).toBeUndefined();
     // Reference auto-import: scan + selective capture use-cases; the
     // regex/merge/Crossref/review internals stay internal.
     expect(surface.startReferenceScan).toBeDefined();

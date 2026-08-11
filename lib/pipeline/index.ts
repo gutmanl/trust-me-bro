@@ -159,6 +159,15 @@ export {
   getOpenExistenceCheckCount,
   startExistenceCheck,
 } from "./verification/run-existence-check";
+// Workbench epic: the auto-chain drain queue — capture/revision app actions
+// enqueue here so "extract → existence-check" happens automatically and
+// strictly sequentially per project. The factory (createAutoChain, for
+// tests) and the singleton it wraps stay internal.
+export {
+  enqueueExistenceCheck,
+  enqueueSourceExtraction,
+  pendingTriggerCount,
+} from "./runs/auto-chain";
 // TMB-43: warm runs — follow-up project creation with claim adoption and
 // the relevance check. Selection and state derivation stay internal.
 export { createWarmRunProject } from "./warm/create-warm-run";

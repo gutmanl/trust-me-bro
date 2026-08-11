@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
-import { captureSource, reviseSource } from "@/lib/pipeline";
+import {
+  captureSource,
+  enqueueExistenceCheck,
+  enqueueSourceExtraction,
+  reviseSource,
+} from "@/lib/pipeline";
 import type { CaptureKind, CaptureSourceInput } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 
@@ -70,6 +75,10 @@ export async function captureSourceAction(
   if (result.error !== null) {
     return { error: result.error };
   }
+  // Workbench epic: a freshly captured source auto-chains its own extraction
+  // pass (then an existence check) through the drain queue — sequential per
+  // project, so it never races a pass already running for this project.
+  enqueueSourceExtraction(projectId, result.value.id);
   revalidatePath(`/projects/${projectId}/sources`);
   return { error: null, captured: result.value.id };
 }
@@ -105,6 +114,9 @@ export async function reviseSourceAction(
   if (result.error !== null) {
     return { error: result.error };
   }
+  // A revision pulls affected claims back to recheck_required — auto-chain
+  // an existence check so they don't sit unchecked until someone notices.
+  enqueueExistenceCheck(projectId);
   revalidatePath(`/projects/${projectId}/sources`);
   return {
     error: null,

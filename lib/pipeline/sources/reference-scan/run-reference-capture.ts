@@ -1,6 +1,7 @@
 import type { SourceType } from "../../../register";
 import { PipelineError, ReferenceCapturePreconditionError } from "../../errors";
 import { requireProjectStore } from "../../projects";
+import { enqueueSourceExtraction } from "../../runs/auto-chain";
 import { getGlobalJobRunner } from "../../runs/job-runner";
 import type { JobRunner } from "../../runs/job-runner";
 import type { RunHandle } from "../../runs/types";
@@ -155,6 +156,12 @@ async function captureOneCandidate(
 
   const input = buildCaptureInput(projectId, candidate, selection);
   const source = await captureSource(input, { fetcher });
+  // Batch-tier exception to "auto-chain wiring stays in the app layer":
+  // each candidate here is its own independent capture (see the module
+  // doc comment above — no batch-wide bracket event), so it auto-chains its
+  // extraction pass exactly like a manual single capture would, instead of
+  // making every caller of this batch remember to do it once per item.
+  enqueueSourceExtraction(projectId, source.id);
   return {
     candidateId: selection.candidateId,
     sourceId: source.id,
