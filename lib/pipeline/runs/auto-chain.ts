@@ -7,12 +7,10 @@ type PendingTrigger =
   { kind: "extraction"; sourceId: string } | { kind: "existence_check" };
 
 function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
-  if (a.kind !== b.kind) {
-    return false;
+  if (a.kind === "extraction" && b.kind === "extraction") {
+    return a.sourceId === b.sourceId;
   }
-  return a.kind === "extraction"
-    ? a.sourceId === (b as { kind: "extraction"; sourceId: string }).sourceId
-    : true;
+  return a.kind === b.kind;
 }
 
 function describeTrigger(trigger: PendingTrigger): string {
@@ -30,7 +28,9 @@ export interface AutoChainDependencies {
 export interface AutoChain {
   enqueueSourceExtraction(projectId: string, sourceId: string): void;
   enqueueExistenceCheck(projectId: string): void;
-  /** Backlog length for a project — for UI/status, not a control surface. */
+  /** Waiting-backlog length for a project — for UI/status, not a control
+   * surface. See the exported `pendingTriggerCount` below for the full
+   * contract (what "waiting" excludes, and why 0 does not mean idle). */
   pendingTriggerCount(projectId: string): number;
 }
 
@@ -137,7 +137,20 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
         }
       }
     } finally {
-      pending.delete(projectId);
+      // The loop only ever `break`s once its own queue read up top saw it
+      // empty, so this is normally a no-op-safe cleanup. But if something
+      // truly unexpected threw past every inner try/catch above, the queue
+      // for this project can still be non-empty here — deleting it would
+      // silently orphan those triggers (a later push() would start a FRESH
+      // array, and the old one — with real pending work in it — would never
+      // be looked at again). So only delete when the backlog is genuinely
+      // empty; otherwise leave it in place and just drop the draining
+      // guard, so the next enqueue for this project starts a fresh drain()
+      // that picks the leftover triggers back up.
+      const remaining = pending.get(projectId);
+      if (!remaining || remaining.length === 0) {
+        pending.delete(projectId);
+      }
       draining.delete(projectId);
     }
   }
@@ -151,7 +164,17 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     }
     if (!draining.has(projectId)) {
       draining.add(projectId);
-      void drain(projectId);
+      // drain() catches every realistic failure internally (see the two
+      // inner try/catches above); this .catch is a last-resort net so a
+      // truly unexpected throw becomes a logged warning instead of an
+      // unhandled promise rejection — drain() is fired-and-forgotten
+      // (`void`), so nothing else is in a position to observe it reject.
+      void drain(projectId).catch((error: unknown) => {
+        console.warn(
+          `auto-chain: drain loop for project "${projectId}" ended unexpectedly`,
+          error,
+        );
+      });
     }
   }
 
@@ -189,6 +212,28 @@ export function enqueueExistenceCheck(projectId: string): void {
   getGlobalAutoChain().enqueueExistenceCheck(projectId);
 }
 
+/**
+ * Number of triggers still WAITING in the queue for a project — it excludes
+ * whichever trigger (if any) is currently in flight, because `drain()` pops
+ * a trigger off the backlog array before awaiting its start-fn/`.done`, not
+ * after. Two consequences that make this an easy contract to misread:
+ *
+ * - A single enqueue with no run already active for the project can be
+ *   dequeued and start running INSIDE the very `enqueueSourceExtraction`/
+ *   `enqueueExistenceCheck` call that queued it (`drain()` runs synchronously
+ *   up to its first real `await`) — so this can return 0 immediately after
+ *   enqueuing, and stay 0 for the whole chain (extraction, its chained
+ *   existence check, …) even though work is actively running.
+ * - Conversely a positive count only ever means "N triggers have not
+ *   started yet" — it says nothing about whether anything is CURRENTLY
+ *   running.
+ *
+ * In short: 0 does not mean "auto-chain is idle for this project", and a
+ * positive number does not mean "nothing has started". A caller that wants
+ * to answer "is the auto-chain still doing something for this project" must
+ * combine this with the job runner's own live state (`isRunning` /
+ * `getActiveRun`), not read this count alone.
+ */
 export function pendingTriggerCount(projectId: string): number {
   return getGlobalAutoChain().pendingTriggerCount(projectId);
 }

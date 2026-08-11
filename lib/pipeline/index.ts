@@ -162,7 +162,11 @@ export {
 // Workbench epic: the auto-chain drain queue — capture/revision app actions
 // enqueue here so "extract → existence-check" happens automatically and
 // strictly sequentially per project. The factory (createAutoChain, for
-// tests) and the singleton it wraps stay internal.
+// tests) and the singleton it wraps stay internal. NOTE: pendingTriggerCount
+// counts only the WAITING backlog (excludes whatever trigger is currently in
+// flight) — it can read 0 while the chain is actively running, so status UI
+// must combine it with isRunning/getActiveRun, not read it alone (see the
+// doc comment on pendingTriggerCount itself for the full contract).
 export {
   enqueueExistenceCheck,
   enqueueSourceExtraction,
