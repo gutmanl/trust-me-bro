@@ -227,6 +227,19 @@ describe("publishBriefingRevision — revision of an existing briefing", () => {
     expect((await store.verify()).ok).toBe(true);
   });
 
+  it("ignores an explicit tool on the revision path, keeping the prior tool verbatim", async () => {
+    await importBriefing({ projectId: PROJECT, content: V1, tool: "you.com" });
+
+    const result = await publishBriefingRevision(PROJECT, {
+      text: "Komplett anderer Text als Revision.",
+      tool: "ein-anderes-tool",
+    });
+
+    expect(result.tool).toBe("you.com");
+    const after = await RegisterStore.forProject(PROJECT).read();
+    expect(after.project.briefing_import?.tool).toBe("you.com");
+  });
+
   it("leaves a claim's stale anchor untouched when its quote is gone entirely", async () => {
     await importBriefing({ projectId: PROJECT, content: V1, tool: "you.com" });
     const claimId = await addQuotedClaim(

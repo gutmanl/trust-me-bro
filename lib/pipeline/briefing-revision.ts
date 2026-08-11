@@ -71,11 +71,15 @@ export interface PublishBriefingRevisionInput {
  * via `importBriefing` (so the reserved research-tool-prefix guard still
  * applies; this never calls `freezeBriefing` directly).
  *
- * All impure work — reading the register, hashing the candidate text,
- * computing the re-anchor updates — runs BEFORE the single transaction,
- * which then does exactly two kinds of write: `reviseBriefing` (the one
- * evented, audited change) and, per moved claim, a silent
- * `remapClaimAnchor` (mechanical, no event of its own — the enclosing
+ * The impure work — reading the register, hashing the candidate text,
+ * storing the new blob — runs BEFORE the single transaction. The re-anchor
+ * computation itself is pure (computeReanchorUpdates) and deliberately runs
+ * INSIDE the transaction, against the mutator's own fresh `tx.listClaims()`
+ * rather than the earlier register read: that closes the TOCTOU window a
+ * concurrent claim write could open between the preparatory read and the
+ * commit. The transaction then does exactly two kinds of write:
+ * `reviseBriefing` (the one evented, audited change) and, per moved claim, a
+ * silent `remapClaimAnchor` (mechanical, no event of its own — the enclosing
  * transaction's state root covers it). No claim status ever changes here.
  *
  * Checksum-identical text is a no-op: the current BriefingImport is
@@ -136,6 +140,12 @@ export async function publishBriefingRevision(
       actor: getCurrentActor(),
       reason: "Briefing überarbeitet (Arbeitsbereich).",
     });
+    // Deliberately computed here, not from the register read above: it is
+    // pure (no I/O), and running it against tx.listClaims() — the claim
+    // list as of THIS transaction, under the project lock — means a claim
+    // written concurrently between the earlier read and this commit is
+    // still seen and re-anchored. Only the blob put (I/O) had to stay
+    // outside; this computation does not.
     const updates = computeReanchorUpdates(
       splitBriefingParagraphs(text),
       tx.listClaims(),
