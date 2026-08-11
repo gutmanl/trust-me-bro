@@ -12,13 +12,16 @@ import type { ParsedReference } from "../../../adapters";
  * pasted URL vs. the Crossref DOI), so mergeCandidates — which only collapses
  * identical identifiers — keeps both, and the same paper is suggested twice.
  *
- * Deterministic de-duplication: a parsed reference is dropped when its
- * `raw_text` shares a briefing line with an identifier hit — either the
- * reference text sits inside that line, the line sits inside the reference
- * text, or the reference text contains the identifier's matched span
- * (URL/DOI/arXiv). One citation per line is the norm in a prose briefing, so
- * this removes the re-report while keeping the authoritative identifier
- * candidate.
+ * Deterministic de-duplication: a parsed reference is dropped when it sits on
+ * a briefing line that already produced an identifier hit. The match is by
+ * WORD-TOKEN containment, not raw substring, because the model reformats the
+ * citation it copies — typographic vs. straight quotes, em-dashes, dropped
+ * parentheticals — so a strict substring check misses the very re-reports
+ * this exists to remove. A reference is dropped when (almost) all of its
+ * word tokens appear in one identifier line, or when it carries the
+ * identifier span (URL/DOI/arXiv) itself. One citation per line is the norm
+ * in a prose briefing, so this keeps the authoritative identifier candidate
+ * and removes the re-report.
  */
 
 export interface IdentifierSpan {
@@ -28,25 +31,43 @@ export interface IdentifierSpan {
   matchedText: string;
 }
 
-function normalize(text: string): string {
-  return text.trim().toLowerCase().replace(/\s+/g, " ");
+/** Fraction of a reference's tokens that must appear in an identifier line
+ * for it to count as "the same citation". Below 1 to tolerate a stray token
+ * the model added; high enough that a genuinely different citation, which
+ * shares only incidental words, stays. */
+const CONTAINMENT_THRESHOLD = 0.8;
+/** Below this many tokens a containment ratio is too noisy to trust (a short
+ * fragment's words trivially appear in a long paragraph). */
+const MIN_TOKENS = 3;
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((token) => token.length >= 3);
 }
 
 export function dropAlreadyIdentified(
   references: readonly ParsedReference[],
   identifiers: readonly IdentifierSpan[],
 ): ParsedReference[] {
-  const lines = identifiers.map((hit) => normalize(hit.raw_text));
-  const spans = identifiers.map((hit) => normalize(hit.matchedText));
+  const lineTokenSets = identifiers.map(
+    (hit) => new Set(tokenize(hit.raw_text)),
+  );
+  const spans = identifiers.map((hit) => hit.matchedText.toLowerCase());
   return references.filter((reference) => {
-    const text = normalize(reference.raw_text);
-    if (text.length === 0) {
-      return true;
+    const lower = reference.raw_text.toLowerCase();
+    if (spans.some((span) => span.length > 0 && lower.includes(span))) {
+      return false; // the reference text carries the identifier itself
     }
-    const onIdentifiedLine = lines.some(
-      (line) => line.includes(text) || text.includes(line),
-    );
-    const carriesIdentifier = spans.some((span) => text.includes(span));
-    return !onIdentifiedLine && !carriesIdentifier;
+    const tokens = tokenize(reference.raw_text);
+    if (tokens.length < MIN_TOKENS) {
+      return true; // too little to judge — keep it
+    }
+    const onIdentifiedLine = lineTokenSets.some((lineTokens) => {
+      const present = tokens.filter((token) => lineTokens.has(token)).length;
+      return present / tokens.length >= CONTAINMENT_THRESHOLD;
+    });
+    return !onIdentifiedLine;
   });
 }

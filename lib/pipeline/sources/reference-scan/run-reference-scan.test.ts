@@ -337,7 +337,7 @@ describe("startReferenceScan: full path (regex + llm + crossref)", () => {
     await importBriefing({
       projectId: PROJECT_ID,
       content:
-        "Eitan et al. schreiben: „…“. Quelle: https://blog.example.org/post-a [^1]",
+        "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme: „…“. Quelle: https://blog.example.org/post-a [^1]",
       tool: "x",
     });
     const handle = await startReferenceScan(PROJECT_ID, {
@@ -345,7 +345,8 @@ describe("startReferenceScan: full path (regex + llm + crossref)", () => {
         output: {
           references: [
             {
-              raw_text: "Eitan et al. schreiben: „…“.",
+              raw_text:
+                "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme.",
               authors: ["Eitan"],
               title: "On Visualization and Comprehension of Scenario-Based",
             },

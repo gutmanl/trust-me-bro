@@ -11,20 +11,38 @@ describe("dropAlreadyIdentified", () => {
   const identifiers = [
     {
       raw_text:
-        "Eitan et al. schreiben: „…“. Quelle: https://example.org/~a/VisDoc3.pdf [^3]",
+        "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme: „…“. Quelle: https://example.org/~a/VisDoc3.pdf [^3]",
       matchedText: "https://example.org/~a/VisDoc3.pdf",
     },
     {
       raw_text:
-        "Ashrov et al. (2025). Quelle: https://doi.org/10.5220/0013440800003928 [^4]",
+        "Ashrov et al. prüften die Verständlichkeit. Quelle: https://doi.org/10.5220/0013440800003928 [^4]",
       matchedText: "10.5220/0013440800003928",
     },
   ];
 
-  it("drops an LLM citation whose text sits on an already-identified line", () => {
-    // The LLM re-reported the same paragraph (a substring of the line).
+  it("drops an LLM citation whose tokens are contained in an already-identified line", () => {
     const kept = dropAlreadyIdentified(
-      [ref("Eitan et al. schreiben: „…“.")],
+      [
+        ref(
+          "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme.",
+        ),
+      ],
+      identifiers,
+    );
+    expect(kept).toHaveLength(0);
+  });
+
+  it("drops a re-report the model reformatted (straight quotes vs. „…“)", () => {
+    // The real failure: the model copies the citation but swaps typographic
+    // for straight quotes, so a strict substring check missed it. Token
+    // containment still recognizes it as the same paragraph.
+    const kept = dropAlreadyIdentified(
+      [
+        ref(
+          'Eitan et al. schreiben "…" zur Visualisierung szenariobasierter Programme.',
+        ),
+      ],
       identifiers,
     );
     expect(kept).toHaveLength(0);
@@ -40,14 +58,14 @@ describe("dropAlreadyIdentified", () => {
 
   it("keeps a genuinely separate prose-only citation", () => {
     const kept = dropAlreadyIdentified(
-      [ref("Meyer und Schulz (2020) fanden vergleichbare Resultate.")],
+      [ref("Meyer und Schulz (2020) fanden vergleichbare Resultate in Teams.")],
       identifiers,
     );
     expect(kept).toHaveLength(1);
   });
 
   it("keeps everything when there are no identifier hits", () => {
-    const refs = [ref("A"), ref("B")];
+    const refs = [ref("A distinct citation"), ref("Another one entirely")];
     expect(dropAlreadyIdentified(refs, [])).toEqual(refs);
   });
 });
