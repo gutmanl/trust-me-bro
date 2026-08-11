@@ -7,6 +7,7 @@ import {
 } from "@/lib/pipeline";
 import { DemoProjectBadge } from "../components/ui";
 import { CreateDemoProjectButton } from "../setup/SetupForm";
+import { ArchiveProjectControl } from "./ArchiveProjectControl";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "./status-labels";
 
 export const dynamic = "force-dynamic";
@@ -76,10 +77,10 @@ export default async function ProjectsPage() {
       ) : (
         <ul className="space-y-3">
           {projects.map((project) => (
-            <li key={project.id}>
+            <li key={project.id} className="flex items-start gap-3">
               <Link
                 href={`/projects/${project.id}`}
-                className="block rounded-md border border-slate-200 bg-white p-4 hover:border-slate-400"
+                className="block flex-1 rounded-md border border-slate-200 bg-white p-4 hover:border-slate-400"
               >
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="font-medium">
@@ -111,6 +112,9 @@ export default async function ProjectsPage() {
                   ))}
                 </div>
               </Link>
+              <div className="pt-1">
+                <ArchiveProjectControl projectId={project.id} />
+              </div>
             </li>
           ))}
         </ul>

@@ -8,9 +8,11 @@ import { RegisterStore } from "../register";
 import {
   InvalidProjectInputError,
   ProjectAlreadyExistsError,
+  ProjectArchiveBlockedError,
   UnknownProjectError,
 } from "./errors";
 import {
+  archiveProject,
   createProject,
   getProjectSummary,
   isDemoProject,
@@ -18,6 +20,7 @@ import {
   listProjects,
   readProject,
 } from "./projects";
+import { getGlobalJobRunner } from "./runs/job-runner";
 
 let workspace: string;
 
@@ -255,6 +258,91 @@ describe("listProjects", () => {
     expect(summaries.map((summary) => summary.id)).toEqual(["proj_ok"]);
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();
+  });
+});
+
+describe("archiveProject", () => {
+  it("moves the project into .trash, intact, so it leaves the list", async () => {
+    await createProject({
+      id: "proj_weg",
+      research_question: "Wirkt X?",
+      primaryCli: "claude",
+    });
+    await createProject({
+      id: "proj_bleibt",
+      research_question: "Wirkt Y?",
+      primaryCli: "claude",
+    });
+
+    await archiveProject("proj_weg");
+
+    expect((await listProjects()).map((summary) => summary.id)).toEqual([
+      "proj_bleibt",
+    ]);
+    // Gone from the workspace root …
+    expect(fs.existsSync(path.join(workspace, "proj_weg"))).toBe(false);
+    // … but the whole register + chain survives under .trash, verifiable.
+    const archived = path.join(workspace, ".trash", "proj_weg");
+    expect(fs.existsSync(path.join(archived, "claims.json"))).toBe(true);
+    expect((await RegisterStore.atDirectory(archived).verify()).ok).toBe(true);
+  });
+
+  it("throws UnknownProjectError for a missing project", async () => {
+    await expect(archiveProject("proj_nie")).rejects.toBeInstanceOf(
+      UnknownProjectError,
+    );
+  });
+
+  it("suffixes the archive name when the same id was archived before", async () => {
+    await createProject({
+      id: "proj_z",
+      research_question: "Q1?",
+      primaryCli: "claude",
+    });
+    await archiveProject("proj_z");
+    // Recreate under the same id and archive it again.
+    await createProject({
+      id: "proj_z",
+      research_question: "Q2?",
+      primaryCli: "claude",
+    });
+    await archiveProject("proj_z");
+
+    expect(fs.readdirSync(path.join(workspace, ".trash")).sort()).toEqual([
+      "proj_z",
+      "proj_z-2",
+    ]);
+  });
+
+  it("refuses while a run is active, then allows it once the run ends", async () => {
+    await createProject({
+      id: "proj_laeuft",
+      research_question: "Wirkt X?",
+      primaryCli: "claude",
+    });
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const handle = getGlobalJobRunner().submit(
+      "proj_laeuft",
+      [0],
+      () => "item",
+      () => blocked.then(() => "done"),
+    );
+    try {
+      await expect(archiveProject("proj_laeuft")).rejects.toBeInstanceOf(
+        ProjectArchiveBlockedError,
+      );
+    } finally {
+      release();
+      await handle.done;
+    }
+
+    await archiveProject("proj_laeuft");
+    expect(fs.existsSync(path.join(workspace, ".trash", "proj_laeuft"))).toBe(
+      true,
+    );
   });
 });
 

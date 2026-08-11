@@ -26,6 +26,19 @@ export class UnknownProjectError extends PipelineError {
   }
 }
 
+/** A project cannot be archived while a run is active for it: moving the
+ * project directory out from under an in-flight capture/verification would
+ * make it write into a vanished path. Recoverable — the caller waits for the
+ * run or cancels it, then retries. */
+export class ProjectArchiveBlockedError extends PipelineError {
+  constructor(readonly projectId: string) {
+    super(
+      `Projekt "${projectId}" kann nicht archiviert werden, ` +
+        "solange ein Lauf aktiv ist – bitte den Lauf abwarten oder abbrechen.",
+    );
+  }
+}
+
 /** Input of the briefing import is unusable (empty content, missing tool). */
 export class InvalidBriefingInputError extends PipelineError {}
 

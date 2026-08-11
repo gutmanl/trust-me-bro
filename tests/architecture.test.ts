@@ -145,6 +145,7 @@ describe("public surface of lib/pipeline", () => {
   it("exposes the use-cases the web layer calls", () => {
     const surface = pipelinePublic as Record<string, unknown>;
     expect(surface.createProject).toBeDefined();
+    expect(surface.archiveProject).toBeDefined();
     expect(surface.listProjects).toBeDefined();
     expect(surface.getProjectSummary).toBeDefined();
     expect(surface.readProject).toBeDefined();

@@ -157,6 +157,7 @@ export type {
 } from "./warm/run-relevance";
 export type { RelevanceState, RelevanceStatus } from "./warm/derive-state";
 export {
+  archiveProject,
   createProject,
   DEFAULT_ADJUDICATION_SAMPLE_RATE,
   DEFAULT_RUBRIC_VERSION,

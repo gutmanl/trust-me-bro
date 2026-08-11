@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import {
   getCurrentActor,
@@ -21,9 +22,16 @@ import type {
 import {
   InvalidProjectInputError,
   ProjectAlreadyExistsError,
+  ProjectArchiveBlockedError,
   UnknownProjectError,
 } from "./errors";
+import { getGlobalJobRunner } from "./runs/job-runner";
 import { pendingRelevancePopulation } from "./warm/select-claims";
+
+/** Workspace subdirectory that holds archived projects. A leading dot keeps
+ * it out of listProjects: resolveProjectDir rejects any id starting with ".",
+ * so the directory can never be read back as a project. */
+const ARCHIVE_DIRNAME = ".trash";
 
 /** The backends the registry knows; the model family follows the id. The
  * "anthropic-api" entry is the TMB-51 spike — selectable only while its
@@ -299,6 +307,45 @@ export async function listProjects(): Promise<ProjectSummary[]> {
   return summaries.sort((a, b) =>
     a.last_change_at < b.last_change_at ? 1 : -1,
   );
+}
+
+/**
+ * Archives a project: moves its whole directory into the workspace's
+ * `.trash/` instead of deleting it, so the append-only register and its blob
+ * store survive intact and the project simply disappears from listProjects
+ * (the archive dir is unreadable as a project by construction). Recoverable
+ * by moving the directory back by hand — this prototype has no restore UI.
+ *
+ * Refuses while a run is active for the project (any kind): the runner holds
+ * the single-writer invariant, and renaming the directory out from under an
+ * in-flight capture/verification would send its next write to a path that no
+ * longer exists. The caller waits for the run or cancels it, then retries.
+ *
+ * The move is a same-filesystem rename (the archive lives under the same
+ * workspace root), so it is atomic — the project is either listed or
+ * archived, never half of each. A name already taken in `.trash/` (the same
+ * id archived, recreated, archived again) gets a numeric suffix.
+ */
+export async function archiveProject(projectId: string): Promise<void> {
+  const store = requireProjectStore(projectId);
+  if (getGlobalJobRunner().isRunning(projectId)) {
+    throw new ProjectArchiveBlockedError(projectId);
+  }
+  const archiveRoot = path.join(getWorkspaceRoot(), ARCHIVE_DIRNAME);
+  fs.mkdirSync(archiveRoot, { recursive: true });
+  fs.renameSync(store.projectDir, uniqueArchiveTarget(archiveRoot, projectId));
+}
+
+/** A collision-free path inside the archive dir: the project id, then
+ * `-2`, `-3`, … if an earlier archive of the same id is already there. */
+function uniqueArchiveTarget(archiveRoot: string, projectId: string): string {
+  let target = path.join(archiveRoot, projectId);
+  let ordinal = 2;
+  while (fs.existsSync(target)) {
+    target = path.join(archiveRoot, `${projectId}-${ordinal}`);
+    ordinal += 1;
+  }
+  return target;
 }
 
 /** Store of an existing project; UnknownProjectError otherwise. Shared by
