@@ -47,6 +47,17 @@ export class DocumentFetchError extends PipelineError {}
  */
 export class ResourceLimitExceededError extends PipelineError {}
 
+/**
+ * A fetch was refused because the target resolves to a non-public address
+ * (S-06 SSRF hardening): loopback, private, link-local (including the
+ * cloud-metadata endpoint), unique-local or otherwise non-routable. URLs
+ * come out of briefings and references, i.e. untrusted material, and the
+ * server must not be turned into a proxy for reaching addresses only it can
+ * see. Distinct from DocumentFetchError because the cause is a policy this
+ * application enforces, not a failure at the other end.
+ */
+export class BlockedAddressError extends PipelineError {}
+
 /** A run is already active for this project (per-project sequential). */
 export class RunActiveError extends PipelineError {
   constructor(readonly projectId: string) {

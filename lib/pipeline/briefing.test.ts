@@ -87,6 +87,20 @@ describe("importBriefing", () => {
     ).rejects.toBeInstanceOf(InvalidBriefingInputError);
   });
 
+  it("rejects a user-supplied tool that claims the reserved research prefix", async () => {
+    // The independence notice keys on `trustmebro-research/<backend>`; a
+    // manual import must not be able to forge that provenance.
+    await expect(
+      importBriefing({
+        projectId: "proj_briefing",
+        content: BRIEFING,
+        tool: "trustmebro-research/claude",
+      }),
+    ).rejects.toBeInstanceOf(InvalidBriefingInputError);
+    // Nothing was written: the guard runs before the transaction.
+    expect(await getBriefing("proj_briefing")).toBeNull();
+  });
+
   it("rejects a second import and leaves the register unchanged", async () => {
     await importBriefing({
       projectId: "proj_briefing",

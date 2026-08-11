@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { bundleText, unzipBundle, zipBundle } from "../../export";
 import { RegisterStore, verifyChain } from "../../register";
-import { importBriefing } from "../briefing";
+import { freezeBriefing, importBriefing } from "../briefing";
 import {
   InvalidBundleError,
   InvalidProjectInputError,
@@ -127,7 +127,10 @@ describe("importProjectBundle (TMB-40)", () => {
       research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
       primaryCli: "claude",
     });
-    await importBriefing({
+    // A research-produced briefing freezes through freezeBriefing with the
+    // reserved provenance prefix (importBriefing would reject the prefix as
+    // a user-supplied tool name).
+    await freezeBriefing({
       projectId: SELF,
       content: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
       tool: "trustmebro-research/claude",

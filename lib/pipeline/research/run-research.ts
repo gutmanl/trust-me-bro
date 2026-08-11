@@ -2,7 +2,7 @@ import { createProjectOrchestrator, renderPromptForJob } from "../../adapters";
 import type { JobRequest, Orchestrator, ResearchInput } from "../../adapters";
 import { loadAdapterConfig } from "../../identity";
 import type { ClaimsRegister, RegisterStore } from "../../register";
-import { importBriefing } from "../briefing";
+import { freezeBriefing } from "../briefing";
 import { ResearchPreconditionError } from "../errors";
 import { permissiveBackendPreflight, probeBackendUsable } from "../health";
 import type { BackendPreflight } from "../health";
@@ -30,10 +30,11 @@ export interface ResearchRunSummary {
 /**
  * Starts the initial research: the primary backend writes a briefing from
  * the project's research question, which then goes through the ORDINARY
- * freeze path (importBriefing). There is deliberately no second route by
- * which briefing truth enters the register — a self-researched briefing is
- * frozen, hashed and verified exactly like an imported one, and differs
- * only in the recorded provenance.
+ * freeze path (freezeBriefing, the same primitive importBriefing uses).
+ * There is deliberately no second route by which briefing truth enters the
+ * register — a self-researched briefing is frozen, hashed and verified
+ * exactly like an imported one, and differs only in the recorded
+ * provenance, which carries the reserved trustmebro-research/ prefix.
  */
 export async function startResearch(
   projectId: string,
@@ -150,7 +151,7 @@ async function runResearchOnce(
   try {
     // The ordinary freeze path, so the generated briefing is hashed,
     // chain-bracketed and projected exactly like an imported one.
-    await importBriefing({
+    await freezeBriefing({
       projectId,
       content: outcome.output.briefing_markdown,
       tool: `${RESEARCH_TOOL_PREFIX}${backendId}`,

@@ -1,5 +1,9 @@
 import type { BlobRef, BlobStore, SourceSnapshot } from "../../register";
-import { InvalidSourceInputError, DocumentFetchError } from "../errors";
+import {
+  InvalidSourceInputError,
+  DocumentFetchError,
+  PipelineError,
+} from "../errors";
 import { extractFullText } from "../fulltext/extract";
 import type { HttpFetcher } from "./fetch-port";
 import { isHttpUrl } from "./identifiers";
@@ -68,6 +72,13 @@ export async function acquireDocument(
     try {
       resource = await fetcher.fetch(documentUrl);
     } catch (error) {
+      // A pipeline error already carries a precise, user-facing German
+      // reason — a blocked address (SSRF guard) or an exceeded resource
+      // limit — so surface it as-is instead of masking it behind the
+      // generic "could not be loaded".
+      if (error instanceof PipelineError) {
+        throw error;
+      }
       throw new DocumentFetchError(
         `Quellendokument konnte nicht geladen werden (${documentUrl}).`,
         { cause: error },

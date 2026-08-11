@@ -7,6 +7,7 @@ import {
 } from "./errors";
 import { requireProjectStore } from "./projects";
 import { briefingRenderContext } from "./research/independence";
+import { RESEARCH_TOOL_PREFIX } from "./research/provenance";
 
 export interface ImportBriefingInput {
   projectId: string;
@@ -23,8 +24,14 @@ export interface ImportBriefingInput {
  * generating tool, and appends the briefing_imported chain event. The check
  * runs inside the transaction, so a concurrent import cannot slip past it.
  * Afterwards briefing.md is rendered as a first (claim-free) projection.
+ *
+ * The single route by which briefing truth enters the register: both the
+ * user-facing import (importBriefing) and in-application research
+ * (run-research) freeze through here, so there is no second write path to
+ * keep consistent. Internal on purpose — importBriefing is the public
+ * use-case, and it guards the provenance prefix that this primitive trusts.
  */
-export async function importBriefing(
+export async function freezeBriefing(
   input: ImportBriefingInput,
 ): Promise<BriefingImport> {
   if (input.content.trim().length === 0) {
@@ -52,6 +59,33 @@ export async function importBriefing(
   const register = await store.read();
   await store.renderBriefingFile(briefingRenderContext(register));
   return register.project.briefing_import as BriefingImport;
+}
+
+/**
+ * Imports a briefing produced by an external tool (the public use-case the
+ * web layer calls). Identical to freezeBriefing but reserves the
+ * `trustmebro-research/` provenance prefix: it marks a briefing this
+ * application researched itself, and the independence notice keys on it, so
+ * a user-supplied tool name must not be able to forge it. The research
+ * pipeline writes that prefix through freezeBriefing directly.
+ *
+ * This closes the local-forgery path only. A briefing inside an imported
+ * .tmb bundle can still name any tool it likes — the register binds no chain
+ * to a specific installation, so that provenance claim is not authentic:
+ * an accepted, pre-existing property of the bundle trust model, not
+ * something this guard can or claims to close.
+ */
+export async function importBriefing(
+  input: ImportBriefingInput,
+): Promise<BriefingImport> {
+  if (input.tool.trim().startsWith(RESEARCH_TOOL_PREFIX)) {
+    throw new InvalidBriefingInputError(
+      `Der Präfix „${RESEARCH_TOOL_PREFIX}" ist für in der Anwendung ` +
+        "erzeugte Briefings reserviert und kann nicht als Werkzeugname " +
+        "angegeben werden.",
+    );
+  }
+  return freezeBriefing(input);
 }
 
 /**

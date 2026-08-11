@@ -26,10 +26,22 @@ function scratch(): string {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   for (const dir of scratchDirs.splice(0)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+/**
+ * Redirects the cwd-relative default workspace ("./workspace") to a fresh
+ * empty directory. Without this, a test that exercises setWorkspaceRoot with
+ * neither TMB_WORKSPACE nor a stored root reads the developer's real
+ * ./workspace for its "already has projects?" precondition, so a project
+ * created there by ordinary use makes the test fail spuriously.
+ */
+function isolateDefaultWorkspace(): void {
+  vi.spyOn(process, "cwd").mockReturnValue(scratch());
+}
 
 describe("isSetupComplete", () => {
   it("mirrors the identity configuration state", () => {
@@ -139,6 +151,7 @@ describe("getUnpaywallSetting / setUnpaywallEmail", () => {
 describe("getWorkspaceRootSetting / setWorkspaceRoot (TMB-54, D5)", () => {
   it("reports the source so the UI knows whether it may offer an edit", () => {
     const dir = scratch();
+    isolateDefaultWorkspace();
     const configPath = path.join(dir, "config.json");
     vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     vi.stubEnv("TMB_CONFIG_PATH", configPath);
@@ -159,6 +172,7 @@ describe("getWorkspaceRootSetting / setWorkspaceRoot (TMB-54, D5)", () => {
 
   it("creates the chosen directory so the next step finds a workspace", () => {
     const dir = scratch();
+    isolateDefaultWorkspace();
     vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
     vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
     vi.stubEnv("TMB_WORKSPACE", undefined);
@@ -194,6 +208,7 @@ describe("getWorkspaceRootSetting / setWorkspaceRoot (TMB-54, D5)", () => {
     // would leave them behind. Enforced in the use-case, not just by the
     // wizard being the only caller.
     const dir = scratch();
+    isolateDefaultWorkspace();
     const workspace = path.join(dir, "workspace");
     fs.mkdirSync(path.join(workspace, "proj_alt"), { recursive: true });
     fs.writeFileSync(path.join(workspace, "proj_alt", "claims.json"), "{}");
@@ -232,6 +247,7 @@ describe("getActorHandleSetting / updateActorHandle (TMB-54, D6)", () => {
 
   it("changes the handle for future entries and leaves the workspace root alone", () => {
     const dir = scratch();
+    isolateDefaultWorkspace();
     const configPath = path.join(dir, "config.json");
     vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
     vi.stubEnv("TMB_CONFIG_PATH", configPath);

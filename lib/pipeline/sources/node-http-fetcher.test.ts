@@ -3,8 +3,19 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ResourceLimitExceededError } from "../errors";
-import { MAX_REDIRECTS, nodeHttpFetcher } from "./node-http-fetcher";
+import { BlockedAddressError, ResourceLimitExceededError } from "../errors";
+import {
+  createNodeHttpFetcher,
+  MAX_REDIRECTS,
+  nodeHttpFetcher,
+} from "./node-http-fetcher";
+
+// The resource-limit tests fetch a real loopback server, which the SSRF
+// guard would (correctly) refuse. They exercise size/redirect/time bounds,
+// not the address policy, so they run against a fetcher with a permissive
+// check; the address policy has its own end-to-end test below and its unit
+// tests in private-address.test.ts.
+const localFetcher = createNodeHttpFetcher({ checkUrl: async () => {} });
 
 /**
  * S-06: sources are fetched from addresses that come out of a briefing, so
@@ -38,7 +49,7 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       response.writeHead(200, { "content-type": "application/pdf" });
       response.end("PDF-Bytes");
     });
-    const result = await nodeHttpFetcher.fetch(url);
+    const result = await localFetcher.fetch(url);
     expect(result.status).toBe(200);
     expect(result.contentType).toBe("application/pdf");
     expect(result.body.toString()).toBe("PDF-Bytes");
@@ -54,10 +65,10 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       });
       response.end("kurz");
     });
-    await expect(nodeHttpFetcher.fetch(url)).rejects.toBeInstanceOf(
+    await expect(localFetcher.fetch(url)).rejects.toBeInstanceOf(
       ResourceLimitExceededError,
     );
-    await expect(nodeHttpFetcher.fetch(url)).rejects.toThrow(/Größengrenze/);
+    await expect(localFetcher.fetch(url)).rejects.toThrow(/Größengrenze/);
   });
 
   it("stops a body that keeps growing past the cap without declaring a length", async () => {
@@ -82,7 +93,7 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       });
       pump();
     });
-    await expect(nodeHttpFetcher.fetch(url)).rejects.toBeInstanceOf(
+    await expect(localFetcher.fetch(url)).rejects.toBeInstanceOf(
       ResourceLimitExceededError,
     );
     stopped = true;
@@ -95,7 +106,7 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       response.writeHead(302, { location: `/${hop + 1}` });
       response.end();
     });
-    await expect(nodeHttpFetcher.fetch(`${url}/0`)).rejects.toThrow(
+    await expect(localFetcher.fetch(`${url}/0`)).rejects.toThrow(
       new RegExp(`mehr als ${MAX_REDIRECTS} Weiterleitungen`),
     );
   });
@@ -111,7 +122,7 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       response.writeHead(200, { "content-type": "text/plain" });
       response.end("angekommen");
     });
-    const result = await nodeHttpFetcher.fetch(`${url}/start`);
+    const result = await localFetcher.fetch(`${url}/start`);
     expect(result.status).toBe(200);
     expect(result.body.toString()).toBe("angekommen");
   });
@@ -126,7 +137,7 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       }, 40);
     });
     await expect(
-      nodeHttpFetcher.fetch(`${url}/start`, { timeoutMs: 150 }),
+      localFetcher.fetch(`${url}/start`, { timeoutMs: 150 }),
     ).rejects.toThrow();
   });
 
@@ -147,7 +158,7 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       response.end("ziel");
     });
     for (let i = 0; i < 15; i += 1) {
-      const result = await nodeHttpFetcher.fetch(`${url}/0`);
+      const result = await localFetcher.fetch(`${url}/0`);
       expect(result.body.toString()).toBe("ziel");
     }
   }, 30_000);
@@ -157,8 +168,42 @@ describe("nodeHttpFetcher resource limits (S-06)", () => {
       response.writeHead(429, { "retry-after": "2" });
       response.end();
     });
-    const result = await nodeHttpFetcher.fetch(url);
+    const result = await localFetcher.fetch(url);
     expect(result.status).toBe(429);
     expect(result.retryAfterMs).toBe(2000);
+  });
+});
+
+describe("nodeHttpFetcher SSRF guard (S-06)", () => {
+  it("refuses a loopback address before opening a connection", async () => {
+    // The production fetcher, with the real address guard: a literal
+    // loopback IP is classified without DNS and never dialled. Port 1 would
+    // refuse the connection anyway — the point is it fails with the address
+    // error, not a connection error.
+    await expect(
+      nodeHttpFetcher.fetch("http://127.0.0.1:1/secret"),
+    ).rejects.toBeInstanceOf(BlockedAddressError);
+  });
+
+  it("re-checks the address on every redirect hop", async () => {
+    // The guard is consulted for the target of each redirect, not only the
+    // initial URL — a redirect to a private address is caught on its hop.
+    const checked: string[] = [];
+    const fetcher = createNodeHttpFetcher({
+      checkUrl: async (url) => {
+        checked.push(url);
+      },
+    });
+    const { url } = await serve((request, response) => {
+      if (request.url === "/start") {
+        response.writeHead(302, { location: "/ziel" });
+        response.end();
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("ziel");
+    });
+    await fetcher.fetch(`${url}/start`);
+    expect(checked).toEqual([`${url}/start`, `${url}/ziel`]);
   });
 });
