@@ -282,6 +282,98 @@ describe("startReferenceCapture: url-method title handling", () => {
   });
 });
 
+describe("startReferenceCapture: completing candidates with a user document", () => {
+  it("completes an unresolved candidate with an uploaded PDF", async () => {
+    await writeScanResult([UNRESOLVED_CANDIDATE]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_unresolved",
+          sourceType: "grey_literature",
+          title: "Manuell vervollständigte Quelle",
+          upload: { content: PDF_BYTES, filename: "paper.pdf" },
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    expect(register.sources).toHaveLength(1);
+    expect(register.sources[0].title).toBe("Manuell vervollständigte Quelle");
+    // An uploaded document is a manual document — no auto_capture provenance.
+    expect(register.sources[0].custom.auto_capture).toBeUndefined();
+    expect(register.sources[0].custom.snapshot).toBeDefined();
+  });
+
+  it("completes an unresolved candidate with a document URL, recorded as method url", async () => {
+    await writeScanResult([UNRESOLVED_CANDIDATE]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_unresolved",
+          sourceType: "grey_literature",
+          title: "Quelle per URL",
+          documentUrl: "https://user-override.example.org/paper.pdf",
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    expect(register.sources[0].custom.auto_capture?.method).toBe("url");
+    expect(register.sources[0].custom.auto_capture?.raw_text).toBe(
+      UNRESOLVED_CANDIDATE.raw_text,
+    );
+  });
+
+  it("fails an unresolved candidate that has a title but no document", async () => {
+    await writeScanResult([UNRESOLVED_CANDIDATE]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_unresolved",
+          sourceType: "grey_literature",
+          title: "Titel ohne Dokument",
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    expect(await handle.done).toEqual({ succeeded: 0, failed: 1 });
+    const outcome = handle
+      .eventsSoFar()
+      .find((event) => event.type === "item_completed");
+    if (outcome?.type === "item_completed") {
+      expect(outcome.outcome.error).toContain("benötigt ein Dokument");
+    }
+  });
+
+  it("completes a paywalled DOI candidate with an uploaded PDF (upload wins over the derived URL)", async () => {
+    await writeScanResult([DOI_CANDIDATE_WITH_PAYWALL_DERIVED_URL]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_doi_paywall",
+          sourceType: "peer_reviewed_publication",
+          upload: { content: PDF_BYTES, filename: "paper.pdf" },
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    // The derived document_url is a paywall HTML page; the uploaded PDF is
+    // used instead, so the capture succeeds and keeps the DOI provenance.
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    expect(register.sources[0].custom.auto_capture?.method).toBe("doi");
+    expect(register.sources[0].custom.snapshot).toBeDefined();
+  });
+});
+
 describe("startReferenceCapture: document-url mapping (reference auto-import, Task 3b)", () => {
   it("captures a doi candidate using its derived document_url, guarded by expectedExt", async () => {
     await writeScanResult([DOI_CANDIDATE_WITH_DERIVED_URL]);

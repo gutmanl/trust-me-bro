@@ -39,7 +39,7 @@ export async function startReferenceCaptureAction(
   _previous: ReferenceCaptureFormState,
   formData: FormData,
 ): Promise<ReferenceCaptureFormState> {
-  const selections = parseCaptureSelections(formData);
+  const selections = await parseCaptureSelections(formData);
   const result = await runPipelineAction(() =>
     startReferenceCapture(projectId, selections),
   );

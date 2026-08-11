@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 
 import {
   ErrorBanner,
+  fileInputClass,
   inputClass,
   primaryButtonClass,
   RunProgressFeed,
@@ -38,6 +39,15 @@ const METHOD_LABELS: Record<ReviewCandidate["method"], string> = {
  * IS the document to capture). */
 function usesDerivedDocumentUrl(method: ReviewCandidate["method"]): boolean {
   return method === "doi" || method === "arxiv" || method === "crossref_title";
+}
+
+/** Completion controls a candidate row offers, per method (finding:
+ * real-world references — every detected reference must be completable). */
+function needsTitleInput(method: ReviewCandidate["method"]): boolean {
+  return method === "url" || method === "unresolved";
+}
+function offersDocumentUrl(method: ReviewCandidate["method"]): boolean {
+  return usesDerivedDocumentUrl(method) || method === "unresolved";
 }
 
 function describeProgress(event: Record<string, unknown>): string | null {
@@ -85,25 +95,19 @@ function CandidateMeta({ candidate }: { candidate: ReviewCandidate }) {
 }
 
 /**
- * Candidate list of a reference scan as ONE uncontrolled form: a checkbox
- * per selectable row submits `select_<candidateId>` together with its own
- * `source_type_<id>` / `title_<id>` / `document_url_<id>` inputs, parsed by
- * parseCaptureSelections(). Every candidate except `unresolved` (no
- * identifier at all — nothing to capture) and already-captured ones is
- * selectable: a `url`-method candidate with no title of its own still gets
- * a row, just with an empty title input (`selected` defaults to false there
- * — see review.ts — but the capture path handles a supplied title exactly
- * like a candidate that already had one, see run-reference-capture.ts's
- * `ReferenceCaptureSelection.title`). The title input is deliberately NOT
- * `required` (I1 fix): native constraint validation applies to every
- * enabled control in the form regardless of its row's checkbox, so a single
- * unchecked title-less row would otherwise block submission of every other
- * candidate. A checked title-less row instead fails server-side with the
- * existing German per-item message (run-reference-capture.ts's
- * `buildCaptureInput` url branch) without aborting its siblings. Already-
- * captured and unresolved candidates are always shown, never hidden —
- * greyed/informational, with the reason — so nothing about the scan result
- * disappears from view.
+ * Candidate list of a reference scan as ONE uncontrolled multipart form: a
+ * checkbox per row submits `select_<candidateId>` together with its own
+ * `source_type_<id>` / `title_<id>` / `document_url_<id>` / `file_<id>`
+ * inputs, parsed by parseCaptureSelections(). EVERY not-yet-captured
+ * candidate is a row now — including `unresolved` ones, which the user
+ * completes in place by uploading a PDF or pasting a document URL (finding:
+ * real-world references dead-ended here before). A candidate the user checks
+ * without providing what its method needs (a title, or — for unresolved — a
+ * document) fails server-side with a German per-item message without aborting
+ * its siblings; no input is `required`, since native constraint validation
+ * would otherwise let one unchecked incomplete row block the whole form
+ * (I1 fix). Already-captured candidates are listed separately, greyed, so
+ * nothing about the scan result disappears from view.
  */
 export function ReferenceCandidateReview({
   projectId,
@@ -139,111 +143,19 @@ export function ReferenceCandidateReview({
   });
 
   const alreadyCaptured = candidates.filter((c) => c.alreadyCaptured);
-  // Selectable: everything but already-captured and unresolved candidates —
-  // including a `url`-method candidate with no title, whose row still gets
-  // a checkbox (default unchecked, see review.ts's `selected`) and a title
-  // input the user fills in before submitting (see buildCaptureInput's url
-  // branch, which only ever needs ONE of
-  // selection.title / candidate.title).
-  const selectableRows = candidates.filter(
-    (c) => !c.alreadyCaptured && c.method !== "unresolved",
-  );
-  const unresolved = candidates.filter(
-    (c) => !c.alreadyCaptured && c.method === "unresolved",
-  );
-  const defaultSelectedCount = selectableRows.filter((c) => c.selected).length;
+  // Every not-yet-captured candidate is completable in the form now,
+  // including `unresolved` ones: the user finishes those by uploading a PDF
+  // or pasting a document URL (finding: real-world references). Nothing
+  // dead-ends in a separate read-only list any more.
+  const openRows = candidates.filter((c) => !c.alreadyCaptured);
+  const defaultSelectedCount = openRows.filter((c) => c.selected).length;
 
   return (
     <div className="space-y-4">
       <form action={formAction} className="space-y-3">
         <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
-          {selectableRows.map((candidate) => (
-            <li key={candidate.candidate_id} className="space-y-2 p-3">
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  name={`select_${candidate.candidate_id}`}
-                  defaultChecked={candidate.selected}
-                  className="mt-1"
-                />
-                <span>
-                  <span className="text-sm font-medium text-slate-800">
-                    {candidate.title ?? candidate.raw_text}
-                  </span>
-                  <CandidateMeta candidate={candidate} />
-                </span>
-              </label>
-              <div className="ml-6 grid gap-2 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor={`source_type_${candidate.candidate_id}`}
-                    className="mb-1 block text-xs font-medium text-slate-600"
-                  >
-                    Quellentyp
-                  </label>
-                  <select
-                    id={`source_type_${candidate.candidate_id}`}
-                    name={`source_type_${candidate.candidate_id}`}
-                    defaultValue={candidate.suggested_source_type}
-                    className={inputClass}
-                  >
-                    {SOURCE_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {candidate.method === "url" ? (
-                  <div>
-                    <label
-                      htmlFor={`title_${candidate.candidate_id}`}
-                      className="mb-1 block text-xs font-medium text-slate-600"
-                    >
-                      Titel
-                    </label>
-                    <input
-                      id={`title_${candidate.candidate_id}`}
-                      name={`title_${candidate.candidate_id}`}
-                      defaultValue={candidate.title ?? ""}
-                      className={inputClass}
-                    />
-                    {!candidate.title ? (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Kein Titel ermittelt – bitte eintragen, sonst schlägt
-                        die Übernahme fehl.
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {usesDerivedDocumentUrl(candidate.method) ? (
-                  <div className="sm:col-span-2">
-                    <label
-                      htmlFor={`document_url_${candidate.candidate_id}`}
-                      className="mb-1 block text-xs font-medium text-slate-600"
-                    >
-                      Dokument-URL (optional)
-                    </label>
-                    <input
-                      id={`document_url_${candidate.candidate_id}`}
-                      name={`document_url_${candidate.candidate_id}`}
-                      type="url"
-                      placeholder="Direktlink zum Volltext (PDF)"
-                      defaultValue={candidate.document_url ?? ""}
-                      className={`${inputClass} font-mono`}
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      {candidate.document_url
-                        ? "Automatisch ermittelt – bei Bedarf überschreiben."
-                        : "Keine Dokument-URL automatisch ermittelt – DOI-Quellen benötigen eine, sonst schlägt die Übernahme fehl."}{" "}
-                      Bei einer manuell eingetragenen URL entfällt die
-                      automatische Prüfung, ob das Dokument tatsächlich ein PDF
-                      ist.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            </li>
+          {openRows.map((candidate) => (
+            <CandidateRow key={candidate.candidate_id} candidate={candidate} />
           ))}
         </ul>
 
@@ -251,7 +163,7 @@ export function ReferenceCandidateReview({
 
         <button
           type="submit"
-          disabled={pending || watching || selectableRows.length === 0}
+          disabled={pending || watching || openRows.length === 0}
           className={primaryButtonClass}
         >
           {pending || watching
@@ -277,27 +189,129 @@ export function ReferenceCandidateReview({
           ))}
         </ul>
       ) : null}
-
-      {unresolved.length > 0 ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-          <p className="mb-2 text-xs font-medium text-slate-600">
-            Nicht automatisch übernehmbar
-          </p>
-          <ul className="space-y-1 text-sm text-slate-500">
-            {unresolved.map((candidate) => (
-              <li key={candidate.candidate_id}>
-                {candidate.raw_text} –{" "}
-                {candidate.crossref_unavailable
-                  ? // I3 fix: distinct from a genuine no-match — Crossref
-                    // itself could not be reached/answered for this
-                    // citation, so a retry (rescan) might still find it.
-                    "Crossref war bei diesem Scan nicht erreichbar – ein erneuter Scan könnte einen Treffer finden, andernfalls bitte manuell erfassen."
-                  : "kann nicht automatisch übernommen werden – bitte manuell erfassen."}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
+  );
+}
+
+/** One candidate row of the review form: a checkbox plus the completion
+ * controls its method needs. An `unresolved` row (no identifier, no
+ * auto-derived document) is now completable here — a title, plus an uploaded
+ * PDF or a document URL — instead of being a dead end. */
+function CandidateRow({ candidate }: { candidate: ReviewCandidate }) {
+  const id = candidate.candidate_id;
+  const isUnresolved = candidate.method === "unresolved";
+  return (
+    <li className="space-y-2 p-3">
+      <label className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          name={`select_${id}`}
+          defaultChecked={candidate.selected}
+          className="mt-1"
+        />
+        <span>
+          <span className="text-sm font-medium text-slate-800">
+            {candidate.title ?? candidate.raw_text}
+          </span>
+          <CandidateMeta candidate={candidate} />
+        </span>
+      </label>
+      <div className="ml-6 grid gap-2 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor={`source_type_${id}`}
+            className="mb-1 block text-xs font-medium text-slate-600"
+          >
+            Quellentyp
+          </label>
+          <select
+            id={`source_type_${id}`}
+            name={`source_type_${id}`}
+            defaultValue={candidate.suggested_source_type}
+            className={inputClass}
+          >
+            {SOURCE_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {needsTitleInput(candidate.method) ? (
+          <div>
+            <label
+              htmlFor={`title_${id}`}
+              className="mb-1 block text-xs font-medium text-slate-600"
+            >
+              Titel
+            </label>
+            <input
+              id={`title_${id}`}
+              name={`title_${id}`}
+              defaultValue={candidate.title ?? ""}
+              className={inputClass}
+            />
+            {!candidate.title ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Kein Titel ermittelt – bitte eintragen, sonst schlägt die
+                Übernahme fehl.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {offersDocumentUrl(candidate.method) ? (
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`document_url_${id}`}
+              className="mb-1 block text-xs font-medium text-slate-600"
+            >
+              Dokument-URL (optional)
+            </label>
+            <input
+              id={`document_url_${id}`}
+              name={`document_url_${id}`}
+              type="url"
+              placeholder="Direktlink zum Volltext (PDF)"
+              defaultValue={candidate.document_url ?? ""}
+              className={`${inputClass} font-mono`}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {isUnresolved
+                ? candidate.crossref_unavailable
+                  ? "Crossref war bei diesem Scan nicht erreichbar – ein erneuter Scan könnte die Quelle auflösen. Ansonsten hier eine Dokument-URL angeben oder unten ein PDF hochladen."
+                  : "Automatisch nicht aufgelöst – hier eine Dokument-URL (PDF) angeben oder unten ein PDF hochladen."
+                : candidate.document_url
+                  ? "Automatisch ermittelt – bei Bedarf überschreiben."
+                  : "Keine Dokument-URL automatisch ermittelt – hier eintragen oder unten ein PDF hochladen."}{" "}
+              Bei einer manuell eingetragenen URL entfällt die automatische
+              Prüfung, ob das Dokument tatsächlich ein PDF ist.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="sm:col-span-2">
+          <label
+            htmlFor={`file_${id}`}
+            className="mb-1 block text-xs font-medium text-slate-600"
+          >
+            PDF hochladen (optional)
+          </label>
+          <input
+            id={`file_${id}`}
+            name={`file_${id}`}
+            type="file"
+            accept="application/pdf,.pdf"
+            className={fileInputClass}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Für Quellen ohne frei verfügbaren Volltext (z. B. hinter einer
+            Paywall): die hochgeladene Datei wird als Dokument eingefroren und
+            hat Vorrang vor einer URL.
+          </p>
+        </div>
+      </div>
+    </li>
   );
 }
