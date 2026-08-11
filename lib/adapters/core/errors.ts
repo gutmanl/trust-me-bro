@@ -88,9 +88,7 @@ export class AdapterValidationError extends AdapterError {
  */
 export class UnknownBackendError extends Error {
   constructor(readonly cli: string) {
-    super(
-      `no adapter is registered for backend cli "${cli}" (known: claude, codex)`,
-    );
+    super(`no adapter is registered for backend cli "${cli}"`);
     this.name = "UnknownBackendError";
   }
 }

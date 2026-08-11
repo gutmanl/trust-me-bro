@@ -1,4 +1,5 @@
-import { createProjectOrchestrator, renderPromptForJob } from "../../adapters";
+import { renderPromptForJob } from "../../adapters";
+import { buildProjectOrchestrator } from "../runs/build-orchestrator";
 import type {
   ExtractionInput,
   ExtractionOutput,
@@ -100,7 +101,7 @@ export async function startExtraction(
 
   const runner = deps.runner ?? getGlobalJobRunner();
   const orchestrator =
-    deps.orchestrator ?? createProjectOrchestrator(register.config);
+    deps.orchestrator ?? buildProjectOrchestrator(register.config);
   const backendId = register.config.backends.primary.cli;
   const timeoutMs = loadAdapterConfig().timeoutMs;
 

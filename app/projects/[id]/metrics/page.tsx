@@ -47,6 +47,11 @@ export default async function MetricsPage(
         <h2 className="text-sm font-semibold text-slate-700">
           Nachweisvollständigkeit
         </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Anteil der Claims mit mindestens einer gegen das eingefrorene Dokument
+          existenzgeprüften Fundstelle – nicht die vollständige Herkunft jeder
+          Aussage.
+        </p>
         <dl className="mt-3 grid grid-cols-3 gap-3">
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
             <dt className="text-xs text-slate-500">Claims gesamt</dt>

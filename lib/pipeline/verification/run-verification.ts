@@ -1,5 +1,5 @@
-import { createProjectOrchestrator, UnknownBackendError } from "../../adapters";
 import type { Orchestrator } from "../../adapters";
+import { buildProjectOrchestrator } from "../runs/build-orchestrator";
 import { loadAdapterConfig } from "../../identity";
 import { evaluateAutoConfirmation } from "../../register";
 import type { ClaimsRegister, RegisterStore, Source } from "../../register";
@@ -152,23 +152,8 @@ export async function startVerification(
     ? register.config
     : withoutSecondaryBackend(register.config);
 
-  let orchestrator: Orchestrator;
-  try {
-    orchestrator =
-      deps.orchestrator ?? createProjectOrchestrator(effectiveConfig);
-  } catch (error) {
-    // A config referencing a backend this build refuses to construct (e.g.
-    // the TMB-51 spike with its gate closed) is a config problem, not a
-    // programming error — surface it as a precondition instead of a crash.
-    if (error instanceof UnknownBackendError) {
-      throw new VerificationPreconditionError(
-        `Backend "${register.config.backends.primary.cli}" ist nicht verfügbar: ` +
-          `${error.message} – Backend in den Einstellungen ändern.`,
-        { cause: error },
-      );
-    }
-    throw error;
-  }
+  const orchestrator =
+    deps.orchestrator ?? buildProjectOrchestrator(effectiveConfig);
 
   const runner = deps.runner ?? getGlobalJobRunner();
   const context: RunContext = {

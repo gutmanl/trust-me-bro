@@ -10,27 +10,29 @@
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
-import http from "node:http";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  REQUIRED_NODE,
+  findFreePort,
+  isNodeVersionSupported,
+  openBrowser,
+  waitUntilReady,
+} from "./launcher-lib.mjs";
+
 /**
  * Node version gate (D8), the first thing the module body does — every
- * import above it is a node: builtin, so nothing can fail before this point.
+ * import above it is a node: builtin or the side-effect-free launcher-lib, so
+ * nothing can fail before this point.
  *
  * Deliberately a RUNTIME check and not `engine-strict` in .npmrc:
  * engine-strict only refuses an install, which does nothing for the person
  * who already installed the tarball and is now looking at an unexplained
  * crash from somewhere inside Next — and that is the case that matters.
  */
-const REQUIRED_NODE = [20, 9];
-const runningNode = process.versions.node.split(".").map(Number);
-if (
-  runningNode[0] < REQUIRED_NODE[0] ||
-  (runningNode[0] === REQUIRED_NODE[0] && runningNode[1] < REQUIRED_NODE[1])
-) {
+if (!isNodeVersionSupported(process.versions.node)) {
   console.error(
     `TrustMeBro benötigt Node.js ${REQUIRED_NODE.join(".")} oder neuer – ` +
       `gefunden wurde ${process.versions.node}.\n` +
@@ -65,62 +67,6 @@ if (process.env.TMB_WORKSPACE === undefined) {
     ".trustmebro",
     "workspace",
   );
-}
-
-function findFreePort(start) {
-  return new Promise((resolve, reject) => {
-    const probe = (port, attemptsLeft) => {
-      const server = net.createServer();
-      server.once("error", () => {
-        server.close();
-        if (attemptsLeft === 0) {
-          reject(new Error(`Kein freier Port ab ${start} gefunden.`));
-          return;
-        }
-        probe(port + 1, attemptsLeft - 1);
-      });
-      server.once("listening", () => {
-        server.close(() => resolve(port));
-      });
-      server.listen(port, "127.0.0.1");
-    };
-    probe(start, 20);
-  });
-}
-
-function waitUntilReady(url, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const attempt = () => {
-      const request = http.get(url, (response) => {
-        response.resume();
-        resolve();
-      });
-      request.on("error", () => {
-        if (Date.now() > deadline) {
-          reject(new Error("Der Server war nicht rechtzeitig erreichbar."));
-          return;
-        }
-        setTimeout(attempt, 300);
-      });
-    };
-    attempt();
-  });
-}
-
-function openBrowser(url) {
-  // `cmd /c start` treats the first quoted argument as the window TITLE —
-  // the empty "" placeholder is load-bearing on Windows.
-  if (process.platform === "win32") {
-    spawn("cmd", ["/c", "start", "", url], {
-      stdio: "ignore",
-      detached: true,
-    }).unref();
-  } else if (process.platform === "darwin") {
-    spawn("open", [url], { stdio: "ignore", detached: true }).unref();
-  } else {
-    spawn("xdg-open", [url], { stdio: "ignore", detached: true }).unref();
-  }
 }
 
 async function main() {

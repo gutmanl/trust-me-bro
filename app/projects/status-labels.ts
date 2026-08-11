@@ -49,10 +49,10 @@ export const RELATION_LABELS: Record<RelationType, string> = {
 };
 
 export const SUPPORT_LABELS: Record<SupportDegree, string> = {
-  supported: "Supported",
-  partially_supported: "Partially Supported",
-  unsupported: "Unsupported",
-  uncertain: "Uncertain",
+  supported: "gestützt",
+  partially_supported: "teilweise gestützt",
+  unsupported: "nicht gestützt",
+  uncertain: "unklar",
 };
 
 export const CALIBRATION_LABELS: Record<CalibrationResult, string> = {

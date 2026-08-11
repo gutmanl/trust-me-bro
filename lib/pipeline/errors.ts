@@ -58,6 +58,14 @@ export class ResourceLimitExceededError extends PipelineError {}
  */
 export class BlockedAddressError extends PipelineError {}
 
+/**
+ * The configured backend cannot be constructed for a run — its `cli` names no
+ * adapter this build registers (an unknown id, or the API spike with its gate
+ * closed). A configuration problem surfaced as a German precondition rather
+ * than an untranslated crash, wherever a run resolves its orchestrator.
+ */
+export class BackendUnavailableError extends PipelineError {}
+
 /** A run is already active for this project (per-project sequential). */
 export class RunActiveError extends PipelineError {
   constructor(readonly projectId: string) {

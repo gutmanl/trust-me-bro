@@ -1,9 +1,10 @@
-import { createProjectOrchestrator, renderPromptForJob } from "../../adapters";
+import { renderPromptForJob } from "../../adapters";
 import type { JobRequest, Orchestrator, RelevanceInput } from "../../adapters";
 import { loadAdapterConfig } from "../../identity";
 import type { ClaimsRegister, RegisterStore } from "../../register";
 import { RelevancePreconditionError } from "../errors";
 import { permissiveBackendPreflight, probeBackendUsable } from "../health";
+import { buildProjectOrchestrator } from "../runs/build-orchestrator";
 import type { BackendPreflight } from "../health";
 import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
@@ -109,7 +110,7 @@ export async function startRelevanceCheck(
       previous_research_question: await originResearchQuestion(register),
     },
     orchestrator:
-      deps.orchestrator ?? createProjectOrchestrator(register.config),
+      deps.orchestrator ?? buildProjectOrchestrator(register.config),
     backendId: register.config.backends.primary.cli,
     timeoutMs: loadAdapterConfig().timeoutMs,
     projectDir: store.projectDir,
