@@ -6,3 +6,5 @@ package-lock.json
 schema/claims.schema.json
 # compiled tmb CLI, owned by npm run build:cli
 dist/
+# git-ignored agent-session scratch (plans, ledgers, reports)
+.superpowers/
