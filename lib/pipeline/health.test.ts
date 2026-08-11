@@ -13,6 +13,7 @@ import {
   probeBackendUsable,
   runInstallationLoginProbe,
   runLoginProbe,
+  usableRealBackends,
   withoutSecondaryBackend,
 } from "./health";
 
@@ -186,6 +187,28 @@ describe("getInstallationBackendsHealth (TMB-54, D7)", () => {
     expect(withoutSpike.map((backend) => backend.cli)).not.toContain(
       "anthropic-api",
     );
+  });
+});
+
+describe("usableRealBackends", () => {
+  it("excludes the always-usable demo backend", () => {
+    // The demo backend reports usable by construction; if it counted, the
+    // empty-state / settings "no backend ready" warning could never fire.
+    const result = usableRealBackends([
+      health("claude", false),
+      health("codex", false),
+      health("mock", true),
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  it("keeps usable real backends", () => {
+    const result = usableRealBackends([
+      health("claude", true),
+      health("codex", false),
+      health("mock", true),
+    ]);
+    expect(result.map((backend) => backend.cli)).toEqual(["claude"]);
   });
 });
 

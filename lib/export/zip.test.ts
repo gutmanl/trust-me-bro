@@ -64,6 +64,38 @@ describe("unzipBundle archive limits (S-06)", () => {
     expect(() => unzipBundle(evil)).toThrow();
   });
 
+  it("refuses an entry whose compressed payload dwarfs its declared size", () => {
+    // The ratio floor lets a tiny declared original through unquestioned. A
+    // hostile archive abuses that: declare originalSize = 1 (under the
+    // floor) but ship a large compressed payload, so every size/ratio check
+    // passes yet the decode still runs over the whole stream. Build a real
+    // ~200 KB incompressible entry, then patch the central directory's
+    // declared uncompressed size down to 1 byte — exactly what an attacker
+    // controls, since fflate reads that field from the central directory.
+    const payload = new Uint8Array(200_000);
+    for (let i = 0; i < payload.length; i += 1) {
+      payload[i] = (i * 2654435761) & 0xff; // incompressible: stays ~200 KB
+    }
+    const bytes = zipSync({ "blobs/aa/smuggle.pdf": payload });
+
+    // Central directory header signature: PK\x01\x02; declared uncompressed
+    // size is the 4-byte LE field at offset +24 within that record.
+    const sig = [0x50, 0x4b, 0x01, 0x02];
+    let cdh = -1;
+    for (let i = 0; i + 4 <= bytes.length; i += 1) {
+      if (sig.every((b, k) => bytes[i + k] === b)) {
+        cdh = i;
+        break;
+      }
+    }
+    expect(cdh).toBeGreaterThanOrEqual(0);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    view.setUint32(cdh + 24, 1, true); // declared uncompressed size := 1
+
+    expect(() => unzipBundle(bytes)).toThrow(BundleFormatError);
+    expect(() => unzipBundle(bytes)).toThrow(/stores more than it declares/);
+  });
+
   it("does not trip the ratio check on small, highly compressible entries", () => {
     // A 1 KB entry of zeroes has an enormous ratio but is harmless — the
     // floor exists so ordinary small files are never refused.

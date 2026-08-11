@@ -245,6 +245,9 @@ describe("public surface of lib/pipeline", () => {
     // TMB-54 (D7): installation-level diagnosis, no project required.
     expect(surface.getInstallationBackendsHealth).toBeDefined();
     expect(surface.runInstallationLoginProbe).toBeDefined();
+    // Excludes the always-usable demo backend from "is any real backend
+    // ready", so the empty-state onboarding warning can actually fire.
+    expect(surface.usableRealBackends).toBeDefined();
     // TMB-51: the UI's flag accessor; family mapping and allowlist stay
     // internal.
     expect(surface.isApiBackendEnabled).toBeDefined();

@@ -92,6 +92,23 @@ export function unzipBundle(bytes: Uint8Array): BundleFiles {
             `bundle entry "${file.name}" has an implausible compression ratio`,
           );
         }
+        // The checks above all read the DECLARED uncompressed size from the
+        // central directory. A hostile archive can declare a tiny original
+        // size — slipping under the ratio floor — while shipping a large
+        // compressed payload whose decode still burns CPU proportional to
+        // the compressed stream, blocking the single-threaded server. A
+        // compressed size larger than the declared original (beyond
+        // deflate's negligible stored-block overhead) is implausible for any
+        // real entry and is the signature of exactly that smuggle, so it is
+        // bounded here, before decompression.
+        if (
+          file.size >
+          file.originalSize + Math.ceil(file.originalSize / 100) + 1024
+        ) {
+          throw new BundleFormatError(
+            `bundle entry "${file.name}" stores more than it declares`,
+          );
+        }
         return true;
       },
     });

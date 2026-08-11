@@ -1,7 +1,11 @@
 import { checkCliHealth, runCliLoginProbe } from "../adapters";
 import type { BackendHealth } from "../adapters";
 import type { ProjectConfig } from "../register";
-import { allowedBackendClis, requireProjectStore } from "./projects";
+import {
+  DEMO_BACKEND_CLI,
+  allowedBackendClis,
+  requireProjectStore,
+} from "./projects";
 
 /**
  * Backend health as the web layer and the run preconditions consume it
@@ -48,6 +52,21 @@ export async function getInstallationBackendsHealth(
 ): Promise<BackendHealth[]> {
   const check = deps.check ?? checkCliHealth;
   return Promise.all(allowedBackendClis().map((cli) => check(cli)));
+}
+
+/**
+ * The usable *real* backends among an installation-health result — the demo
+ * backend excluded. Its stages are ok by construction (it runs in-process
+ * with canned outputs), so counting it would make "is any backend ready"
+ * always true and silence the very onboarding warning that exists to tell a
+ * user with no agent CLI installed that they can only see the demo.
+ */
+export function usableRealBackends(
+  health: readonly BackendHealth[],
+): BackendHealth[] {
+  return health.filter(
+    (backend) => backend.cli !== DEMO_BACKEND_CLI && backend.usable,
+  );
 }
 
 /**

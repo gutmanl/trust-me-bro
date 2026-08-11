@@ -211,6 +211,7 @@ export { getBackendsHealth, runLoginProbe } from "./health";
 export {
   getInstallationBackendsHealth,
   runInstallationLoginProbe,
+  usableRealBackends,
 } from "./health";
 export type { ProjectBackendsHealth } from "./health";
 export type { BackendHealth, ProbeResult, ProbeStatus } from "../adapters";

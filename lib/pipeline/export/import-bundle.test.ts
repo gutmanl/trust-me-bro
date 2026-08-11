@@ -116,6 +116,50 @@ describe("importProjectBundle (TMB-40)", () => {
     expect(verifyChain(after).ok).toBe(true);
   });
 
+  it("keeps the independence notice on the re-rendered briefing (same model family)", async () => {
+    // A briefing the app researched itself with the same family as the
+    // primary verification backend (claude → family "anthropic") must carry
+    // the "Hinweis zur Unabhängigkeit" on every artifact, including the one
+    // re-rendered after import — the bundle's own briefing.md is discarded.
+    const SELF = "proj_self_research";
+    await createProject({
+      id: SELF,
+      research_question: "Reduzieren LLM-Reviews die Reviewzeit?",
+      primaryCli: "claude",
+    });
+    await importBriefing({
+      projectId: SELF,
+      content: "LLM-Reviews reduzieren die mediane Reviewzeit um 55 %.",
+      tool: "trustmebro-research/claude",
+    });
+    await captureSource(
+      {
+        projectId: SELF,
+        kind: "upload",
+        sourceType: "peer_reviewed_publication",
+        manual: { title: "Studie", authors: "Studie, A." },
+        upload: {
+          content: Buffer.from("median review time dropped"),
+          filename: "studie.txt",
+        },
+      },
+      { fetcher: fakeFetcher({}) },
+    );
+    await freezeSourceSet(SELF);
+
+    const bundle = await exportProjectBundle(SELF, { includeBlobs: true });
+    await importProjectBundle({
+      bytes: Buffer.from(bundle.bytes),
+      targetDirectoryName: "self-kopie",
+    });
+
+    const briefing = fs.readFileSync(
+      path.join(workspace, "self-kopie", "briefing.md"),
+      "utf8",
+    );
+    expect(briefing).toContain("Hinweis zur Unabhängigkeit");
+  });
+
   it("imports a lean bundle; the briefing projection stays absent", async () => {
     const bundle = await exportProjectBundle(PROJECT, { includeBlobs: false });
     await importProjectBundle({

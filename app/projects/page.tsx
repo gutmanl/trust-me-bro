@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { getInstallationBackendsHealth, listProjects } from "@/lib/pipeline";
+import {
+  getInstallationBackendsHealth,
+  listProjects,
+  usableRealBackends,
+} from "@/lib/pipeline";
 import { DemoProjectBadge } from "../components/ui";
 import { CreateDemoProjectButton } from "../setup/SetupForm";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "./status-labels";
@@ -13,9 +17,9 @@ export default async function ProjectsPage() {
   // do anything here" before the user creates a project to find out.
   const usableBackends =
     projects.length === 0
-      ? (await getInstallationBackendsHealth())
-          .filter((backend) => backend.usable)
-          .map((backend) => backend.cli)
+      ? usableRealBackends(await getInstallationBackendsHealth()).map(
+          (backend) => backend.cli,
+        )
       : [];
 
   return (

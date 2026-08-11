@@ -14,6 +14,7 @@ import {
   InvalidProjectInputError,
   ProjectAlreadyExistsError,
 } from "../errors";
+import { briefingRenderContext } from "../research/independence";
 
 /**
  * TMB-40: imports a received .tmb bundle as a NEW project in the workspace.
@@ -91,7 +92,13 @@ export async function importProjectBundle(input: {
   const store = RegisterStore.atDirectory(targetDir);
   if (verification.register.project.briefing_import) {
     try {
-      await store.renderBriefingFile();
+      // Same render context as every other projection site (research
+      // completion, export, extraction): a same-model-family briefing must
+      // keep its independence notice on the re-rendered artifact too — the
+      // bundle's own briefing.md is discarded and rebuilt from the register.
+      await store.renderBriefingFile(
+        briefingRenderContext(verification.register),
+      );
     } catch {
       // best-effort: the register (source of truth) is complete either way
     }

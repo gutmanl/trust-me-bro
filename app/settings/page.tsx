@@ -6,6 +6,7 @@ import {
   getInstallationBackendsHealth,
   getUnpaywallSetting,
   getWorkspaceRootSetting,
+  usableRealBackends,
 } from "@/lib/pipeline";
 
 import { ActorHandleForm, UnpaywallForm } from "./InstallationSettingsForms";
@@ -85,7 +86,7 @@ export default async function InstallationSettingsPage() {
           </p>
         </div>
         <BackendHealthCards health={health} />
-        {health.every((backend) => !backend.usable) ? (
+        {usableRealBackends(health).length === 0 ? (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Zurzeit ist kein Backend einsatzbereit. Mit dem Demo-Backend lässt
             sich der Ablauf trotzdem ansehen – seine Ergebnisse sind
