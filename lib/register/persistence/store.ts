@@ -136,6 +136,49 @@ export interface RegisterTransaction {
    */
   reviseSource(sourceId: string, snapshot: SourceSnapshot): void;
   /**
+   * Rotates the briefing to a new revision (briefing revision workflow,
+   * mirror of `reviseSource`): the current `briefing_import` moves to
+   * `previous_briefings` (never lost), the new one becomes current with
+   * `revision` advanced by one, and the `briefing_revised` event is
+   * appended. The caller provides the already-stored blob reference — this
+   * capability does not touch the blob store.
+   */
+  reviseBriefing(input: {
+    sha256: string;
+    blob_path: string;
+    tool: string;
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): void;
+  /**
+   * Manual, audited anchor correction (workbench epic): sets the claim's
+   * `briefing_anchor`/`anchor_quote` and appends a `claim_anchor_revised`
+   * project event carrying the before/after pair. Does NOT touch
+   * `claim.status` — an anchor correction is not a verification outcome.
+   */
+  reviseClaimAnchor(
+    claimId: string,
+    input: {
+      new_anchor: string;
+      new_quote?: string;
+      actor: ActorId;
+      reason: string;
+      at?: string;
+    },
+  ): ProjectEvent;
+  /**
+   * Silent mechanical remap used by the briefing-revision re-anchor pass
+   * (workbench epic): updates `briefing_anchor`/`anchor_quote` without an
+   * event of its own — the enclosing `briefing_revised` transaction's state
+   * root covers it (the store's `content_updated` auto-event applies when
+   * this is the transaction's only change).
+   */
+  remapClaimAnchor(
+    claimId: string,
+    update: { anchor: string; quote?: string },
+  ): void;
+  /**
    * Replaces the project configuration (TMB-46) and appends the
    * config_changed event carrying the complete before/after pair — the sole
    * way to change config; a change past the audit trail is impossible.
@@ -518,6 +561,61 @@ function createTransaction(
       ];
       source.custom.snapshot = structuredClone(snapshot);
       draft.project.source_set_revision += 1;
+    },
+    reviseBriefing({ sha256, blob_path, tool, actor, reason, at }) {
+      const current = draft.project.briefing_import;
+      if (!current) {
+        throw new Error(
+          `project ${draft.project.id} has no briefing to revise`,
+        );
+      }
+      draft.project.previous_briefings = [
+        ...(draft.project.previous_briefings ?? []),
+        current,
+      ];
+      const imported_at = at ?? new Date().toISOString();
+      draft.project.briefing_import = {
+        imported_at,
+        sha256,
+        blob_path,
+        tool,
+        revision: (current.revision ?? 1) + 1,
+      };
+      draft.project_events.push(
+        chain.append({
+          at: imported_at,
+          actor,
+          event: "briefing_revised",
+          reason,
+        }) as ProjectEvent,
+      );
+    },
+    reviseClaimAnchor(claimId, { new_anchor, new_quote, actor, reason, at }) {
+      const claim = mutableClaim(claimId);
+      const previous_anchor = claim.briefing_anchor;
+      const previous_quote = claim.anchor_quote;
+      claim.briefing_anchor = new_anchor;
+      claim.anchor_quote = new_quote;
+      const entry = chain.append({
+        at: at ?? new Date().toISOString(),
+        actor,
+        event: "claim_anchor_revised",
+        reason,
+        anchor_change: {
+          claim_id: claimId,
+          previous_anchor,
+          new_anchor,
+          ...(previous_quote ? { previous_quote } : {}),
+          ...(new_quote ? { new_quote } : {}),
+        },
+      }) as ProjectEvent;
+      draft.project_events.push(entry);
+      return entry;
+    },
+    remapClaimAnchor(claimId, { anchor, quote }) {
+      const claim = mutableClaim(claimId);
+      claim.briefing_anchor = anchor;
+      claim.anchor_quote = quote;
     },
     updateConfig({ config, actor, reason, at }) {
       const previous = structuredClone(draft.config);

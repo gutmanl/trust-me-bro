@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Claim } from "../schema/claim";
 import type { ProjectConfig } from "../schema/project";
 import {
   ChainIntegrityError,
@@ -277,6 +278,163 @@ describe("RegisterTransaction.recordReferenceScan", () => {
         (event) => event.event === "reference_scan_completed",
       ),
     ).toHaveLength(2);
+    expect((await store.verify()).ok).toBe(true);
+  });
+});
+
+describe("RegisterTransaction.reviseBriefing", () => {
+  it("throws when the project has no imported briefing yet", async () => {
+    await expect(
+      store.transaction((tx) =>
+        tx.reviseBriefing({
+          sha256: "a".repeat(64),
+          blob_path: `blobs/aa/${"a".repeat(64)}.md`,
+          tool: "deep-research-x",
+          actor: "human:lg",
+          reason: "Revision.",
+        }),
+      ),
+    ).rejects.toThrow(/no briefing to revise/);
+  });
+
+  it("rotates the current briefing into previous_briefings, advances revision, and appends briefing_revised", async () => {
+    await store.transaction((tx) => {
+      tx.recordBriefingImport({
+        sha256: "a".repeat(64),
+        blob_path: `blobs/aa/${"a".repeat(64)}.md`,
+        tool: "deep-research-x",
+        actor: "human:lg",
+        at: "2026-08-06T09:00:00Z",
+      });
+    });
+    await store.transaction((tx) => {
+      tx.reviseBriefing({
+        sha256: "b".repeat(64),
+        blob_path: `blobs/bb/${"b".repeat(64)}.md`,
+        tool: "deep-research-x",
+        actor: "human:lg",
+        reason: "Briefing überarbeitet.",
+        at: "2026-08-06T10:00:00Z",
+      });
+    });
+    let register = await store.read();
+    expect(register.project.briefing_import?.sha256).toBe("b".repeat(64));
+    expect(register.project.briefing_import?.revision).toBe(2);
+    expect(register.project.previous_briefings).toHaveLength(1);
+    expect(register.project.previous_briefings?.[0]).toMatchObject({
+      sha256: "a".repeat(64),
+    });
+    expect(register.project.previous_briefings?.[0].revision).toBeUndefined();
+    expect(register.project_events.map((event) => event.event)).toContain(
+      "briefing_revised",
+    );
+    expect((await store.verify()).ok).toBe(true);
+
+    // A second rotation keeps both prior briefings and advances again.
+    await store.transaction((tx) => {
+      tx.reviseBriefing({
+        sha256: "c".repeat(64),
+        blob_path: `blobs/cc/${"c".repeat(64)}.md`,
+        tool: "deep-research-x",
+        actor: "human:lg",
+        reason: "Nochmal überarbeitet.",
+        at: "2026-08-06T11:00:00Z",
+      });
+    });
+    register = await store.read();
+    expect(register.project.briefing_import?.sha256).toBe("c".repeat(64));
+    expect(register.project.briefing_import?.revision).toBe(3);
+    expect(register.project.previous_briefings).toHaveLength(2);
+    expect(
+      register.project_events.filter(
+        (event) => event.event === "briefing_revised",
+      ),
+    ).toHaveLength(2);
+    expect((await store.verify()).ok).toBe(true);
+  });
+});
+
+describe("RegisterTransaction.reviseClaimAnchor / remapClaimAnchor", () => {
+  const claimInput = {
+    id: "clm_0001",
+    text: "LLM-Reviews reduzieren die Reviewzeit.",
+    claim_type: "quantitative_finding",
+    briefing_anchor: "p12",
+    anchor_quote: "reduzieren die Reviewzeit",
+    provenance: {
+      tool: "deep-research-x",
+      model: "drx-1",
+      extracted_at: "2026-08-06T08:10:00Z",
+      search_path: "Lauf 1",
+    },
+    evidence: [],
+  } as unknown as Omit<Claim, "status" | "history">;
+
+  beforeEach(async () => {
+    await store.transaction((tx) => {
+      tx.addSource({
+        id: "src_meyer2025",
+        type: "article-journal",
+        title: "Effects of AI Assistants on Code Review Duration",
+        custom: { source_type: "peer_reviewed_publication" },
+      } as never);
+      tx.addClaim({
+        claim: claimInput,
+        actor: "system:extraction",
+        reason: "Extrahiert.",
+      });
+    });
+  });
+
+  it("reviseClaimAnchor sets the new anchor/quote, appends the audited event, and leaves status alone", async () => {
+    const before = await store.read();
+    const statusBefore = before.claims[0].status;
+
+    const event = await store.transaction((tx) =>
+      tx.reviseClaimAnchor("clm_0001", {
+        new_anchor: "p14",
+        new_quote: "verkürzen die Reviewzeit",
+        actor: "human:lg",
+        reason: "Anker manuell korrigiert.",
+      }),
+    );
+    expect(event.event).toBe("claim_anchor_revised");
+    expect(event.anchor_change).toEqual({
+      claim_id: "clm_0001",
+      previous_anchor: "p12",
+      new_anchor: "p14",
+      previous_quote: "reduzieren die Reviewzeit",
+      new_quote: "verkürzen die Reviewzeit",
+    });
+
+    const register = await store.read();
+    const claim = register.claims[0];
+    expect(claim.briefing_anchor).toBe("p14");
+    expect(claim.anchor_quote).toBe("verkürzen die Reviewzeit");
+    expect(claim.status).toBe(statusBefore);
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("remapClaimAnchor updates the fields silently — no event of its own, chain still verifies", async () => {
+    await store.transaction((tx) => {
+      tx.remapClaimAnchor("clm_0001", {
+        anchor: "p15",
+        quote: "neue Formulierung",
+      });
+    });
+
+    const register = await store.read();
+    const claim = register.claims[0];
+    expect(claim.briefing_anchor).toBe("p15");
+    expect(claim.anchor_quote).toBe("neue Formulierung");
+    expect(
+      register.project_events.some(
+        (event) => event.event === "claim_anchor_revised",
+      ),
+    ).toBe(false);
+    // Content changed without minting an entry of its own: the store's
+    // content_updated auto-event keeps the change chain-visible.
+    expect(register.project_events.at(-1)?.event).toBe("content_updated");
     expect((await store.verify()).ok).toBe(true);
   });
 });
