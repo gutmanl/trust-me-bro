@@ -33,3 +33,10 @@ export function containsNormalized(haystack: string, needle: string): boolean {
   }
   return normalizeForSearch(haystack).includes(normalizedNeedle);
 }
+
+/** Canonical paragraph split shared by projection, re-anchoring and the
+ * extraction pipeline: CRLF→LF, trim, split on blank lines. */
+export function splitBriefingParagraphs(text: string): string[] {
+  const normalized = text.replace(/\r\n?/g, "\n").trim();
+  return normalized.length > 0 ? normalized.split(/\n{2,}/) : [];
+}

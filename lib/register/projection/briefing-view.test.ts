@@ -10,6 +10,7 @@ function registerWith(
     id: string;
     status: string;
     anchor: string;
+    anchorQuote?: string;
     evidenceIds?: string[];
   }[],
 ): ClaimsRegister {
@@ -20,6 +21,9 @@ function registerWith(
       text: `Text von ${entry.id}`,
       status: entry.status,
       briefing_anchor: entry.anchor,
+      ...(entry.anchorQuote !== undefined
+        ? { anchor_quote: entry.anchorQuote }
+        : {}),
       evidence: (entry.evidenceIds ?? []).map((evidenceId) => ({
         id: evidenceId,
         source_id: "src_0001",
@@ -119,5 +123,96 @@ describe("buildBriefingViewModel", () => {
     expect(markdown).toContain(
       "IN PRÜFUNG – 1 Claim(s) zur Adjudikation offen",
     );
+  });
+
+  it("resolves legacy claims (no anchor_quote) exactly as before, anchorDrifted false", () => {
+    const view = buildBriefingViewModel(
+      BRIEFING,
+      registerWith([
+        { id: "clm_0001", status: "captured", anchor: "p1" },
+        { id: "clm_0002", status: "captured", anchor: "kaputt" },
+      ]),
+    );
+    expect(view.paragraphs[0].claims.map((m) => m.claim.id)).toEqual([
+      "clm_0001",
+    ]);
+    expect(view.paragraphs[0].claims[0].anchorDrifted).toBe(false);
+    expect(view.unanchored.map((m) => m.claim.id)).toEqual(["clm_0002"]);
+    expect(view.unanchored[0].anchorDrifted).toBe(false);
+  });
+
+  describe("quote-first anchor resolution", () => {
+    const THREE_PARAGRAPHS = "Absatz eins.\n\nAbsatz zwei.\n\nAbsatz drei.";
+
+    it("resolves at the hint when the quote is still there", () => {
+      const view = buildBriefingViewModel(
+        THREE_PARAGRAPHS,
+        registerWith([
+          {
+            id: "clm_0001",
+            status: "captured",
+            anchor: "p1",
+            anchorQuote: "Absatz eins",
+          },
+        ]),
+      );
+      expect(view.paragraphs[0].claims.map((m) => m.claim.id)).toEqual([
+        "clm_0001",
+      ]);
+      expect(view.paragraphs[0].claims[0].anchorDrifted).toBe(false);
+    });
+
+    it("follows the quote to its new paragraph when the hint has moved", () => {
+      const view = buildBriefingViewModel(
+        THREE_PARAGRAPHS,
+        registerWith([
+          {
+            id: "clm_0001",
+            status: "captured",
+            anchor: "p1",
+            anchorQuote: "Absatz zwei",
+          },
+        ]),
+      );
+      expect(view.paragraphs[0].claims).toHaveLength(0);
+      expect(view.paragraphs[1].claims.map((m) => m.claim.id)).toEqual([
+        "clm_0001",
+      ]);
+      expect(view.paragraphs[1].claims[0].anchorDrifted).toBe(false);
+    });
+
+    it("falls back to the (still valid) hint with anchorDrifted when the quote is gone", () => {
+      const view = buildBriefingViewModel(
+        THREE_PARAGRAPHS,
+        registerWith([
+          {
+            id: "clm_0001",
+            status: "captured",
+            anchor: "p1",
+            anchorQuote: "nicht vorhandener Text",
+          },
+        ]),
+      );
+      expect(view.paragraphs[0].claims.map((m) => m.claim.id)).toEqual([
+        "clm_0001",
+      ]);
+      expect(view.paragraphs[0].claims[0].anchorDrifted).toBe(true);
+    });
+
+    it("lands in unanchored with anchorDrifted when both the quote and the hint are gone", () => {
+      const view = buildBriefingViewModel(
+        THREE_PARAGRAPHS,
+        registerWith([
+          {
+            id: "clm_0001",
+            status: "captured",
+            anchor: "p9",
+            anchorQuote: "nicht vorhandener Text",
+          },
+        ]),
+      );
+      expect(view.unanchored.map((m) => m.claim.id)).toEqual(["clm_0001"]);
+      expect(view.unanchored[0].anchorDrifted).toBe(true);
+    });
   });
 });

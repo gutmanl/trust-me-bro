@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { RegisterStore, Source } from "../../register";
+import { containsNormalized, RegisterStore, Source } from "../../register";
 import {
   DocumentFetchError,
   EmptySourceSetError,
@@ -18,7 +18,6 @@ import {
   CSL_JSON_RESPONSE,
   fakeFetcher,
 } from "./__fixtures__/fake-fetcher";
-import { containsNormalized } from "../text/normalize";
 import { captureSource, freezeSourceSet, isSourceSetFrozen } from "./capture";
 
 const PDF_BYTES = Buffer.from("%PDF-1.7 fake");

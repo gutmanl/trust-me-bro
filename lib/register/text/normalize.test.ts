@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { containsNormalized, normalizeForSearch } from "./normalize";
+import {
+  containsNormalized,
+  normalizeForSearch,
+  splitBriefingParagraphs,
+} from "./normalize";
 
 describe("normalizeForSearch", () => {
   it("lowercases, folds typography and collapses whitespace", () => {
@@ -32,5 +36,24 @@ describe("containsNormalized", () => {
   it("rejects absent quotes and empty needles", () => {
     expect(containsNormalized(haystack, "Reviewzeit stieg")).toBe(false);
     expect(containsNormalized(haystack, "   ")).toBe(false);
+  });
+});
+
+describe("splitBriefingParagraphs", () => {
+  it("normalizes CRLF line endings before splitting", () => {
+    expect(splitBriefingParagraphs("Absatz eins.\r\n\r\nAbsatz zwei.")).toEqual(
+      ["Absatz eins.", "Absatz zwei."],
+    );
+  });
+
+  it("treats runs of multiple blank lines as a single paragraph break", () => {
+    expect(splitBriefingParagraphs("Absatz eins.\n\n\n\nAbsatz zwei.")).toEqual(
+      ["Absatz eins.", "Absatz zwei."],
+    );
+  });
+
+  it("returns an empty array for blank input", () => {
+    expect(splitBriefingParagraphs("")).toEqual([]);
+    expect(splitBriefingParagraphs("   \n\n  ")).toEqual([]);
   });
 });

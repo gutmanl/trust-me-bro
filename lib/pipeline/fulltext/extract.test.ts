@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { containsNormalized } from "../../register";
 import { FullTextExtractionError } from "../errors";
-import { containsNormalized } from "../text/normalize";
 import { extractFullText } from "./extract";
 
 const fixtures = path.join(

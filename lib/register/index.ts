@@ -68,4 +68,12 @@ export type { ChainLink } from "./chain/appender";
 export { sha256FromBlobPath } from "./blobs/paths";
 export { createBlobStore } from "./blobs/store";
 export type { BlobRef, BlobStore } from "./blobs/store";
+// TMB-24/workbench epic: the shared verbatim-quote normal form and paragraph
+// split, single-sourced here so stage 1's existence check, the extraction
+// pipeline and this barrel's own briefing-view projection can never diverge.
+export {
+  containsNormalized,
+  normalizeForSearch,
+  splitBriefingParagraphs,
+} from "./text/normalize";
 export * from "./schema";

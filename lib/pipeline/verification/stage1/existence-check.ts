@@ -4,7 +4,7 @@ import type {
   ExistenceCheckStatus,
   Source,
 } from "../../../register";
-import { containsNormalized } from "../../text/normalize";
+import { containsNormalized } from "../../../register";
 import type { HttpFetcher } from "../../sources/fetch-port";
 import type { SourceCheckCache } from "./source-check";
 import { checkSourceCached } from "./source-check";

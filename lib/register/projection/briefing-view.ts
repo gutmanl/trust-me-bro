@@ -1,5 +1,6 @@
 import type { Claim } from "../schema/claim";
 import type { ClaimsRegister } from "../schema/register";
+import { containsNormalized, splitBriefingParagraphs } from "../text/normalize";
 
 /**
  * Structured briefing view model shared by the markdown projection
@@ -26,6 +27,12 @@ export interface ClaimMarkerVM {
   claim: Claim;
   /** Global 1-based numbers of this claim's evidence, in evidence order. */
   evidenceNumbers: number[];
+  /** True when the claim's resolved position disagrees with (or replaces) its
+   * `briefing_anchor` hint: an `anchor_quote` claim whose quote moved to a
+   * different paragraph, was found only via the hint fallback, or is
+   * unresolvable altogether. Always false for legacy claims (no
+   * `anchor_quote`), which keep the pre-existing position-only behaviour. */
+  anchorDrifted: boolean;
 }
 
 export interface BriefingParagraphVM {
@@ -61,6 +68,7 @@ export interface BriefingViewModel {
 interface AnchoredClaim {
   claim: Claim;
   paragraphIndex: number | null;
+  anchorDrifted: boolean;
 }
 
 function anchorParagraphIndex(
@@ -73,6 +81,51 @@ function anchorParagraphIndex(
   }
   const index = Number(match[1]) - 1;
   return index < paragraphCount ? index : null;
+}
+
+interface AnchorResolution {
+  paragraphIndex: number | null;
+  anchorDrifted: boolean;
+}
+
+/**
+ * Quote-first anchor resolution (workbench epic): a claim carrying
+ * `anchor_quote` is resolved by that verbatim quote, not by paragraph
+ * position alone — the display truth wins over a stale `briefing_anchor`.
+ * Resolution order:
+ * 1. The legacy `p<N>` hint, if it parses and is in range.
+ * 2. If `anchor_quote` is set and the hint's paragraph still contains it →
+ *    resolved at the hint, `anchorDrifted: false`.
+ * 3. Else scan every paragraph for the first containing the quote →
+ *    resolved there (position may have moved, but the quote itself is
+ *    intact), `anchorDrifted: false`.
+ * 4. Else fall back to the hint if it was valid, `anchorDrifted: true`; if
+ *    the hint was also invalid, unanchored, `anchorDrifted: true`.
+ * A claim without `anchor_quote` (legacy) keeps the pre-existing
+ * position-only behaviour, `anchorDrifted: false`.
+ */
+function resolveClaimAnchor(
+  claim: Claim,
+  paragraphTexts: string[],
+): AnchorResolution {
+  const hint = anchorParagraphIndex(claim, paragraphTexts.length);
+  const quote = claim.anchor_quote;
+  if (quote === undefined) {
+    return { paragraphIndex: hint, anchorDrifted: false };
+  }
+  if (hint !== null && containsNormalized(paragraphTexts[hint], quote)) {
+    return { paragraphIndex: hint, anchorDrifted: false };
+  }
+  const scanIndex = paragraphTexts.findIndex((text) =>
+    containsNormalized(text, quote),
+  );
+  if (scanIndex !== -1) {
+    return { paragraphIndex: scanIndex, anchorDrifted: false };
+  }
+  if (hint !== null) {
+    return { paragraphIndex: hint, anchorDrifted: true };
+  }
+  return { paragraphIndex: null, anchorDrifted: true };
 }
 
 function compareClaims(a: AnchoredClaim, b: AnchoredClaim): number {
@@ -88,15 +141,16 @@ export function buildBriefingViewModel(
   briefingOriginal: string,
   register: ClaimsRegister,
 ): BriefingViewModel {
-  const normalized = briefingOriginal.replace(/\r\n?/g, "\n").trim();
-  const paragraphTexts =
-    normalized.length > 0 ? normalized.split(/\n{2,}/) : [];
+  const paragraphTexts = splitBriefingParagraphs(briefingOriginal);
 
   const anchored: AnchoredClaim[] = register.claims
-    .map((claim) => ({
-      claim,
-      paragraphIndex: anchorParagraphIndex(claim, paragraphTexts.length),
-    }))
+    .map((claim) => {
+      const { paragraphIndex, anchorDrifted } = resolveClaimAnchor(
+        claim,
+        paragraphTexts,
+      );
+      return { claim, paragraphIndex, anchorDrifted };
+    })
     .sort(compareClaims);
 
   // Global inline evidence numbering in deterministic claim order.
@@ -109,11 +163,15 @@ export function buildBriefingViewModel(
     }
   }
 
-  const toMarker = ({ claim }: AnchoredClaim): ClaimMarkerVM => ({
+  const toMarker = ({
+    claim,
+    anchorDrifted,
+  }: AnchoredClaim): ClaimMarkerVM => ({
     claim,
     evidenceNumbers: claim.evidence.map(
       (evidence) => evidenceNumbers[`${claim.id}/${evidence.id}`],
     ),
+    anchorDrifted,
   });
 
   const paragraphs: BriefingParagraphVM[] = paragraphTexts.map(

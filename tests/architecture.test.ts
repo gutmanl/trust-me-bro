@@ -75,6 +75,12 @@ describe("public surface of lib/register", () => {
     expect(surface.sha256Hex).toBeDefined();
     expect(surface.sha256FromBlobPath).toBeDefined();
     expect(surface.latestChainLink).toBeDefined();
+    // Workbench epic: the shared verbatim-quote normal form and paragraph
+    // split, relocated here so lib/register itself can do quote-first anchor
+    // resolution without depending on lib/pipeline.
+    expect(surface.containsNormalized).toBeDefined();
+    expect(surface.normalizeForSearch).toBeDefined();
+    expect(surface.splitBriefingParagraphs).toBeDefined();
     // Chain links and status changes must only be producible inside a
     // RegisterStore transaction (single-writer invariant).
     expect(surface.ChainAppender).toBeUndefined();
@@ -345,7 +351,7 @@ describe("module boundaries", () => {
       path.join("lib", "register", "projection"),
       // Shared normal form of TMB-24's extraction and TMB-4's stage 1 —
       // trustworthy exactly because it stays pure.
-      path.join("lib", "pipeline", "text"),
+      path.join("lib", "register", "text"),
     ];
     for (const file of domainFiles) {
       if (pureDirs.some((dir) => file.startsWith(dir))) {
