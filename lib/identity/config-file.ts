@@ -37,12 +37,43 @@ export function isValidActorHandle(value: string): boolean {
   return HANDLE_PATTERN.test(value);
 }
 
-/** Snake_case on disk, matching the register's file conventions. */
-const ConfigFileSchema = z.strictObject({
+/**
+ * Current on-disk config generation. Every write stamps it; every read runs
+ * the file through the migration ladder up to it before validating.
+ */
+export const CONFIG_VERSION = 1;
+
+/**
+ * Snake_case on disk, matching the register's file conventions. A plain
+ * `z.object` (unknown keys stripped, not rejected) rather than a strict one:
+ * a file written by a newer version carrying a field this build does not know
+ * must not collapse the whole config to "unconfigured" and strand the user
+ * back at first-run setup — the known fields (who the actor is, where the
+ * workspace lives) still parse. Forward-compatibility is the point of the
+ * version field.
+ */
+const ConfigFileSchema = z.object({
+  config_version: z.number().int().positive().optional(),
   actor_handle: z.string().regex(HANDLE_PATTERN),
   workspace_root: z.string().min(1).optional(),
   unpaywall_email: z.string().min(1).optional(),
 });
+
+/**
+ * Migrates a stored config to the current shape before validation, so every
+ * reader only ever sees CONFIG_VERSION. The migration seam: a future version
+ * bump adds a step here, keyed off `config_version` (absent means v1 — the
+ * pre-versioning files ARE the first version and need no migration). Today v1
+ * is the only version, so this only guards against a non-object payload;
+ * forward-compatible unknown keys are handled by the non-strict schema, not
+ * here.
+ */
+function migrateConfigFile(parsed: unknown): unknown {
+  if (typeof parsed !== "object" || parsed === null) {
+    return parsed; // let the schema reject non-objects
+  }
+  return parsed;
+}
 
 export function defaultConfigFilePath(
   env: NodeJS.ProcessEnv = process.env,
@@ -72,7 +103,7 @@ export function readConfigFile(
   } catch {
     return undefined;
   }
-  const result = ConfigFileSchema.safeParse(parsed);
+  const result = ConfigFileSchema.safeParse(migrateConfigFile(parsed));
   if (!result.success) {
     return undefined;
   }
@@ -101,6 +132,7 @@ export function writeConfigFile(
   }
   const payload = `${JSON.stringify(
     {
+      config_version: CONFIG_VERSION,
       actor_handle: config.actorHandle,
       ...(config.workspaceRoot !== undefined
         ? { workspace_root: config.workspaceRoot }

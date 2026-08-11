@@ -150,6 +150,7 @@ describe("writeIdentityConfig", () => {
 
     const onDisk = JSON.parse(fs.readFileSync(filePath, "utf8"));
     expect(onDisk).toEqual({
+      config_version: 1,
       actor_handle: "new",
       workspace_root: "./ws",
       unpaywall_email: "lg@example.org",
@@ -271,6 +272,7 @@ describe("writeUnpaywallEmail", () => {
     writeUnpaywallEmail("lg@example.org");
 
     expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      config_version: 1,
       actor_handle: "lg",
       workspace_root: "./ws",
       unpaywall_email: "lg@example.org",
@@ -292,6 +294,7 @@ describe("writeUnpaywallEmail", () => {
     writeUnpaywallEmail(null);
 
     expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      config_version: 1,
       actor_handle: "lg",
       workspace_root: "./ws",
     });

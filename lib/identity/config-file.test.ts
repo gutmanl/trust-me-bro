@@ -58,6 +58,7 @@ describe("read/writeConfigFile", () => {
     const filePath = path.join(scratchDir(), "config.json");
     writeConfigFile(filePath, { actorHandle: "lg", workspaceRoot: "./ws" });
     expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      config_version: 1,
       actor_handle: "lg",
       workspace_root: "./ws",
     });
@@ -90,6 +91,7 @@ describe("read/writeConfigFile", () => {
       unpaywallEmail: "lg@example.org",
     });
     expect(JSON.parse(fs.readFileSync(filePath, "utf8"))).toEqual({
+      config_version: 1,
       actor_handle: "lg",
       workspace_root: "./ws",
       unpaywall_email: "lg@example.org",
@@ -122,13 +124,40 @@ describe("read/writeConfigFile", () => {
     ["missing file", undefined],
     ["unparsable JSON", "{ not json"],
     ["wrong shape", JSON.stringify({ someone: "else" })],
+    ["non-object JSON", "123"],
     ["invalid handle in file", JSON.stringify({ actor_handle: "NO" })],
-    ["unknown extra key", JSON.stringify({ actor_handle: "lg", extra: true })],
   ])("degrades %s to undefined instead of throwing", (_label, content) => {
     const filePath = path.join(scratchDir(), "config.json");
     if (content !== undefined) {
       fs.appendFileSync(filePath, content, "utf8");
     }
     expect(readConfigFile(filePath)).toBeUndefined();
+  });
+
+  it("tolerates an unknown key from a newer version instead of wiping the config", () => {
+    // Finding 5: a forward-compatible field written by a future build must
+    // not collapse the whole file — the actor identity still parses.
+    const filePath = path.join(scratchDir(), "config.json");
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({
+        config_version: 2,
+        actor_handle: "lg",
+        workspace_root: "./ws",
+        some_future_field: { nested: true },
+      }),
+      "utf8",
+    );
+    expect(readConfigFile(filePath)).toEqual({
+      actorHandle: "lg",
+      workspaceRoot: "./ws",
+      unpaywallEmail: undefined,
+    });
+  });
+
+  it("reads an unversioned (pre-versioning) file as the current shape", () => {
+    const filePath = path.join(scratchDir(), "config.json");
+    fs.writeFileSync(filePath, JSON.stringify({ actor_handle: "lg" }), "utf8");
+    expect(readConfigFile(filePath)?.actorHandle).toBe("lg");
   });
 });
