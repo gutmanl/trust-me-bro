@@ -6,6 +6,7 @@ import {
   formatCitation,
   getBackendsHealth,
   getReferenceCandidates,
+  getReferenceCaptureRun,
   getReferenceScanState,
   getUnpaywallSetting,
   isSourceSetFrozen,
@@ -65,6 +66,13 @@ export default async function SourcesPage(
   const [health, candidates] = showReferenceImport
     ? await Promise.all([getBackendsHealth(id), getReferenceCandidates(id)])
     : [null, null];
+  // Capture keeps no durable state (run-reference-capture.ts), so unlike the
+  // scan/verification panels the page must ask the runner directly whether a
+  // capture batch is live — otherwise a reload cannot surface it and the
+  // review panel would offer a submit button that 409s with "already a run".
+  const captureRunActive = showReferenceImport
+    ? (getReferenceCaptureRun(id)?.isActive() ?? false)
+    : false;
 
   return (
     <div className="space-y-6">
@@ -232,6 +240,7 @@ export default async function SourcesPage(
                   <ReferenceCandidateReview
                     projectId={id}
                     candidates={candidates}
+                    activeRun={captureRunActive}
                   />
                 ) : null}
               </div>

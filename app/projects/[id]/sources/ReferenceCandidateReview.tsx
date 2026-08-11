@@ -4,12 +4,17 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import {
+  ConnectionLostNotice,
   ErrorBanner,
   fileInputClass,
   inputClass,
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
+import {
+  RunControls,
+  type RunControlPhase,
+} from "@/app/components/RunControls";
 import { useJobStream } from "@/app/lib/useJobStream";
 import type { ReviewCandidate } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
@@ -63,8 +68,34 @@ function describeProgress(event: Record<string, unknown>): string | null {
       }
       return `Fehlgeschlagen: ${outcome?.error ?? "unbekannt"}`;
     }
+    case "run_pause_requested":
+      return "Pause angefordert – die laufende Erfassung wird noch abgeschlossen …";
+    case "run_paused":
+      return "Lauf pausiert. Fortsetzen erfasst die nächste Quelle.";
+    case "run_resumed":
+      return "Lauf fortgesetzt.";
+    case "run_cancel_requested":
+      return "Abbruch angefordert – die laufende Erfassung wird noch abgeschlossen …";
+    case "run_cancelled":
+      return "Lauf abgebrochen – bereits erfasste Quellen bleiben erhalten.";
     case "run_completed":
       return "Lauf beendet.";
+    default:
+      return null;
+  }
+}
+
+function phaseForEvent(event: Record<string, unknown>): RunControlPhase | null {
+  switch (event.type) {
+    case "run_started":
+    case "run_resumed":
+      return "running";
+    case "run_pause_requested":
+      return "pausing";
+    case "run_paused":
+      return "paused";
+    case "run_cancel_requested":
+      return "cancelling";
     default:
       return null;
   }
@@ -112,9 +143,15 @@ function CandidateMeta({ candidate }: { candidate: ReviewCandidate }) {
 export function ReferenceCandidateReview({
   projectId,
   candidates,
+  activeRun,
 }: {
   projectId: string;
   candidates: ReviewCandidate[];
+  /** A capture batch is already running on the server for this project
+   * (derived from the runner, not durable state — capture keeps none). Makes
+   * a reload re-attach to the live run instead of offering a submit button
+   * that would 409 with "already a run". */
+  activeRun: boolean;
 }) {
   const router = useRouter();
   const [formState, formAction, pending] = useActionState(
@@ -124,6 +161,7 @@ export function ReferenceCandidateReview({
   const [startedForm, setStartedForm] =
     useState<ReferenceCaptureFormState | null>(null);
   const [stopped, setStopped] = useState(false);
+  const [phase, setPhase] = useState<RunControlPhase>("running");
   // Persists after the run so the per-item outcome does not vanish with the
   // progress feed on refresh: the user sees WHY some candidates did not import
   // (a title or document was missing) instead of a silently partial result.
@@ -138,13 +176,17 @@ export function ReferenceCandidateReview({
     setSummary({ ok: 0, errors: [] });
   }
 
-  const watching = !stopped && formState.started === true;
+  const watching = !stopped && (formState.started === true || activeRun);
 
-  const { lines } = useJobStream({
+  const { lines, connectionLost } = useJobStream({
     streamUrl: `/api/projects/${projectId}/reference-capture/stream`,
     active: watching,
     describe: describeProgress,
     onEvent: (event) => {
+      const nextPhase = phaseForEvent(event);
+      if (nextPhase !== null) {
+        setPhase(nextPhase);
+      }
       if (event.type !== "item_completed") {
         return;
       }
@@ -162,6 +204,7 @@ export function ReferenceCandidateReview({
     },
     onDone: () => {
       setStopped(true);
+      setPhase("running");
       router.refresh();
     },
   });
@@ -184,6 +227,7 @@ export function ReferenceCandidateReview({
         </ul>
 
         <ErrorBanner message={formState.error} />
+        {connectionLost ? <ConnectionLostNotice /> : null}
 
         <button
           type="submit"
@@ -194,15 +238,24 @@ export function ReferenceCandidateReview({
             ? "Wird erfasst …"
             : `Ausgewählte erfassen (${defaultSelectedCount})`}
         </button>
-
-        {watching ? (
-          <RunProgressFeed title="Fortschritt der Erfassung" lines={lines} />
-        ) : null}
-
-        {!watching && summary && summary.ok + summary.errors.length > 0 ? (
-          <CaptureSummary ok={summary.ok} errors={summary.errors} />
-        ) : null}
       </form>
+
+      {/* Outside the capture form on purpose: RunControls renders its own
+          pause/cancel forms, and a <form> may not nest inside another. */}
+      {watching ? (
+        <>
+          <RunControls
+            projectId={projectId}
+            kind="reference_capture"
+            phase={phase}
+          />
+          <RunProgressFeed title="Fortschritt der Erfassung" lines={lines} />
+        </>
+      ) : null}
+
+      {!watching && summary && summary.ok + summary.errors.length > 0 ? (
+        <CaptureSummary ok={summary.ok} errors={summary.errors} />
+      ) : null}
 
       {alreadyCaptured.length > 0 ? (
         <ul className="space-y-1 text-sm text-slate-500">
