@@ -46,19 +46,32 @@ export async function GET(
           // already closed by the client
         }
       };
-      if (run && run.isActive()) {
+      if (run) {
+        // Replay everything recorded so far. For capture this in-memory event
+        // log is the ONLY record of per-item outcomes — there is no durable
+        // bracket state to re-derive, unlike extraction/reference-scan. A
+        // capture batch often finishes before the client's EventSource
+        // connects (fast/cached downloads, or items that fail validation
+        // instantly), so gating the replay on isActive() dropped the entire
+        // outcome silently: no error, no summary, nothing imported-looking.
         for (const event of run.eventsSoFar()) {
           controller.enqueue(sse("progress", event));
         }
-        unsubscribe = run.subscribe((event) => {
-          controller.enqueue(sse("progress", event));
-          if (
-            event.type === "run_completed" ||
-            event.type === "run_cancelled"
-          ) {
-            close();
-          }
-        });
+        if (run.isActive()) {
+          unsubscribe = run.subscribe((event) => {
+            controller.enqueue(sse("progress", event));
+            if (
+              event.type === "run_completed" ||
+              event.type === "run_cancelled"
+            ) {
+              close();
+            }
+          });
+          return;
+        }
+        // Already finished: the replay above already carried its terminal
+        // run_completed/run_cancelled, which drives the client's onDone.
+        close();
         return;
       }
       controller.enqueue(sse("state", {}));
