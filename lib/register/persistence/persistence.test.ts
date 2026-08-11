@@ -415,6 +415,30 @@ describe("RegisterTransaction.reviseClaimAnchor / remapClaimAnchor", () => {
     expect((await store.verify()).ok).toBe(true);
   });
 
+  it("reviseClaimAnchor preserves the existing anchor_quote when new_quote is omitted", async () => {
+    const event = await store.transaction((tx) =>
+      tx.reviseClaimAnchor("clm_0001", {
+        new_anchor: "p14",
+        actor: "human:lg",
+        reason: "Nur Position korrigiert.",
+      }),
+    );
+    expect(event.anchor_change).toEqual({
+      claim_id: "clm_0001",
+      previous_anchor: "p12",
+      new_anchor: "p14",
+      previous_quote: "reduzieren die Reviewzeit",
+      // new_quote absent: the parameter was omitted, so nothing changed.
+    });
+    expect(event.anchor_change?.new_quote).toBeUndefined();
+
+    const register = await store.read();
+    const claim = register.claims[0];
+    expect(claim.briefing_anchor).toBe("p14");
+    expect(claim.anchor_quote).toBe("reduzieren die Reviewzeit");
+    expect((await store.verify()).ok).toBe(true);
+  });
+
   it("remapClaimAnchor updates the fields silently — no event of its own, chain still verifies", async () => {
     await store.transaction((tx) => {
       tx.remapClaimAnchor("clm_0001", {
@@ -435,6 +459,18 @@ describe("RegisterTransaction.reviseClaimAnchor / remapClaimAnchor", () => {
     // Content changed without minting an entry of its own: the store's
     // content_updated auto-event keeps the change chain-visible.
     expect(register.project_events.at(-1)?.event).toBe("content_updated");
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("remapClaimAnchor preserves the existing anchor_quote when quote is omitted", async () => {
+    await store.transaction((tx) => {
+      tx.remapClaimAnchor("clm_0001", { anchor: "p15" });
+    });
+
+    const register = await store.read();
+    const claim = register.claims[0];
+    expect(claim.briefing_anchor).toBe("p15");
+    expect(claim.anchor_quote).toBe("reduzieren die Reviewzeit");
     expect((await store.verify()).ok).toBe(true);
   });
 });

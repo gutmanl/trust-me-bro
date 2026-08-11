@@ -154,8 +154,10 @@ export interface RegisterTransaction {
   /**
    * Manual, audited anchor correction (workbench epic): sets the claim's
    * `briefing_anchor`/`anchor_quote` and appends a `claim_anchor_revised`
-   * project event carrying the before/after pair. Does NOT touch
-   * `claim.status` — an anchor correction is not a verification outcome.
+   * project event carrying the before/after pair. `new_quote` is optional —
+   * omitting it leaves the claim's current `anchor_quote` unchanged (not
+   * cleared). Does NOT touch `claim.status` — an anchor correction is not a
+   * verification outcome.
    */
   reviseClaimAnchor(
     claimId: string,
@@ -172,7 +174,8 @@ export interface RegisterTransaction {
    * (workbench epic): updates `briefing_anchor`/`anchor_quote` without an
    * event of its own — the enclosing `briefing_revised` transaction's state
    * root covers it (the store's `content_updated` auto-event applies when
-   * this is the transaction's only change).
+   * this is the transaction's only change). `quote` is optional — omitting
+   * it leaves the claim's current `anchor_quote` unchanged (not cleared).
    */
   remapClaimAnchor(
     claimId: string,
@@ -595,7 +598,11 @@ function createTransaction(
       const previous_anchor = claim.briefing_anchor;
       const previous_quote = claim.anchor_quote;
       claim.briefing_anchor = new_anchor;
-      claim.anchor_quote = new_quote;
+      // Omitted new_quote means "leave the current quote unchanged", not
+      // "clear it" — only assign when the caller actually provided one.
+      if (new_quote !== undefined) {
+        claim.anchor_quote = new_quote;
+      }
       const entry = chain.append({
         at: at ?? new Date().toISOString(),
         actor,
@@ -605,8 +612,8 @@ function createTransaction(
           claim_id: claimId,
           previous_anchor,
           new_anchor,
-          ...(previous_quote ? { previous_quote } : {}),
-          ...(new_quote ? { new_quote } : {}),
+          ...(previous_quote !== undefined ? { previous_quote } : {}),
+          ...(new_quote !== undefined ? { new_quote } : {}),
         },
       }) as ProjectEvent;
       draft.project_events.push(entry);
@@ -615,7 +622,10 @@ function createTransaction(
     remapClaimAnchor(claimId, { anchor, quote }) {
       const claim = mutableClaim(claimId);
       claim.briefing_anchor = anchor;
-      claim.anchor_quote = quote;
+      // Same preserve-if-omitted semantics as reviseClaimAnchor.
+      if (quote !== undefined) {
+        claim.anchor_quote = quote;
+      }
     },
     updateConfig({ config, actor, reason, at }) {
       const previous = structuredClone(draft.config);
