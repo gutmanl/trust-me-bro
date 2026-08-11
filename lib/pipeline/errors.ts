@@ -229,3 +229,11 @@ export class ReferenceScanPreconditionError extends PipelineError {}
  * auto-import): no candidates selected, or the source set is already
  * frozen. */
 export class ReferenceCapturePreconditionError extends PipelineError {}
+
+/** Preconditions of publishing a briefing revision are not met (workbench
+ * epic): no text to publish (empty input and no saved draft, or the text
+ * itself is blank). Missing-tool and reserved-prefix precondition on the
+ * initial-import path stay InvalidBriefingInputError — publishing without a
+ * prior briefing simply delegates to importBriefing and inherits its
+ * errors, so this type covers only the revision workflow's own checks. */
+export class BriefingRevisionPreconditionError extends PipelineError {}

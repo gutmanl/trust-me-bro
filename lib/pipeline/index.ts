@@ -34,6 +34,16 @@ export {
 } from "../register";
 export { getBriefing, getBriefingViewModel, importBriefing } from "./briefing";
 export type { ImportBriefingInput } from "./briefing";
+// Workbench epic: briefing drafts (scratch, outside the register) and the
+// revision publish path (append-only, with a silent re-anchor pass); the
+// pure re-anchor computation stays internal, reachable only through publish.
+export {
+  discardBriefingDraft,
+  getBriefingDraft,
+  publishBriefingRevision,
+  saveBriefingDraft,
+} from "./briefing-revision";
+export type { BriefingDraft } from "./briefing-revision";
 export type {
   BriefingParagraphVM,
   BriefingViewModel,

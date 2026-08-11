@@ -226,6 +226,26 @@ export interface RegisterTransaction {
   setCalibrationResult(claimId: string, result: CalibrationResult): void;
 }
 
+/**
+ * Scratch briefing draft (workbench epic): the workbench's unsaved edit of
+ * the briefing text, persisted so a page reload does not lose it. Lives in
+ * `briefing.draft.json` next to `claims.json`, written via the same atomic
+ * helper — but deliberately OUTSIDE the register: it carries no chain
+ * entry, is not schema-validated, and is not part of `claims.json` (so it
+ * never appears in an export bundle, which builds its file list explicitly
+ * rather than scanning the project directory). `publishBriefingRevision`
+ * clears it once its text has actually become a briefing revision.
+ */
+export interface BriefingDraft {
+  text: string;
+  /** ISO timestamp of the save. */
+  saved_at: string;
+  /** The briefing revision (0 before any briefing exists) the draft's text
+   * was started from — lets the workbench detect that the briefing moved on
+   * underneath an open draft. */
+  based_on_revision: number;
+}
+
 export interface CreateProjectParams {
   id: string;
   research_question: string;
@@ -356,6 +376,53 @@ export class RegisterStore {
     const rendered = renderBriefing(original, register, context);
     writeFileAtomic(path.join(this.projectDir, "briefing.md"), rendered);
     return rendered;
+  }
+
+  private get draftPath(): string {
+    return path.join(this.projectDir, "briefing.draft.json");
+  }
+
+  /** Saves (overwrites) the workbench's briefing draft. Not part of the
+   * register — no lock, no chain entry, no schema validation; a draft is
+   * scratch, and the atomic write is only to avoid a torn read mid-save. */
+  saveDraft(text: string, basedOnRevision: number): void {
+    const draft: BriefingDraft = {
+      text,
+      saved_at: new Date().toISOString(),
+      based_on_revision: basedOnRevision,
+    };
+    writeFileAtomic(this.draftPath, `${JSON.stringify(draft, null, 2)}\n`);
+  }
+
+  /** The saved draft, or null when there is none — including when the file
+   * is missing OR unreadable/malformed. A draft is scratch, never worth
+   * crashing over: a corrupt draft.json (partial write from a killed
+   * process, hand edit, …) is treated exactly like "no draft", not an
+   * error, and the workbench simply starts from the published briefing. */
+  readDraft(): BriefingDraft | null {
+    if (!fs.existsSync(this.draftPath)) {
+      return null;
+    }
+    try {
+      const raw: unknown = JSON.parse(fs.readFileSync(this.draftPath, "utf8"));
+      if (
+        typeof raw !== "object" ||
+        raw === null ||
+        typeof (raw as BriefingDraft).text !== "string" ||
+        typeof (raw as BriefingDraft).saved_at !== "string" ||
+        typeof (raw as BriefingDraft).based_on_revision !== "number"
+      ) {
+        return null;
+      }
+      return raw as BriefingDraft;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Removes the draft, if any. A no-op when there is none. */
+  clearDraft(): void {
+    fs.rmSync(this.draftPath, { force: true });
   }
 
   /**

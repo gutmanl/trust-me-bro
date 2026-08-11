@@ -7,6 +7,7 @@
  */
 export { RegisterStore } from "./persistence/store";
 export type {
+  BriefingDraft,
   CreateProjectParams,
   RegisterTransaction,
 } from "./persistence/store";

@@ -159,6 +159,13 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.mintProjectId).toBeDefined();
     expect(surface.importBriefing).toBeDefined();
     expect(surface.getBriefing).toBeDefined();
+    // Workbench epic: briefing drafts + the revision publish path; the pure
+    // re-anchor computation is reachable only through publish.
+    expect(surface.saveBriefingDraft).toBeDefined();
+    expect(surface.getBriefingDraft).toBeDefined();
+    expect(surface.discardBriefingDraft).toBeDefined();
+    expect(surface.publishBriefingRevision).toBeDefined();
+    expect(surface.computeReanchorUpdates).toBeUndefined();
     expect(surface.captureSource).toBeDefined();
     expect(surface.freezeSourceSet).toBeDefined();
     expect(surface.isSourceSetFrozen).toBeDefined();
