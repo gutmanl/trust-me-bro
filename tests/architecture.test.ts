@@ -183,6 +183,7 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.getReferenceScanRun).toBeDefined();
     expect(surface.startReferenceCapture).toBeDefined();
     expect(surface.getReferenceCaptureRun).toBeDefined();
+    expect(surface.getReferenceCaptureOutcomes).toBeDefined();
     expect(surface.getReferenceCandidates).toBeDefined();
     expect(surface.scanRegex).toBeUndefined();
     expect(surface.mergeCandidates).toBeUndefined();

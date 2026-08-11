@@ -50,6 +50,36 @@ describe("getActiveRun", () => {
     expect(getActiveRunHandle("proj_a", { runner })).toBeUndefined();
   });
 
+  it("exposes per-candidate capture outcomes after a run (server-derived feedback)", async () => {
+    const { getReferenceCaptureOutcomes } =
+      await import("../sources/reference-scan/run-reference-capture");
+    const runner = createJobRunner();
+    const handle = runner.submit(
+      "proj_c",
+      ["cand_a", "cand_b"],
+      (item) => item,
+      async (item) => {
+        if (item === "cand_b") {
+          throw new Error("Landing-Page statt PDF");
+        }
+        return { ok: true };
+      },
+      { kind: "reference_capture" },
+    );
+    await handle.done;
+
+    expect(getReferenceCaptureOutcomes("proj_c", { runner })).toEqual([
+      { candidateId: "cand_a", status: "ok" },
+      {
+        candidateId: "cand_b",
+        status: "error",
+        error: "Landing-Page statt PDF",
+      },
+    ]);
+    // No run for an untouched project → empty, never a throw.
+    expect(getReferenceCaptureOutcomes("proj_none", { runner })).toEqual([]);
+  });
+
   it("reports kind null for a kind-less run", async () => {
     const runner = createJobRunner();
     let release!: () => void;

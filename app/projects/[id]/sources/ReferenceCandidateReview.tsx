@@ -13,7 +13,7 @@ import {
 } from "@/app/components/ui";
 import { useJobStream } from "@/app/lib/useJobStream";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
-import type { ReviewCandidate } from "@/lib/pipeline";
+import type { ReferenceCaptureOutcome, ReviewCandidate } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import type { ReferenceCaptureFormState } from "./reference-scan-actions";
 import { startReferenceCaptureAction } from "./reference-scan-actions";
@@ -125,6 +125,7 @@ export function ReferenceCandidateReview({
   projectId,
   candidates,
   activeRun,
+  lastOutcomes,
 }: {
   projectId: string;
   candidates: ReviewCandidate[];
@@ -133,6 +134,10 @@ export function ReferenceCandidateReview({
    * a reload re-attach to the live run instead of offering a submit button
    * that would 409 with "already a run". */
   activeRun: boolean;
+  /** Per-candidate outcomes of the last capture run, server-derived from the
+   * runner so the "why did this not import" reason is shown on each failed row
+   * and cannot be raced away by a fast run or the post-run refresh. */
+  lastOutcomes: ReferenceCaptureOutcome[];
 }) {
   const router = useRouter();
   const [formState, formAction, pending] = useActionState(
@@ -142,18 +147,10 @@ export function ReferenceCandidateReview({
   const [startedForm, setStartedForm] =
     useState<ReferenceCaptureFormState | null>(null);
   const [stopped, setStopped] = useState(false);
-  // Persists after the run so the per-item outcome does not vanish with the
-  // progress feed on refresh: the user sees WHY some candidates did not import
-  // (a title or document was missing) instead of a silently partial result.
-  const [summary, setSummary] = useState<{
-    ok: number;
-    errors: string[];
-  } | null>(null);
 
   if (formState.started && startedForm !== formState) {
     setStartedForm(formState);
     setStopped(false);
-    setSummary({ ok: 0, errors: [] });
   }
 
   const watching = !stopped && (formState.started === true || activeRun);
@@ -163,27 +160,25 @@ export function ReferenceCandidateReview({
     streamUrl: `/api/projects/${projectId}/reference-capture/stream`,
     active: watching,
     describe: describeProgress,
-    onEvent: (event) => {
-      if (event.type !== "item_completed") {
-        return;
-      }
-      const outcome = event.outcome as
-        { status: string; error?: string } | undefined;
-      setSummary((prev) => {
-        const base = prev ?? { ok: 0, errors: [] };
-        return outcome?.status === "ok"
-          ? { ...base, ok: base.ok + 1 }
-          : {
-              ...base,
-              errors: [...base.errors, outcome?.error ?? "unbekannter Fehler"],
-            };
-      });
-    },
     onDone: () => {
       setStopped(true);
       router.refresh();
     },
   });
+
+  // Server-derived failures, keyed by candidate, for the persistent summary and
+  // the per-row reason. Not shown while a run is live (the feed covers that).
+  const errorByCandidate = new Map(
+    lastOutcomes
+      .filter((outcome) => outcome.status === "error")
+      .map((outcome) => [
+        outcome.candidateId,
+        outcome.error ?? "unbekannter Fehler",
+      ]),
+  );
+  const capturedCount = lastOutcomes.filter(
+    (outcome) => outcome.status === "ok",
+  ).length;
 
   const alreadyCaptured = candidates.filter((c) => c.alreadyCaptured);
   // Every not-yet-captured candidate is completable in the form now,
@@ -195,10 +190,24 @@ export function ReferenceCandidateReview({
 
   return (
     <div className="space-y-4">
+      {/* Persistent, server-derived outcome of the last run: always shown once
+          a run has finished, independent of the volatile live feed. */}
+      {!watching && (capturedCount > 0 || errorByCandidate.size > 0) ? (
+        <CaptureSummary
+          ok={capturedCount}
+          failed={errorByCandidate.size}
+          reasons={[...new Set(errorByCandidate.values())]}
+        />
+      ) : null}
+
       <form action={formAction} className="space-y-3">
         <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
           {openRows.map((candidate) => (
-            <CandidateRow key={candidate.candidate_id} candidate={candidate} />
+            <CandidateRow
+              key={candidate.candidate_id}
+              candidate={candidate}
+              error={errorByCandidate.get(candidate.candidate_id)}
+            />
           ))}
         </ul>
 
@@ -227,10 +236,6 @@ export function ReferenceCandidateReview({
         <RunProgressFeed title="Fortschritt der Erfassung" lines={lines} />
       ) : null}
 
-      {!watching && summary && summary.ok + summary.errors.length > 0 ? (
-        <CaptureSummary ok={summary.ok} errors={summary.errors} />
-      ) : null}
-
       {alreadyCaptured.length > 0 ? (
         <ul className="space-y-1 text-sm text-slate-500">
           {alreadyCaptured.map((candidate) => (
@@ -248,12 +253,19 @@ export function ReferenceCandidateReview({
   );
 }
 
-/** Persistent outcome of the last capture run: how many sources were
- * imported and, grouped by reason, why the rest were not — so a partial
- * import is explained rather than looking like a silent failure. */
-function CaptureSummary({ ok, errors }: { ok: number; errors: string[] }) {
-  const reasons = [...new Set(errors)];
-  const failed = errors.length;
+/** Persistent, server-derived outcome of the last capture run: how many
+ * sources were imported and, grouped by reason, why the rest were not — so a
+ * partial import is explained rather than looking like a silent failure.
+ * Per-candidate reasons also render on each failed row below. */
+function CaptureSummary({
+  ok,
+  failed,
+  reasons,
+}: {
+  ok: number;
+  failed: number;
+  reasons: string[];
+}) {
   return (
     <div
       className={`rounded-md border px-3 py-2 text-sm ${
@@ -266,6 +278,13 @@ function CaptureSummary({ ok, errors }: { ok: number; errors: string[] }) {
         {ok} Quelle(n) erfasst
         {failed > 0 ? `, ${failed} nicht übernommen` : ""}.
       </p>
+      {failed > 0 ? (
+        <p className="mt-1 text-xs">
+          Nicht automatisch abrufbare Quellen (z. B. Landing-Page statt PDF,
+          oder kein frei verfügbarer Volltext) unten je Zeile per PDF-Upload
+          oder direkter Dokument-URL ergänzen.
+        </p>
+      ) : null}
       {reasons.length > 0 ? (
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
           {reasons.map((reason) => (
@@ -281,7 +300,14 @@ function CaptureSummary({ ok, errors }: { ok: number; errors: string[] }) {
  * controls its method needs. An `unresolved` row (no identifier, no
  * auto-derived document) is now completable here — a title, plus an uploaded
  * PDF or a document URL — instead of being a dead end. */
-function CandidateRow({ candidate }: { candidate: ReviewCandidate }) {
+function CandidateRow({
+  candidate,
+  error,
+}: {
+  candidate: ReviewCandidate;
+  /** Reason this candidate did not import on the last run, if any. */
+  error?: string;
+}) {
   const id = candidate.candidate_id;
   const isUnresolved = candidate.method === "unresolved";
   return (
@@ -300,6 +326,11 @@ function CandidateRow({ candidate }: { candidate: ReviewCandidate }) {
           <CandidateMeta candidate={candidate} />
         </span>
       </label>
+      {error ? (
+        <p className="ml-6 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+          Beim letzten Lauf nicht übernommen: {error}
+        </p>
+      ) : null}
       <div className="ml-6 grid gap-2 sm:grid-cols-2">
         <div>
           <label

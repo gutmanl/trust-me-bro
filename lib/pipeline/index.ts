@@ -86,12 +86,14 @@ export type {
   ReferenceScanStatus,
 } from "./sources/reference-scan/derive-state";
 export {
+  getReferenceCaptureOutcomes,
   getReferenceCaptureRun,
   startReferenceCapture,
 } from "./sources/reference-scan/run-reference-capture";
 export type {
   ReferenceCaptureDependencies,
   ReferenceCaptureItemResult,
+  ReferenceCaptureOutcome,
   ReferenceCaptureSelection,
 } from "./sources/reference-scan/run-reference-capture";
 export { getReferenceCandidates } from "./sources/reference-scan/read-candidates";

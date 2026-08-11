@@ -6,6 +6,7 @@ import {
   formatCitation,
   getBackendsHealth,
   getReferenceCandidates,
+  getReferenceCaptureOutcomes,
   getReferenceCaptureRun,
   getReferenceScanState,
   getUnpaywallSetting,
@@ -73,6 +74,12 @@ export default async function SourcesPage(
   const captureRunActive = showReferenceImport
     ? (getReferenceCaptureRun(id)?.isActive() ?? false)
     : false;
+  // Server-derived per-candidate outcomes of the last capture run: the durable
+  // "why did this not import", re-read on every render so a fast run + refresh
+  // cannot race the feedback away (unlike the volatile live SSE feed).
+  const captureOutcomes = showReferenceImport
+    ? getReferenceCaptureOutcomes(id)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -241,6 +248,7 @@ export default async function SourcesPage(
                     projectId={id}
                     candidates={candidates}
                     activeRun={captureRunActive}
+                    lastOutcomes={captureOutcomes}
                   />
                 ) : null}
               </div>

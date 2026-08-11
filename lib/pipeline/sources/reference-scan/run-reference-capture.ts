@@ -92,6 +92,45 @@ export function getReferenceCaptureRun(
   );
 }
 
+/** Per-candidate outcome of the last capture run. */
+export interface ReferenceCaptureOutcome {
+  candidateId: string;
+  status: "ok" | "error";
+  /** German reason, present when status is "error". */
+  error?: string;
+}
+
+/**
+ * Per-candidate outcomes of the latest reference-capture run, read from the
+ * runner's in-memory event log (the itemId of a capture item IS its
+ * candidateId). Server-derived on purpose: the capture panel's live SSE feed
+ * is volatile client state that a fast run and the post-run refresh can race
+ * away, so the durable "why did this candidate not import" is re-derived here
+ * on every page render instead. Empty until a run has produced outcomes;
+ * survives until the next run or a server restart (capture keeps no durable
+ * bracket state, by design — run-reference-capture batch note above).
+ */
+export function getReferenceCaptureOutcomes(
+  projectId: string,
+  deps: { runner?: JobRunner } = {},
+): ReferenceCaptureOutcome[] {
+  const run = getReferenceCaptureRun(projectId, deps);
+  if (!run) {
+    return [];
+  }
+  const outcomes: ReferenceCaptureOutcome[] = [];
+  for (const event of run.eventsSoFar()) {
+    if (event.type === "item_completed") {
+      outcomes.push({
+        candidateId: event.itemId,
+        status: event.outcome.status,
+        ...(event.outcome.error ? { error: event.outcome.error } : {}),
+      });
+    }
+  }
+  return outcomes;
+}
+
 async function captureOneCandidate(
   projectId: string,
   selection: ReferenceCaptureSelection,
