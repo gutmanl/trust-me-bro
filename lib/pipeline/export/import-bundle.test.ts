@@ -13,7 +13,7 @@ import {
   ProjectAlreadyExistsError,
 } from "../errors";
 import { createProject, getProjectSummary } from "../projects";
-import { captureSource, freezeSourceSet } from "../sources/capture";
+import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { exportProjectBundle } from "./build-export";
 import { importProjectBundle } from "./import-bundle";
@@ -51,7 +51,6 @@ beforeEach(async () => {
     },
     { fetcher: fakeFetcher({}) },
   );
-  await freezeSourceSet(PROJECT);
 });
 
 afterEach(() => {
@@ -148,7 +147,6 @@ describe("importProjectBundle (TMB-40)", () => {
       },
       { fetcher: fakeFetcher({}) },
     );
-    await freezeSourceSet(SELF);
 
     const bundle = await exportProjectBundle(SELF, { includeBlobs: true });
     await importProjectBundle({

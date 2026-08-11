@@ -10,18 +10,13 @@ import {
   getReferenceCaptureRun,
   getReferenceScanState,
   getUnpaywallSetting,
-  isSourceSetFrozen,
   readProject,
 } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
 import { ReferenceCandidateReview } from "./ReferenceCandidateReview";
 import { ReferenceScanPanel } from "./ReferenceScanPanel";
-import {
-  CaptureSourceForm,
-  FreezeSourceSetForm,
-  ReviseSourceForm,
-} from "./SourceForms";
+import { CaptureSourceForm, ReviseSourceForm } from "./SourceForms";
 import { UnpaywallSettingPanel } from "./UnpaywallSettingPanel";
 
 export const dynamic = "force-dynamic";
@@ -51,15 +46,14 @@ export default async function SourcesPage(
 ) {
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
-  const frozen = isSourceSetFrozen(register);
   const briefingImported = register.project.briefing_import !== undefined;
 
-  // M5 fix: none of this renders for a frozen project or one with no
-  // briefing yet (see the `!frozen` / `!briefingImported` branches below) —
-  // gate the work accordingly. getBackendsHealth in particular spawns CLI
-  // child processes on every call, so computing it unconditionally cost a
-  // process spawn on every load of an already-frozen or briefing-less page.
-  const showReferenceImport = !frozen && briefingImported;
+  // M5 fix: none of this renders for a project with no briefing yet (see the
+  // `!briefingImported` branch below) — gate the work accordingly.
+  // getBackendsHealth in particular spawns CLI child processes on every
+  // call, so computing it unconditionally cost a process spawn on every
+  // load of a briefing-less page.
+  const showReferenceImport = briefingImported;
   const referenceScanState = showReferenceImport
     ? getReferenceScanState(id, register)
     : null;
@@ -91,17 +85,6 @@ export default async function SourcesPage(
           label: "Weiter zur Extraktion",
         }}
       />
-
-      {frozen ? (
-        <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          <p className="font-medium">Quellenbestand eingefroren</p>
-          <p className="mt-1">
-            Revision {register.project.source_set_revision} ·{" "}
-            {register.sources.length} Quelle(n). Alle Prüfungen referenzieren
-            diesen Stand.
-          </p>
-        </div>
-      ) : null}
 
       <section className="rounded-md border border-slate-200 bg-white">
         <h2 className="border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700">
@@ -184,7 +167,7 @@ export default async function SourcesPage(
                       Revision(en) im Blob-Store erhalten.
                     </p>
                   ) : null}
-                  {frozen && snapshot ? (
+                  {snapshot ? (
                     <ReviseSourceForm projectId={id} sourceId={source.id} />
                   ) : null}
                 </li>
@@ -194,83 +177,64 @@ export default async function SourcesPage(
         )}
       </section>
 
-      {!frozen ? (
-        <>
-          <section className="rounded-md border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">
-              Referenzen aus dem Briefing importieren
-            </h2>
-            <p className="mb-4 text-sm text-slate-600">
-              Durchsucht das eingefrorene Briefing nach zitierten Quellen (DOI,
-              arXiv-Id, URL sowie im Fließtext genannte Referenzen) und schlägt
-              sie zur Übernahme vor.
-            </p>
-            {!briefingImported ? (
-              <p className="text-sm text-slate-500">
-                Zuerst ein{" "}
-                <Link
-                  href={`/projects/${id}/briefing`}
-                  className="underline decoration-slate-300 hover:text-slate-700"
-                >
-                  Briefing importieren
-                </Link>
-                .
-              </p>
-            ) : referenceScanState &&
-              unpaywallSetting &&
-              health &&
-              candidates ? (
-              <div className="space-y-4">
-                <UnpaywallSettingPanel
-                  projectId={id}
-                  setting={unpaywallSetting}
-                />
-                <ReferenceScanPanel
-                  projectId={id}
-                  state={referenceScanState}
-                  llmAvailable={health.primary.usable}
-                  lastScanMethod={register.project.reference_scan?.method}
-                />
-                {referenceScanState.status !== "not_started" ? (
-                  <p className="text-sm text-slate-600">
-                    {referenceScanState.candidateCount} Kandidat(en) gefunden (
-                    {
-                      candidates.filter(
-                        (candidate) =>
-                          candidate.capturable && !candidate.alreadyCaptured,
-                      ).length
-                    }{" "}
-                    automatisch erfassbar).
-                  </p>
-                ) : null}
-                {candidates.length > 0 ? (
-                  <ReferenceCandidateReview
-                    projectId={id}
-                    candidates={candidates}
-                    activeRun={captureRunActive}
-                    lastOutcomes={captureOutcomes}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-          </section>
-          <section className="rounded-md border border-slate-200 bg-white p-5">
-            <h2 className="mb-4 text-sm font-semibold text-slate-700">
-              Quelle erfassen
-            </h2>
-            <CaptureSourceForm projectId={id} />
-          </section>
-          <section className="rounded-md border border-slate-200 bg-white p-5">
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">
-              Quellenbestand einfrieren
-            </h2>
-            <FreezeSourceSetForm
+      <section className="rounded-md border border-slate-200 bg-white p-5">
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">
+          Referenzen aus dem Briefing importieren
+        </h2>
+        <p className="mb-4 text-sm text-slate-600">
+          Durchsucht das eingefrorene Briefing nach zitierten Quellen (DOI,
+          arXiv-Id, URL sowie im Fließtext genannte Referenzen) und schlägt sie
+          zur Übernahme vor.
+        </p>
+        {!briefingImported ? (
+          <p className="text-sm text-slate-500">
+            Zuerst ein{" "}
+            <Link
+              href={`/projects/${id}/briefing`}
+              className="underline decoration-slate-300 hover:text-slate-700"
+            >
+              Briefing importieren
+            </Link>
+            .
+          </p>
+        ) : referenceScanState && unpaywallSetting && health && candidates ? (
+          <div className="space-y-4">
+            <UnpaywallSettingPanel projectId={id} setting={unpaywallSetting} />
+            <ReferenceScanPanel
               projectId={id}
-              sourceCount={register.sources.length}
+              state={referenceScanState}
+              llmAvailable={health.primary.usable}
+              lastScanMethod={register.project.reference_scan?.method}
             />
-          </section>
-        </>
-      ) : null}
+            {referenceScanState.status !== "not_started" ? (
+              <p className="text-sm text-slate-600">
+                {referenceScanState.candidateCount} Kandidat(en) gefunden (
+                {
+                  candidates.filter(
+                    (candidate) =>
+                      candidate.capturable && !candidate.alreadyCaptured,
+                  ).length
+                }{" "}
+                automatisch erfassbar).
+              </p>
+            ) : null}
+            {candidates.length > 0 ? (
+              <ReferenceCandidateReview
+                projectId={id}
+                candidates={candidates}
+                activeRun={captureRunActive}
+                lastOutcomes={captureOutcomes}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+      <section className="rounded-md border border-slate-200 bg-white p-5">
+        <h2 className="mb-4 text-sm font-semibold text-slate-700">
+          Quelle erfassen
+        </h2>
+        <CaptureSourceForm projectId={id} />
+      </section>
     </div>
   );
 }

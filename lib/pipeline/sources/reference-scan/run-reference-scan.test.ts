@@ -16,7 +16,6 @@ import { importBriefing } from "../../briefing";
 import { ReferenceScanPreconditionError } from "../../errors";
 import { createProject } from "../../projects";
 import { createJobRunner } from "../../runs/job-runner";
-import { captureSource, freezeSourceSet } from "../capture";
 import {
   CROSSREF_EMPTY_RESULTS_RESPONSE,
   CROSSREF_WORK_WITH_PDF_LINK_RESPONSE,
@@ -130,28 +129,6 @@ afterEach(() => {
 
 describe("startReferenceScan preconditions", () => {
   it("requires an imported briefing", async () => {
-    await expect(startReferenceScan(PROJECT_ID)).rejects.toBeInstanceOf(
-      ReferenceScanPreconditionError,
-    );
-  });
-
-  it("refuses once the source set is frozen", async () => {
-    await importBriefing({
-      projectId: PROJECT_ID,
-      content: BRIEFING,
-      tool: "x",
-    });
-    await captureSource(
-      {
-        projectId: PROJECT_ID,
-        kind: "upload",
-        sourceType: "grey_literature",
-        manual: { title: "Bericht" },
-        upload: { content: Buffer.from("x"), filename: "a.pdf" },
-      },
-      { fetcher: fakeFetcher({}) },
-    );
-    await freezeSourceSet(PROJECT_ID);
     await expect(startReferenceScan(PROJECT_ID)).rejects.toBeInstanceOf(
       ReferenceScanPreconditionError,
     );

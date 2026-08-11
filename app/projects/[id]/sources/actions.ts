@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
-import { captureSource, freezeSourceSet, reviseSource } from "@/lib/pipeline";
+import { captureSource, reviseSource } from "@/lib/pipeline";
 import type { CaptureKind, CaptureSourceInput } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 
@@ -112,17 +112,4 @@ export async function reviseSourceAction(
     newRevision: result.value.newRevision,
     recheckedCount: result.value.recheckedClaimIds.length,
   };
-}
-
-export async function freezeSourceSetAction(
-  projectId: string,
-  _previous: SourceFormState,
-  _formData: FormData,
-): Promise<SourceFormState> {
-  const result = await runPipelineAction(() => freezeSourceSet(projectId));
-  if (result.error !== null) {
-    return { error: result.error };
-  }
-  revalidatePath(`/projects/${projectId}/sources`);
-  return { error: null };
 }

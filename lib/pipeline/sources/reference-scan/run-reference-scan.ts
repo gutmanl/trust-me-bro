@@ -17,7 +17,6 @@ import { requireProjectStore } from "../../projects";
 import { getGlobalJobRunner } from "../../runs/job-runner";
 import type { JobRunner } from "../../runs/job-runner";
 import type { RunHandle } from "../../runs/types";
-import { isSourceSetFrozen } from "../capture";
 import type { HttpFetcher } from "../fetch-port";
 import { nodeHttpFetcher } from "../node-http-fetcher";
 import { excludeCaptured, mergeCandidates } from "./candidate";
@@ -70,8 +69,8 @@ export interface ReferenceScanRunSummary {
  * DELIBERATE DIVERGENCE from extraction's hard preflight gate (run-
  * extraction.ts): an unusable primary backend NEVER blocks this run. The
  * regex channel alone is still a complete (if narrower) scan, so the run
- * always starts once its OWN preconditions hold (briefing imported, source
- * set not yet frozen) and simply degrades to regex-only — recorded both in
+ * always starts once its OWN preconditions hold (briefing imported) and
+ * simply degrades to regex-only — recorded both in
  * the completion reason AND in the durable pointer's `method` field
  * ("regex" vs. "regex+llm"), so the degradation is visible without reading
  * event prose. Crossref failures are absorbed the same way, one level
@@ -90,12 +89,6 @@ export async function startReferenceScan(
       "Vor dem Referenz-Scan muss ein Briefing importiert sein.",
     );
   }
-  if (isSourceSetFrozen(register)) {
-    throw new ReferenceScanPreconditionError(
-      "Der Quellenbestand ist bereits eingefroren.",
-    );
-  }
-
   const preflight =
     deps.preflight ??
     (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);

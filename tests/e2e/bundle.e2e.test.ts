@@ -27,10 +27,7 @@ import { importBriefing } from "../../lib/pipeline/briefing";
 import { exportProjectBundle } from "../../lib/pipeline/export/build-export";
 import { importProjectBundle } from "../../lib/pipeline/export/import-bundle";
 import { createProject } from "../../lib/pipeline/projects";
-import {
-  captureSource,
-  freezeSourceSet,
-} from "../../lib/pipeline/sources/capture";
+import { captureSource } from "../../lib/pipeline/sources/capture";
 import { fakeFetcher } from "../../lib/pipeline/sources/__fixtures__/fake-fetcher";
 
 const execFileAsync = promisify(execFile);
@@ -104,7 +101,6 @@ beforeEach(async () => {
     },
     { fetcher: fakeFetcher({}) },
   );
-  await freezeSourceSet("proj_bundle-e2e");
 });
 
 afterEach(() => {

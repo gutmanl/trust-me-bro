@@ -6,16 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RegisterStore } from "../../register";
 import type { ClaimStatus } from "../../register";
-import {
-  RunActiveError,
-  SourceRevisionPreconditionError,
-  UnknownSourceError,
-} from "../errors";
+import { RunActiveError, UnknownSourceError } from "../errors";
 import { createProject } from "../projects";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
 import { createJobRunner } from "../runs/job-runner";
 import { fakeFetcher } from "./__fixtures__/fake-fetcher";
-import { captureSource, freezeSourceSet } from "./capture";
+import { captureSource } from "./capture";
 import { reviseSource } from "./revise";
 import { pickUnfinishedClaims } from "../verification/select-claims";
 
@@ -69,18 +65,7 @@ async function addClaimAt(status: ClaimStatus): Promise<string> {
 }
 
 describe("reviseSource", () => {
-  it("rejects revision while the source set is not frozen", async () => {
-    await expect(
-      reviseSource({
-        projectId: PROJECT,
-        sourceId,
-        upload: { content: V2, filename: "bericht.txt" },
-      }),
-    ).rejects.toBeInstanceOf(SourceRevisionPreconditionError);
-  });
-
   it("rejects revision while a run is active (stale run caches)", async () => {
-    await freezeSourceSet(PROJECT);
     const runner = createJobRunner();
     runner.submit(
       PROJECT,
@@ -102,7 +87,6 @@ describe("reviseSource", () => {
   });
 
   it("rejects unknown sources", async () => {
-    await freezeSourceSet(PROJECT);
     await expect(
       reviseSource({
         projectId: PROJECT,
@@ -113,7 +97,6 @@ describe("reviseSource", () => {
   });
 
   it("recognizes identical content and changes nothing", async () => {
-    await freezeSourceSet(PROJECT);
     const before = await RegisterStore.forProject(PROJECT).read();
     const result = await reviseSource({
       projectId: PROJECT,
@@ -133,7 +116,6 @@ describe("reviseSource", () => {
     const captured = await addClaimAt("captured");
     const awaiting = await addClaimAt("pending_adjudication");
     const discarded = await addClaimAt("discarded");
-    await freezeSourceSet(PROJECT);
 
     const result = await reviseSource({
       projectId: PROJECT,
@@ -209,7 +191,6 @@ describe("reviseSource", () => {
       { fetcher: fakeFetcher({}) },
     );
     const onFirst = await addClaimAt("confirmed");
-    await freezeSourceSet(PROJECT);
 
     const result = await reviseSource({
       projectId: PROJECT,

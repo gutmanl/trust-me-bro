@@ -8,7 +8,6 @@ import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import { acquireDocument, buildSnapshot, extractTextOrError } from "./document";
-import { isSourceSetFrozen } from "./capture";
 import type { CaptureDependencies } from "./capture";
 import { nodeHttpFetcher } from "./node-http-fetcher";
 
@@ -42,12 +41,12 @@ const RECHECK_STATUSES = new Set([
 ]);
 
 /**
- * Revises one frozen source (TMB-44): acquires the current document, and —
- * only if its checksum differs from the frozen snapshot — rotates the
- * snapshot to a new revision (the old one moves to previous_snapshots and
- * its blobs stay in the store), advances the project-wide
- * source_set_revision, appends the source_set_revised chain event and marks
- * all affected settled claims for Nachprüfung in the same transaction.
+ * Revises a source (TMB-44): acquires the current document, and — only if
+ * its checksum differs from the existing snapshot — rotates the snapshot to
+ * a new revision (the old one moves to previous_snapshots and its blobs
+ * stay in the store), advances the project-wide source_set_revision,
+ * appends the source_set_revised chain event and marks all affected
+ * settled claims for Nachprüfung in the same transaction.
  */
 export async function reviseSource(
   input: ReviseSourceInput,
@@ -64,12 +63,6 @@ export async function reviseSource(
   }
   const store = requireProjectStore(input.projectId);
   const register = await store.read();
-  if (!isSourceSetFrozen(register)) {
-    throw new SourceRevisionPreconditionError(
-      "Der Quellenbestand ist noch nicht eingefroren – " +
-        "vor dem Einfrieren wird eine Quelle einfach neu erfasst.",
-    );
-  }
   const source = register.sources.find(
     (candidate) => candidate.id === input.sourceId,
   );

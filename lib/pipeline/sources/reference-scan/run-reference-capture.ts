@@ -4,7 +4,7 @@ import { requireProjectStore } from "../../projects";
 import { getGlobalJobRunner } from "../../runs/job-runner";
 import type { JobRunner } from "../../runs/job-runner";
 import type { RunHandle } from "../../runs/types";
-import { captureSource, isSourceSetFrozen } from "../capture";
+import { captureSource } from "../capture";
 import type { CaptureSourceInput } from "../capture";
 import type { HttpFetcher } from "../fetch-port";
 import { loadReferenceScanResult } from "./load-scan-result";
@@ -21,8 +21,8 @@ import type { ReferenceCandidate } from "./schema";
  * exist now", and the job-runner's own progress feed (item_started/
  * item_completed) already gives the UI everything a bracket would add.
  * Per-item failures ride the job-runner's existing try/catch around each
- * step (job-runner.ts) — a stale candidate id, a frozen source set reached
- * mid-batch, or a capture error for one item never aborts its siblings.
+ * step (job-runner.ts) — a stale candidate id or a capture error for one
+ * item never aborts its siblings.
  */
 
 export interface ReferenceCaptureSelection {
@@ -61,13 +61,8 @@ export async function startReferenceCapture(
   if (selections.length === 0) {
     throw new ReferenceCapturePreconditionError("Keine Kandidaten ausgewählt.");
   }
-  const store = requireProjectStore(projectId);
-  const register = await store.read();
-  if (isSourceSetFrozen(register)) {
-    throw new ReferenceCapturePreconditionError(
-      "Der Quellenbestand ist bereits eingefroren.",
-    );
-  }
+  // Validates the project exists before submitting to the runner.
+  requireProjectStore(projectId);
 
   const runner = deps.runner ?? getGlobalJobRunner();
   const fetcher = deps.fetcher;

@@ -112,12 +112,6 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
         },
       },
     } as never);
-    tx.recordProjectEvent({
-      event: "source_set_frozen",
-      reason:
-        "Beispielprojekt: zwei synthetische Quellen eingefroren, Revision 1.",
-      actor: SEED_ACTOR,
-    });
   });
 
   // Extraction: one well-supported claim, one weakly supported, one without

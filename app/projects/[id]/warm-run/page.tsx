@@ -1,10 +1,6 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
-import {
-  getProjectSummary,
-  isSourceSetFrozen,
-  readProject,
-} from "@/lib/pipeline";
+import { getProjectSummary, readProject } from "@/lib/pipeline";
 import { WarmRunForm } from "./WarmRunForm";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +11,6 @@ export default async function WarmRunPage(
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
   const summary = await getProjectSummary(id);
-  const frozen = isSourceSetFrozen(register);
   const settled =
     summary.claim_counts.confirmed +
     summary.claim_counts.auto_confirmed +
@@ -26,10 +21,10 @@ export default async function WarmRunPage(
       <div>
         <SubpageHeader projectId={id} title="Folgefrage (warmer Lauf)" />
         <p className="mt-1 text-sm text-slate-600">
-          Ein warmer Lauf legt ein Folgeprojekt auf demselben eingefrorenen
-          Quellenbestand an: abgeschlossene Claims werden mit Herkunftsvermerk
-          übernommen, neu bewertet wird nur ihre Einschlägigkeit für die neue
-          Frage – nicht erneut Existenz und Attribution.
+          Ein warmer Lauf legt ein Folgeprojekt auf demselben Quellenbestand an:
+          abgeschlossene Claims werden mit Herkunftsvermerk übernommen, neu
+          bewertet wird nur ihre Einschlägigkeit für die neue Frage – nicht
+          erneut Existenz und Attribution.
         </p>
       </div>
 
@@ -47,12 +42,7 @@ export default async function WarmRunPage(
         </p>
       </div>
 
-      {!frozen ? (
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Der Quellenbestand ist noch nicht eingefroren – warme Läufe setzen
-          einen eingefrorenen Bestand voraus.
-        </p>
-      ) : settled === 0 ? (
+      {settled === 0 ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           Noch keine abgeschlossenen Claims (bestätigt, automatisch bestätigt
           oder verworfen) – es gibt nichts zu übernehmen.

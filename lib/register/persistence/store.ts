@@ -60,8 +60,8 @@ export interface RegisterTransaction {
   getConfig(): ProjectConfig;
   listSources(): Source[];
   listClaims(): Claim[];
-  /** Read-only snapshot of the project events, e.g. for workflow gates
-   * (source_set_frozen) that must be checked inside the transaction. */
+  /** Read-only snapshot of the project events, e.g. for workflow
+   * preconditions that must be checked inside the transaction. */
   listProjectEvents(): ProjectEvent[];
   getClaim(claimId: string): Claim;
   /** Adds a source entry (CSL-JSON item with `custom` block). Validated with

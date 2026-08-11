@@ -6,19 +6,14 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { containsNormalized, RegisterStore, Source } from "../../register";
-import {
-  DocumentFetchError,
-  EmptySourceSetError,
-  InvalidSourceInputError,
-  SourceSetFrozenError,
-} from "../errors";
+import { DocumentFetchError, InvalidSourceInputError } from "../errors";
 import { createProject } from "../projects";
 import {
   ARXIV_ATOM_RESPONSE,
   CSL_JSON_RESPONSE,
   fakeFetcher,
 } from "./__fixtures__/fake-fetcher";
-import { captureSource, freezeSourceSet, isSourceSetFrozen } from "./capture";
+import { captureSource } from "./capture";
 
 const PDF_BYTES = Buffer.from("%PDF-1.7 fake");
 const REAL_PDF = fs.readFileSync(
@@ -394,14 +389,8 @@ describe("full-text extraction at capture (TMB-24)", () => {
   });
 });
 
-describe("freezeSourceSet", () => {
-  it("rejects freezing an empty source set", async () => {
-    await expect(freezeSourceSet("proj_quellen")).rejects.toBeInstanceOf(
-      EmptySourceSetError,
-    );
-  });
-
-  it("appends the source_set_frozen event and blocks further captures", async () => {
+describe("captureSource after other captures", () => {
+  it("keeps accepting captures with no upper bound (no freeze gate)", async () => {
     await captureSource(
       {
         projectId: "proj_quellen",
@@ -412,33 +401,21 @@ describe("freezeSourceSet", () => {
       },
       { fetcher: defaultFetcher() },
     );
-    await freezeSourceSet("proj_quellen");
+    const second = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "upload",
+        sourceType: "grey_literature",
+        manual: { title: "Nachzügler" },
+        upload: { content: PDF_BYTES, filename: "b.pdf" },
+      },
+      { fetcher: defaultFetcher() },
+    );
 
+    expect(second.id).toBeDefined();
     const store = RegisterStore.forProject("proj_quellen");
     const register = await store.read();
-    expect(isSourceSetFrozen(register)).toBe(true);
-    const freezeEvent = register.project_events.find(
-      (event) => event.event === "source_set_frozen",
-    );
-    expect(freezeEvent?.reason).toBe(
-      "Quellenbestand eingefroren: 1 Quelle(n), Revision 1.",
-    );
+    expect(register.sources).toHaveLength(2);
     expect((await store.verify()).ok).toBe(true);
-
-    await expect(freezeSourceSet("proj_quellen")).rejects.toBeInstanceOf(
-      SourceSetFrozenError,
-    );
-    await expect(
-      captureSource(
-        {
-          projectId: "proj_quellen",
-          kind: "upload",
-          sourceType: "grey_literature",
-          manual: { title: "Nachzügler" },
-          upload: { content: PDF_BYTES, filename: "b.pdf" },
-        },
-        { fetcher: defaultFetcher() },
-      ),
-    ).rejects.toBeInstanceOf(SourceSetFrozenError);
   });
 });

@@ -29,9 +29,9 @@ through the adapter orchestrator, every network access through the
 - `sources/` — capture use-case: `identifiers.ts` (DOI/arXiv/URL
   normalization, pure), `csl.ts` (CSL-JSON core, citations, F4 strip),
   `resolve.ts` (doi.org content negotiation, arXiv Atom), `capture.ts`
-  (snapshot freeze incl. full text, `source_set_frozen`),
-  `fetch-port.ts` + `node-http-fetcher.ts` (the single sanctioned
-  network call site, architecture-guarded).
+  (per-source snapshot freeze incl. full text), `fetch-port.ts` +
+  `node-http-fetcher.ts` (the single sanctioned network call site,
+  architecture-guarded).
 - `fulltext/` — deterministic snapshot → text extraction (unpdf,
   Readability + linkedom); failures land in
   `custom.snapshot.text_extraction_error`, never block a capture.

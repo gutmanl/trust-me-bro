@@ -63,13 +63,9 @@ export type {
   Source,
 } from "../register";
 export { mintProjectId, slugify } from "./ids";
-export {
-  captureSource,
-  freezeSourceSet,
-  isSourceSetFrozen,
-} from "./sources/capture";
+export { captureSource } from "./sources/capture";
 export type { CaptureKind, CaptureSourceInput } from "./sources/capture";
-// TMB-44: source revision on a frozen set.
+// TMB-44: revises a captured source's snapshot.
 export { reviseSource } from "./sources/revise";
 export type { ReviseSourceInput, ReviseSourceResult } from "./sources/revise";
 export { formatCitation, toPlainCsl } from "./sources/csl";

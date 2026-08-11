@@ -167,9 +167,7 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.publishBriefingRevision).toBeDefined();
     expect(surface.computeReanchorUpdates).toBeUndefined();
     expect(surface.captureSource).toBeDefined();
-    expect(surface.freezeSourceSet).toBeDefined();
-    expect(surface.isSourceSetFrozen).toBeDefined();
-    // TMB-44: source revision on a frozen set; the shared document
+    // TMB-44: revises a captured source's snapshot; the shared document
     // acquisition helper stays internal.
     expect(surface.reviseSource).toBeDefined();
     expect(surface.acquireDocument).toBeUndefined();

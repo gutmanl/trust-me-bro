@@ -10,11 +10,7 @@ import {
   SuccessBanner,
 } from "@/app/components/ui";
 import type { ReviseFormState, SourceFormState } from "./actions";
-import {
-  captureSourceAction,
-  freezeSourceSetAction,
-  reviseSourceAction,
-} from "./actions";
+import { captureSourceAction, reviseSourceAction } from "./actions";
 
 const initialState: SourceFormState = { error: null };
 
@@ -237,9 +233,10 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
 const initialReviseState: ReviseFormState = { error: null };
 
 /**
- * Disclosure-style per-source revision form (TMB-44), only rendered on a
- * frozen set: re-fetch from a URL or upload the current document; identical
- * content is recognized via checksum and changes nothing.
+ * Disclosure-style per-source revision form (TMB-44), rendered for any
+ * source with a snapshot: re-fetch from a URL or upload the current
+ * document; identical content is recognized via checksum and changes
+ * nothing.
  */
 export function ReviseSourceForm({
   projectId,
@@ -332,36 +329,6 @@ export function ReviseSourceForm({
           Abbrechen
         </button>
       </div>
-    </form>
-  );
-}
-
-export function FreezeSourceSetForm({
-  projectId,
-  sourceCount,
-}: {
-  projectId: string;
-  sourceCount: number;
-}) {
-  const [state, formAction, pending] = useActionState(
-    freezeSourceSetAction.bind(null, projectId),
-    initialState,
-  );
-
-  return (
-    <form action={formAction} className="space-y-3">
-      <p className="text-sm text-slate-600">
-        Das Einfrieren schließt die Erfassung ab: Alle Prüfungen beziehen sich
-        danach auf genau diesen Bestand ({sourceCount} Quelle(n)).
-      </p>
-      <ErrorBanner message={state.error} />
-      <button
-        type="submit"
-        disabled={pending || sourceCount === 0}
-        className="rounded-md border border-slate-900 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-900 hover:text-white disabled:opacity-50"
-      >
-        {pending ? "Wird eingefroren …" : "Quellenbestand einfrieren"}
-      </button>
     </form>
   );
 }

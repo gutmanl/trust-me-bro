@@ -8,13 +8,11 @@ import { RegisterStore } from "../../../register";
 import { ReferenceCapturePreconditionError } from "../../errors";
 import { createProject } from "../../projects";
 import { createJobRunner } from "../../runs/job-runner";
-import { captureSource, freezeSourceSet } from "../capture";
 import {
   ARXIV_ATOM_RESPONSE,
   CSL_JSON_RESPONSE,
   fakeFetcher,
 } from "../__fixtures__/fake-fetcher";
-import type { HttpFetcher } from "../fetch-port";
 import { startReferenceCapture } from "./run-reference-capture";
 import { ReferenceScanResult } from "./schema";
 import type { ReferenceCandidate } from "./schema";
@@ -163,26 +161,6 @@ describe("startReferenceCapture preconditions", () => {
     await expect(startReferenceCapture(PROJECT_ID, [])).rejects.toBeInstanceOf(
       ReferenceCapturePreconditionError,
     );
-  });
-
-  it("rejects once the source set is frozen", async () => {
-    await writeScanResult([ARXIV_CANDIDATE]);
-    await captureSource(
-      {
-        projectId: PROJECT_ID,
-        kind: "upload",
-        sourceType: "grey_literature",
-        manual: { title: "Bericht" },
-        upload: { content: PDF_BYTES, filename: "a.pdf" },
-      },
-      { fetcher: fakeFetcher({}) },
-    );
-    await freezeSourceSet(PROJECT_ID);
-    await expect(
-      startReferenceCapture(PROJECT_ID, [
-        { candidateId: "cnd_arxiv", sourceType: "preprint" },
-      ]),
-    ).rejects.toBeInstanceOf(ReferenceCapturePreconditionError);
   });
 });
 
@@ -537,49 +515,5 @@ describe("startReferenceCapture: corrupt scan blob", () => {
         /Unexpected token|is not valid JSON|ZodError/i,
       );
     }
-  });
-});
-
-describe("startReferenceCapture: freeze mid-batch", () => {
-  it("fails the item reached after a freeze happened between items", async () => {
-    await writeScanResult([ARXIV_CANDIDATE, URL_TITLED_CANDIDATE]);
-    const inner = baseFetcher();
-    const freezingFetcher: HttpFetcher & { calls: unknown[] } = {
-      calls: inner.calls,
-      async fetch(url, options) {
-        if (url.startsWith("https://blog.example.org/post-a")) {
-          // Simulates a concurrent freeze happening between this batch's
-          // items — captureSource re-checks the freeze status fresh inside
-          // its own transaction, so this item must fail even though the
-          // batch already started.
-          await freezeSourceSet(PROJECT_ID);
-        }
-        return inner.fetch(url, options);
-      },
-    };
-
-    const handle = await startReferenceCapture(
-      PROJECT_ID,
-      [
-        { candidateId: "cnd_arxiv", sourceType: "preprint" },
-        { candidateId: "cnd_url_titled", sourceType: "grey_literature" },
-      ],
-      { runner: createJobRunner(), fetcher: freezingFetcher },
-    );
-    const result = await handle.done;
-    expect(result).toEqual({ succeeded: 1, failed: 1 });
-
-    const store = RegisterStore.forProject(PROJECT_ID);
-    const register = await store.read();
-    expect(register.sources).toHaveLength(1);
-    expect(register.sources[0].custom.auto_capture?.method).toBe("arxiv");
-
-    const outcomes = handle
-      .eventsSoFar()
-      .filter((event) => event.type === "item_completed")
-      .map((event) => (event.type === "item_completed" ? event.outcome : null));
-    expect(outcomes[0]?.status).toBe("ok");
-    expect(outcomes[1]?.status).toBe("error");
-    expect(outcomes[1]?.error).toMatch(/eingefroren/);
   });
 });

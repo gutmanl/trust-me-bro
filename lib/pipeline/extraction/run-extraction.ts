@@ -16,10 +16,7 @@ import type {
   RegisterStore,
   RegisterTransaction,
 } from "../../register";
-import {
-  ExtractionAlreadyRanError,
-  ExtractionPreconditionError,
-} from "../errors";
+import { ExtractionPreconditionError } from "../errors";
 import { permissiveBackendPreflight, probeBackendUsable } from "../health";
 import type { BackendPreflight } from "../health";
 import { evidenceIdAt, nextClaimId } from "../ids";
@@ -28,7 +25,6 @@ import { briefingRenderContext } from "../research/independence";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import type { RunHandle } from "../runs/types";
-import { isSourceSetFrozen } from "../sources/capture";
 import { formatCitation } from "../sources/csl";
 import { deriveExtractionState } from "./derive-state";
 import type { ExtractionState } from "./derive-state";
@@ -70,23 +66,6 @@ export async function startExtraction(
       "Vor der Extraktion muss das Briefing importiert sein.",
     );
   }
-  if (!isSourceSetFrozen(register)) {
-    throw new ExtractionPreconditionError(
-      "Vor der Extraktion muss der Quellenbestand eingefroren sein.",
-    );
-  }
-  // Adopted claims of a warm run (TMB-43) do not block the project's own
-  // one-shot extraction; only native (locally extracted) claims do.
-  // nextClaimId scans ALL existing ids, so fresh claims mint past the
-  // highest adopted id — no collision possible.
-  if (
-    register.claims.some(
-      (claim) => claim.provenance.origin_project_id === undefined,
-    )
-  ) {
-    throw new ExtractionAlreadyRanError(projectId);
-  }
-
   // Preflight (TMB-49): a run against an unusable primary CLI is refused
   // BEFORE it starts — with the targeted setup hint, not a mid-run error.
   const preflight =

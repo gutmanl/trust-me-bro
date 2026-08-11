@@ -53,9 +53,9 @@ export function ExtractionPanel({
 }: {
   projectId: string;
   state: ExtractionState;
-  /** A German reason the run cannot start yet (briefing not imported, source
-   * set not frozen), computed server-side so the button is disabled with an
-   * explanation instead of failing only on submit. */
+  /** A German reason the run cannot start yet (briefing not imported),
+   * computed server-side so the button is disabled with an explanation
+   * instead of failing only on submit. */
   blockedReason?: string | null;
 }) {
   const router = useRouter();

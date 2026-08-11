@@ -3,7 +3,6 @@ import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
 import {
   getBackendsHealth,
   getExtractionState,
-  isSourceSetFrozen,
   readProject,
 } from "@/lib/pipeline";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
@@ -55,9 +54,7 @@ export default async function ExtractionPage(
   // submit.
   const blockedReason = !register.project.briefing_import
     ? "Vor der Extraktion muss das Briefing importiert sein."
-    : !isSourceSetFrozen(register)
-      ? "Vor der Extraktion muss der Quellenbestand eingefroren sein."
-      : null;
+    : null;
 
   return (
     <div className="space-y-6">

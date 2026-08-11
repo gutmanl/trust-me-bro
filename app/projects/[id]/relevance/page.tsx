@@ -58,9 +58,9 @@ export default async function RelevancePage(
       <div>
         <SubpageHeader projectId={id} title="Einschlägigkeitsprüfung" />
         <p className="mt-1 text-sm text-slate-600">
-          Übernommene Claims sind auf demselben eingefrorenen Bestand bereits
-          geprüft und adjudiziert – neu bewertet wird nur ihre Einschlägigkeit
-          für die neue Recherchefrage. Negative oder unsichere Urteile gehen zur
+          Übernommene Claims sind auf demselben Quellenbestand bereits geprüft
+          und adjudiziert – neu bewertet wird nur ihre Einschlägigkeit für die
+          neue Recherchefrage. Negative oder unsichere Urteile gehen zur
           Adjudikation; die Entscheidung bleibt beim Menschen.
         </p>
       </div>

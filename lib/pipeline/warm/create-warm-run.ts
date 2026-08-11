@@ -7,7 +7,6 @@ import {
   WarmRunPreconditionError,
 } from "../errors";
 import { requireProjectStore } from "../projects";
-import { isSourceSetFrozen } from "../sources/capture";
 
 const ACTOR_ADOPTION = "system:warm_run" as const;
 
@@ -67,11 +66,11 @@ function copySourceBlobs(
 
 /**
  * Creates a follow-up project as a warm run (TMB-43): the new project starts
- * with the origin's configuration, the complete frozen source corpus
- * (sources and blobs copied verbatim, immediately frozen again) and all
- * settled claims of the origin — created directly in their origin status,
- * with ids kept verbatim and `provenance.origin_project_id` referencing the
- * origin. Only their relevance to the new question is re-assessed afterwards
+ * with the origin's configuration, the complete source corpus (sources and
+ * blobs copied verbatim) and all settled claims of the origin — created
+ * directly in their origin status, with ids kept verbatim and
+ * `provenance.origin_project_id` referencing the origin. Only their
+ * relevance to the new question is re-assessed afterwards
  * (startRelevanceCheck); existence and attribution stand.
  */
 export async function createWarmRunProject(
@@ -96,12 +95,6 @@ export async function createWarmRunProject(
     throw new WarmRunPreconditionError(
       "Ein warmer Lauf ist eine Folgefrage – die Recherchefrage muss sich " +
         "von der des Ursprungsprojekts unterscheiden.",
-    );
-  }
-  if (!isSourceSetFrozen(origin)) {
-    throw new WarmRunPreconditionError(
-      "Warme Läufe setzen einen eingefrorenen Quellenbestand des " +
-        "Ursprungsprojekts voraus.",
     );
   }
   const eligible = origin.claims.filter((claim) =>
@@ -140,14 +133,6 @@ export async function createWarmRunProject(
     for (const source of origin.sources) {
       tx.addSource(structuredClone(source));
     }
-    tx.recordProjectEvent({
-      event: "source_set_frozen",
-      reason:
-        `Quellenbestand aus Projekt "${input.originProjectId}" übernommen ` +
-        `(warmer Lauf): ${origin.sources.length} Quelle(n), ` +
-        `Revision ${origin.project.source_set_revision}.`,
-      actor,
-    });
     for (const originClaim of eligible) {
       const status = originClaim.status as AdoptableStatus;
       adoptedByStatus[status] += 1;

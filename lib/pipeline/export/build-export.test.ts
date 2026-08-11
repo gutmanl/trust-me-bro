@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { unzipBundle, verifyBundleFiles } from "../../export";
 import { importBriefing } from "../briefing";
 import { createProject } from "../projects";
-import { captureSource, freezeSourceSet } from "../sources/capture";
+import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { exportProjectBundle } from "./build-export";
 
@@ -44,7 +44,6 @@ beforeEach(async () => {
     },
     { fetcher: fakeFetcher({}) },
   );
-  await freezeSourceSet(PROJECT);
 });
 
 afterEach(() => {

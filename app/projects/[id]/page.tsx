@@ -110,7 +110,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
               href={`/projects/${summary.id}/sources`}
               className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
             >
-              Quellen erfassen und einfrieren
+              Quellen erfassen
             </Link>
           </li>
           <li className="flex items-center gap-2">

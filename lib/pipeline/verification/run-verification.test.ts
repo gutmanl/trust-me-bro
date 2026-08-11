@@ -21,7 +21,7 @@ import { importBriefing } from "../briefing";
 import { VerificationPreconditionError } from "../errors";
 import { createJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
-import { captureSource, freezeSourceSet } from "../sources/capture";
+import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { startExtraction } from "../extraction/run-extraction";
 import { getVerificationState, startVerification } from "./run-verification";
@@ -144,7 +144,6 @@ async function extractClaims(output: ExtractionOutput): Promise<void> {
     },
     { fetcher: fakeFetcher({}) },
   );
-  await freezeSourceSet(PROJECT);
   const handle = await startExtraction(PROJECT, {
     orchestrator: makeOrchestrator({}, output),
     runner,

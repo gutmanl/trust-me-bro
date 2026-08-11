@@ -103,17 +103,6 @@ export class ResearchPreconditionError extends PipelineError {}
 /** Preconditions of the extraction run are not met. */
 export class ExtractionPreconditionError extends PipelineError {}
 
-/** Extraction already produced claims; re-extraction is a later epic
- * (warm runs, TMB-7) — guarding now avoids claim-id ambiguity. */
-export class ExtractionAlreadyRanError extends PipelineError {
-  constructor(readonly projectId: string) {
-    super(
-      `Projekt "${projectId}" hat bereits extrahierte Claims – ` +
-        "eine erneute Extraktion ist im Prototyp nicht vorgesehen.",
-    );
-  }
-}
-
 /** Full-text extraction of a snapshot failed; recorded at the source
  * entry (custom.snapshot.text_extraction_error), never silently dropped. */
 export class FullTextExtractionError extends PipelineError {}
@@ -140,19 +129,7 @@ export class TextExtractionTimeoutError extends PipelineError {
  * left to verify, unknown rubric version). */
 export class VerificationPreconditionError extends PipelineError {}
 
-/** The source set is frozen; captures/changes need a revision workflow
- * (later epic) instead of silently mutating the frozen corpus. */
-export class SourceSetFrozenError extends PipelineError {
-  constructor(readonly projectId: string) {
-    super(
-      `Der Quellenbestand von Projekt "${projectId}" ist eingefroren – ` +
-        "alle Prüfungen beziehen sich auf diesen Stand.",
-    );
-  }
-}
-
-/** A source revision violates its preconditions (TMB-44): the set is not
- * frozen yet (unfrozen sources are simply re-captured), or the source has
+/** A source revision violates its preconditions (TMB-44): the source has
  * no snapshot. */
 export class SourceRevisionPreconditionError extends PipelineError {}
 
@@ -163,18 +140,8 @@ export class UnknownSourceError extends PipelineError {
   }
 }
 
-/** Freezing needs at least one captured source. */
-export class EmptySourceSetError extends PipelineError {
-  constructor(readonly projectId: string) {
-    super(
-      `Projekt "${projectId}" hat noch keine Quellen – ` +
-        "ein leerer Quellenbestand kann nicht eingefroren werden.",
-    );
-  }
-}
-
-/** A warm run violates its preconditions (TMB-43): origin not frozen, no
- * settled claims to adopt, or the follow-up question equals the origin's. */
+/** A warm run violates its preconditions (TMB-43): no settled claims to
+ * adopt, or the follow-up question equals the origin's. */
 export class WarmRunPreconditionError extends PipelineError {}
 
 /** The relevance check violates its preconditions (TMB-43): no adopted
@@ -222,12 +189,11 @@ export class BriefingAlreadyImportedError extends PipelineError {
 }
 
 /** Preconditions of a reference scan are not met (reference auto-import):
- * no briefing imported yet, or the source set is already frozen. */
+ * no briefing imported yet. */
 export class ReferenceScanPreconditionError extends PipelineError {}
 
 /** Preconditions of a reference capture batch are not met (reference
- * auto-import): no candidates selected, or the source set is already
- * frozen. */
+ * auto-import): no candidates selected. */
 export class ReferenceCapturePreconditionError extends PipelineError {}
 
 /** Preconditions of publishing a briefing revision are not met (workbench

@@ -14,7 +14,6 @@ import type { RelevanceOutput } from "../../adapters";
 import { RegisterStore } from "../../register";
 import type { ClaimStatus } from "../../register";
 import {
-  ExtractionAlreadyRanError,
   ProjectAlreadyExistsError,
   RelevancePreconditionError,
   WarmRunPreconditionError,
@@ -23,7 +22,7 @@ import { importBriefing } from "../briefing";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
 import { createJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
-import { captureSource, freezeSourceSet } from "../sources/capture";
+import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { startExtraction } from "../extraction/run-extraction";
 import { createWarmRunProject } from "./create-warm-run";
@@ -108,20 +107,8 @@ function relevanceOrchestrator(
 }
 
 describe("createWarmRunProject", () => {
-  it("rejects an unfrozen origin", async () => {
-    await addOriginClaimAt("confirmed");
-    await expect(
-      createWarmRunProject({
-        originProjectId: ORIGIN,
-        newProjectId: WARM,
-        newResearchQuestion: "Wie wirken LLM-Reviews auf die Codequalität?",
-      }),
-    ).rejects.toBeInstanceOf(WarmRunPreconditionError);
-  });
-
   it("rejects an unchanged research question", async () => {
     await addOriginClaimAt("confirmed");
-    await freezeSourceSet(ORIGIN);
     await expect(
       createWarmRunProject({
         originProjectId: ORIGIN,
@@ -134,7 +121,6 @@ describe("createWarmRunProject", () => {
   it("rejects an origin without settled claims", async () => {
     await addOriginClaimAt("captured");
     await addOriginClaimAt("pending_adjudication");
-    await freezeSourceSet(ORIGIN);
     await expect(
       createWarmRunProject({
         originProjectId: ORIGIN,
@@ -144,12 +130,11 @@ describe("createWarmRunProject", () => {
     ).rejects.toBeInstanceOf(WarmRunPreconditionError);
   });
 
-  it("adopts settled claims verbatim into a frozen follow-up project", async () => {
+  it("adopts settled claims verbatim into a follow-up project", async () => {
     const confirmed = await addOriginClaimAt("confirmed");
     const autoConfirmed = await addOriginClaimAt("auto_confirmed");
     const discarded = await addOriginClaimAt("discarded");
     const open = await addOriginClaimAt("pending_adjudication");
-    await freezeSourceSet(ORIGIN);
 
     const result = await createWarmRunProject({
       originProjectId: ORIGIN,
@@ -167,7 +152,9 @@ describe("createWarmRunProject", () => {
     const store = RegisterStore.forProject(WARM);
     const register = await store.read();
 
-    // Config inherited, corpus copied verbatim and frozen immediately.
+    // Config inherited, corpus copied verbatim; the new project stamps no
+    // freeze event (the gate is gone) — adopted claims' provenance and the
+    // per-source snapshot revision already pin the corpus.
     expect(register.config).toEqual(
       (await RegisterStore.forProject(ORIGIN).read()).config,
     );
@@ -177,7 +164,7 @@ describe("createWarmRunProject", () => {
       register.project_events.some(
         (event) => event.event === "source_set_frozen",
       ),
-    ).toBe(true);
+    ).toBe(false);
     const snapshot = register.sources[0].custom.snapshot;
     expect(
       store
@@ -213,9 +200,8 @@ describe("createWarmRunProject", () => {
     ).rejects.toBeInstanceOf(ProjectAlreadyExistsError);
   });
 
-  it("allows the warm project's own one-shot extraction past the adopted claims", async () => {
+  it("mints fresh claim ids past the adopted claims on the warm project's own extraction", async () => {
     await addOriginClaimAt("confirmed");
-    await freezeSourceSet(ORIGIN);
     await createWarmRunProject({
       originProjectId: ORIGIN,
       newProjectId: WARM,
@@ -262,10 +248,6 @@ describe("createWarmRunProject", () => {
     const register = await RegisterStore.forProject(WARM).read();
     // Fresh id minted past the highest adopted id (clm_0001 adopted).
     expect(register.claims.map((claim) => claim.id)).toContain("clm_0002");
-    // A second extraction is now blocked by the native claim.
-    await expect(
-      startExtraction(WARM, { orchestrator, runner }),
-    ).rejects.toBeInstanceOf(ExtractionAlreadyRanError);
   });
 });
 
@@ -278,7 +260,6 @@ describe("relevance check", () => {
     const confirmed = await addOriginClaimAt("confirmed");
     const autoConfirmed = await addOriginClaimAt("auto_confirmed");
     const discarded = await addOriginClaimAt("discarded");
-    await freezeSourceSet(ORIGIN);
     await createWarmRunProject({
       originProjectId: ORIGIN,
       newProjectId: WARM,

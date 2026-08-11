@@ -12,13 +12,10 @@ import {
 import type { ExtractionOutput } from "../../adapters";
 import { RegisterStore } from "../../register";
 import { importBriefing } from "../briefing";
-import {
-  ExtractionAlreadyRanError,
-  ExtractionPreconditionError,
-} from "../errors";
+import { ExtractionPreconditionError } from "../errors";
 import { createProject } from "../projects";
 import { createJobRunner } from "../runs/job-runner";
-import { captureSource, freezeSourceSet } from "../sources/capture";
+import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { getExtractionState, startExtraction } from "./run-extraction";
 
@@ -130,22 +127,10 @@ async function prepareProject(): Promise<void> {
   // The mock output references src_studie — rename via re-capture is not
   // possible, so assert the minted id matches the fixture's expectation.
   expect(source.id).toBe("src_studie");
-  await freezeSourceSet("proj_extraktion");
 }
 
 describe("startExtraction preconditions", () => {
   it("requires an imported briefing", async () => {
-    await expect(startExtraction("proj_extraktion")).rejects.toBeInstanceOf(
-      ExtractionPreconditionError,
-    );
-  });
-
-  it("requires a frozen source set", async () => {
-    await importBriefing({
-      projectId: "proj_extraktion",
-      content: BRIEFING,
-      tool: "x",
-    });
     await expect(startExtraction("proj_extraktion")).rejects.toBeInstanceOf(
       ExtractionPreconditionError,
     );
@@ -239,21 +224,6 @@ describe("extraction run", () => {
     ).toBe("not_started");
     release();
     await handle.done;
-  });
-
-  it("blocks a second extraction once claims exist", async () => {
-    await prepareProject();
-    const handle = await startExtraction("proj_extraktion", {
-      orchestrator: testOrchestrator(),
-      runner: createJobRunner(),
-    });
-    await handle.done;
-    await expect(
-      startExtraction("proj_extraktion", {
-        orchestrator: testOrchestrator(),
-        runner: createJobRunner(),
-      }),
-    ).rejects.toBeInstanceOf(ExtractionAlreadyRanError);
   });
 
   it("records a failure completion with zero claims when attempts are exhausted", async () => {

@@ -109,7 +109,7 @@ export default async function StatusPage(
         <SubpageHeader projectId={id} title="Systemstatus der Backends" />
         <p className="mt-1 text-sm text-slate-600">
           Preflight-Diagnose der Agenten-CLIs dieses Projekts. Ohne
-          einsatzbereites Backend bleiben Import, Quellen-Einfrieren, die
+          einsatzbereites Backend bleiben Import, Quellenerfassung, die
           deterministische Existenzprüfung, Adjudikation, Verlauf und Export
           nutzbar; nur die LLM-Prüfschritte sind gesperrt.
         </p>

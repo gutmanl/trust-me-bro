@@ -1,10 +1,5 @@
-import type { ClaimsRegister, Source, SourceType } from "../../register";
-import { getCurrentActor } from "../../identity";
-import {
-  EmptySourceSetError,
-  InvalidSourceInputError,
-  SourceSetFrozenError,
-} from "../errors";
+import type { Source, SourceType } from "../../register";
+import { InvalidSourceInputError } from "../errors";
 import { mintSourceId } from "../ids";
 import { requireProjectStore } from "../projects";
 import {
@@ -49,17 +44,6 @@ export interface CaptureSourceInput {
 
 export interface CaptureDependencies {
   fetcher?: HttpFetcher;
-}
-
-/** The one place that knows how "frozen" is encoded in the event log. */
-function hasFreezeEvent(events: readonly { event: string }[]): boolean {
-  return events.some((event) => event.event === "source_set_frozen");
-}
-
-/** True once the source_set_frozen event exists — every verification then
- * references exactly this corpus state. */
-export function isSourceSetFrozen(register: ClaimsRegister): boolean {
-  return hasFreezeEvent(register.project_events);
 }
 
 function requireManual(manual: ManualMetadata | undefined): ManualMetadata {
@@ -123,7 +107,7 @@ async function resolveMetadata(
  * metadata (URL/upload sources carry manual metadata), downloads or accepts
  * the source document, freezes it as content-addressed snapshot with
  * retrieval time, SHA-256 and revision 1, and appends the source entry to
- * the register. Rejected once the source set is frozen.
+ * the register.
  */
 export async function captureSource(
   input: CaptureSourceInput,
@@ -147,9 +131,6 @@ export async function captureSource(
   const now = new Date().toISOString();
 
   return store.transaction((tx) => {
-    if (hasFreezeEvent(tx.listProjectEvents())) {
-      throw new SourceSetFrozenError(input.projectId);
-    }
     const existing = new Set(tx.listSources().map((source) => source.id));
     const id = mintSourceId(
       {
@@ -176,28 +157,5 @@ export async function captureSource(
     };
     tx.addSource(source);
     return structuredClone(source);
-  });
-}
-
-/**
- * Freezes the source set (TMB-23): appends the source_set_frozen event —
- * afterwards captures are rejected and every verification references this
- * corpus state. One-way in this epic; revising reopens in a later epic.
- */
-export async function freezeSourceSet(projectId: string): Promise<void> {
-  const store = requireProjectStore(projectId);
-  await store.transaction((tx) => {
-    if (hasFreezeEvent(tx.listProjectEvents())) {
-      throw new SourceSetFrozenError(projectId);
-    }
-    const sources = tx.listSources();
-    if (sources.length === 0) {
-      throw new EmptySourceSetError(projectId);
-    }
-    tx.recordProjectEvent({
-      event: "source_set_frozen",
-      reason: `Quellenbestand eingefroren: ${sources.length} Quelle(n), Revision ${tx.getProject().source_set_revision}.`,
-      actor: getCurrentActor(),
-    });
   });
 }
