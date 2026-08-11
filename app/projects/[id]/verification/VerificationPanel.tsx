@@ -139,7 +139,7 @@ export function VerificationPanel({
 
   return (
     <div className="space-y-4">
-      {startable && blockedReason ? (
+      {blockedReason ? (
         <div>
           <button type="button" disabled className={primaryButtonClass}>
             Prüfung starten

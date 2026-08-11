@@ -73,7 +73,7 @@ export default async function TracesPage(
             <dt className="text-xs text-slate-500">Tokens (ein/aus)</dt>
             <dd className="text-lg font-semibold">
               {summary.usageReported
-                ? `${summary.inputTokens ?? 0} / ${summary.outputTokens ?? 0}`
+                ? `${summary.inputTokens ?? "–"} / ${summary.outputTokens ?? "–"}`
                 : "nicht gemeldet"}
             </dd>
           </div>

@@ -97,7 +97,7 @@ export function ExtractionPanel({
 
   return (
     <div className="space-y-4">
-      {startable && blockedReason ? (
+      {blockedReason && !watching ? (
         <div>
           <button type="button" disabled className={primaryButtonClass}>
             {state.status === "not_started"
