@@ -75,40 +75,4 @@ describe("scanRegex", () => {
   it("finds nothing in a briefing without any citation", () => {
     expect(scanRegex("Nur Fließtext ohne jede Referenz.")).toEqual([]);
   });
-
-  it("detects a Markdown footnote definition as a textual reference with a cleaned title", () => {
-    const hits = scanRegex(
-      "Der Effekt ist belegt.[^1]\n\n[^1]: A Study on the Comprehensibility of Behavioral Programming Variants | OpenReview.",
-    );
-    expect(hits).toHaveLength(1);
-    expect(hits[0]).toMatchObject({
-      method: "textual",
-      title:
-        "A Study on the Comprehensibility of Behavioral Programming Variants",
-    });
-    expect(hits[0].raw_text).toContain("OpenReview");
-  });
-
-  it("handles an Elicit-truncated footnote title", () => {
-    const hits = scanRegex(
-      "[^2]: On Visualization and Comprehension of Scenario-Based ...",
-    );
-    expect(hits).toHaveLength(1);
-    expect(hits[0]).toMatchObject({
-      method: "textual",
-      title: "On Visualization and Comprehension of Scenario-Based",
-    });
-  });
-
-  it("leaves a footnote that carries its own DOI to the identifier channel", () => {
-    const hits = scanRegex("[^3]: Some paper. https://doi.org/10.1000/xyz");
-    // The DOI hit wins; no duplicate textual hit for the same footnote.
-    expect(hits).toHaveLength(1);
-    expect(hits[0]).toMatchObject({ method: "doi", doi: "10.1000/xyz" });
-  });
-
-  it("does not treat a footnote MARKER in prose as a reference", () => {
-    // A `[^1]` reference marker inside a sentence is not a definition line.
-    expect(scanRegex("Der Effekt ist belegt.[^1]")).toEqual([]);
-  });
 });

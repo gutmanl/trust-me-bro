@@ -27,6 +27,11 @@ import type { CrossrefWork } from "./crossref";
 import { searchCrossref } from "./crossref";
 import { MATCH_FLOOR, scoreMatch } from "./crossref-match";
 import { cleanReferenceTitle } from "./reference-title";
+import {
+  footnoteMarkersIn,
+  parseFootnoteDefinitions,
+  type FootnoteDefinition,
+} from "./footnotes";
 import { deriveDocumentUrl } from "./derive-document-url";
 import { deriveReferenceScanState } from "./derive-state";
 import type { ReferenceScanState } from "./derive-state";
@@ -178,15 +183,37 @@ async function runReferenceScanOnce(
   });
 
   const regexHits = scanRegex(briefingText);
-  const identifierHits = regexHits.filter((hit) => hit.method !== "textual");
-  const footnoteHits = regexHits.filter((hit) => hit.method === "textual");
-  const regexSeeds: CandidateSeed[] = identifierHits.map((hit) => ({
-    raw_text: hit.raw_text,
-    method: hit.method as "doi" | "arxiv" | "url",
-    ...(hit.doi ? { doi: hit.doi } : {}),
-    ...(hit.arxiv_id ? { arxiv_id: hit.arxiv_id } : {}),
-    ...(hit.url ? { url: hit.url } : {}),
-  }));
+  const footnotes = parseFootnoteDefinitions(briefingText);
+  const footnoteByMarker = new Map(footnotes.map((def) => [def.marker, def]));
+
+  // A footnote whose marker also appears inline next to a URL/DOI IS that
+  // inline source (Elicit cites each source both ways). Its marker is
+  // "claimed": the footnote's title enriches the identifier candidate below,
+  // and its separate report by the LLM/footnote channel is a duplicate.
+  const claimedMarkers = new Set<string>();
+  for (const hit of regexHits) {
+    for (const marker of footnoteMarkersIn(hit.raw_text)) {
+      if (footnoteByMarker.has(marker)) {
+        claimedMarkers.add(marker);
+      }
+    }
+  }
+
+  const regexSeeds: CandidateSeed[] = regexHits.map((hit) => {
+    const def = footnoteMarkersIn(hit.raw_text)
+      .map((marker) => footnoteByMarker.get(marker))
+      .find((entry): entry is FootnoteDefinition => entry !== undefined);
+    return {
+      raw_text: hit.raw_text,
+      method: hit.method,
+      ...(hit.doi ? { doi: hit.doi } : {}),
+      ...(hit.arxiv_id ? { arxiv_id: hit.arxiv_id } : {}),
+      ...(hit.url ? { url: hit.url } : {}),
+      // The footnote for this citation's marker gives the inline URL/DOI a
+      // title it otherwise lacks (a bare URL has none).
+      ...(def?.title ? { title: def.title } : {}),
+    };
+  });
 
   let parsed: ParsedReference[] = [];
   let method: "regex" | "regex+llm" = "regex";
@@ -195,7 +222,7 @@ async function runReferenceScanOnce(
   if (context.backendUsable) {
     // Only identifier spans are hidden from the LLM; footnote titles are left
     // visible so the model reports (and enriches) them as it normally would.
-    const alreadyDetected = identifierHits.map((hit) => hit.matchedText);
+    const alreadyDetected = regexHits.map((hit) => hit.matchedText);
     const input: ReferenceParseInput = {
       briefing_text: briefingText,
       already_detected: alreadyDetected,
@@ -220,10 +247,25 @@ async function runReferenceScanOnce(
     degradationNote = ` LLM-Kanal übersprungen (Backend nicht einsatzbereit: ${context.backendHint ?? "unbekannt"}).`;
   }
 
-  // Drop LLM citations that re-report a paragraph the regex already caught by
-  // its inline URL/DOI, so the same work is not suggested twice (once as the
-  // pasted URL, once as its Crossref-resolved title).
-  const parsedNew = dropAlreadyIdentified(parsed, identifierHits);
+  // De-dup units: the briefing paragraphs that carry an inline identifier,
+  // plus the footnote definitions already claimed by an inline identifier
+  // (their titles now live on the identifier candidate). An LLM citation that
+  // re-reports either — the same paragraph in prose, or the same footnote
+  // definition — is a duplicate of the identifier candidate and dropped.
+  const identifierSpans = regexHits.map((hit) => hit.matchedText);
+  const identifiedParagraphs = briefingText
+    .split(/\r?\n\s*\r?\n/)
+    .filter((paragraph) =>
+      identifierSpans.some((span) => paragraph.includes(span)),
+    );
+  const claimedFootnoteTexts = footnotes
+    .filter((def) => claimedMarkers.has(def.marker))
+    .map((def) => def.rawText);
+  const parsedNew = dropAlreadyIdentified(
+    parsed,
+    [...identifiedParagraphs, ...claimedFootnoteTexts],
+    identifierSpans,
+  );
   const parsedWithIdentifier = parsedNew.filter(
     (reference) => reference.doi || reference.arxiv_id || reference.url,
   );
@@ -244,18 +286,20 @@ async function runReferenceScanOnce(
     }),
   );
 
-  // Footnote references from the deterministic channel feed the same
-  // Crossref title-resolution as the LLM's identifier-less citations — but
-  // only when the LLM channel did NOT run (backend down / rate-limited /
-  // exhausted). When it did run, it already read the whole briefing including
-  // the footnotes, so adding them here would only duplicate work and rows.
+  // Footnote definitions WITHOUT an inline identifier are references with no
+  // pasted link; they feed the same Crossref title-resolution as the LLM's
+  // identifier-less citations — but only when the LLM channel did NOT run (it
+  // reads the footnotes itself). Claimed footnotes are already represented by
+  // their inline identifier candidate, so they are skipped here.
   const footnoteReferences: ParsedReference[] =
     method === "regex"
-      ? footnoteHits.map((hit) => ({
-          raw_text: hit.raw_text,
-          authors: [],
-          title: hit.title ?? hit.raw_text,
-        }))
+      ? footnotes
+          .filter((def) => !claimedMarkers.has(def.marker))
+          .map((def) => ({
+            raw_text: def.rawText,
+            authors: [],
+            title: def.title,
+          }))
       : [];
 
   // Pre-filter against already-captured sources BEFORE any Crossref lookup

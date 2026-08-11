@@ -7,65 +7,60 @@ function ref(raw_text: string, title = "T"): ParsedReference {
   return { raw_text, authors: [], title };
 }
 
+// The two covered blocks the caller builds: an inline-identified paragraph
+// (prose + URL) and a claimed footnote definition.
+const COVERED = [
+  "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme. Quelle: https://example.org/~a/VisDoc3.pdf [^3]",
+  "On Visualization and Comprehension of Scenario-Based Programs",
+];
+const SPANS = ["https://example.org/~a/VisDoc3.pdf"];
+
 describe("dropAlreadyIdentified", () => {
-  const identifiers = [
-    {
-      raw_text:
-        "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme: „…“. Quelle: https://example.org/~a/VisDoc3.pdf [^3]",
-      matchedText: "https://example.org/~a/VisDoc3.pdf",
-    },
-    {
-      raw_text:
-        "Ashrov et al. prüften die Verständlichkeit. Quelle: https://doi.org/10.5220/0013440800003928 [^4]",
-      matchedText: "10.5220/0013440800003928",
-    },
-  ];
-
-  it("drops an LLM citation whose tokens are contained in an already-identified line", () => {
-    const kept = dropAlreadyIdentified(
-      [
-        ref(
-          "Eitan et al. schreiben zur Visualisierung szenariobasierter Programme.",
-        ),
-      ],
-      identifiers,
-    );
-    expect(kept).toHaveLength(0);
-  });
-
-  it("drops a re-report the model reformatted (straight quotes vs. „…“)", () => {
-    // The real failure: the model copies the citation but swaps typographic
-    // for straight quotes, so a strict substring check missed it. Token
-    // containment still recognizes it as the same paragraph.
+  it("drops a re-report of the inline prose (reformatted quotes and all)", () => {
     const kept = dropAlreadyIdentified(
       [
         ref(
           'Eitan et al. schreiben "…" zur Visualisierung szenariobasierter Programme.',
         ),
       ],
-      identifiers,
+      COVERED,
+      SPANS,
     );
     expect(kept).toHaveLength(0);
   });
 
-  it("drops an LLM citation that carries the identifier span itself", () => {
+  it("drops a re-report of a claimed footnote definition (different paragraph)", () => {
+    // The model copied the footnote entry, not the prose — a separate block,
+    // linked to the inline URL only by its marker. Token containment against
+    // the claimed footnote text still catches it.
     const kept = dropAlreadyIdentified(
-      [ref("Ashrov et al., DOI 10.5220/0013440800003928")],
-      identifiers,
+      [ref("On Visualization and Comprehension of Scenario-Based Programs")],
+      COVERED,
+      SPANS,
     );
     expect(kept).toHaveLength(0);
   });
 
-  it("keeps a genuinely separate prose-only citation", () => {
+  it("drops a re-report that carries the identifier span itself", () => {
+    const kept = dropAlreadyIdentified(
+      [ref("Some paper at https://example.org/~a/VisDoc3.pdf")],
+      COVERED,
+      SPANS,
+    );
+    expect(kept).toHaveLength(0);
+  });
+
+  it("keeps a genuinely separate citation", () => {
     const kept = dropAlreadyIdentified(
       [ref("Meyer und Schulz (2020) fanden vergleichbare Resultate in Teams.")],
-      identifiers,
+      COVERED,
+      SPANS,
     );
     expect(kept).toHaveLength(1);
   });
 
-  it("keeps everything when there are no identifier hits", () => {
+  it("keeps everything when nothing is covered", () => {
     const refs = [ref("A distinct citation"), ref("Another one entirely")];
-    expect(dropAlreadyIdentified(refs, [])).toEqual(refs);
+    expect(dropAlreadyIdentified(refs, [], [])).toEqual(refs);
   });
 });

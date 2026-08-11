@@ -369,6 +369,52 @@ describe("startReferenceScan: full path (regex + llm + crossref)", () => {
     expect(blob.candidates[0].method).toBe("url");
   });
 
+  it("associates a footnote definition with its inline URL by marker (title + no duplicate)", async () => {
+    // The real Elicit structure: an inline URL with a marker in the prose,
+    // and the reference list as a footnote definition in a SEPARATE paragraph.
+    // The LLM re-reports the footnote entry; without marker association that
+    // becomes a second, Crossref-resolved candidate for the same paper.
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content: [
+        "Harel et al. beschreiben Behavioral Programming. Quelle: https://blog.example.org/post-a [^1]",
+        "",
+        "[^1]: A Review of Research in Behavioral Programming",
+      ].join("\n"),
+      tool: "x",
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      orchestrator: testOrchestrator({
+        output: {
+          references: [
+            {
+              raw_text: "A Review of Research in Behavioral Programming",
+              authors: ["Harel"],
+              title: "A Review of Research in Behavioral Programming",
+            },
+          ],
+        },
+      }),
+      runner: createJobRunner(),
+      fetcher: scanFetcher(),
+    });
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    // One candidate: the inline URL, now carrying the footnote's title.
+    expect(blob.candidates).toHaveLength(1);
+    expect(blob.candidates[0]).toMatchObject({
+      method: "url",
+      title: "A Review of Research in Behavioral Programming",
+    });
+  });
+
   it("merges the regex DOI hit and the Crossref-resolved textual citation", async () => {
     await importBriefing({
       projectId: PROJECT_ID,

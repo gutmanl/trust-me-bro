@@ -12,33 +12,19 @@ import type { ParsedReference } from "../../../adapters";
  * pasted URL vs. the Crossref DOI), so mergeCandidates — which only collapses
  * identical identifiers — keeps both, and the same paper is suggested twice.
  *
- * Deterministic de-duplication: a parsed reference is dropped when it sits on
- * a briefing line that already produced an identifier hit. The match is by
- * WORD-TOKEN containment, not raw substring, because the model reformats the
- * citation it copies — typographic vs. straight quotes, em-dashes, dropped
- * parentheticals — so a strict substring check misses the very re-reports
- * this exists to remove. A reference is dropped when (almost) all of its
- * word tokens appear in one identifier line, or when it carries the
- * identifier span (URL/DOI/arXiv) itself. One citation per line is the norm
- * in a prose briefing, so this keeps the authoritative identifier candidate
- * and removes the re-report.
+ * A parsed reference is dropped when it carries an identifier span itself, or
+ * when (almost) all of its word tokens appear in one already-covered text
+ * block. The caller supplies those blocks (run-reference-scan.ts): the
+ * briefing paragraphs that carry an inline identifier, AND the footnote
+ * definitions already claimed by an inline identifier — so a re-report is
+ * caught whether the model copied the prose or the footnote entry, which live
+ * in different paragraphs joined only by the marker.
+ *
+ * Word-token containment, not substring, because the model reformats what it
+ * copies (typographic vs. straight quotes, em-dashes, dropped parentheticals).
+ * A genuinely different citation — sharing only incidental words — keeps its
+ * distinctive author/title tokens and survives.
  */
-
-export interface IdentifierSpan {
-  /** The whole briefing line the identifier was found on. */
-  raw_text: string;
-  /** The exact identifier span (URL/DOI/arXiv) within that line. */
-  matchedText: string;
-}
-
-/** Fraction of a reference's tokens that must appear in an identifier line
- * for it to count as "the same citation". Below 1 to tolerate a stray token
- * the model added; high enough that a genuinely different citation, which
- * shares only incidental words, stays. */
-const CONTAINMENT_THRESHOLD = 0.8;
-/** Below this many tokens a containment ratio is too noisy to trust (a short
- * fragment's words trivially appear in a long paragraph). */
-const MIN_TOKENS = 3;
 
 function tokenize(text: string): string[] {
   return text
@@ -47,14 +33,21 @@ function tokenize(text: string): string[] {
     .filter((token) => token.length >= 3);
 }
 
+/** Fraction of a reference's tokens that must appear in an identified
+ * paragraph for it to count as "the same citation". Below 1 to tolerate a
+ * stray token the model added. */
+const CONTAINMENT_THRESHOLD = 0.8;
+/** Below this many tokens a containment ratio is too noisy to trust. */
+const MIN_TOKENS = 3;
+
 export function dropAlreadyIdentified(
   references: readonly ParsedReference[],
-  identifiers: readonly IdentifierSpan[],
+  coveredTexts: readonly string[],
+  identifierSpans: readonly string[],
 ): ParsedReference[] {
-  const lineTokenSets = identifiers.map(
-    (hit) => new Set(tokenize(hit.raw_text)),
-  );
-  const spans = identifiers.map((hit) => hit.matchedText.toLowerCase());
+  const spans = identifierSpans.map((span) => span.toLowerCase());
+  const coveredTokenSets = coveredTexts.map((text) => new Set(tokenize(text)));
+
   return references.filter((reference) => {
     const lower = reference.raw_text.toLowerCase();
     if (spans.some((span) => span.length > 0 && lower.includes(span))) {
@@ -64,10 +57,10 @@ export function dropAlreadyIdentified(
     if (tokens.length < MIN_TOKENS) {
       return true; // too little to judge — keep it
     }
-    const onIdentifiedLine = lineTokenSets.some((lineTokens) => {
-      const present = tokens.filter((token) => lineTokens.has(token)).length;
+    const reReport = coveredTokenSets.some((covered) => {
+      const present = tokens.filter((token) => covered.has(token)).length;
       return present / tokens.length >= CONTAINMENT_THRESHOLD;
     });
-    return !onIdentifiedLine;
+    return !reReport;
   });
 }
