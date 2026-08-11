@@ -125,7 +125,14 @@ describe("startExistenceCheck", () => {
       .map((event) =>
         event.type === "item_completed" ? event.outcome.result : undefined,
       );
-    expect(results).toEqual([{ checked: 1, passed: 1, failed: 0 }]);
+    expect(results).toEqual([
+      {
+        claimId,
+        passed: true,
+        message:
+          "Existenzprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+      },
+    ]);
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
   });
 
@@ -151,7 +158,14 @@ describe("startExistenceCheck", () => {
       .map((event) =>
         event.type === "item_completed" ? event.outcome.result : undefined,
       );
-    expect(results).toEqual([{ checked: 1, passed: 0, failed: 1 }]);
+    expect(results).toEqual([
+      {
+        claimId,
+        passed: false,
+        message:
+          "Existenzprüfung nicht bestanden (1 Fundstelle(n)) – zur Adjudikation.",
+      },
+    ]);
   });
 
   it("re-admits a recheck_required claim: captured, then existence_checked again", async () => {
@@ -226,7 +240,7 @@ describe("startExistenceCheck", () => {
     expect(after).toEqual(before);
   });
 
-  it("checks claims in register order and reports the running summary per item", async () => {
+  it("checks claims in register order, each item reporting its own claim's outcome", async () => {
     const matching = await captureMatchingSource();
     const nonMatching = await captureNonMatchingSource();
     const first = await addClaim(matching);
@@ -238,22 +252,31 @@ describe("startExistenceCheck", () => {
     });
     await handle.done;
 
-    const itemIds = handle
-      .eventsSoFar()
-      .filter((event) => event.type === "item_completed")
-      .map((event) => event.itemId);
-    expect(itemIds).toEqual([first, second]);
-
-    const results = handle
+    const itemResults = handle
       .eventsSoFar()
       .filter((event) => event.type === "item_completed")
       .map((event) =>
-        event.type === "item_completed" ? event.outcome.result : undefined,
+        event.type === "item_completed" ? event.outcome : undefined,
       );
-    expect(results).toEqual([
-      { checked: 1, passed: 1, failed: 0 },
-      { checked: 2, passed: 1, failed: 1 },
+
+    expect(itemResults.map((outcome) => outcome?.itemId)).toEqual([
+      first,
+      second,
     ]);
+    expect(itemResults.map((outcome) => outcome?.result?.claimId)).toEqual([
+      first,
+      second,
+    ]);
+    expect(itemResults.map((outcome) => outcome?.result?.passed)).toEqual([
+      true,
+      false,
+    ]);
+    // A run-wide aggregate, if wanted, is a cheap reduction over the events —
+    // not something the run itself needs to precompute.
+    const passedCount = itemResults.filter(
+      (outcome) => outcome?.result?.passed,
+    ).length;
+    expect(passedCount).toBe(1);
   });
 
   it("records no project event — state derives from claim statuses alone", async () => {

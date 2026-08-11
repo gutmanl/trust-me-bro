@@ -20,13 +20,18 @@ import type { SourceCheckCache } from "./stage1/source-check";
  * still open, existence_checked/pending_adjudication → done), so there is
  * nothing worth recording that the register does not already show.
  *
- * Each item's result is the RUNNING total so far — the last item_completed
- * event's result IS the run's summary, no separate aggregation needed.
+ * Each item's result describes THAT claim's own outcome — the same
+ * per-claim-message convention every sibling run kind uses (see
+ * VerificationItemResult, RelevanceItemResult, …), so the shared progress
+ * panels' `outcome.result?.message` reads exactly like every other run kind.
+ * A run-wide count, if a caller wants one, is a cheap reduction over
+ * `eventsSoFar()` or over the register's claim statuses — not this run's
+ * job to precompute.
  */
-export interface ExistenceCheckSummary {
-  checked: number;
-  passed: number;
-  failed: number;
+export interface ExistenceCheckItemResult {
+  claimId: string;
+  passed: boolean;
+  message: string;
 }
 
 export interface ExistenceCheckDependencies {
@@ -55,7 +60,7 @@ export function getOpenExistenceCheckCount(register: ClaimsRegister): number {
 export async function startExistenceCheck(
   projectId: string,
   deps: ExistenceCheckDependencies = {},
-): Promise<RunHandle<ExistenceCheckSummary>> {
+): Promise<RunHandle<ExistenceCheckItemResult>> {
   const store = requireProjectStore(projectId);
   const register = await store.read();
   const eligible = openExistenceCheckClaims(register);
@@ -68,13 +73,12 @@ export async function startExistenceCheck(
     fetcher: deps.fetcher ?? nodeHttpFetcher,
     cache: new Map() as SourceCheckCache,
   };
-  const running: ExistenceCheckSummary = { checked: 0, passed: 0, failed: 0 };
 
   return runner.submit(
     projectId,
     eligible.map((claim) => claim.id),
     (claimId) => claimId,
-    (claimId) => processClaim(ctx, claimId, running),
+    (claimId) => processClaim(ctx, claimId),
     { kind: "existence_check" },
   );
 }
@@ -82,8 +86,7 @@ export async function startExistenceCheck(
 async function processClaim(
   ctx: Stage1Context,
   claimId: string,
-  running: ExistenceCheckSummary,
-): Promise<ExistenceCheckSummary> {
+): Promise<ExistenceCheckItemResult> {
   const claim = (await ctx.store.read()).claims.find(
     (candidate) => candidate.id === claimId,
   );
@@ -92,15 +95,28 @@ async function processClaim(
     (claim.status !== "captured" && claim.status !== "recheck_required")
   ) {
     // Status changed since the run was submitted (e.g. an edit landed
-    // between submission and this item) — leave the running total alone.
-    return { ...running };
+    // between submission and this item).
+    return {
+      claimId,
+      passed: false,
+      message: "Übersprungen – Status hat sich seit Laufbeginn geändert.",
+    };
   }
   const updated = await runStage1ForClaim(claim, ctx);
-  running.checked += 1;
   if (updated.status === "existence_checked") {
-    running.passed += 1;
-  } else {
-    running.failed += 1;
+    return {
+      claimId,
+      passed: true,
+      message:
+        "Existenzprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+    };
   }
-  return { ...running };
+  const failedCount = updated.evidence.filter(
+    (evidence) => evidence.existence_check?.status !== "passed",
+  ).length;
+  return {
+    claimId,
+    passed: false,
+    message: `Existenzprüfung nicht bestanden (${failedCount} Fundstelle(n)) – zur Adjudikation.`,
+  };
 }
