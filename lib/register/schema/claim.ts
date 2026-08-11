@@ -37,6 +37,13 @@ export const Claim = z.strictObject({
   support_degree: SupportDegree.optional(),
   calibration_result: CalibrationResult.optional(),
   briefing_anchor: z.string().min(1),
+  /** Short verbatim phrase from the briefing paragraph the claim was
+   * extracted from (workbench epic): the durable, quote-based anchor that
+   * survives a briefing revision reordering paragraphs, unlike the
+   * position-based `briefing_anchor` alone. Optional so pre-existing claims
+   * without a captured quote stay representable (documented extension,
+   * additive). */
+  anchor_quote: z.string().min(1).optional(),
   provenance: Provenance,
   evidence: z.array(Evidence),
   history: z.array(HistoryEntry).min(1),

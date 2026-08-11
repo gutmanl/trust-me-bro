@@ -39,5 +39,18 @@ export function findIntegrityProblems(register: ClaimsRegister): string[] {
     }
   }
 
+  // Workbench epic: a claim_anchor_revised event's anchor_change must
+  // reference an existing claim (documented extension, additive).
+  for (const event of register.project_events) {
+    if (
+      event.anchor_change !== undefined &&
+      !claimIds.has(event.anchor_change.claim_id)
+    ) {
+      problems.push(
+        `project event ${event.seq} anchor_change references unknown claim ${event.anchor_change.claim_id}`,
+      );
+    }
+  }
+
   return problems;
 }

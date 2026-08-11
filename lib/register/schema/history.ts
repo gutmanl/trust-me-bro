@@ -6,7 +6,13 @@ import {
   ProjectEventType,
   RoutingReason,
 } from "./enums";
-import { ActorId, EvidenceId, IsoDateTime, Sha256Hex } from "./primitives";
+import {
+  ActorId,
+  ClaimId,
+  EvidenceId,
+  IsoDateTime,
+  Sha256Hex,
+} from "./primitives";
 import { ProjectConfig } from "./project";
 
 /**
@@ -84,6 +90,24 @@ export const ConfigChange = z.strictObject({
 });
 export type ConfigChange = z.infer<typeof ConfigChange>;
 
+/**
+ * Manual anchor correction payload of a `claim_anchor_revised` event
+ * (workbench epic): the complete before/after pair, following the same
+ * full-snapshot idiom as `Revision` and `ConfigChange` — the anchor history
+ * of a claim is reconstructable from the chain alone. `previous_quote`/
+ * `new_quote` are optional because a legacy claim without a captured
+ * `anchor_quote` may still have its position-based `previous_anchor`
+ * corrected (documented extension, additive).
+ */
+export const AnchorChange = z.strictObject({
+  claim_id: ClaimId,
+  previous_anchor: z.string().min(1),
+  new_anchor: z.string().min(1),
+  previous_quote: z.string().min(1).optional(),
+  new_quote: z.string().min(1).optional(),
+});
+export type AnchorChange = z.infer<typeof AnchorChange>;
+
 /** A project-wide event without claim reference, structurally chain-linked
  * like a history entry. */
 export const ProjectEvent = z.strictObject({
@@ -94,6 +118,9 @@ export const ProjectEvent = z.strictObject({
   reason: z.string().min(1),
   /** Only on `config_changed` events (TMB-46). */
   config_change: ConfigChange.optional(),
+  /** Only on `claim_anchor_revised` events (workbench epic, documented
+   * extension, additive). */
+  anchor_change: AnchorChange.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
   state_root: ChainFields.shape.state_root,

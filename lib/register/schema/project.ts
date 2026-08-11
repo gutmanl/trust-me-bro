@@ -11,6 +11,11 @@ export const BriefingImport = z.strictObject({
   sha256: Sha256Hex,
   blob_path: BlobPath,
   tool: z.string().min(1),
+  /** Revision counter of the briefing revision workflow (workbench epic):
+   * absence means revision 1, mirroring the TMB-44 source-snapshot idiom
+   * where the field is only written once a revision beyond the first
+   * exists (documented extension, additive). */
+  revision: z.int().min(1).optional(),
 });
 export type BriefingImport = z.infer<typeof BriefingImport>;
 
@@ -44,6 +49,13 @@ export const Project = z.strictObject({
   created_at: IsoDateTime,
   source_set_revision: z.int().min(1),
   briefing_import: BriefingImport.optional(),
+  /** Rotated-out prior briefing imports of the briefing revision workflow
+   * (workbench epic): each publish moves the current `briefing_import` here
+   * before installing the new one, so every previous wording stays
+   * reconstructable from the chain alone, the same rotation idiom
+   * `previous_snapshots` uses for source revisions (documented extension,
+   * additive). */
+  previous_briefings: z.array(BriefingImport).optional(),
   reference_scan: ReferenceScanImport.optional(),
 });
 export type Project = z.infer<typeof Project>;

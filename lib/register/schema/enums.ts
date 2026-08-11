@@ -166,5 +166,16 @@ export const ProjectEventType = z.enum([
    * reference-scan brackets (documented extension, additive). */
   "research_run_started",
   "research_run_completed",
+  /** Briefing revision workflow (workbench epic): a re-import of the
+   * briefing rotates the previous `briefing_import` into
+   * `project.previous_briefings` and installs the new one, structurally
+   * parallel to `source_set_revised` for sources (documented extension,
+   * additive). */
+  "briefing_revised",
+  /** Manual anchor correction (workbench epic): appended when a claim's
+   * `briefing_anchor`/`anchor_quote` is corrected by a human outside the
+   * mechanical re-anchoring a briefing revision performs; carries the
+   * before/after pair in `anchor_change` (documented extension, additive). */
+  "claim_anchor_revised",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

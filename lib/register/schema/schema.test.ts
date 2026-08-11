@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Evidence, Judgment } from "./evidence";
+import { ProjectEvent } from "./history";
 import { ClaimsRegister } from "./register";
 import { Source } from "./source";
 // The example project from the file-format appendix, transcribed verbatim
@@ -209,6 +210,112 @@ describe("CSL passthrough", () => {
     const parsed = Source.parse(source);
     expect(parsed.volume).toBe("51");
     expect(parsed["publisher-place"]).toBe("New York");
+  });
+});
+
+describe("workbench epic: briefing revisions and quote-based anchors", () => {
+  it("accepts a briefing_import with a revision counter and rotated previous_briefings", () => {
+    const withRevision = clone(exampleProject) as {
+      project: Record<string, unknown>;
+    };
+    const original = withRevision.project.briefing_import;
+    withRevision.project.previous_briefings = [original];
+    withRevision.project.briefing_import = {
+      imported_at: "2026-08-10T08:00:00Z",
+      sha256: "d".repeat(64),
+      blob_path: `blobs/dd/${"d".repeat(64)}.md`,
+      tool: "deep-research-x",
+      revision: 2,
+    };
+    const result = ClaimsRegister.safeParse(withRevision);
+    expect(result.success).toBe(true);
+  });
+
+  it("defaults to no revision/previous_briefings (absence means revision 1)", () => {
+    const withoutRevision = clone(exampleProject) as {
+      project: Record<string, unknown>;
+    };
+    expect(
+      (withoutRevision.project.briefing_import as Record<string, unknown>)
+        .revision,
+    ).toBeUndefined();
+    expect(withoutRevision.project.previous_briefings).toBeUndefined();
+    expect(ClaimsRegister.safeParse(withoutRevision).success).toBe(true);
+  });
+
+  it("accepts a claim with anchor_quote", () => {
+    const withAnchorQuote = clone(exampleProject) as {
+      claims: Record<string, unknown>[];
+    };
+    withAnchorQuote.claims[0].anchor_quote =
+      "median review time dropped from 42 to 19 minutes";
+    expect(ClaimsRegister.safeParse(withAnchorQuote).success).toBe(true);
+  });
+
+  it("accepts briefing_revised and claim_anchor_revised as project event types", () => {
+    const withEvents = clone(exampleProject) as {
+      project_events: Record<string, unknown>[];
+    };
+    withEvents.project_events.push({
+      seq: 2,
+      at: "2026-08-10T08:00:00Z",
+      actor: "human:lg",
+      event: "briefing_revised",
+      reason: "Briefing-Revision importiert.",
+      prev_hash: "c41d8a".padEnd(64, "0"),
+      hash: "aa11bb".padEnd(64, "0"),
+    });
+    withEvents.project_events.push({
+      seq: 3,
+      at: "2026-08-10T08:05:00Z",
+      actor: "human:lg",
+      event: "claim_anchor_revised",
+      reason: "Anker manuell korrigiert.",
+      prev_hash: "aa11bb".padEnd(64, "0"),
+      hash: "cc22dd".padEnd(64, "0"),
+    });
+    expect(ClaimsRegister.safeParse(withEvents).success).toBe(true);
+  });
+
+  it("round-trips a ProjectEvent carrying anchor_change", () => {
+    const event = {
+      seq: 3,
+      at: "2026-08-10T08:05:00Z",
+      actor: "human:lg",
+      event: "claim_anchor_revised",
+      reason: "Anker manuell korrigiert.",
+      anchor_change: {
+        claim_id: "clm_0001",
+        previous_anchor: "p12",
+        new_anchor: "p14",
+        previous_quote: "median review time dropped from 42 to 19 minutes",
+        new_quote: "review time fell from 42 to 19 minutes",
+      },
+      prev_hash: "aa11bb".padEnd(64, "0"),
+      hash: "cc22dd".padEnd(64, "0"),
+    };
+    const result = ProjectEvent.safeParse(event);
+    expect(result.success).toBe(true);
+    expect(result.data?.anchor_change?.claim_id).toBe("clm_0001");
+  });
+
+  it("rejects anchor_change with unknown fields", () => {
+    const event = {
+      seq: 3,
+      at: "2026-08-10T08:05:00Z",
+      actor: "human:lg",
+      event: "claim_anchor_revised",
+      reason: "Anker manuell korrigiert.",
+      anchor_change: {
+        claim_id: "clm_0001",
+        previous_anchor: "p12",
+        new_anchor: "p14",
+        note: "extra",
+      },
+      prev_hash: "aa11bb".padEnd(64, "0"),
+      hash: "cc22dd".padEnd(64, "0"),
+    };
+    expect(ProjectEvent.safeParse(event).success).toBe(false);
   });
 });
 
