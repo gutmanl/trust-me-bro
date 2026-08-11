@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import {
+  ConnectionLostNotice,
   ErrorBanner,
   primaryButtonClass,
   RunProgressFeed,
@@ -77,9 +78,13 @@ function phaseForEvent(event: Record<string, unknown>): RunControlPhase | null {
 export function VerificationPanel({
   projectId,
   state,
+  blockedReason,
 }: {
   projectId: string;
   state: VerificationState;
+  /** A German reason the run cannot start yet (no claims extracted),
+   * computed server-side so the absence of a button is explained. */
+  blockedReason?: string | null;
 }) {
   const router = useRouter();
   const [formState, formAction, pending] = useActionState(
@@ -91,18 +96,20 @@ export function VerificationPanel({
   );
   const [stopped, setStopped] = useState(false);
   const [phase, setPhase] = useState<RunControlPhase>("running");
+  const [checked, setChecked] = useState(0);
 
   // Render-phase state adjustment (not an effect): a new successful action
   // result re-arms the panel for the new run.
   if (formState.started && startedForm !== formState) {
     setStartedForm(formState);
     setStopped(false);
+    setChecked(0);
   }
 
   const watching =
     !stopped && (formState.started === true || state.status === "running");
 
-  const { lines } = useJobStream({
+  const { lines, connectionLost } = useJobStream({
     streamUrl: `/api/projects/${projectId}/verification/stream`,
     active: watching,
     describe: describeProgress,
@@ -110,6 +117,12 @@ export function VerificationPanel({
       const nextPhase = phaseForEvent(event);
       if (nextPhase !== null) {
         setPhase(nextPhase);
+      }
+      if (
+        event.type === "item_completed" &&
+        event.itemId !== "__spot_check__"
+      ) {
+        setChecked((count) => count + 1);
       }
     },
     onDone: () => {
@@ -119,14 +132,21 @@ export function VerificationPanel({
     },
   });
 
-  const canStart =
+  const startable =
     !pending &&
     !watching &&
     (state.openClaims > 0 || state.status === "interrupted");
 
   return (
     <div className="space-y-4">
-      {canStart ? (
+      {startable && blockedReason ? (
+        <div>
+          <button type="button" disabled className={primaryButtonClass}>
+            Prüfung starten
+          </button>
+          <p className="mt-1 text-sm text-amber-700">{blockedReason}</p>
+        </div>
+      ) : startable ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>
             {state.status === "not_started"
@@ -139,6 +159,7 @@ export function VerificationPanel({
       ) : null}
 
       <ErrorBanner message={formState.error} />
+      {connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
         <>
@@ -147,7 +168,15 @@ export function VerificationPanel({
             kind="verification"
             phase={phase}
           />
-          <RunProgressFeed title="Fortschritt des Prüflaufs" lines={lines} />
+          <RunProgressFeed
+            title="Fortschritt des Prüflaufs"
+            subtitle={
+              state.openClaims > 0
+                ? `${Math.min(checked, state.openClaims)} von ${state.openClaims} Claim(s) geprüft`
+                : undefined
+            }
+            lines={lines}
+          />
         </>
       ) : null}
     </div>

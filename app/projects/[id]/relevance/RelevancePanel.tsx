@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import {
+  ConnectionLostNotice,
   ErrorBanner,
   primaryButtonClass,
   RunProgressFeed,
@@ -96,7 +97,7 @@ export function RelevancePanel({
   const watching =
     !stopped && (formState.started === true || state.status === "running");
 
-  const { lines } = useJobStream({
+  const { lines, connectionLost } = useJobStream({
     streamUrl: `/api/projects/${projectId}/relevance/stream`,
     active: watching,
     describe: describeProgress,
@@ -133,6 +134,7 @@ export function RelevancePanel({
       ) : null}
 
       <ErrorBanner message={formState.error} />
+      {connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
         <>

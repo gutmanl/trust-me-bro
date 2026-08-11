@@ -30,6 +30,10 @@ export interface JobStreamOptions {
  */
 export function useJobStream(options: JobStreamOptions): {
   lines: ProgressLine[];
+  /** The stream dropped before the run finished — the feed has gone silent
+   * not because the run ended but because the connection was lost. Distinct
+   * from a clean completion so the UI can tell the user to reload. */
+  connectionLost: boolean;
 } {
   const { streamUrl, active } = options;
   // Callbacks travel through a ref so effect re-subscription depends only on
@@ -39,14 +43,16 @@ export function useJobStream(options: JobStreamOptions): {
     callbacks.current = options;
   });
   const [lines, setLines] = useState<ProgressLine[]>([]);
+  const [connectionLost, setConnectionLost] = useState(false);
 
   // Render-phase state adjustment (established panel idiom): a fresh
-  // subscription starts with an empty feed.
+  // subscription starts with an empty feed and no lost-connection flag.
   const [lastActive, setLastActive] = useState(active);
   if (active !== lastActive) {
     setLastActive(active);
     if (active) {
       setLines([]);
+      setConnectionLost(false);
     }
   }
 
@@ -56,7 +62,9 @@ export function useJobStream(options: JobStreamOptions): {
     }
     const source = new EventSource(streamUrl);
     let counter = 0;
+    let finished = false;
     const finish = (): void => {
+      finished = true;
       source.close();
       callbacks.current.onDone();
     };
@@ -82,12 +90,19 @@ export function useJobStream(options: JobStreamOptions): {
       finish();
     });
     source.onerror = () => {
+      // A drop AFTER a clean finish is just the closed socket; a drop while
+      // the run is still live is a real interruption the user must see —
+      // otherwise a silent feed is indistinguishable from completion. The
+      // durable state is intact server-side, so a reload recovers it.
       source.close();
+      if (!finished) {
+        setConnectionLost(true);
+      }
     };
     return () => {
       source.close();
     };
   }, [active, streamUrl]);
 
-  return { lines };
+  return { lines, connectionLost };
 }

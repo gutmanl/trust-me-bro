@@ -53,11 +53,22 @@ export default async function VerificationPage(
   const independence = getBriefingIndependence(register);
   const health = await getBackendsHealth(id);
   const badge = STATE_BADGES[state.status];
+  const blockedReason =
+    register.claims.length === 0
+      ? "Vor der Prüfung müssen Claims extrahiert sein."
+      : null;
 
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Prüf-Pipeline" />
+        <SubpageHeader
+          projectId={id}
+          title="Prüf-Pipeline"
+          nextStep={{
+            href: `/projects/${id}/review`,
+            label: "Weiter zur Adjudikation",
+          }}
+        />
         <p className="mt-1 text-sm text-slate-600">
           Jeder Claim durchläuft die Kaskade: deterministische Existenzprüfung,
           Attributionsurteil (mit Zweiturteil der anderen Modellfamilie bei
@@ -91,7 +102,11 @@ export default async function VerificationPage(
 
       <BackendHealthNotice projectId={id} health={health} mode="verification" />
 
-      <VerificationPanel projectId={id} state={state} />
+      <VerificationPanel
+        projectId={id}
+        state={state}
+        blockedReason={blockedReason}
+      />
 
       {register.claims.length > 0 ? (
         <section className="rounded-md border border-slate-200 bg-white">

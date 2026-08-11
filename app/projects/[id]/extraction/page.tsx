@@ -3,6 +3,7 @@ import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
 import {
   getBackendsHealth,
   getExtractionState,
+  isSourceSetFrozen,
   readProject,
 } from "@/lib/pipeline";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
@@ -49,10 +50,26 @@ export default async function ExtractionPage(
   const health = await getBackendsHealth(id);
   const badge = STATE_BADGES[state.status];
 
+  // Proactive precondition (finding 4): mirror the run use-case's checks so
+  // the start button is disabled with a reason rather than only failing on
+  // submit.
+  const blockedReason = !register.project.briefing_import
+    ? "Vor der Extraktion muss das Briefing importiert sein."
+    : !isSourceSetFrozen(register)
+      ? "Vor der Extraktion muss der Quellenbestand eingefroren sein."
+      : null;
+
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Claim-Extraktion" />
+        <SubpageHeader
+          projectId={id}
+          title="Claim-Extraktion"
+          nextStep={{
+            href: `/projects/${id}/verification`,
+            label: "Weiter zur Prüfung",
+          }}
+        />
         <p className="mt-1 text-sm text-slate-600">
           Der Adapter zerlegt das eingefrorene Briefing in atomare Claims mit
           Fundstellen. Unbelegte oder gebündelte Aussagen gehen sichtbar zur
@@ -72,7 +89,11 @@ export default async function ExtractionPage(
 
       <BackendHealthNotice projectId={id} health={health} mode="block" />
 
-      <ExtractionPanel projectId={id} state={state} />
+      <ExtractionPanel
+        projectId={id}
+        state={state}
+        blockedReason={blockedReason}
+      />
 
       {register.claims.length > 0 ? (
         <section className="rounded-md border border-slate-200 bg-white">

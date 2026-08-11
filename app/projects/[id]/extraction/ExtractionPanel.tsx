@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import {
+  ConnectionLostNotice,
   ErrorBanner,
   primaryButtonClass,
   RunProgressFeed,
@@ -47,9 +48,14 @@ function describeProgress(event: Record<string, unknown>): string | null {
 export function ExtractionPanel({
   projectId,
   state,
+  blockedReason,
 }: {
   projectId: string;
   state: ExtractionState;
+  /** A German reason the run cannot start yet (briefing not imported, source
+   * set not frozen), computed server-side so the button is disabled with an
+   * explanation instead of failing only on submit. */
+  blockedReason?: string | null;
 }) {
   const router = useRouter();
   const [formState, formAction, pending] = useActionState(
@@ -72,7 +78,7 @@ export function ExtractionPanel({
   const watching =
     !stopped && (formState.started === true || state.status === "running");
 
-  const { lines } = useJobStream({
+  const { lines, connectionLost } = useJobStream({
     streamUrl: `/api/projects/${projectId}/extraction/stream`,
     active: watching,
     describe: describeProgress,
@@ -82,7 +88,7 @@ export function ExtractionPanel({
     },
   });
 
-  const canStart =
+  const startable =
     !pending &&
     !watching &&
     (state.status === "not_started" ||
@@ -91,7 +97,16 @@ export function ExtractionPanel({
 
   return (
     <div className="space-y-4">
-      {canStart ? (
+      {startable && blockedReason ? (
+        <div>
+          <button type="button" disabled className={primaryButtonClass}>
+            {state.status === "not_started"
+              ? "Claim-Extraktion starten"
+              : "Claim-Extraktion erneut starten"}
+          </button>
+          <p className="mt-1 text-sm text-amber-700">{blockedReason}</p>
+        </div>
+      ) : startable ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>
             {state.status === "not_started"
@@ -102,6 +117,7 @@ export function ExtractionPanel({
       ) : null}
 
       <ErrorBanner message={formState.error} />
+      {connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
         <RunProgressFeed

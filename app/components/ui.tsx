@@ -35,23 +35,52 @@ export function SuccessBanner({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Progress box of a running job stream (extraction/verification/review). */
+/** Progress box of a running job stream (extraction/verification/review).
+ * `subtitle` carries an optional "n von m" counter derived from durable
+ * state, so progress is legible without reading every log line. */
 export function RunProgressFeed({
   title,
+  subtitle,
   lines,
 }: {
   title: string;
+  subtitle?: string;
   lines: { key: number; text: string }[];
 }) {
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-medium text-slate-700">{title}</p>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm font-medium text-slate-700">{title}</p>
+        {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+      </div>
       <ul className="mt-2 space-y-1 font-mono text-xs text-slate-600">
         {lines.length === 0 ? <li>Verbinde …</li> : null}
         {lines.map((line) => (
           <li key={line.key}>{line.text}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Shown when a run's live stream dropped before the run finished: the feed
+ * went silent because the connection was lost, not because the run ended.
+ * The durable state is intact server-side, so a reload recovers it. */
+export function ConnectionLostNotice() {
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <p>
+        Die Verbindung zum Laufprotokoll wurde unterbrochen – der Lauf selbst
+        läuft serverseitig weiter. Seite neu laden, um den aktuellen Stand zu
+        sehen.
+      </p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="mt-1 underline decoration-amber-400 hover:decoration-amber-600"
+      >
+        Jetzt neu laden
+      </button>
     </div>
   );
 }
@@ -213,18 +242,33 @@ export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
 export function SubpageHeader({
   projectId,
   title,
+  nextStep,
 }: {
   projectId: string;
   title: string;
+  /** Optional forward affordance (finding 4): the workflow step that
+   * naturally follows this page, so the flow reads in both directions rather
+   * than only "back to project". */
+  nextStep?: { href: string; label: string };
 }) {
   return (
     <div>
-      <Link
-        href={`/projects/${projectId}`}
-        className="text-sm text-slate-500 hover:text-slate-700"
-      >
-        ← Zurück zum Projekt
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href={`/projects/${projectId}`}
+          className="text-sm text-slate-500 hover:text-slate-700"
+        >
+          ← Zurück zum Projekt
+        </Link>
+        {nextStep ? (
+          <Link
+            href={nextStep.href}
+            className="text-sm text-slate-500 hover:text-slate-700"
+          >
+            {nextStep.label} →
+          </Link>
+        ) : null}
+      </div>
       <h1 className="mt-1 text-2xl font-semibold">{title}</h1>
     </div>
   );

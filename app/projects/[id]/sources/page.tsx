@@ -67,7 +67,14 @@ export default async function SourcesPage(
 
   return (
     <div className="space-y-6">
-      <SubpageHeader projectId={id} title="Quellen" />
+      <SubpageHeader
+        projectId={id}
+        title="Quellen"
+        nextStep={{
+          href: `/projects/${id}/extraction`,
+          label: "Weiter zur Extraktion",
+        }}
+      />
 
       {frozen ? (
         <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">

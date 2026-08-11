@@ -15,7 +15,14 @@ export default async function BriefingPage(
 
   return (
     <div className="space-y-6">
-      <SubpageHeader projectId={id} title="Briefing" />
+      <SubpageHeader
+        projectId={id}
+        title="Briefing"
+        nextStep={{
+          href: `/projects/${id}/sources`,
+          label: "Weiter zu den Quellen",
+        }}
+      />
 
       {briefing ? (
         <div className="space-y-4">
