@@ -124,10 +124,18 @@ export function ReferenceCandidateReview({
   const [startedForm, setStartedForm] =
     useState<ReferenceCaptureFormState | null>(null);
   const [stopped, setStopped] = useState(false);
+  // Persists after the run so the per-item outcome does not vanish with the
+  // progress feed on refresh: the user sees WHY some candidates did not import
+  // (a title or document was missing) instead of a silently partial result.
+  const [summary, setSummary] = useState<{
+    ok: number;
+    errors: string[];
+  } | null>(null);
 
   if (formState.started && startedForm !== formState) {
     setStartedForm(formState);
     setStopped(false);
+    setSummary({ ok: 0, errors: [] });
   }
 
   const watching = !stopped && formState.started === true;
@@ -136,6 +144,22 @@ export function ReferenceCandidateReview({
     streamUrl: `/api/projects/${projectId}/reference-capture/stream`,
     active: watching,
     describe: describeProgress,
+    onEvent: (event) => {
+      if (event.type !== "item_completed") {
+        return;
+      }
+      const outcome = event.outcome as
+        { status: string; error?: string } | undefined;
+      setSummary((prev) => {
+        const base = prev ?? { ok: 0, errors: [] };
+        return outcome?.status === "ok"
+          ? { ...base, ok: base.ok + 1 }
+          : {
+              ...base,
+              errors: [...base.errors, outcome?.error ?? "unbekannter Fehler"],
+            };
+      });
+    },
     onDone: () => {
       setStopped(true);
       router.refresh();
@@ -174,6 +198,10 @@ export function ReferenceCandidateReview({
         {watching ? (
           <RunProgressFeed title="Fortschritt der Erfassung" lines={lines} />
         ) : null}
+
+        {!watching && summary && summary.ok + summary.errors.length > 0 ? (
+          <CaptureSummary ok={summary.ok} errors={summary.errors} />
+        ) : null}
       </form>
 
       {alreadyCaptured.length > 0 ? (
@@ -186,6 +214,35 @@ export function ReferenceCandidateReview({
               {candidate.title ?? candidate.raw_text} – bereits erfasst als{" "}
               <span className="font-mono">{candidate.capturedAsSourceId}</span>.
             </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/** Persistent outcome of the last capture run: how many sources were
+ * imported and, grouped by reason, why the rest were not — so a partial
+ * import is explained rather than looking like a silent failure. */
+function CaptureSummary({ ok, errors }: { ok: number; errors: string[] }) {
+  const reasons = [...new Set(errors)];
+  const failed = errors.length;
+  return (
+    <div
+      className={`rounded-md border px-3 py-2 text-sm ${
+        failed > 0
+          ? "border-amber-200 bg-amber-50 text-amber-800"
+          : "border-green-200 bg-green-50 text-green-700"
+      }`}
+    >
+      <p className="font-medium">
+        {ok} Quelle(n) erfasst
+        {failed > 0 ? `, ${failed} nicht übernommen` : ""}.
+      </p>
+      {reasons.length > 0 ? (
+        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
           ))}
         </ul>
       ) : null}
