@@ -302,8 +302,12 @@ describe("startReferenceCapture: completing candidates with a user document", ()
     const register = await RegisterStore.forProject(PROJECT_ID).read();
     expect(register.sources).toHaveLength(1);
     expect(register.sources[0].title).toBe("Manuell vervollständigte Quelle");
-    // An uploaded document is a manual document — no auto_capture provenance.
-    expect(register.sources[0].custom.auto_capture).toBeUndefined();
+    // Provenance records the scan's classification ("unresolved") so a rescan
+    // recognizes it as already captured, even though the document was uploaded.
+    expect(register.sources[0].custom.auto_capture).toEqual({
+      raw_text: UNRESOLVED_CANDIDATE.raw_text,
+      method: "unresolved",
+    });
     expect(register.sources[0].custom.snapshot).toBeDefined();
   });
 
@@ -324,10 +328,41 @@ describe("startReferenceCapture: completing candidates with a user document", ()
     expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
 
     const register = await RegisterStore.forProject(PROJECT_ID).read();
-    expect(register.sources[0].custom.auto_capture?.method).toBe("url");
+    expect(register.sources[0].custom.auto_capture?.method).toBe("unresolved");
     expect(register.sources[0].custom.auto_capture?.raw_text).toBe(
       UNRESOLVED_CANDIDATE.raw_text,
     );
+  });
+
+  it("recognizes an unresolved source as already captured on a rescan", async () => {
+    // The point of recording provenance for a completed unresolved candidate:
+    // excludeCaptured (pre-Crossref) drops it, so it is not re-suggested.
+    await writeScanResult([UNRESOLVED_CANDIDATE]);
+    const handle = await startReferenceCapture(
+      PROJECT_ID,
+      [
+        {
+          candidateId: "cnd_unresolved",
+          sourceType: "grey_literature",
+          title: "Erfasst",
+          upload: { content: PDF_BYTES, filename: "paper.pdf" },
+        },
+      ],
+      { runner: createJobRunner(), fetcher: baseFetcher() },
+    );
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const { buildCandidateReview } = await import("./review");
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    const review = buildCandidateReview(
+      {
+        scanned_at: new Date().toISOString(),
+        method: "regex",
+        candidates: [UNRESOLVED_CANDIDATE],
+      },
+      register.sources,
+    );
+    expect(review[0].alreadyCaptured).toBe(true);
   });
 
   it("fails an unresolved candidate that has a title but no document", async () => {

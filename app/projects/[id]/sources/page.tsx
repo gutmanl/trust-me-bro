@@ -34,13 +34,14 @@ const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
 /** I4 fix: German label per auto-import method, for the provenance badge
  * rendered next to every automatically captured source below. */
 const AUTO_CAPTURE_METHOD_LABELS: Record<
-  "doi" | "arxiv" | "url" | "crossref_title",
+  "doi" | "arxiv" | "url" | "crossref_title" | "unresolved",
   string
 > = {
   doi: "DOI im Text gefunden",
   arxiv: "arXiv-Id im Text gefunden",
   url: "URL im Text gefunden",
   crossref_title: "Titelabgleich",
+  unresolved: "textuell gefunden, manuell vervollständigt",
 };
 
 export default async function SourcesPage(

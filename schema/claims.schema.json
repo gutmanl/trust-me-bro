@@ -46,7 +46,8 @@
                 "doi",
                 "arxiv",
                 "url",
-                "crossref_title"
+                "crossref_title",
+                "unresolved"
               ],
               "type": "string"
             },

@@ -42,7 +42,7 @@ export interface CaptureSourceInput {
    * `custom.auto_capture`. */
   autoCapture?: {
     raw_text: string;
-    method: "doi" | "arxiv" | "url" | "crossref_title";
+    method: "doi" | "arxiv" | "url" | "crossref_title" | "unresolved";
     score?: number;
   };
 }

@@ -47,7 +47,11 @@ export const IdentifierVerification = z.strictObject({
  */
 export const AutoCaptureProvenance = z.strictObject({
   raw_text: z.string().min(1),
-  method: z.enum(["doi", "arxiv", "url", "crossref_title"]),
+  // "unresolved": the scan found the citation textually but could pin no
+  // identifier; the user completed it in the review by uploading a PDF or
+  // giving a document URL. Recorded so a rescan recognizes it as already
+  // captured (review keys on raw_text + method) instead of re-suggesting it.
+  method: z.enum(["doi", "arxiv", "url", "crossref_title", "unresolved"]),
   score: z.number().min(0).max(1).optional(),
 });
 export type AutoCaptureProvenance = z.infer<typeof AutoCaptureProvenance>;

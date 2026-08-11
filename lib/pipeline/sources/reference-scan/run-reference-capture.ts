@@ -210,16 +210,21 @@ function buildCaptureInput(
           `Kandidat "${candidate.candidate_id}" benötigt einen Titel zur Übernahme.`,
         );
       }
+      // Provenance records how the SCAN classified the citation — "unresolved"
+      // — not how its document was supplied, so a rescan recognizes it as
+      // already captured (review keys on raw_text + method).
+      const unresolvedProvenance = {
+        raw_text: candidate.raw_text,
+        method: "unresolved" as const,
+      };
       if (upload) {
-        // A manually-provided document: recorded as an ordinary manual
-        // capture (no auto_capture provenance — no in-schema method describes
-        // an uploaded file, and the document was the user's, not the scan's).
         return {
           projectId,
           kind: "upload",
           sourceType: selection.sourceType,
           manual: manualMetadata(candidate, title),
           upload,
+          autoCapture: unresolvedProvenance,
         };
       }
       if (documentUrlOverride) {
@@ -229,9 +234,7 @@ function buildCaptureInput(
           identifier: documentUrlOverride,
           sourceType: selection.sourceType,
           manual: manualMetadata(candidate, title),
-          // The scan found this citation; the user supplied its URL. Recorded
-          // as method "url" (honest and in-schema) so a rescan de-dupes it.
-          autoCapture: { raw_text: candidate.raw_text, method: "url" },
+          autoCapture: unresolvedProvenance,
         };
       }
       throw new PipelineError(
