@@ -9,10 +9,6 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import {
-  RunControls,
-  type RunControlPhase,
-} from "@/app/components/RunControls";
 import { useJobStream } from "@/app/lib/useJobStream";
 import type { VerificationState } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
@@ -55,22 +51,6 @@ function describeProgress(event: Record<string, unknown>): string | null {
   }
 }
 
-function phaseForEvent(event: Record<string, unknown>): RunControlPhase | null {
-  switch (event.type) {
-    case "run_started":
-    case "run_resumed":
-      return "running";
-    case "run_pause_requested":
-      return "pausing";
-    case "run_paused":
-      return "paused";
-    case "run_cancel_requested":
-      return "cancelling";
-    default:
-      return null;
-  }
-}
-
 /**
  * Start button + live progress via the shared SSE hook, the verification
  * twin of ExtractionPanel: durable state renders server-side, this panel
@@ -96,7 +76,6 @@ export function VerificationPanel({
     null,
   );
   const [stopped, setStopped] = useState(false);
-  const [phase, setPhase] = useState<RunControlPhase>("running");
   const [checked, setChecked] = useState(0);
 
   // Render-phase state adjustment (not an effect): a new successful action
@@ -115,10 +94,6 @@ export function VerificationPanel({
     active: watching,
     describe: describeProgress,
     onEvent: (event) => {
-      const nextPhase = phaseForEvent(event);
-      if (nextPhase !== null) {
-        setPhase(nextPhase);
-      }
       if (
         event.type === "item_completed" &&
         event.itemId !== "__spot_check__"
@@ -128,7 +103,6 @@ export function VerificationPanel({
     },
     onDone: () => {
       setStopped(true);
-      setPhase("running");
       router.refresh();
     },
   });
@@ -168,22 +142,15 @@ export function VerificationPanel({
       {connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
-        <>
-          <RunControls
-            projectId={projectId}
-            kind="verification"
-            phase={phase}
-          />
-          <RunProgressFeed
-            title="Fortschritt des Prüflaufs"
-            subtitle={
-              state.openClaims > 0
-                ? `${Math.min(checked, state.openClaims)} von ${state.openClaims} Claim(s) geprüft`
-                : undefined
-            }
-            lines={lines}
-          />
-        </>
+        <RunProgressFeed
+          title="Fortschritt des Prüflaufs"
+          subtitle={
+            state.openClaims > 0
+              ? `${Math.min(checked, state.openClaims)} von ${state.openClaims} Claim(s) geprüft`
+              : undefined
+          }
+          lines={lines}
+        />
       ) : null}
     </div>
   );

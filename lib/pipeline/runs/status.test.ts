@@ -14,7 +14,7 @@ describe("getActiveRun", () => {
   });
 
   it("reports kind, phase and n/m progress of the live run", async () => {
-    const runner = createJobRunner();
+    const runner = createJobRunner({ generateRunId: () => "run-x" });
     let release!: () => void;
     const blocked = new Promise<void>((resolve) => {
       release = resolve;
@@ -36,6 +36,7 @@ describe("getActiveRun", () => {
 
     expect(getActiveRunHandle("proj_a", { runner })).toBe(handle);
     expect(getActiveRun("proj_a", { runner })).toEqual({
+      runId: "run-x",
       kind: "extraction",
       phase: "running",
       completed: 1,

@@ -10,13 +10,16 @@ import type { RunControlState, RunHandle } from "./types";
  * there is at most one such run.
  */
 export interface ActiveRunStatus {
+  /** The run's id — lets the UI tell one run from the next (a runA→runB
+   * hand-off) instead of only "a run exists", so its live state resets on a
+   * genuine change rather than desyncing. */
+  runId: string;
   /** Feature the run belongs to ("extraction", "reference_capture", …); null
    * for the rare kind-less run. The UI maps it to a German label. */
   kind: string | null;
-  /** Cooperative control phase — an active run is never "cancelled" (that is
-   * the terminal state), so in practice one of running/pausing/paused/
-   * cancelling. */
-  phase: RunControlState;
+  /** Cooperative control phase. An active run is never "cancelled" (that is a
+   * terminal state), so the type excludes it. */
+  phase: Exclude<RunControlState, "cancelled">;
   /** Items whose outcome is in, and the batch size, for an n/m progress
    * readout. total is 0 until the run_started event is observed. */
   completed: number;
@@ -46,8 +49,11 @@ export function getActiveRun(
   const events = run.eventsSoFar();
   const started = events.find((event) => event.type === "run_started");
   return {
+    runId: run.runId,
     kind: run.kind ?? null,
-    phase: run.controlState(),
+    // Safe narrowing: getActiveRunHandle already returned only an active run,
+    // and an active run is never in the terminal "cancelled" state.
+    phase: run.controlState() as ActiveRunStatus["phase"],
     completed: events.filter((event) => event.type === "item_completed").length,
     total: started?.type === "run_started" ? started.totalItems : 0,
   };

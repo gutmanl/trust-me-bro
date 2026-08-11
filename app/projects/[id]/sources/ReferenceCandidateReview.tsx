@@ -11,10 +11,6 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import {
-  RunControls,
-  type RunControlPhase,
-} from "@/app/components/RunControls";
 import { useJobStream } from "@/app/lib/useJobStream";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ReviewCandidate } from "@/lib/pipeline";
@@ -86,22 +82,6 @@ function describeProgress(event: Record<string, unknown>): string | null {
   }
 }
 
-function phaseForEvent(event: Record<string, unknown>): RunControlPhase | null {
-  switch (event.type) {
-    case "run_started":
-    case "run_resumed":
-      return "running";
-    case "run_pause_requested":
-      return "pausing";
-    case "run_paused":
-      return "paused";
-    case "run_cancel_requested":
-      return "cancelling";
-    default:
-      return null;
-  }
-}
-
 function CandidateMeta({ candidate }: { candidate: ReviewCandidate }) {
   const bits: string[] = [];
   if (candidate.authors && candidate.authors.length > 0) {
@@ -162,7 +142,6 @@ export function ReferenceCandidateReview({
   const [startedForm, setStartedForm] =
     useState<ReferenceCaptureFormState | null>(null);
   const [stopped, setStopped] = useState(false);
-  const [phase, setPhase] = useState<RunControlPhase>("running");
   // Persists after the run so the per-item outcome does not vanish with the
   // progress feed on refresh: the user sees WHY some candidates did not import
   // (a title or document was missing) instead of a silently partial result.
@@ -185,10 +164,6 @@ export function ReferenceCandidateReview({
     active: watching,
     describe: describeProgress,
     onEvent: (event) => {
-      const nextPhase = phaseForEvent(event);
-      if (nextPhase !== null) {
-        setPhase(nextPhase);
-      }
       if (event.type !== "item_completed") {
         return;
       }
@@ -206,7 +181,6 @@ export function ReferenceCandidateReview({
     },
     onDone: () => {
       setStopped(true);
-      setPhase("running");
       router.refresh();
     },
   });
@@ -247,17 +221,10 @@ export function ReferenceCandidateReview({
         </button>
       </form>
 
-      {/* Outside the capture form on purpose: RunControls renders its own
-          pause/cancel forms, and a <form> may not nest inside another. */}
+      {/* Pause/cancel now live in the shared status bar (RunStatusProvider),
+          the single control surface for whatever run is active. */}
       {watching ? (
-        <>
-          <RunControls
-            projectId={projectId}
-            kind="reference_capture"
-            phase={phase}
-          />
-          <RunProgressFeed title="Fortschritt der Erfassung" lines={lines} />
-        </>
+        <RunProgressFeed title="Fortschritt der Erfassung" lines={lines} />
       ) : null}
 
       {!watching && summary && summary.ok + summary.errors.length > 0 ? (

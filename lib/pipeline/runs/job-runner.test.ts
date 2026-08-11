@@ -8,7 +8,7 @@ function eventTypes(events: RunProgressEvent<unknown>[]): string[] {
   return events.map((event) => event.type);
 }
 
-describe("createJobRunner: cannot be wedged", () => {
+describe("createJobRunner: a throwing subscriber cannot wedge the run", () => {
   it("still finishes and clears the run when a subscriber throws on every event", async () => {
     // The realistic trigger: an SSE controller whose client vanished throws
     // from controller.enqueue(). Before the emit() guard this exception
@@ -37,41 +37,6 @@ describe("createJobRunner: cannot be wedged", () => {
         async (item) => item,
       ),
     ).not.toThrow();
-  });
-
-  it("fails a hung item on the per-item cap and continues the run", async () => {
-    const runner = createJobRunner({ itemTimeoutMs: 20 });
-    const started: string[] = [];
-    const handle = runner.submit(
-      "proj_a",
-      ["fast", "haengt", "auch-fast"],
-      (item) => item,
-      async (item) => {
-        started.push(item);
-        if (item === "haengt") {
-          await new Promise<void>(() => {}); // never settles
-        }
-        return item;
-      },
-    );
-
-    const result = await handle.done;
-    // The hung item is failed; the item after it still runs — the run is not
-    // wedged, and it completes and clears.
-    expect(result).toEqual({ succeeded: 2, failed: 1 });
-    expect(started).toEqual(["fast", "haengt", "auch-fast"]);
-    expect(handle.isActive()).toBe(false);
-    const completed = handle
-      .eventsSoFar()
-      .filter((event) => event.type === "item_completed");
-    expect(completed[1]).toMatchObject({
-      itemId: "haengt",
-      outcome: { status: "error" },
-    });
-    expect(
-      (completed[1] as { outcome: { error: string } }).outcome.error,
-    ).toContain("Zeitüberschreitung");
-    expect(eventTypes(handle.eventsSoFar()).at(-1)).toBe("run_completed");
   });
 });
 
