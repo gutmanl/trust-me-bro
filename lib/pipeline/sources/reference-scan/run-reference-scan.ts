@@ -25,6 +25,7 @@ import type { CandidateSeed } from "./candidate";
 import type { CrossrefWork } from "./crossref";
 import { searchCrossref } from "./crossref";
 import { MATCH_FLOOR, scoreMatch } from "./crossref-match";
+import { cleanReferenceTitle } from "./reference-title";
 import { deriveDocumentUrl } from "./derive-document-url";
 import { deriveReferenceScanState } from "./derive-state";
 import type { ReferenceScanState } from "./derive-state";
@@ -176,9 +177,11 @@ async function runReferenceScanOnce(
   });
 
   const regexHits = scanRegex(briefingText);
-  const regexSeeds: CandidateSeed[] = regexHits.map((hit) => ({
+  const identifierHits = regexHits.filter((hit) => hit.method !== "textual");
+  const footnoteHits = regexHits.filter((hit) => hit.method === "textual");
+  const regexSeeds: CandidateSeed[] = identifierHits.map((hit) => ({
     raw_text: hit.raw_text,
-    method: hit.method,
+    method: hit.method as "doi" | "arxiv" | "url",
     ...(hit.doi ? { doi: hit.doi } : {}),
     ...(hit.arxiv_id ? { arxiv_id: hit.arxiv_id } : {}),
     ...(hit.url ? { url: hit.url } : {}),
@@ -189,7 +192,9 @@ async function runReferenceScanOnce(
   let degradationNote = "";
 
   if (context.backendUsable) {
-    const alreadyDetected = regexHits.map((hit) => hit.matchedText);
+    // Only identifier spans are hidden from the LLM; footnote titles are left
+    // visible so the model reports (and enriches) them as it normally would.
+    const alreadyDetected = identifierHits.map((hit) => hit.matchedText);
     const input: ReferenceParseInput = {
       briefing_text: briefingText,
       already_detected: alreadyDetected,
@@ -234,6 +239,20 @@ async function runReferenceScanOnce(
     }),
   );
 
+  // Footnote references from the deterministic channel feed the same
+  // Crossref title-resolution as the LLM's identifier-less citations — but
+  // only when the LLM channel did NOT run (backend down / rate-limited /
+  // exhausted). When it did run, it already read the whole briefing including
+  // the footnotes, so adding them here would only duplicate work and rows.
+  const footnoteReferences: ParsedReference[] =
+    method === "regex"
+      ? footnoteHits.map((hit) => ({
+          raw_text: hit.raw_text,
+          authors: [],
+          title: hit.title ?? hit.raw_text,
+        }))
+      : [];
+
   // Pre-filter against already-captured sources BEFORE any Crossref lookup
   // (quota) — both the identified pool and the identifier-less pool headed
   // for Crossref.
@@ -242,7 +261,7 @@ async function runReferenceScanOnce(
     register.sources,
   );
   const remainingWithoutIdentifier = excludeCaptured(
-    parsedWithoutIdentifier,
+    [...parsedWithoutIdentifier, ...footnoteReferences],
     register.sources,
   );
 
@@ -373,7 +392,11 @@ async function resolveViaCrossref(
   fetcher: HttpFetcher,
   sleep: ((ms: number) => Promise<void>) | undefined,
 ): Promise<CrossrefResolution> {
-  const query = [reference.title, reference.authors.join(" ")]
+  // Clean the title (strip a "| venue" suffix, ellipsis truncation, quotes)
+  // before it hits Crossref: it is both the query and the string the bigram
+  // similarity scores against Crossref's own clean title.
+  const cleanTitle = cleanReferenceTitle(reference.title);
+  const query = [cleanTitle, reference.authors.join(" ")]
     .filter((part) => part.trim().length > 0)
     .join(" ");
   const { works, unavailable } = await searchCrossref(
@@ -389,7 +412,7 @@ async function resolveViaCrossref(
   for (const work of works) {
     const score = scoreMatch(
       {
-        title: reference.title,
+        title: cleanTitle,
         year: reference.year,
         authors: reference.authors,
       },

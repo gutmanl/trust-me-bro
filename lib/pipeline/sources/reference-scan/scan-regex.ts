@@ -1,4 +1,5 @@
 import { normalizeArxivId, normalizeDoi } from "../identifiers";
+import { cleanReferenceTitle } from "./reference-title";
 
 /**
  * Regex channel of the reference scan (reference auto-import): a pure,
@@ -20,10 +21,16 @@ import { normalizeArxivId, normalizeDoi } from "../identifiers";
  *   candidate for the same work.
  * - Trailing sentence punctuation is trimmed off every matched span before
  *   normalization.
+ * - Markdown footnote DEFINITIONS (`[^n]: …`) are recognized as textual
+ *   references (title only, no identifier) — the shape Elicit/Perplexity
+ *   briefings use. A footnote line that ALSO carries a DOI/arXiv/URL is left
+ *   to those channels; only a footnote with no identifier of its own becomes
+ *   a "textual" hit. This is the ONLY prose-citation shape the deterministic
+ *   channel recognizes; anything looser stays with the LLM channel.
  */
 
 export interface ReferenceRegexHit {
-  method: "doi" | "arxiv" | "url";
+  method: "doi" | "arxiv" | "url" | "textual";
   /** The line the span was found on — the candidate's `raw_text`. */
   raw_text: string;
   /** The exact matched (trimmed) span, used as the "already_detected" hint
@@ -32,6 +39,8 @@ export interface ReferenceRegexHit {
   doi?: string;
   arxiv_id?: string;
   url?: string;
+  /** Cleaned title of a `textual` (footnote) hit, for Crossref resolution. */
+  title?: string;
 }
 
 const DOI_SCAN_PATTERN = /10\.\d{4,9}\/[^\s,;)\]]+/g;
@@ -39,6 +48,8 @@ const ARXIV_PREFIXED_PATTERN = /\barXiv:\s*(\d{4}\.\d{4,5}(?:v\d+)?)/gi;
 const ARXIV_URL_PATTERN =
   /\barxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/gi;
 const URL_SCAN_PATTERN = /https?:\/\/[^\s<>"')\]]+/g;
+/** A Markdown footnote definition line: `[^label]: <reference text>`. */
+const FOOTNOTE_DEF_PATTERN = /^\[\^[^\]]+\]:\s*(.+)$/;
 
 function trimTrailingPunctuation(text: string): string {
   return text.replace(/[.,;:)\]]+$/, "");
@@ -63,6 +74,8 @@ export function scanRegex(briefingText: string): ReferenceRegexHit[] {
     if (line.length === 0) {
       continue;
     }
+
+    const hitsBefore = hits.length;
 
     for (const match of line.matchAll(DOI_SCAN_PATTERN)) {
       const span = trimTrailingPunctuation(match[0]);
@@ -112,6 +125,26 @@ export function scanRegex(briefingText: string): ReferenceRegexHit[] {
         matchedText: span,
         url: span,
       });
+    }
+
+    // A Markdown footnote definition with no identifier of its own becomes a
+    // textual reference — the title-only citation the identifier channels
+    // cannot see. Skipped when this line already yielded a DOI/arXiv/URL hit
+    // (that identifier is the better handle for the same footnote).
+    if (hits.length === hitsBefore) {
+      const footnote = FOOTNOTE_DEF_PATTERN.exec(line);
+      if (footnote) {
+        const referenceText = footnote[1].trim();
+        const title = cleanReferenceTitle(referenceText);
+        if (title.length > 0) {
+          hits.push({
+            method: "textual",
+            raw_text: referenceText,
+            matchedText: referenceText,
+            title,
+          });
+        }
+      }
     }
   }
 

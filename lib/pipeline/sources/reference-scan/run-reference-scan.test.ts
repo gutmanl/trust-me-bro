@@ -211,6 +211,53 @@ describe("startReferenceScan: regex-only degradation", () => {
     );
   });
 
+  it("surfaces a Markdown footnote reference as a candidate even with the backend down (finding: footnotes)", async () => {
+    // The real-world case: an Elicit briefing whose references are title-only
+    // footnotes, scanned with no usable CLI backend. Before, this produced
+    // zero candidates; now the deterministic footnote channel picks them up
+    // and (Crossref finding nothing here) surfaces them as unresolved rows
+    // the user can complete.
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content:
+        "Der Effekt ist belegt.[^1]\n\n[^1]: A Study on the Comprehensibility of Behavioral Programming Variants | OpenReview.",
+      tool: "x",
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      orchestrator: testOrchestrator(),
+      runner: createJobRunner(),
+      preflight: async () => ({
+        usable: false,
+        hint: "claude nicht angemeldet.",
+      }),
+      fetcher: fakeFetcher({
+        "https://api.crossref.org/works": {
+          contentType: "application/json",
+          body: Buffer.from(
+            JSON.stringify({ status: "ok", message: { items: [] } }),
+          ),
+        },
+      }),
+    });
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    expect(blob.method).toBe("regex");
+    const footnote = blob.candidates.find(
+      (candidate) => candidate.method === "unresolved",
+    );
+    expect(footnote?.title).toBe(
+      "A Study on the Comprehensibility of Behavioral Programming Variants",
+    );
+    expect((await store.verify()).ok).toBe(true);
+  });
+
   it("degrades to regex-only, without throwing, when the LLM channel is rate-limited (orchestrator paused)", async () => {
     await importBriefing({
       projectId: PROJECT_ID,
