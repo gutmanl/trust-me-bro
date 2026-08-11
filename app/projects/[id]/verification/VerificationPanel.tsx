@@ -15,6 +15,7 @@ import {
 } from "@/app/components/RunControls";
 import { useJobStream } from "@/app/lib/useJobStream";
 import type { VerificationState } from "@/lib/pipeline";
+import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { VerificationFormState } from "./actions";
 import { startVerificationAction } from "./actions";
 
@@ -132,13 +133,18 @@ export function VerificationPanel({
     },
   });
 
+  const { blockedBy } = useStartGate("verification");
   const startable =
     !pending &&
     !watching &&
+    !blockedBy &&
     (state.openClaims > 0 || state.status === "interrupted");
 
   return (
     <div className="space-y-4">
+      {blockedBy && !watching && !blockedReason ? (
+        <StartBlockedNotice label={blockedBy} />
+      ) : null}
       {blockedReason ? (
         <div>
           <button type="button" disabled className={primaryButtonClass}>

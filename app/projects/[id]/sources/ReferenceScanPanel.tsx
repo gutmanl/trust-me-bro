@@ -10,6 +10,7 @@ import {
 } from "@/app/components/ui";
 import { useJobStream } from "@/app/lib/useJobStream";
 import type { ReferenceScanState } from "@/lib/pipeline";
+import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ReferenceScanFormState } from "./reference-scan-actions";
 import { startReferenceScanAction } from "./reference-scan-actions";
 
@@ -76,6 +77,7 @@ export function ReferenceScanPanel({
 
   const watching =
     !stopped && (formState.started === true || state.status === "running");
+  const { blockedBy } = useStartGate("reference_scan");
 
   const { lines } = useJobStream({
     streamUrl: `/api/projects/${projectId}/reference-scan/stream`,
@@ -114,7 +116,8 @@ export function ReferenceScanPanel({
         </div>
       ) : null}
 
-      {!watching ? (
+      {blockedBy && !watching ? <StartBlockedNotice label={blockedBy} /> : null}
+      {!watching && !blockedBy ? (
         <form action={formAction}>
           <button
             type="submit"

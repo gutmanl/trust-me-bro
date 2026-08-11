@@ -11,6 +11,7 @@ import {
 } from "@/app/components/ui";
 import { useJobStream } from "@/app/lib/useJobStream";
 import type { ExtractionState } from "@/lib/pipeline";
+import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ExtractionFormState } from "./actions";
 import { startExtractionAction } from "./actions";
 
@@ -88,15 +89,20 @@ export function ExtractionPanel({
     },
   });
 
+  const { blockedBy } = useStartGate("extraction");
   const startable =
     !pending &&
     !watching &&
+    !blockedBy &&
     (state.status === "not_started" ||
       state.status === "interrupted" ||
       state.status === "failed");
 
   return (
     <div className="space-y-4">
+      {blockedBy && !watching && !blockedReason ? (
+        <StartBlockedNotice label={blockedBy} />
+      ) : null}
       {blockedReason && !watching ? (
         <div>
           <button type="button" disabled className={primaryButtonClass}>

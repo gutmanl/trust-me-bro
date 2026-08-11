@@ -10,6 +10,7 @@ import {
 } from "@/app/components/ui";
 import { useJobStream } from "@/app/lib/useJobStream";
 import type { ResearchState } from "@/lib/pipeline";
+import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ResearchFormState } from "./actions";
 import { startResearchAction } from "./actions";
 
@@ -81,15 +82,18 @@ export function ResearchPanel({
     },
   });
 
+  const { blockedBy } = useStartGate("research");
   const canStart =
     !pending &&
     !watching &&
+    !blockedBy &&
     (state.status === "not_started" ||
       state.status === "interrupted" ||
       state.status === "failed");
 
   return (
     <div className="space-y-4">
+      {blockedBy && !watching ? <StartBlockedNotice label={blockedBy} /> : null}
       {canStart ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>

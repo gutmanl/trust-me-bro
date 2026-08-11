@@ -16,6 +16,7 @@ import {
   type RunControlPhase,
 } from "@/app/components/RunControls";
 import { useJobStream } from "@/app/lib/useJobStream";
+import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ReviewCandidate } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import type { ReferenceCaptureFormState } from "./reference-scan-actions";
@@ -177,6 +178,7 @@ export function ReferenceCandidateReview({
   }
 
   const watching = !stopped && (formState.started === true || activeRun);
+  const { blockedBy } = useStartGate("reference_capture");
 
   const { lines, connectionLost } = useJobStream({
     streamUrl: `/api/projects/${projectId}/reference-capture/stream`,
@@ -228,10 +230,15 @@ export function ReferenceCandidateReview({
 
         <ErrorBanner message={formState.error} />
         {connectionLost ? <ConnectionLostNotice /> : null}
+        {blockedBy && !watching ? (
+          <StartBlockedNotice label={blockedBy} />
+        ) : null}
 
         <button
           type="submit"
-          disabled={pending || watching || openRows.length === 0}
+          disabled={
+            pending || watching || openRows.length === 0 || blockedBy !== null
+          }
           className={primaryButtonClass}
         >
           {pending || watching
