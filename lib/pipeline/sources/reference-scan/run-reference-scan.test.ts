@@ -330,6 +330,44 @@ describe("startReferenceScan: regex-only degradation", () => {
 });
 
 describe("startReferenceScan: full path (regex + llm + crossref)", () => {
+  it("does not suggest a paper twice when the LLM re-reports an inline-linked citation", async () => {
+    // Real-world case: one paragraph both links its source inline AND is
+    // discussed in prose; the regex catches the URL, the LLM re-reports the
+    // prose citation on the SAME line. Only the URL candidate should remain.
+    await importBriefing({
+      projectId: PROJECT_ID,
+      content:
+        "Eitan et al. schreiben: „…“. Quelle: https://blog.example.org/post-a [^1]",
+      tool: "x",
+    });
+    const handle = await startReferenceScan(PROJECT_ID, {
+      orchestrator: testOrchestrator({
+        output: {
+          references: [
+            {
+              raw_text: "Eitan et al. schreiben: „…“.",
+              authors: ["Eitan"],
+              title: "On Visualization and Comprehension of Scenario-Based",
+            },
+          ],
+        },
+      }),
+      runner: createJobRunner(),
+      fetcher: scanFetcher(),
+    });
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    const blob = ReferenceScanResult.parse(
+      JSON.parse(
+        store.blobs().readText(register.project.reference_scan!.blob_path),
+      ),
+    );
+    expect(blob.candidates).toHaveLength(1);
+    expect(blob.candidates[0].method).toBe("url");
+  });
+
   it("merges the regex DOI hit and the Crossref-resolved textual citation", async () => {
     await importBriefing({
       projectId: PROJECT_ID,

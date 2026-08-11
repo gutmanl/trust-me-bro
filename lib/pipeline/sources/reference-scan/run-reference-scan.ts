@@ -22,6 +22,7 @@ import type { HttpFetcher } from "../fetch-port";
 import { nodeHttpFetcher } from "../node-http-fetcher";
 import { excludeCaptured, mergeCandidates } from "./candidate";
 import type { CandidateSeed } from "./candidate";
+import { dropAlreadyIdentified } from "./dedup-identified";
 import type { CrossrefWork } from "./crossref";
 import { searchCrossref } from "./crossref";
 import { MATCH_FLOOR, scoreMatch } from "./crossref-match";
@@ -219,10 +220,14 @@ async function runReferenceScanOnce(
     degradationNote = ` LLM-Kanal übersprungen (Backend nicht einsatzbereit: ${context.backendHint ?? "unbekannt"}).`;
   }
 
-  const parsedWithIdentifier = parsed.filter(
+  // Drop LLM citations that re-report a paragraph the regex already caught by
+  // its inline URL/DOI, so the same work is not suggested twice (once as the
+  // pasted URL, once as its Crossref-resolved title).
+  const parsedNew = dropAlreadyIdentified(parsed, identifierHits);
+  const parsedWithIdentifier = parsedNew.filter(
     (reference) => reference.doi || reference.arxiv_id || reference.url,
   );
-  const parsedWithoutIdentifier = parsed.filter(
+  const parsedWithoutIdentifier = parsedNew.filter(
     (reference) => !reference.doi && !reference.arxiv_id && !reference.url,
   );
   const parsedIdentifiedSeeds: CandidateSeed[] = parsedWithIdentifier.map(
