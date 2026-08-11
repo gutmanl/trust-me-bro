@@ -310,6 +310,9 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.pauseRun).toBeDefined();
     expect(surface.resumeRun).toBeDefined();
     expect(surface.cancelRun).toBeDefined();
+    // Runner UI: project-level status truth + the kind-agnostic run handle.
+    expect(surface.getActiveRun).toBeDefined();
+    expect(surface.getActiveRunHandle).toBeDefined();
   });
 });
 

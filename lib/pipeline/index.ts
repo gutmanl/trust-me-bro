@@ -124,6 +124,11 @@ export type {
 // TMB-50: cooperative run control, generic across run kinds; the runner
 // itself stays internal (runs start only through the use-cases).
 export { cancelRun, pauseRun, resumeRun } from "./runs/control";
+// Runner UI: the project-level run status the shared status bar and the
+// global start-gating read (one truth across pages), plus the live handle
+// for the kind-agnostic status stream. The runner stays internal.
+export type { ActiveRunStatus } from "./runs/status";
+export { getActiveRun, getActiveRunHandle } from "./runs/status";
 export {
   getVerificationRun,
   getVerificationState,
