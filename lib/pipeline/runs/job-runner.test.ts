@@ -8,6 +8,73 @@ function eventTypes(events: RunProgressEvent<unknown>[]): string[] {
   return events.map((event) => event.type);
 }
 
+describe("createJobRunner: cannot be wedged", () => {
+  it("still finishes and clears the run when a subscriber throws on every event", async () => {
+    // The realistic trigger: an SSE controller whose client vanished throws
+    // from controller.enqueue(). Before the emit() guard this exception
+    // escaped the loop, skipped active.delete, and left the run active
+    // forever — blocking every future run for the project.
+    const runner = createJobRunner();
+    const handle = runner.submit(
+      "proj_a",
+      ["eins", "zwei"],
+      (item) => item,
+      async (item) => item,
+    );
+    handle.subscribe(() => {
+      throw new Error("dead SSE controller");
+    });
+
+    const result = await handle.done;
+    expect(result).toEqual({ succeeded: 2, failed: 0 });
+    expect(handle.isActive()).toBe(false);
+    // The project is free again: a new run submits without RunActiveError.
+    expect(() =>
+      runner.submit(
+        "proj_a",
+        ["drei"],
+        (item) => item,
+        async (item) => item,
+      ),
+    ).not.toThrow();
+  });
+
+  it("fails a hung item on the per-item cap and continues the run", async () => {
+    const runner = createJobRunner({ itemTimeoutMs: 20 });
+    const started: string[] = [];
+    const handle = runner.submit(
+      "proj_a",
+      ["fast", "haengt", "auch-fast"],
+      (item) => item,
+      async (item) => {
+        started.push(item);
+        if (item === "haengt") {
+          await new Promise<void>(() => {}); // never settles
+        }
+        return item;
+      },
+    );
+
+    const result = await handle.done;
+    // The hung item is failed; the item after it still runs — the run is not
+    // wedged, and it completes and clears.
+    expect(result).toEqual({ succeeded: 2, failed: 1 });
+    expect(started).toEqual(["fast", "haengt", "auch-fast"]);
+    expect(handle.isActive()).toBe(false);
+    const completed = handle
+      .eventsSoFar()
+      .filter((event) => event.type === "item_completed");
+    expect(completed[1]).toMatchObject({
+      itemId: "haengt",
+      outcome: { status: "error" },
+    });
+    expect(
+      (completed[1] as { outcome: { error: string } }).outcome.error,
+    ).toContain("Zeitüberschreitung");
+    expect(eventTypes(handle.eventsSoFar()).at(-1)).toBe("run_completed");
+  });
+});
+
 describe("createJobRunner", () => {
   it("runs items sequentially and emits the full event sequence", async () => {
     const runner = createJobRunner({ generateRunId: () => "run-1" });

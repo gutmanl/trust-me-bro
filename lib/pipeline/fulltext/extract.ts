@@ -1,4 +1,4 @@
-import { FullTextExtractionError } from "../errors";
+import { FullTextExtractionError, TextExtractionTimeoutError } from "../errors";
 import { extractHtmlText } from "./extract-html";
 import { extractPdfText } from "./extract-pdf";
 
@@ -32,7 +32,13 @@ export async function extractFullText(
         );
     }
   } catch (error) {
-    if (error instanceof FullTextExtractionError) {
+    // A parse TIMEOUT is fatal (fails the capture item); a parse FAILURE is
+    // soft (recorded, source still captured). Let both propagate as their own
+    // type so extractTextOrError can tell them apart.
+    if (
+      error instanceof FullTextExtractionError ||
+      error instanceof TextExtractionTimeoutError
+    ) {
       throw error;
     }
     throw new FullTextExtractionError(

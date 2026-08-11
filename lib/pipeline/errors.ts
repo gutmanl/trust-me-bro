@@ -118,6 +118,24 @@ export class ExtractionAlreadyRanError extends PipelineError {
  * entry (custom.snapshot.text_extraction_error), never silently dropped. */
 export class FullTextExtractionError extends PipelineError {}
 
+/**
+ * PDF text extraction exceeded its time budget — distinct from
+ * FullTextExtractionError on purpose: a genuine parse failure ("no text
+ * layer") is soft (the source is captured with the error recorded), but a
+ * TIMEOUT means we could not even finish looking at the document, so the
+ * capture item FAILS rather than importing a source we never really read.
+ * It therefore propagates past extractTextOrError's soft catch.
+ */
+export class TextExtractionTimeoutError extends PipelineError {
+  constructor(seconds: number) {
+    super(
+      `Volltextextraktion nach ${seconds}s abgebrochen – das PDF ließ sich ` +
+        "nicht in der vorgesehenen Zeit verarbeiten (evtl. beschädigt oder zu " +
+        "komplex). Die Quelle wurde nicht übernommen.",
+    );
+  }
+}
+
 /** Preconditions of the verification run are not met (no claims, nothing
  * left to verify, unknown rubric version). */
 export class VerificationPreconditionError extends PipelineError {}

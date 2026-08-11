@@ -1,17 +1,36 @@
 import { lookup } from "node:dns/promises";
 
 import { ResourceLimitExceededError } from "../errors";
+import { raceTimeout } from "../timeout";
 import type { FetchedResource, FetchOptions, HttpFetcher } from "./fetch-port";
 import { assertAllowedUrl, type HostResolver } from "./private-address";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** DNS lookup budget. The SSRF guard resolves each host BEFORE the fetch, so
+ * this lookup sits outside the fetch's own AbortSignal — and node's
+ * getaddrinfo has no timeout of its own and is a known indefinite-hang risk
+ * (a stale or unreachable resolver, common under WSL2). Unbounded, one bad
+ * host would hang the capture item, and with it the whole run, forever. */
+const DNS_TIMEOUT_MS = 10_000;
+
 /** The production host resolver: every address the OS resolver returns for a
  * name (so a name that resolves to even one non-public address is refused).
  * Kept here, in the sanctioned network module, rather than in the pure
- * address classifier. */
-const nodeHostResolver: HostResolver = async (hostname) =>
-  (await lookup(hostname, { all: true })).map((entry) => entry.address);
+ * address classifier. Bounded by DNS_TIMEOUT_MS — a stalled lookup fails the
+ * fetch cleanly instead of hanging. */
+const nodeHostResolver: HostResolver = async (hostname) => {
+  const entries = await raceTimeout(
+    lookup(hostname, { all: true }),
+    DNS_TIMEOUT_MS,
+    () =>
+      new ResourceLimitExceededError(
+        `Abruf abgebrochen: Namensauflösung für "${hostname}" nach ` +
+          `${Math.round(DNS_TIMEOUT_MS / 1000)}s ohne Antwort.`,
+      ),
+  );
+  return entries.map((entry) => entry.address);
+};
 
 /** Injectable seam: the SSRF address guard. The default enforces the real
  * policy; tests that fetch a loopback server inject a permissive check. */

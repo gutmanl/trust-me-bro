@@ -1,12 +1,32 @@
 import { randomUUID } from "node:crypto";
 
 import { RunActiveError } from "../errors";
+import { raceTimeout } from "../timeout";
 import type {
   RunControlState,
   RunHandle,
   RunItemOutcome,
   RunProgressEvent,
 } from "./types";
+
+/** Per-item cap of the process-global runner. Generous on purpose: it is a
+ * last-resort backstop BEHIND the targeted timeouts (DNS ~10s, fetch 30s, PDF
+ * parse ~20s), meant to fire only on a pathology none of those caught, never
+ * in normal operation. */
+const DEFAULT_ITEM_TIMEOUT_MS = 120_000;
+
+/** A run item exceeded the runner's per-item wall-clock cap. The message is
+ * user-facing (it becomes the item's failure reason in the run feed), hence
+ * German — same tier as lib/pipeline/errors.ts. */
+export class RunItemTimeoutError extends Error {
+  constructor(itemId: string, ms: number) {
+    super(
+      `Zeitüberschreitung: Schritt "${itemId}" nach ${Math.round(ms / 1000)}s ` +
+        "abgebrochen. Der Lauf wird mit dem nächsten Element fortgesetzt.",
+    );
+    this.name = "RunItemTimeoutError";
+  }
+}
 
 /**
  * Minimal in-process job runner (TMB-25, Grobentwurf): per project at most
@@ -48,8 +68,18 @@ const lastKey = (projectId: string, kind: string): string =>
 
 export function createJobRunner(options?: {
   generateRunId?: () => string;
+  /** Per-item wall-clock cap: an item whose step has not settled within this
+   * many ms is failed (Zeitüberschreitung) and the run moves on — so no single
+   * hung step (a stalled DNS lookup, a pathological PDF parse, a future
+   * un-timed call) can wedge the run and, with it, every other run for the
+   * project. Undefined = no cap (the default for in-test runners with
+   * deterministic steps); the process-global runner sets it. The abandoned
+   * step keeps running in the background — JS cannot cancel a promise — but it
+   * can no longer block the queue. */
+  itemTimeoutMs?: number;
 }): JobRunner {
   const generateRunId = options?.generateRunId ?? randomUUID;
+  const itemTimeoutMs = options?.itemTimeoutMs;
   const active = new Map<string, RunHandle>();
   const last = new Map<string, RunHandle>();
 
@@ -89,7 +119,15 @@ export function createJobRunner(options?: {
       const emit = (event: RunProgressEvent<TResult>): void => {
         events.push(event);
         for (const listener of listeners) {
-          listener(event);
+          try {
+            listener(event);
+          } catch {
+            // A subscriber that throws — most realistically an SSE controller
+            // whose client vanished, so controller.enqueue() throws — must
+            // never break the run loop or skip its cleanup. The dead listener
+            // simply misses this event; the run proceeds and still reaches its
+            // terminal event and active.delete (see the try/finally below).
+          }
         }
       };
 
@@ -108,55 +146,85 @@ export function createJobRunner(options?: {
       const armedGate = (): { promise: Promise<void> } | null => pauseGate;
 
       const done = (async () => {
-        emit({
-          type: "run_started",
-          runId,
-          projectId,
-          totalItems: items.length,
-        });
         let succeeded = 0;
         let failed = 0;
-        for (const [index, item] of items.entries()) {
-          if (isCancelRequested()) {
-            break;
-          }
-          const gate = armedGate();
-          if (gate !== null) {
-            controlState = "paused";
-            emit({ type: "run_paused", runId });
-            await gate.promise;
+        // The cleanup — clearing `active` and emitting the terminal event — is
+        // in a `finally` so it runs no matter how the loop ends: a normal
+        // finish, a cancel, or (defensively) an unexpected throw. Before, only
+        // a clean fall-through reached it, so any stall or stray exception in
+        // the loop body left the run "active" forever, blocking every future
+        // run for the project. This is the single guarantee that makes the
+        // runner unwedgeable.
+        try {
+          emit({
+            type: "run_started",
+            runId,
+            projectId,
+            totalItems: items.length,
+          });
+          for (const [index, item] of items.entries()) {
             if (isCancelRequested()) {
               break;
             }
+            const gate = armedGate();
+            if (gate !== null) {
+              controlState = "paused";
+              emit({ type: "run_paused", runId });
+              await gate.promise;
+              if (isCancelRequested()) {
+                break;
+              }
+            }
+            const id = itemId(item);
+            emit({ type: "item_started", runId, itemId: id, index });
+            const stepResult = step(item, { runId });
+            let outcome: RunItemOutcome<TResult>;
+            try {
+              outcome = {
+                itemId: id,
+                status: "ok",
+                result:
+                  itemTimeoutMs === undefined
+                    ? await stepResult
+                    : await raceTimeout(
+                        stepResult,
+                        itemTimeoutMs,
+                        () => new RunItemTimeoutError(id, itemTimeoutMs),
+                      ),
+              };
+              succeeded += 1;
+            } catch (error) {
+              outcome = {
+                itemId: id,
+                status: "error",
+                error: error instanceof Error ? error.message : String(error),
+              };
+              failed += 1;
+            }
+            emit({ type: "item_completed", runId, itemId: id, index, outcome });
           }
-          const id = itemId(item);
-          emit({ type: "item_started", runId, itemId: id, index });
-          let outcome: RunItemOutcome<TResult>;
-          try {
-            outcome = {
-              itemId: id,
-              status: "ok",
-              result: await step(item, { runId }),
-            };
-            succeeded += 1;
-          } catch (error) {
-            outcome = {
-              itemId: id,
-              status: "error",
-              error: error instanceof Error ? error.message : String(error),
-            };
-            failed += 1;
+        } finally {
+          activeFlag = false;
+          active.delete(projectId);
+          if (isCancelRequested()) {
+            controlState = "cancelled";
+            emit({
+              type: "run_cancelled",
+              runId,
+              projectId,
+              succeeded,
+              failed,
+            });
+          } else {
+            controlState = "running";
+            emit({
+              type: "run_completed",
+              runId,
+              projectId,
+              succeeded,
+              failed,
+            });
           }
-          emit({ type: "item_completed", runId, itemId: id, index, outcome });
-        }
-        activeFlag = false;
-        active.delete(projectId);
-        if (isCancelRequested()) {
-          controlState = "cancelled";
-          emit({ type: "run_cancelled", runId, projectId, succeeded, failed });
-        } else {
-          controlState = "running";
-          emit({ type: "run_completed", runId, projectId, succeeded, failed });
         }
         return { succeeded, failed };
       })();
@@ -229,6 +297,6 @@ export function createJobRunner(options?: {
 let globalRunner: JobRunner | undefined;
 
 export function getGlobalJobRunner(): JobRunner {
-  globalRunner ??= createJobRunner();
+  globalRunner ??= createJobRunner({ itemTimeoutMs: DEFAULT_ITEM_TIMEOUT_MS });
   return globalRunner;
 }

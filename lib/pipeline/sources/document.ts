@@ -3,6 +3,7 @@ import {
   InvalidSourceInputError,
   DocumentFetchError,
   PipelineError,
+  TextExtractionTimeoutError,
 } from "../errors";
 import { extractFullText } from "../fulltext/extract";
 import type { HttpFetcher } from "./fetch-port";
@@ -112,14 +113,22 @@ export async function acquireDocument(
 export type TextExtraction = { text: string } | { error: string };
 
 /** Full-text extraction with the TMB-24 fallback: a source without a text
- * layer is captured visibly (text_extraction_error), not rejected. */
+ * layer is captured visibly (text_extraction_error), not rejected. The one
+ * exception is a TextExtractionTimeoutError — a document we could not finish
+ * reading at all — which propagates so the capture item fails instead of
+ * importing a half-read source. `extract` is injectable for tests; production
+ * always uses extractFullText. */
 export async function extractTextOrError(
   content: Buffer,
   ext: string,
+  extract: (content: Buffer, ext: string) => Promise<string> = extractFullText,
 ): Promise<TextExtraction> {
   try {
-    return { text: await extractFullText(content, ext) };
+    return { text: await extract(content, ext) };
   } catch (error) {
+    if (error instanceof TextExtractionTimeoutError) {
+      throw error;
+    }
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }
