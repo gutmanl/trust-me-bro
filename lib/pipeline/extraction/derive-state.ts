@@ -1,64 +1,50 @@
 import type { ClaimsRegister } from "../../register";
 
 /**
- * Extraction state derived purely from the register (plus the volatile
- * "a live run exists" flag): the two batch events bracket a run, and the
- * bracket invariant — claims land in the SAME transaction as
- * batch_run_completed — makes every state distinguishable after a crash
- * without any separate run store.
+ * Extraction activity derived purely from the register (plus the volatile
+ * "a live run exists" flag). Since the workbench epic extraction is no longer
+ * a one-shot project phase but a repeatable per-source pass, so the old
+ * not_started/completed state machine — which inferred success from "claims
+ * exist" — no longer describes anything: after the first pass claims always
+ * exist, and every further pass is legitimate. What the UI still needs is
+ * only: is a pass running, and how did the last one end.
+ *
+ * The outcome is read off the LAST batch_run_completed event via the two
+ * reason prefixes below. Both writers of that event live next to this module
+ * and use these constants, so the convention has exactly one definition —
+ * the alternative, a new project event type per outcome, would be a register
+ * format change for a purely cosmetic distinction.
  */
 
-export type ExtractionStatus =
-  "not_started" | "running" | "interrupted" | "failed" | "completed";
+/** Prefix of the completion reason of a pass that committed its result. */
+export const EXTRACTION_COMPLETED_PREFIX = "Claim-Extraktion abgeschlossen";
 
-export interface ExtractionState {
-  status: ExtractionStatus;
-  startedAt?: string;
-  completedAt?: string;
-  /** Reason of the last batch_run_completed event (success or failure). */
-  reason?: string;
-  totalClaims: number;
+/** Prefix of the completion reason of a pass that produced nothing (backend
+ * exhausted, rate-limited, or a bundle the register rejected as a whole). */
+export const EXTRACTION_FAILED_PREFIX = "Claim-Extraktion ohne Ergebnis";
+
+export interface ExtractionActivity {
+  running: boolean;
+  lastOutcome: "completed" | "failed" | null;
+  /** Reason of the last batch_run_completed event, as shown to the user. */
+  lastMessage: string | null;
 }
 
-export function deriveExtractionState(
+export function deriveExtractionActivity(
   register: ClaimsRegister,
-  hasActiveRun: boolean,
-): ExtractionState {
-  const started = register.project_events.filter(
-    (event) => event.event === "batch_run_started",
-  );
-  const completed = register.project_events.filter(
-    (event) => event.event === "batch_run_completed",
-  );
-  const lastStarted = started.at(-1);
-  const lastCompleted = completed.at(-1);
-  const totalClaims = register.claims.length;
-
-  if (hasActiveRun) {
-    return { status: "running", startedAt: lastStarted?.at, totalClaims };
+  runnerRunning: boolean,
+): ExtractionActivity {
+  const lastCompleted = register.project_events
+    .filter((event) => event.event === "batch_run_completed")
+    .at(-1);
+  if (!lastCompleted) {
+    return { running: runnerRunning, lastOutcome: null, lastMessage: null };
   }
-  if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    // Opening bracket without a close: the process was interrupted; by
-    // invariant no claims were written in that case — restarting is safe.
-    return { status: "interrupted", startedAt: lastStarted.at, totalClaims };
-  }
-  if (totalClaims > 0) {
-    return {
-      status: "completed",
-      startedAt: lastStarted?.at,
-      completedAt: lastCompleted?.at,
-      reason: lastCompleted?.reason,
-      totalClaims,
-    };
-  }
-  if (lastCompleted) {
-    return {
-      status: "failed",
-      startedAt: lastStarted?.at,
-      completedAt: lastCompleted.at,
-      reason: lastCompleted.reason,
-      totalClaims,
-    };
-  }
-  return { status: "not_started", totalClaims };
+  return {
+    running: runnerRunning,
+    lastOutcome: lastCompleted.reason.startsWith(EXTRACTION_FAILED_PREFIX)
+      ? "failed"
+      : "completed",
+    lastMessage: lastCompleted.reason,
+  };
 }

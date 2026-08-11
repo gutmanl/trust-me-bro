@@ -1,11 +1,12 @@
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
 import {
+  deriveExtractionActivity,
+  getActiveRun,
   getBackendsHealth,
-  getExtractionState,
   readProject,
 } from "@/lib/pipeline";
-import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
+import { STATUS_LABELS } from "../../status-labels";
 import { ExtractionPanel } from "./ExtractionPanel";
 
 export const dynamic = "force-dynamic";
@@ -17,26 +18,23 @@ const CLAIM_TYPE_LABELS: Record<string, string> = {
   recommendation: "Empfehlung",
 };
 
-const STATE_BADGES: Record<string, { label: string; className: string }> = {
-  not_started: {
-    label: "Noch nicht gestartet",
-    className: "border-slate-200 bg-slate-50 text-slate-700",
-  },
-  running: {
-    label: "Läuft …",
-    className: "border-blue-200 bg-blue-50 text-blue-800",
-  },
-  interrupted: {
-    label: "Unterbrochen – erneut starten",
-    className: "border-amber-200 bg-amber-50 text-amber-800",
-  },
+const RUNNING_BADGE = {
+  label: "Läuft …",
+  className: "border-blue-200 bg-blue-50 text-blue-800",
+};
+
+const OUTCOME_BADGES = {
   failed: {
-    label: "Fehlgeschlagen",
+    label: "Letzter Durchlauf fehlgeschlagen",
     className: "border-red-200 bg-red-50 text-red-800",
   },
   completed: {
-    label: "Abgeschlossen",
+    label: "Letzter Durchlauf abgeschlossen",
     className: "border-green-200 bg-green-50 text-green-800",
+  },
+  none: {
+    label: "Noch kein Durchlauf",
+    className: "border-slate-200 bg-slate-50 text-slate-700",
   },
 };
 
@@ -45,9 +43,14 @@ export default async function ExtractionPage(
 ) {
   const { id } = await props.params;
   const register = await loadProjectOrNotFound(() => readProject(id));
-  const state = getExtractionState(id, register);
+  const activity = deriveExtractionActivity(
+    register,
+    getActiveRun(id)?.kind === "extraction",
+  );
   const health = await getBackendsHealth(id);
-  const badge = STATE_BADGES[state.status];
+  const badge = activity.running
+    ? RUNNING_BADGE
+    : OUTCOME_BADGES[activity.lastOutcome ?? "none"];
 
   // Proactive precondition (finding 4): mirror the run use-case's checks so
   // the start button is disabled with a reason rather than only failing on
@@ -68,19 +71,17 @@ export default async function ExtractionPage(
           }}
         />
         <p className="mt-1 text-sm text-slate-600">
-          Der Adapter zerlegt das eingefrorene Briefing in atomare Claims mit
-          Fundstellen. Unbelegte oder gebündelte Aussagen gehen sichtbar zur
-          Adjudikation – sie werden nicht verworfen.
+          Die Extraktion läuft je Quelle: zu jeder erfassten Quelle wird ein
+          eigener Durchlauf gestartet. Hier findet der Sweep die Aussagen, die
+          keine erfasste Quelle zitieren – sie gehen sichtbar zur Adjudikation
+          und werden nicht verworfen.
         </p>
       </div>
 
       <div className={`rounded-md border p-4 text-sm ${badge.className}`}>
         <p className="font-medium">{badge.label}</p>
-        {state.reason ? <p className="mt-1">{state.reason}</p> : null}
-        {state.completedAt ? (
-          <p className="mt-1 text-xs">
-            Abgeschlossen: {formatTimestamp(state.completedAt)}
-          </p>
+        {activity.lastMessage ? (
+          <p className="mt-1">{activity.lastMessage}</p>
         ) : null}
       </div>
 
@@ -88,7 +89,7 @@ export default async function ExtractionPage(
 
       <ExtractionPanel
         projectId={id}
-        state={state}
+        activity={activity}
         blockedReason={blockedReason}
       />
 

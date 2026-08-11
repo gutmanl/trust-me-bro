@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { ClaimsRegister } from "../../register";
 import exampleProject from "../../register/schema/__fixtures__/example-project.json";
-import { deriveExtractionState } from "./derive-state";
+import {
+  deriveExtractionActivity,
+  EXTRACTION_COMPLETED_PREFIX,
+  EXTRACTION_FAILED_PREFIX,
+} from "./derive-state";
 
 function baseRegister(): ClaimsRegister {
   const register = structuredClone(exampleProject) as unknown as ClaimsRegister;
@@ -15,68 +19,56 @@ function baseRegister(): ClaimsRegister {
   return register;
 }
 
-function withEvent(
-  register: ClaimsRegister,
-  event: "batch_run_started" | "batch_run_completed",
-  seq: number,
-  reason = "Test.",
-): void {
+function withCompletion(register: ClaimsRegister, reason: string): void {
   register.project_events.push({
-    seq,
-    at: `2026-08-07T0${seq}:00:00Z`,
+    seq: register.project_events.length + 1,
+    at: "2026-08-11T09:00:00Z",
     actor: "system:extraction",
-    event,
+    event: "batch_run_completed",
     reason,
     prev_hash: "a".repeat(64),
     hash: "b".repeat(64),
   });
 }
 
-describe("deriveExtractionState", () => {
-  it("reports not_started without any batch events", () => {
-    expect(deriveExtractionState(baseRegister(), false).status).toBe(
-      "not_started",
+describe("deriveExtractionActivity", () => {
+  it("reports no outcome before any pass ran", () => {
+    expect(deriveExtractionActivity(baseRegister(), false)).toEqual({
+      running: false,
+      lastOutcome: null,
+      lastMessage: null,
+    });
+  });
+
+  it("reports a live pass from the runner, not from the register", () => {
+    expect(deriveExtractionActivity(baseRegister(), true).running).toBe(true);
+  });
+
+  it("reads a committed pass off its completion reason", () => {
+    const register = baseRegister();
+    withCompletion(
+      register,
+      `${EXTRACTION_COMPLETED_PREFIX} (Quelle src_a, Lauf 1): 2 neue(r) Claim(s).`,
+    );
+    const activity = deriveExtractionActivity(register, false);
+    expect(activity.lastOutcome).toBe("completed");
+    expect(activity.lastMessage).toContain("Quelle src_a");
+  });
+
+  it("recognizes a pass that produced nothing", () => {
+    const register = baseRegister();
+    withCompletion(register, `${EXTRACTION_FAILED_PREFIX} beendet: erschöpft.`);
+    expect(deriveExtractionActivity(register, false).lastOutcome).toBe(
+      "failed",
     );
   });
 
-  it("reports running while a live run exists", () => {
+  it("the LAST pass wins — a successful retry clears the earlier failure", () => {
     const register = baseRegister();
-    withEvent(register, "batch_run_started", 2);
-    expect(deriveExtractionState(register, true).status).toBe("running");
-  });
-
-  it("reports interrupted for an unmatched start bracket", () => {
-    const register = baseRegister();
-    withEvent(register, "batch_run_started", 2);
-    expect(deriveExtractionState(register, false).status).toBe("interrupted");
-  });
-
-  it("reports failed for a completed run without claims", () => {
-    const register = baseRegister();
-    withEvent(register, "batch_run_started", 2);
-    withEvent(register, "batch_run_completed", 3, "Erschöpft.");
-    const state = deriveExtractionState(register, false);
-    expect(state.status).toBe("failed");
-    expect(state.reason).toBe("Erschöpft.");
-  });
-
-  it("reports completed once claims exist under a closed bracket", () => {
-    const register = baseRegister();
-    withEvent(register, "batch_run_started", 2);
-    withEvent(register, "batch_run_completed", 3, "2 Claims.");
-    register.claims = (
-      structuredClone(exampleProject) as unknown as ClaimsRegister
-    ).claims;
-    const state = deriveExtractionState(register, false);
-    expect(state.status).toBe("completed");
-    expect(state.totalClaims).toBe(1);
-  });
-
-  it("a retried run: the LAST bracket wins", () => {
-    const register = baseRegister();
-    withEvent(register, "batch_run_started", 2);
-    withEvent(register, "batch_run_completed", 3, "Fehlschlag.");
-    withEvent(register, "batch_run_started", 4);
-    expect(deriveExtractionState(register, false).status).toBe("interrupted");
+    withCompletion(register, `${EXTRACTION_FAILED_PREFIX} beendet: erschöpft.`);
+    withCompletion(register, `${EXTRACTION_COMPLETED_PREFIX} (Sweep, Lauf 2).`);
+    expect(deriveExtractionActivity(register, false).lastOutcome).toBe(
+      "completed",
+    );
   });
 });

@@ -23,7 +23,7 @@ import { createJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
-import { startExtraction } from "../extraction/run-extraction";
+import { startSourceExtraction } from "../extraction/run-source-extraction";
 import { getVerificationState, startVerification } from "./run-verification";
 
 const PROJECT = "proj_pruefung";
@@ -40,7 +40,7 @@ function extractionOutput(
     claims: claims.map((claim, index) => ({
       text: `Behauptung Nummer ${index + 1}.`,
       claim_type: "quantitative_finding",
-      briefing_anchor: `p${index + 1}`,
+      anchor_quote: `Behauptung Nummer ${index + 1}`,
       evidence:
         claim.excerpt === undefined
           ? []
@@ -52,6 +52,7 @@ function extractionOutput(
               },
             ],
     })),
+    additional_evidence: [],
   };
 }
 
@@ -144,7 +145,7 @@ async function extractClaims(output: ExtractionOutput): Promise<void> {
     },
     { fetcher: fakeFetcher({}) },
   );
-  const handle = await startExtraction(PROJECT, {
+  const handle = await startSourceExtraction(PROJECT, "src_studie", {
     orchestrator: makeOrchestrator({}, output),
     runner,
   });

@@ -7,6 +7,7 @@ import {
 import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
+import { RECHECK_STATUSES } from "../verification/recheck-statuses";
 import { acquireDocument, buildSnapshot, extractTextOrError } from "./document";
 import type { CaptureDependencies } from "./capture";
 import { nodeHttpFetcher } from "./node-http-fetcher";
@@ -28,17 +29,6 @@ export interface ReviseSourceResult {
   /** Claims marked recheck_required by this revision. */
   recheckedClaimIds: string[];
 }
-
-/** Claim statuses a source revision pulls into Nachprüfung: exactly the
- * settled machine/human determinations that referenced the old wording.
- * captured self-heals (stage 1 always re-runs), the adjudication/repair
- * statuses are mid human-workflow, discarded stays terminal. */
-const RECHECK_STATUSES = new Set([
-  "existence_checked",
-  "prechecked",
-  "auto_confirmed",
-  "confirmed",
-]);
 
 /**
  * Revises a source (TMB-44): acquires the current document, and — only if

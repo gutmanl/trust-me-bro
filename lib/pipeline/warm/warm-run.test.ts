@@ -24,7 +24,7 @@ import { createJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
-import { startExtraction } from "../extraction/run-extraction";
+import { startSourceExtraction } from "../extraction/run-source-extraction";
 import { createWarmRunProject } from "./create-warm-run";
 import { deriveRelevanceState } from "./derive-state";
 import { pendingRelevancePopulation } from "./select-claims";
@@ -222,7 +222,7 @@ describe("createWarmRunProject", () => {
             {
               text: "Neuer Claim zur Codequalität.",
               claim_type: "effectiveness_statement",
-              briefing_anchor: "p1",
+              anchor_quote: "Neues Briefing",
               evidence: [
                 {
                   source_id: sourceId,
@@ -232,6 +232,7 @@ describe("createWarmRunProject", () => {
               ],
             },
           ],
+          additional_evidence: [],
         },
       },
     });
@@ -242,7 +243,10 @@ describe("createWarmRunProject", () => {
       policy: { maxAttempts: 2, retryBaseDelayMs: 1 },
       sleep: async () => {},
     });
-    const handle = await startExtraction(WARM, { orchestrator, runner });
+    const handle = await startSourceExtraction(WARM, sourceId, {
+      orchestrator,
+      runner,
+    });
     await handle.done;
 
     const register = await RegisterStore.forProject(WARM).read();

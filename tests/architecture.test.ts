@@ -181,9 +181,16 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.deriveRelevanceState).toBeUndefined();
     expect(surface.formatCitation).toBeDefined();
     expect(surface.toPlainCsl).toBeDefined();
-    expect(surface.startExtraction).toBeDefined();
-    expect(surface.getExtractionState).toBeDefined();
-    expect(surface.getExtractionRun).toBeDefined();
+    // Workbench epic: the per-source pass, the unevidenced sweep and the two
+    // derivations the workbench renders. The project-wide one-shot run
+    // (startExtraction/getExtractionState/getExtractionRun) is deliberately
+    // gone from this list — extraction is incremental now — and the commit
+    // step stays internal: a pass is committed only through a run.
+    expect(surface.startSourceExtraction).toBeDefined();
+    expect(surface.startUnevidencedExtraction).toBeDefined();
+    expect(surface.deriveExtractionActivity).toBeDefined();
+    expect(surface.deriveSourceLifecycles).toBeDefined();
+    expect(surface.applyExtractionOutput).toBeUndefined();
     expect(surface.startVerification).toBeDefined();
     expect(surface.getVerificationState).toBeDefined();
     expect(surface.getVerificationRun).toBeDefined();

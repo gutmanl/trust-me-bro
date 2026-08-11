@@ -106,19 +106,23 @@ export type {
   ReferenceScanResult,
 } from "./sources/reference-scan/schema";
 export type { ReviewCandidate } from "./sources/reference-scan/review";
+// Workbench epic: extraction is a repeatable per-source pass plus a sweep
+// for the unevidenced claims — no project-wide one-shot run anymore, so the
+// old start/state/run trio is gone. Live-run knowledge comes from the
+// kind-agnostic run status; the register only carries the last pass's
+// outcome.
 export {
-  getExtractionRun,
-  getExtractionState,
-  startExtraction,
-} from "./extraction/run-extraction";
+  startSourceExtraction,
+  startUnevidencedExtraction,
+} from "./extraction/run-source-extraction";
 export type {
-  ExtractionDependencies,
-  ExtractionRunSummary,
-} from "./extraction/run-extraction";
-export type {
-  ExtractionState,
-  ExtractionStatus,
-} from "./extraction/derive-state";
+  SourceExtractionDependencies,
+  SourceExtractionSummary,
+} from "./extraction/run-source-extraction";
+export { deriveExtractionActivity } from "./extraction/derive-state";
+export type { ExtractionActivity } from "./extraction/derive-state";
+export { deriveSourceLifecycles } from "./sources/source-lifecycle";
+export type { SourceLifecycle } from "./sources/source-lifecycle";
 export type {
   RunControlState,
   RunHandle,

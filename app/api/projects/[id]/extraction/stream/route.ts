@@ -1,6 +1,6 @@
 import {
-  getExtractionRun,
-  getExtractionState,
+  deriveExtractionActivity,
+  getActiveRunHandle,
   readProject,
   UnknownProjectError,
 } from "@/lib/pipeline";
@@ -35,7 +35,11 @@ export async function GET(
     throw error;
   }
 
-  const run = getExtractionRun(id);
+  // The project-level handle, narrowed to this feature: the runner is
+  // single-writer per project, so an active run of another kind is simply
+  // not this stream's business.
+  const active = getActiveRunHandle(id);
+  const run = active?.kind === "extraction" ? active : undefined;
   let unsubscribe: (() => void) | undefined;
 
   const stream = new ReadableStream<Uint8Array>({
@@ -63,7 +67,11 @@ export async function GET(
         });
         return;
       }
-      controller.enqueue(sse("state", getExtractionState(id, register)));
+      // No live run left to follow, so the snapshot is by definition the
+      // one of a finished pass.
+      controller.enqueue(
+        sse("state", deriveExtractionActivity(register, false)),
+      );
       close();
     },
     cancel() {

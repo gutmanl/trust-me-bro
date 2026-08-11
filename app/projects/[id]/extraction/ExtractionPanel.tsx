@@ -10,17 +10,19 @@ import {
   RunProgressFeed,
 } from "@/app/components/ui";
 import { useJobStream } from "@/app/lib/useJobStream";
-import type { ExtractionState } from "@/lib/pipeline";
+import type { ExtractionActivity } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ExtractionFormState } from "./actions";
 import { startExtractionAction } from "./actions";
 
 const initialState: ExtractionFormState = { error: null };
 
+const START_LABEL = "Nachweislose Aussagen suchen";
+
 function describeProgress(event: Record<string, unknown>): string | null {
   switch (event.type) {
     case "run_started":
-      return "Extraktionslauf gestartet – das Backend liest das eingefrorene Briefing.";
+      return "Extraktionslauf gestartet – das Backend liest das Briefing.";
     case "item_started":
       return "Claim-Extraktion läuft (Agent-CLI arbeitet, das kann einige Minuten dauern) …";
     case "item_completed": {
@@ -48,11 +50,11 @@ function describeProgress(event: Record<string, unknown>): string | null {
  */
 export function ExtractionPanel({
   projectId,
-  state,
+  activity,
   blockedReason,
 }: {
   projectId: string;
-  state: ExtractionState;
+  activity: ExtractionActivity;
   /** A German reason the run cannot start yet (briefing not imported),
    * computed server-side so the button is disabled with an explanation
    * instead of failing only on submit. */
@@ -76,8 +78,7 @@ export function ExtractionPanel({
     setStopped(false);
   }
 
-  const watching =
-    !stopped && (formState.started === true || state.status === "running");
+  const watching = !stopped && (formState.started === true || activity.running);
 
   const { lines, connectionLost } = useJobStream({
     streamUrl: `/api/projects/${projectId}/extraction/stream`,
@@ -90,13 +91,10 @@ export function ExtractionPanel({
   });
 
   const { blockedBy } = useStartGate("extraction");
-  const startable =
-    !pending &&
-    !watching &&
-    !blockedBy &&
-    (state.status === "not_started" ||
-      state.status === "interrupted" ||
-      state.status === "failed");
+  // No once-per-project gate anymore: the sweep may be repeated whenever the
+  // briefing or the source set moved on — the pass dedupes in its commit
+  // transaction, so a repeat is safe rather than duplicating claims.
+  const startable = !pending && !watching && !blockedBy;
 
   return (
     <div className="space-y-4">
@@ -106,18 +104,14 @@ export function ExtractionPanel({
       {blockedReason && !watching ? (
         <div>
           <button type="button" disabled className={primaryButtonClass}>
-            {state.status === "not_started"
-              ? "Claim-Extraktion starten"
-              : "Claim-Extraktion erneut starten"}
+            {START_LABEL}
           </button>
           <p className="mt-1 text-sm text-amber-700">{blockedReason}</p>
         </div>
       ) : startable ? (
         <form action={formAction}>
           <button type="submit" className={primaryButtonClass}>
-            {state.status === "not_started"
-              ? "Claim-Extraktion starten"
-              : "Claim-Extraktion erneut starten"}
+            {START_LABEL}
           </button>
         </form>
       ) : null}
