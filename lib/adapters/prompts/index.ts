@@ -20,7 +20,10 @@ import { substitute } from "./render";
  */
 export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   research: "1.0.0",
-  extraction: "1.0.0",
+  // 1.1.0: pins the briefing_anchor counting convention (blank-line blocks,
+  // headings included) — 1.0.0 left it open and models skipped the title,
+  // anchoring every claim one paragraph too early.
+  extraction: "1.1.0",
   attribution: "1.0.0",
   rubric: "1.0.0",
   repair: "1.0.0",
