@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
+import type { VerificationState } from "@/lib/pipeline";
 import type { ClaimStatus } from "@/lib/register";
 import { STATUS_LABELS, STATUS_ORDER } from "../../status-labels";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
@@ -31,7 +32,10 @@ export function ClaimsOverviewBar({
   openCount,
   openExistenceCount,
   existenceCheckRunning,
+  verificationRunning,
+  verificationState,
   verificationBlockedReason,
+  runBarVisible,
   onJumpToNextOpen,
 }: {
   projectId: string;
@@ -45,8 +49,18 @@ export function ClaimsOverviewBar({
   /** Claims whose stage-1 existence check is still outstanding. */
   openExistenceCount: number;
   existenceCheckRunning: boolean;
+  /** A verification run is live. `useStartGate` cannot tell us this — it
+   * deliberately reports null for one's OWN kind, because a panel that
+   * starts a run is supposed to show that run's progress instead of gating
+   * itself. The deleted VerificationPanel had a `watching` flag for exactly
+   * this; here the shared stream's active run takes its place. */
+  verificationRunning: boolean;
+  verificationState: VerificationState;
   /** German reason the verification run cannot start yet, or null. */
   verificationBlockedReason: string | null;
+  /** The run status bar is on screen and also sticks to the top — the
+   * overview bar has to dock below it rather than under it. */
+  runBarVisible: boolean;
   onJumpToNextOpen: () => void;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -54,11 +68,29 @@ export function ClaimsOverviewBar({
     initialState,
   );
   const { blockedBy } = useStartGate("verification");
+  // Nothing left for a run to do is not an error the user should discover by
+  // pressing a button that throws VerificationPreconditionError — an
+  // interrupted run is the one case where "no open claims" still has work
+  // (the spot check).
+  const hasWork =
+    verificationState.openClaims > 0 ||
+    verificationState.status === "interrupted";
   const startable =
-    !pending && !blockedBy && verificationBlockedReason === null;
+    !pending &&
+    !blockedBy &&
+    !verificationRunning &&
+    hasWork &&
+    verificationBlockedReason === null;
 
   return (
-    <div className="sticky top-0 z-10 -mx-6 border-b border-slate-200 bg-slate-50/95 px-6 py-3 backdrop-blur">
+    <div
+      className={`sticky z-10 -mx-6 border-b border-slate-200 bg-slate-50/95 px-6 py-3 backdrop-blur ${
+        // The run status bar (sticky top-0 z-20) is taller than nothing and
+        // shorter than 4rem, so docking here keeps both readable while a run
+        // is live without leaving a gap when there is none.
+        runBarVisible ? "top-16" : "top-0"
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="text-sm font-semibold text-slate-700">Claims</h2>
 
@@ -105,13 +137,23 @@ export function ClaimsOverviewBar({
           </span>
         ) : null}
 
-        {startable ? (
+        {verificationRunning ? (
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+            Attribution &amp; Kalibrierung laufen …
+          </span>
+        ) : startable ? (
           <form action={formAction}>
             <button
               type="submit"
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+              disabled={pending}
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
             >
-              Attribution &amp; Kalibrierung starten
+              {pending
+                ? "Wird gestartet …"
+                : verificationState.status === "interrupted" ||
+                    verificationState.status === "halted"
+                  ? `Prüfung fortsetzen (${verificationState.openClaims} Claim(s) offen)`
+                  : "Attribution & Kalibrierung starten"}
             </button>
           </form>
         ) : null}
@@ -126,6 +168,31 @@ export function ClaimsOverviewBar({
             </div>
           ))}
         </dl>
+      ) : null}
+
+      {/* Durable outcome of the last verification run — the half of the
+          deleted verification page that was not volatile run progress. An
+          interrupted or halted run leaves claims unchecked, and without this
+          line that would be visible only as claims quietly sitting in
+          captured/existence_checked. */}
+      {verificationState.reason !== undefined &&
+      (verificationState.status === "interrupted" ||
+        verificationState.status === "halted" ||
+        verificationState.status === "completed") ? (
+        <p
+          className={`mt-2 text-xs ${
+            verificationState.status === "completed"
+              ? "text-slate-500"
+              : "text-amber-700"
+          }`}
+        >
+          {verificationState.status === "interrupted"
+            ? "Prüflauf unterbrochen – Fortsetzen prüft nur die offenen Claims. "
+            : verificationState.status === "halted"
+              ? "Prüflauf angehalten – es verbleiben offene Claims. "
+              : "Letzter Prüflauf: "}
+          {verificationState.reason}
+        </p>
       ) : null}
 
       {verificationBlockedReason !== null ? (

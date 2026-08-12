@@ -14,6 +14,8 @@ import type {
   EvidenceDisplay,
   QueueEntry,
 } from "@/lib/pipeline";
+import type { BriefingImport } from "@/lib/register";
+import { formatTimestamp } from "../../status-labels";
 import type { BriefingFormState } from "./actions";
 import { publishBriefingRevisionAction } from "./actions";
 import { BriefingEditView } from "./BriefingEditView";
@@ -35,6 +37,7 @@ export function BriefingPane({
   projectId,
   briefing,
   briefingText,
+  briefingMeta,
   draft,
   queue,
   evidenceDisplay,
@@ -49,6 +52,8 @@ export function BriefingPane({
   briefing: BriefingViewModel | null;
   /** The frozen briefing's text, or null before the first import. */
   briefingText: string | null;
+  /** Provenance of the currently frozen briefing, or null before import. */
+  briefingMeta: BriefingImport | null;
   draft: BriefingDraft | null;
   queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
@@ -61,7 +66,7 @@ export function BriefingPane({
 }) {
   const [editing, setEditing] = useState(false);
 
-  if (briefing === null || briefingText === null) {
+  if (briefing === null || briefingText === null || briefingMeta === null) {
     return <BriefingImportPane projectId={projectId} draft={draft} />;
   }
 
@@ -79,6 +84,8 @@ export function BriefingPane({
           </button>
         )}
       </div>
+
+      {editing ? null : <BriefingProvenance meta={briefingMeta} />}
 
       {editing ? (
         <BriefingEditView
@@ -119,6 +126,37 @@ export function BriefingPane({
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Which briefing this is: revision, generating tool, freeze time and the
+ * checksum. Compact by design — one line, with the full hash behind a
+ * disclosure — but not optional: the register can now hold SEVERAL briefing
+ * revisions, and a page that shows the current text without saying which
+ * revision it is, or which tool wrote it, hides exactly the provenance this
+ * application exists to keep. Absence of `revision` means revision 1 (the
+ * additive-field convention the format uses).
+ */
+function BriefingProvenance({ meta }: { meta: BriefingImport }) {
+  return (
+    <div className="mb-4 border-b border-slate-100 pb-3 text-xs text-slate-500">
+      <p className="flex flex-wrap gap-x-3 gap-y-1">
+        <span>
+          Revision <span className="font-semibold">{meta.revision ?? 1}</span>
+        </span>
+        <span>
+          Werkzeug: <span className="font-mono">{meta.tool}</span>
+        </span>
+        <span>Eingefroren: {formatTimestamp(meta.imported_at)}</span>
+      </p>
+      <details className="mt-1">
+        <summary className="cursor-pointer">
+          SHA-256 der Originalfassung
+        </summary>
+        <p className="mt-1 font-mono break-all text-slate-600">{meta.sha256}</p>
+      </details>
+    </div>
   );
 }
 

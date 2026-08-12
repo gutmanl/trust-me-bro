@@ -100,9 +100,12 @@ export async function discardBriefingDraftAction(
   return { error: null, discarded: true };
 }
 
+/** Run starts report only failure: whether a run is live is answered by the
+ * shared project event stream, not by a stale action result. A `started`
+ * flag here would go stale the moment the run ends and could not be told
+ * apart from "still running" without a second latch. */
 export interface RunFormState {
   error: string | null;
-  started?: boolean;
 }
 
 /** The sweep for claims citing no captured source — the one extraction pass
@@ -120,7 +123,7 @@ export async function startUnevidencedExtractionAction(
     return { error: result.error };
   }
   revalidateWorkbench(projectId);
-  return { error: null, started: true };
+  return { error: null };
 }
 
 /** Re-runs the extraction pass for one source — the manual counterpart of
@@ -139,7 +142,7 @@ export async function startSourceExtractionAction(
     return { error: result.error };
   }
   revalidateWorkbench(projectId);
-  return { error: null, started: true };
+  return { error: null };
 }
 
 /** Stages 2 and 3 (attribution + calibration) over the open claims. */
@@ -153,5 +156,5 @@ export async function startVerificationAction(
     return { error: result.error };
   }
   revalidateWorkbench(projectId);
-  return { error: null, started: true };
+  return { error: null };
 }

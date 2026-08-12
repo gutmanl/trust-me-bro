@@ -10,8 +10,9 @@ import type {
   EvidenceDisplay,
   ExtractionActivity,
   QueueEntry,
+  VerificationState,
 } from "@/lib/pipeline";
-import type { ClaimStatus } from "@/lib/register";
+import type { BriefingImport, ClaimStatus } from "@/lib/register";
 import { useEffortTimer } from "../review/useEffortTimer";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimsOverviewBar } from "./ClaimsOverviewBar";
@@ -36,12 +37,14 @@ export function Workbench({
   projectId,
   briefing,
   briefingText,
+  briefingMeta,
   draft,
   queue,
   evidenceDisplay,
   counts,
   totalClaims,
   openExistenceCount,
+  verificationState,
   verificationBlockedReason,
   sources,
   sourceSetRevision,
@@ -52,12 +55,14 @@ export function Workbench({
   projectId: string;
   briefing: BriefingViewModel | null;
   briefingText: string | null;
+  briefingMeta: BriefingImport | null;
   draft: BriefingDraft | null;
   queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
   counts: Record<ClaimStatus, number>;
   totalClaims: number;
   openExistenceCount: number;
+  verificationState: VerificationState;
   verificationBlockedReason: string | null;
   sources: SourceRowVM[];
   sourceSetRevision: number;
@@ -140,7 +145,10 @@ export function Workbench({
         openCount={openCount}
         openExistenceCount={openExistenceCount}
         existenceCheckRunning={activeRun?.kind === "existence_check"}
+        verificationRunning={activeRun?.kind === "verification"}
+        verificationState={verificationState}
         verificationBlockedReason={verificationBlockedReason}
+        runBarVisible={activeRun !== null}
         onJumpToNextOpen={jumpToNextOpen}
       />
 
@@ -155,6 +163,7 @@ export function Workbench({
           projectId={projectId}
           briefing={briefing}
           briefingText={briefingText}
+          briefingMeta={briefingMeta}
           draft={draft}
           queue={queue}
           evidenceDisplay={evidenceDisplay}

@@ -91,11 +91,17 @@ export function ClaimCard({
           </span>
         ) : null}
         {marker.anchorDrifted ? (
-          <span
-            title="Der zitierte Wortlaut steht nicht mehr an der Stelle, auf die der Anker zeigt – die Position ist nur noch geschätzt."
-            className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800"
-          >
+          // The explanation is visually-hidden text rather than a `title`:
+          // a tooltip only exists for a pointer that hovers it, and this is
+          // the badge that tells a reviewer the position beside the text is
+          // a guess.
+          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
             Anker verschoben
+            <span className="sr-only">
+              {" "}
+              – der zitierte Wortlaut steht nicht mehr an der Stelle, auf die
+              der Anker zeigt; die Position ist nur noch geschätzt.
+            </span>
           </span>
         ) : null}
         <span className="ml-auto text-xs text-slate-400">

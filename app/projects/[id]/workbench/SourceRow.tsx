@@ -42,9 +42,14 @@ const initialState: RunFormState = { error: null };
 export function SourceRow({
   projectId,
   source,
+  extractionRunning,
 }: {
   projectId: string;
   source: SourceRowVM;
+  /** An extraction run is live. Passed down rather than read here so all
+   * the rows share the rail's one stream subscription — and needed at all
+   * because `useStartGate("extraction")` reports null for its own kind. */
+  extractionRunning: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     startSourceExtractionAction.bind(null, projectId, source.id),
@@ -92,7 +97,7 @@ export function SourceRow({
 
       <ReviseSourceForm projectId={projectId} sourceId={source.id} />
 
-      {blockedBy ? null : (
+      {blockedBy || extractionRunning ? null : (
         <form action={formAction} className="mt-1">
           <button
             type="submit"

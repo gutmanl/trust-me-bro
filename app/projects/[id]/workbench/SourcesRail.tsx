@@ -72,12 +72,18 @@ export function SourcesRail({
   );
   const { blockedBy } = useStartGate("extraction");
 
+  // `useStartGate("extraction")` reports null while an EXTRACTION run is
+  // live — by design, so the panel that started it shows progress instead of
+  // gating itself. The deleted ExtractionPanel compensated with a `watching`
+  // flag; here the shared stream's active run does it, for the sweep button
+  // and for every source row's re-extract alike.
+  const extractionRunning = activeRun?.kind === "extraction";
   const chainRunning =
-    activeRun?.kind === "extraction" || activeRun?.kind === "existence_check";
+    extractionRunning || activeRun?.kind === "existence_check";
   const chainLabel =
     activeRun?.kind === "existence_check"
       ? "Existenzprüfung läuft …"
-      : activeRun?.kind === "extraction"
+      : extractionRunning
         ? "Extraktion läuft …"
         : pendingTriggers > 0
           ? "Extraktion ausstehend"
@@ -119,6 +125,7 @@ export function SourcesRail({
                 key={source.id}
                 projectId={projectId}
                 source={source}
+                extractionRunning={extractionRunning}
               />
             ))}
           </ul>
@@ -189,6 +196,10 @@ export function SourcesRail({
         {!hasBriefing ? (
           <p className="text-xs text-amber-700">
             Vor der Extraktion muss das Briefing übernommen sein.
+          </p>
+        ) : extractionRunning ? (
+          <p className="text-xs text-blue-800">
+            Extraktion läuft – der Fortschritt steht in der Laufleiste oben.
           </p>
         ) : blockedBy ? (
           <StartBlockedNotice label={blockedBy} />

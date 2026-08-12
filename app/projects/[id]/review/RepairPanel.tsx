@@ -2,7 +2,11 @@
 
 import { useActionState, useState } from "react";
 
-import { ErrorBanner, primaryButtonClass } from "@/app/components/ui";
+import {
+  ErrorBanner,
+  primaryButtonClass,
+  SuccessBanner,
+} from "@/app/components/ui";
 import type { Claim } from "@/lib/pipeline";
 import type {
   AnchorRepairFormState,
@@ -338,6 +342,12 @@ function AnchorRepairForms({
             className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-slate-500 focus:outline-none"
           />
           <ErrorBanner message={anchorState.error} />
+          {anchorState.repaired === true ? (
+            <SuccessBanner>
+              Anker korrigiert – die Änderung steht als Ereignis in der
+              Historie.
+            </SuccessBanner>
+          ) : null}
           <div className="flex gap-2">
             <button
               type="submit"
@@ -378,6 +388,11 @@ function AnchorRepairForms({
             className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-slate-500 focus:outline-none"
           />
           <ErrorBanner message={passageState.error} />
+          {passageState.repaired === true ? (
+            <SuccessBanner>
+              Passage korrigiert – als neue Briefing-Revision veröffentlicht.
+            </SuccessBanner>
+          ) : null}
           <div className="flex gap-2">
             <button
               type="submit"

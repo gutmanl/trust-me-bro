@@ -21,6 +21,7 @@ import {
   getReferenceCaptureRun,
   getReferenceScanState,
   getUnpaywallSetting,
+  getVerificationState,
   pendingTriggerCount,
   readProject,
 } from "@/lib/pipeline";
@@ -184,12 +185,14 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         projectId={id}
         briefing={briefing}
         briefingText={briefingContent?.text ?? null}
+        briefingMeta={briefingContent?.meta ?? null}
         draft={draft}
         queue={buildAdjudicationQueue(register)}
         evidenceDisplay={buildEvidenceDisplayMap(id, register)}
         counts={summary.claim_counts}
         totalClaims={summary.total_claims}
         openExistenceCount={getOpenExistenceCheckCount(register)}
+        verificationState={getVerificationState(id, register)}
         verificationBlockedReason={
           register.claims.length === 0
             ? "Vor der Prüfung müssen Claims extrahiert sein."
