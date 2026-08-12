@@ -53,6 +53,47 @@ describe("createRunDoneLatch", () => {
     expect(latch.watched(true)).toBe(false);
   });
 
+  it("does not pay a stale completion once a NEWER run is under way", () => {
+    // The interleaving that makes a naive latch flash "done" mid-run: run A
+    // ends before the panel watches, run B starts, and `active` then flips
+    // true for an unrelated reason — every terminal envelope of ANY kind
+    // triggers a router.refresh(), which can re-render this panel into
+    // watching while B is still running.
+    const latch = createRunDoneLatch();
+    expect(latch.terminated("run-A", false)).toBe(false);
+    latch.observed("run-B");
+
+    // A's completion is moot: the panel follows B now.
+    expect(latch.watched(true)).toBe(false);
+    // …and stays moot, however often `active` settles again.
+    expect(latch.watched(true)).toBe(false);
+
+    // B's own terminal event fires exactly once, through the normal path.
+    expect(latch.terminated("run-B", true)).toBe(true);
+    expect(latch.watched(true)).toBe(false);
+  });
+
+  it("still pays a stale completion when no newer run has been seen", () => {
+    // Same shape as above minus the newer run — the original stuck-panel
+    // bug must stay fixed.
+    const latch = createRunDoneLatch();
+    latch.observed("run-A");
+    expect(latch.terminated("run-A", false)).toBe(false);
+    expect(latch.watched(true)).toBe(true);
+    expect(latch.watched(true)).toBe(false);
+  });
+
+  it("pays a newer run's completion after an unpaid older one", () => {
+    // A ended unwatched, B ran and ended unwatched too: the debt that comes
+    // due is B's, and only once.
+    const latch = createRunDoneLatch();
+    expect(latch.terminated("run-A", false)).toBe(false);
+    latch.observed("run-B");
+    expect(latch.terminated("run-B", false)).toBe(false);
+    expect(latch.watched(true)).toBe(true);
+    expect(latch.watched(true)).toBe(false);
+  });
+
   it("does not re-fire for a run already reported, even out of order", () => {
     const latch = createRunDoneLatch();
     expect(latch.terminated("run-1", true)).toBe(true);

@@ -25,8 +25,20 @@ export interface ProgressLine {
  * Terminal events are latched per run, and each latched run is reported at
  * most once, so an `active` flag that flips back and forth cannot re-fire a
  * run's completion.
+ *
+ * The latch therefore has to know which run the panel is currently following,
+ * not only which one ended. `active` can flip true for reasons that have
+ * nothing to do with the latched run — any terminal envelope of any kind
+ * triggers a `router.refresh()`, which can re-render a panel into `watching`
+ * while a LATER run of its kind is mid-flight. Paying a stale run's `onDone`
+ * then would flash "done" in the middle of a running run and fire a second
+ * time when that run really ends. So the debt is settled only while the
+ * latched run is still the most recent one the panel has seen anything from.
  */
 export interface RunDoneLatch {
+  /** Records that a run of the panel's kind produced an envelope — the
+   * latch's notion of "the run the panel is currently following". */
+  observed(runId: string): void;
   /** Records a run's terminal event. Returns whether `onDone` must fire now
    * — i.e. the panel is watching and has not been told about this run yet. */
   terminated(runId: string, active: boolean): boolean;
@@ -36,12 +48,17 @@ export interface RunDoneLatch {
 }
 
 export function createRunDoneLatch(): RunDoneLatch {
+  let lastSeenRunId: string | null = null;
   let terminatedRunId: string | null = null;
   let notifiedRunId: string | null = null;
   const owed = (active: boolean): boolean =>
     active && terminatedRunId !== null && terminatedRunId !== notifiedRunId;
   return {
+    observed(runId) {
+      lastSeenRunId = runId;
+    },
     terminated(runId, active) {
+      lastSeenRunId = runId;
       terminatedRunId = runId;
       if (!owed(active)) {
         return false;
@@ -50,7 +67,11 @@ export function createRunDoneLatch(): RunDoneLatch {
       return true;
     },
     watched(active) {
-      if (!owed(active)) {
+      // A newer run has since produced envelopes: the latched completion is
+      // moot. The panel is following that run and its own terminal event
+      // will fire normally — no need to mark the stale debt settled, it can
+      // never come due again.
+      if (!owed(active) || terminatedRunId !== lastSeenRunId) {
         return false;
       }
       notifiedRunId = terminatedRunId;
@@ -121,6 +142,9 @@ export function useRunFeed(options: RunFeedOptions): {
   const { connectionLost } = useProjectEvents(
     { kind: options.kind },
     (envelope) => {
+      // Before anything else: this is the run the panel is now following, so
+      // a completion latched for an earlier run can no longer come due.
+      latch.observed(envelope.runId);
       if (feedRunId.current !== envelope.runId) {
         // A different run than the one the feed currently shows: start over.
         feedRunId.current = envelope.runId;
