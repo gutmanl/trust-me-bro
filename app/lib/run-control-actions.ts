@@ -6,7 +6,7 @@ import { cancelRun, pauseRun, resumeRun } from "@/lib/pipeline";
 /**
  * Shared pause/resume/cancel actions of the multi-item run panels
  * (verification, relevance; TMB-50) — one implementation instead of a
- * per-feature triplet, mirroring the useJobStream dedup rationale.
+ * per-feature triplet, mirroring the shared run-feed dedup rationale.
  */
 
 export interface RunControlFormState {

@@ -341,6 +341,12 @@ describe("public surface of lib/pipeline", () => {
     // Runner UI: project-level status truth + the kind-agnostic run handle.
     expect(surface.getActiveRun).toBeDefined();
     expect(surface.getActiveRunHandle).toBeDefined();
+    // Workbench epic: the unified project event stream the single SSE route
+    // consumes. The runner's run-start announcement stays internal — even
+    // its project-filtered wrapper is not on the surface, because the route
+    // never needs to drive attachment itself.
+    expect(surface.streamProjectRunEvents).toBeDefined();
+    expect(surface.subscribeProjectRunStarts).toBeUndefined();
   });
 });
 

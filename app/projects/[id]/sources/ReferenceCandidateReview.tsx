@@ -11,7 +11,7 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ReferenceCaptureOutcome, ReviewCandidate } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
@@ -156,8 +156,8 @@ export function ReferenceCandidateReview({
   const watching = !stopped && (formState.started === true || activeRun);
   const { blockedBy } = useStartGate("reference_capture");
 
-  const { lines, connectionLost } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/reference-capture/stream`,
+  const { lines, connectionLost } = useRunFeed({
+    kind: "reference_capture",
     active: watching,
     describe: describeProgress,
     onDone: () => {
@@ -212,7 +212,7 @@ export function ReferenceCandidateReview({
         </ul>
 
         <ErrorBanner message={formState.error} />
-        {connectionLost ? <ConnectionLostNotice /> : null}
+        {watching && connectionLost ? <ConnectionLostNotice /> : null}
         {blockedBy && !watching ? (
           <StartBlockedNotice label={blockedBy} />
         ) : null}

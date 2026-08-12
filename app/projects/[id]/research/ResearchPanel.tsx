@@ -8,7 +8,7 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import type { ResearchState } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ResearchFormState } from "./actions";
@@ -72,8 +72,8 @@ export function ResearchPanel({
   const watching =
     !stopped && (formState.started === true || state.status === "running");
 
-  const { lines } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/research/stream`,
+  const { lines } = useRunFeed({
+    kind: "research",
     active: watching,
     describe: describeProgress,
     onDone: () => {

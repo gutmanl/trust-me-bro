@@ -9,7 +9,7 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import type { RelevanceState } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { RelevanceFormState } from "./actions";
@@ -77,8 +77,8 @@ export function RelevancePanel({
   const watching =
     !stopped && (formState.started === true || state.status === "running");
 
-  const { lines, connectionLost } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/relevance/stream`,
+  const { lines, connectionLost } = useRunFeed({
+    kind: "relevance",
     active: watching,
     describe: describeProgress,
     onDone: () => {
@@ -110,7 +110,7 @@ export function RelevancePanel({
       ) : null}
 
       <ErrorBanner message={formState.error} />
-      {connectionLost ? <ConnectionLostNotice /> : null}
+      {watching && connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
         <RunProgressFeed

@@ -9,7 +9,7 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import type { VerificationState } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { VerificationFormState } from "./actions";
@@ -89,8 +89,8 @@ export function VerificationPanel({
   const watching =
     !stopped && (formState.started === true || state.status === "running");
 
-  const { lines, connectionLost } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/verification/stream`,
+  const { lines, connectionLost } = useRunFeed({
+    kind: "verification",
     active: watching,
     describe: describeProgress,
     onEvent: (event) => {
@@ -139,7 +139,7 @@ export function VerificationPanel({
       ) : null}
 
       <ErrorBanner message={formState.error} />
-      {connectionLost ? <ConnectionLostNotice /> : null}
+      {watching && connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
         <RunProgressFeed

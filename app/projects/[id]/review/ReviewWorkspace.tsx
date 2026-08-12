@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
 
 import { ConnectionLostNotice, SuccessBanner } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import type {
   BriefingViewModel,
   EvidenceDisplay,
@@ -47,8 +47,8 @@ export function ReviewWorkspace({
   // Live refresh during a verification run: every finished claim updates the
   // durable register, so re-render the server components per item instead of
   // waiting for the run to end.
-  const { connectionLost } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/verification/stream`,
+  const { connectionLost } = useRunFeed({
+    kind: "verification",
     active: verificationActive,
     describe: () => null,
     onEvent: (event) => {
@@ -134,7 +134,7 @@ export function ReviewWorkspace({
       ) : null}
 
       <div className="py-6">
-        {connectionLost ? (
+        {verificationActive && connectionLost ? (
           <div className="mb-6">
             <ConnectionLostNotice />
           </div>

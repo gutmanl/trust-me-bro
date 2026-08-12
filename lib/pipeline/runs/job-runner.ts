@@ -41,6 +41,12 @@ export interface JobRunner {
     step: (item: TItem, context: { runId: string }) => Promise<TResult>,
     options?: { kind?: string },
   ): RunHandle<TResult>;
+  /** Notifies once per newly submitted run (any project, any kind), with the
+   * fresh handle. The unified per-project SSE stream needs it to attach to
+   * runs that start AFTER the stream opened — an auto-chained follow-up run
+   * would otherwise leave a connected client silently watching a finished
+   * run. Returns the unsubscribe function. */
+  subscribeRunStarts(listener: (handle: RunHandle) => void): () => void;
 }
 
 const lastKey = (projectId: string, kind: string): string =>
@@ -52,8 +58,13 @@ export function createJobRunner(options?: {
   const generateRunId = options?.generateRunId ?? randomUUID;
   const active = new Map<string, RunHandle>();
   const last = new Map<string, RunHandle>();
+  const runStartListeners = new Set<(handle: RunHandle) => void>();
 
   return {
+    subscribeRunStarts(listener) {
+      runStartListeners.add(listener);
+      return () => runStartListeners.delete(listener);
+    },
     isRunning(projectId, kind) {
       const run = active.get(projectId);
       return run !== undefined && (kind === undefined || run.kind === kind);
@@ -251,6 +262,19 @@ export function createJobRunner(options?: {
       last.set(projectId, handle);
       if (kind !== undefined) {
         last.set(lastKey(projectId, kind), handle);
+      }
+      // Announced only after the maps are consistent, so a listener that
+      // immediately asks the runner about the project (currentRun,
+      // isRunning) sees this run. Errors are swallowed for the same reason
+      // emit() swallows them: the realistic listener is an SSE controller
+      // whose client vanished, and it must never make submit() throw —
+      // that would surface as "the run could not be started".
+      for (const listener of runStartListeners) {
+        try {
+          listener(handle);
+        } catch {
+          // dead listener: it simply misses this run
+        }
       }
       return handle;
     },

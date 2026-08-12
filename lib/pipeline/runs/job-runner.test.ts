@@ -280,3 +280,65 @@ describe("createJobRunner", () => {
     ]);
   });
 });
+
+describe("createJobRunner: subscribeRunStarts", () => {
+  it("notifies once per submitted run, with the handle, and stops on unsubscribe", async () => {
+    const runner = createJobRunner();
+    const started: string[] = [];
+    const unsubscribe = runner.subscribeRunStarts((handle) => {
+      started.push(`${handle.projectId}:${handle.kind ?? "-"}`);
+      // The handle is fully usable at notification time — the run has
+      // already emitted run_started synchronously inside submit().
+      expect(eventTypes(handle.eventsSoFar())).toContain("run_started");
+    });
+
+    const first = runner.submit(
+      "proj_a",
+      ["x"],
+      (item) => item,
+      async () => "ok",
+      { kind: "extraction" },
+    );
+    await first.done;
+    const second = runner.submit(
+      "proj_a",
+      ["y"],
+      (item) => item,
+      async () => "ok",
+      { kind: "existence_check" },
+    );
+    await second.done;
+
+    expect(started).toEqual(["proj_a:extraction", "proj_a:existence_check"]);
+
+    unsubscribe();
+    const third = runner.submit(
+      "proj_a",
+      ["z"],
+      (item) => item,
+      async () => "ok",
+    );
+    await third.done;
+    expect(started).toEqual(["proj_a:extraction", "proj_a:existence_check"]);
+  });
+
+  it("survives a listener that throws (a vanished SSE client must not break submit)", async () => {
+    const runner = createJobRunner();
+    const seen: string[] = [];
+    runner.subscribeRunStarts(() => {
+      throw new Error("dead SSE controller");
+    });
+    runner.subscribeRunStarts((handle) => {
+      seen.push(handle.runId);
+    });
+
+    const handle = runner.submit(
+      "proj_a",
+      ["x"],
+      (item) => item,
+      async () => "ok",
+    );
+    expect(seen).toEqual([handle.runId]);
+    await expect(handle.done).resolves.toEqual({ succeeded: 1, failed: 0 });
+  });
+});

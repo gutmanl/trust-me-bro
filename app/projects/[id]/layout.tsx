@@ -1,3 +1,4 @@
+import { ProjectEventStreamProvider } from "@/app/lib/ProjectEventStream";
 import { getActiveRun } from "@/lib/pipeline";
 
 import { RunStatusProvider } from "./RunStatusProvider";
@@ -5,18 +6,18 @@ import { RunStatusProvider } from "./RunStatusProvider";
 export const dynamic = "force-dynamic";
 
 /**
- * Wraps every project page with the run-status provider, so the shared status
- * bar and the global start-gating see one truth for "what is running for this
- * project". The snapshot is read server-side on each render (force-dynamic);
- * the provider then follows the live stream.
+ * Wraps every project page with the ONE project event stream (all runs, all
+ * kinds — panels subscribe to it instead of opening their own EventSource)
+ * and, inside it, the run-status bar and start-gating. The snapshot is read
+ * server-side on each render (force-dynamic); the stream takes it from there.
  */
 export default async function ProjectLayout(
   props: LayoutProps<"/projects/[id]">,
 ) {
   const { id } = await props.params;
   return (
-    <RunStatusProvider projectId={id} initial={getActiveRun(id)}>
-      {props.children}
-    </RunStatusProvider>
+    <ProjectEventStreamProvider projectId={id} initialRun={getActiveRun(id)}>
+      <RunStatusProvider projectId={id}>{props.children}</RunStatusProvider>
+    </ProjectEventStreamProvider>
   );
 }

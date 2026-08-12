@@ -9,7 +9,7 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import type { ExtractionActivity } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ExtractionFormState } from "./actions";
@@ -80,8 +80,8 @@ export function ExtractionPanel({
 
   const watching = !stopped && (formState.started === true || activity.running);
 
-  const { lines, connectionLost } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/extraction/stream`,
+  const { lines, connectionLost } = useRunFeed({
+    kind: "extraction",
     active: watching,
     describe: describeProgress,
     onDone: () => {
@@ -117,7 +117,7 @@ export function ExtractionPanel({
       ) : null}
 
       <ErrorBanner message={formState.error} />
-      {connectionLost ? <ConnectionLostNotice /> : null}
+      {watching && connectionLost ? <ConnectionLostNotice /> : null}
 
       {watching ? (
         <RunProgressFeed

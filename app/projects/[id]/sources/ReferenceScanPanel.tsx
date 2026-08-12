@@ -8,7 +8,7 @@ import {
   primaryButtonClass,
   RunProgressFeed,
 } from "@/app/components/ui";
-import { useJobStream } from "@/app/lib/useJobStream";
+import { useRunFeed } from "@/app/lib/useRunFeed";
 import type { ReferenceScanState } from "@/lib/pipeline";
 import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
 import type { ReferenceScanFormState } from "./reference-scan-actions";
@@ -79,8 +79,8 @@ export function ReferenceScanPanel({
     !stopped && (formState.started === true || state.status === "running");
   const { blockedBy } = useStartGate("reference_scan");
 
-  const { lines } = useJobStream({
-    streamUrl: `/api/projects/${projectId}/reference-scan/stream`,
+  const { lines } = useRunFeed({
+    kind: "reference_scan",
     active: watching,
     describe: describeProgress,
     onDone: () => {

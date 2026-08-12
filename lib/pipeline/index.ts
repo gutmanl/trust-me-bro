@@ -137,6 +137,13 @@ export { cancelRun, pauseRun, resumeRun } from "./runs/control";
 // for the kind-agnostic status stream. The runner stays internal.
 export type { ActiveRunStatus } from "./runs/status";
 export { getActiveRun, getActiveRunHandle } from "./runs/status";
+// Workbench epic: the unified per-project event stream — one SSE route
+// follows EVERY run of a project, including runs the auto-chain starts after
+// the client connected. The runner's run-start announcement and the project
+// filter over it stay internal; the web layer only gets this one subscribe
+// function.
+export { streamProjectRunEvents } from "./runs/event-stream";
+export type { ProjectRunEnvelope } from "./runs/event-stream";
 export {
   getVerificationRun,
   getVerificationState,
