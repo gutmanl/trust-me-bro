@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundleText, unzipBundle, zipBundle } from "../../export";
 import { RegisterStore, verifyChain } from "../../register";
 import { freezeBriefing, importBriefing } from "../briefing";
+import { publishBriefingRevision } from "../briefing-revision";
 import {
   InvalidBundleError,
   InvalidProjectInputError,
@@ -113,6 +114,44 @@ describe("importProjectBundle (TMB-40)", () => {
     const after = await store.read();
     expect(after.project_events.at(-1)?.seq).toBe(lastSeq + 1);
     expect(verifyChain(after).ok).toBe(true);
+  });
+
+  it("carries previous briefing revision blobs across the roundtrip (TMB-44 extension)", async () => {
+    const before = await RegisterStore.forProject(PROJECT).read();
+    const v1BlobPath = before.project.briefing_import!.blob_path;
+
+    await publishBriefingRevision(PROJECT, {
+      text: "LLM-Reviews reduzieren die mediane Reviewzeit um 60 %.",
+    });
+    const revised = await RegisterStore.forProject(PROJECT).read();
+    const v2BlobPath = revised.project.briefing_import!.blob_path;
+    expect(revised.project.previous_briefings).toHaveLength(1);
+    expect(revised.project.previous_briefings?.[0].blob_path).toBe(v1BlobPath);
+    expect(v2BlobPath).not.toBe(v1BlobPath);
+
+    const bundle = await exportProjectBundle(PROJECT, { includeBlobs: true });
+    const files = unzipBundle(bundle.bytes);
+    // Both the current and the superseded briefing revision must be
+    // physically present in the bundle — a revision must never make the
+    // original wording unreachable to a recipient.
+    expect(files[v1BlobPath]).toBeDefined();
+    expect(files[v2BlobPath]).toBeDefined();
+
+    await importProjectBundle({
+      bytes: Buffer.from(bundle.bytes),
+      targetDirectoryName: "projekt-revisions-kopie",
+    });
+
+    const original = fs.readFileSync(
+      path.join(workspace, PROJECT, "claims.json"),
+    );
+    const imported = fs.readFileSync(
+      path.join(workspace, "projekt-revisions-kopie", "claims.json"),
+    );
+    expect(Buffer.compare(imported, original)).toBe(0);
+
+    const importedStore = RegisterStore.forProject("projekt-revisions-kopie");
+    expect((await importedStore.verify()).ok).toBe(true);
   });
 
   it("keeps the independence notice on the re-rendered briefing (same model family)", async () => {

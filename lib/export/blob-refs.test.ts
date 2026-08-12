@@ -37,4 +37,22 @@ describe("collectBlobPaths", () => {
     expect(paths).toContain(oldBlob);
     expect(paths).toContain(oldText);
   });
+
+  it("collects superseded briefing revision blobs (previous_briefings)", () => {
+    const register = baseRegister();
+    const oldBriefingBlob = `blobs/cc/${"c".repeat(64)}.md`;
+    register.project.previous_briefings = [
+      {
+        imported_at: "2026-07-01T08:00:00Z",
+        sha256: "c".repeat(64),
+        blob_path: oldBriefingBlob,
+        tool: "deep-research-x",
+      },
+    ];
+    const paths = collectBlobPaths(register);
+    // A briefing revision rotates the prior wording into
+    // `previous_briefings`, never out of reach: export and verification
+    // must still carry and check its blob.
+    expect(paths).toContain(oldBriefingBlob);
+  });
 });
