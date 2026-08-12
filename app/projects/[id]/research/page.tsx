@@ -42,8 +42,8 @@ export default async function ResearchPage(
             je Projekt.
           </p>
           <p className="mt-2">
-            <Link href={`/projects/${id}/briefing`} className="underline">
-              Zum eingefrorenen Briefing
+            <Link href={`/projects/${id}`} className="underline">
+              Zum Arbeitsbereich
             </Link>
           </p>
         </div>
@@ -59,8 +59,8 @@ export default async function ResearchPage(
           <ResearchPanel projectId={id} state={state} />
           <p className="text-sm text-slate-500">
             Lieber selbst recherchieren?{" "}
-            <Link href={`/projects/${id}/briefing`} className="underline">
-              Vorhandenes Briefing importieren
+            <Link href={`/projects/${id}`} className="underline">
+              Vorhandenes Briefing im Arbeitsbereich übernehmen
             </Link>
             .
           </p>

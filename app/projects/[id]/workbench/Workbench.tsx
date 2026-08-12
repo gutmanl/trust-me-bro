@@ -8,6 +8,7 @@ import type {
   BriefingDraft,
   BriefingViewModel,
   EvidenceDisplay,
+  ExtractionActivity,
   QueueEntry,
 } from "@/lib/pipeline";
 import type { ClaimStatus } from "@/lib/register";
@@ -45,6 +46,7 @@ export function Workbench({
   sources,
   sourceSetRevision,
   pendingTriggers,
+  extractionActivity,
   referenceImport,
 }: {
   projectId: string;
@@ -60,6 +62,7 @@ export function Workbench({
   sources: SourceRowVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
+  extractionActivity: ExtractionActivity;
   referenceImport: ReferenceImportVM | null;
 }) {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
@@ -167,6 +170,7 @@ export function Workbench({
           sources={sources}
           sourceSetRevision={sourceSetRevision}
           pendingTriggers={pendingTriggers}
+          extractionActivity={extractionActivity}
           referenceImport={referenceImport}
           hasBriefing={briefing !== null}
         />

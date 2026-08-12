@@ -239,36 +239,27 @@ export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
   );
 }
 
+/**
+ * Header of a side view on a project (history, metrics, traces, research,
+ * warm run, settings, status). The `nextStep` forward affordance it used to
+ * carry died with the staged step pages — there is no "next step" any more,
+ * only the workbench and the views beside it.
+ */
 export function SubpageHeader({
   projectId,
   title,
-  nextStep,
 }: {
   projectId: string;
   title: string;
-  /** Optional forward affordance (finding 4): the workflow step that
-   * naturally follows this page, so the flow reads in both directions rather
-   * than only "back to project". */
-  nextStep?: { href: string; label: string };
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href={`/projects/${projectId}`}
-          className="text-sm text-slate-500 hover:text-slate-700"
-        >
-          ← Zurück zum Projekt
-        </Link>
-        {nextStep ? (
-          <Link
-            href={nextStep.href}
-            className="text-sm text-slate-500 hover:text-slate-700"
-          >
-            {nextStep.label} →
-          </Link>
-        ) : null}
-      </div>
+      <Link
+        href={`/projects/${projectId}`}
+        className="text-sm text-slate-500 hover:text-slate-700"
+      >
+        ← Zurück zum Arbeitsbereich
+      </Link>
       <h1 className="mt-1 text-2xl font-semibold">{title}</h1>
     </div>
   );

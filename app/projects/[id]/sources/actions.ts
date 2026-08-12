@@ -79,7 +79,7 @@ export async function captureSourceAction(
   // pass (then an existence check) through the drain queue — sequential per
   // project, so it never races a pass already running for this project.
   enqueueSourceExtraction(projectId, result.value.id);
-  revalidatePath(`/projects/${projectId}/sources`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null, captured: result.value.id };
 }
 
@@ -117,7 +117,7 @@ export async function reviseSourceAction(
   // A revision pulls affected claims back to recheck_required — auto-chain
   // an existence check so they don't sit unchecked until someone notices.
   enqueueExistenceCheck(projectId);
-  revalidatePath(`/projects/${projectId}/sources`);
+  revalidatePath(`/projects/${projectId}`);
   return {
     error: null,
     revised: result.value.revised,

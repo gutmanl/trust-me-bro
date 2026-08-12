@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { ErrorBanner } from "@/app/components/ui";
 import { useProjectEvents } from "@/app/lib/ProjectEventStream";
 import type {
+  ExtractionActivity,
   ReferenceCaptureOutcome,
   ReferenceScanState,
   ReviewCandidate,
@@ -49,6 +50,7 @@ export function SourcesRail({
   sources,
   sourceSetRevision,
   pendingTriggers,
+  extractionActivity,
   referenceImport,
   hasBriefing,
 }: {
@@ -56,6 +58,10 @@ export function SourcesRail({
   sources: SourceRowVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
+  /** How the last extraction pass ended — the durable half of the run state
+   * the deleted extraction page used to show, kept because an extraction
+   * that produced nothing would otherwise fail silently. */
+  extractionActivity: ExtractionActivity;
   referenceImport: ReferenceImportVM | null;
   hasBriefing: boolean;
 }) {
@@ -200,6 +206,17 @@ export function SourcesRail({
           </form>
         )}
         <ErrorBanner message={sweepState.error} />
+        {extractionActivity.lastMessage !== null ? (
+          <p
+            className={`mt-2 text-xs ${
+              extractionActivity.lastOutcome === "failed"
+                ? "text-amber-700"
+                : "text-slate-500"
+            }`}
+          >
+            Letzter Extraktionsdurchlauf: {extractionActivity.lastMessage}
+          </p>
+        ) : null}
       </div>
     </section>
   );

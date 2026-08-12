@@ -49,7 +49,7 @@ function describeProgress(event: Record<string, unknown>): string | null {
   }
 }
 
-/** Start button + live progress, structurally the ExtractionPanel. */
+/** Start button + live progress, structurally the ReferenceScanPanel. */
 export function RelevancePanel({
   projectId,
   state,

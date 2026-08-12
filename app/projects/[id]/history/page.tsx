@@ -25,6 +25,8 @@ export const dynamic = "force-dynamic";
 const EVENT_LABELS: Record<string, string> = {
   project_created: "Projekt angelegt",
   briefing_imported: "Briefing eingefroren",
+  briefing_revised: "Briefing überarbeitet",
+  claim_anchor_revised: "Anker korrigiert",
   source_set_frozen: "Quellenbestand eingefroren",
   source_set_revised: "Quellenbestand revidiert",
   batch_run_started: "Extraktionslauf gestartet",

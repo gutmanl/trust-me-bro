@@ -25,7 +25,7 @@ export async function startReferenceScanAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  revalidatePath(`/projects/${projectId}/sources`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null, started: true };
 }
 
@@ -46,7 +46,7 @@ export async function startReferenceCaptureAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  revalidatePath(`/projects/${projectId}/sources`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null, started: true };
 }
 
@@ -71,6 +71,6 @@ export async function setUnpaywallEmailAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  revalidatePath(`/projects/${projectId}/sources`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null };
 }

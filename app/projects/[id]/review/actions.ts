@@ -42,7 +42,7 @@ export async function confirmClaimAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  revalidatePath(`/projects/${projectId}/review`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null, decided: true };
 }
 
@@ -114,7 +114,7 @@ export async function applyRepairAction(
       }
     }
   }
-  revalidatePath(`/projects/${projectId}/review`);
+  revalidatePath(`/projects/${projectId}`);
   return {
     error: null,
     applied: true,
@@ -136,7 +136,7 @@ export async function discardClaimAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  revalidatePath(`/projects/${projectId}/review`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null, decided: true };
 }
 
@@ -212,6 +212,6 @@ export async function complainClaimAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  revalidatePath(`/projects/${projectId}/review`);
+  revalidatePath(`/projects/${projectId}`);
   return { error: null, decided: true };
 }

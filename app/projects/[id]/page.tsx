@@ -1,20 +1,152 @@
 import Link from "next/link";
 
+import { BackendHealthNotice } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import {
+  buildAdjudicationQueue,
+  buildEvidenceDisplayMap,
+  deriveExtractionActivity,
+  deriveSourceLifecycles,
+  formatCitation,
+  getBackendsHealth,
+  getBriefing,
+  getBriefingDraft,
   getBriefingIndependence,
+  getActiveRun,
+  getBriefingViewModel,
+  getOpenExistenceCheckCount,
   getProjectSummary,
+  getReferenceCandidates,
+  getReferenceCaptureOutcomes,
+  getReferenceCaptureRun,
+  getReferenceScanState,
+  getUnpaywallSetting,
+  pendingTriggerCount,
   readProject,
 } from "@/lib/pipeline";
+import type { SourceType } from "@/lib/register";
 import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
-import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "../status-labels";
+import { formatTimestamp, SOURCE_TYPE_LABELS } from "../status-labels";
+import type { ReferenceImportVM } from "./workbench/SourcesRail";
+import type { SourceRowVM } from "./workbench/SourceRow";
+import { Workbench } from "./workbench/Workbench";
 
 export const dynamic = "force-dynamic";
 
+/** German label per auto-import method, for the provenance note next to an
+ * automatically captured source. A fuzzy `crossref_title` match resolved a
+ * REAL DOI, but the identifier was GUESSED by title similarity rather than
+ * found verbatim in the text — that difference has to stay legible. */
+const AUTO_CAPTURE_METHOD_LABELS: Record<
+  "doi" | "arxiv" | "url" | "crossref_title" | "unresolved",
+  string
+> = {
+  doi: "DOI im Text gefunden",
+  arxiv: "arXiv-Id im Text gefunden",
+  url: "URL im Text gefunden",
+  crossref_title: "Titelabgleich",
+  unresolved: "textuell gefunden, manuell vervollständigt",
+};
+
+/**
+ * The project page IS the workbench (workbench epic). It replaces the five
+ * staged step pages — briefing, sources, extraction, verification, review —
+ * that used to sit behind a dashboard checklist. Those pages staged a
+ * pipeline that is actually iterative: capturing a source, correcting a
+ * passage and adjudicating a claim are moves in one loop, and each of them
+ * used to cost a page transition.
+ *
+ * Everything durable is read here, server-side, from the register — the one
+ * source of truth — and handed to the client shell as plain data. The
+ * remaining subpages (research, warm run, history, metrics, traces,
+ * settings, status) stay what they were: side views on this same project,
+ * linked from the footer below.
+ */
 export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   const { id } = await props.params;
-  const summary = await loadProjectOrNotFound(() => getProjectSummary(id));
-  const independence = getBriefingIndependence(await readProject(id));
+  const register = await loadProjectOrNotFound(() => readProject(id));
+  const summary = await getProjectSummary(id);
+  const independence = getBriefingIndependence(register);
+  const briefingImported = register.project.briefing_import !== undefined;
+
+  const [briefing, briefingContent, draft] = await Promise.all([
+    getBriefingViewModel(id),
+    getBriefing(id),
+    getBriefingDraft(id),
+  ]);
+
+  const lifecycles = new Map(
+    deriveSourceLifecycles(register).map((lifecycle) => [
+      lifecycle.sourceId,
+      lifecycle,
+    ]),
+  );
+  const sources: SourceRowVM[] = register.sources.flatMap((source) => {
+    const snapshot = source.custom.snapshot;
+    const lifecycle = lifecycles.get(source.id);
+    // A source without a frozen snapshot has no lifecycle to show — the
+    // derivation skips it for the same reason.
+    if (!snapshot || !lifecycle) {
+      return [];
+    }
+    const auto = source.custom.auto_capture;
+    return [
+      {
+        id: source.id,
+        citation: formatCitation(source),
+        ...(typeof source.title === "string" ? { title: source.title } : {}),
+        sourceTypeLabel:
+          SOURCE_TYPE_LABELS[source.custom.source_type as SourceType],
+        revision: lifecycle.revision,
+        capturedAt: lifecycle.capturedAt,
+        citingClaims: lifecycle.citingClaims,
+        identifierVerified: source.custom.identifier_verified?.status === true,
+        fullTextExtracted: snapshot.text_blob_path !== undefined,
+        ...(snapshot.text_extraction_error !== undefined
+          ? { textExtractionError: snapshot.text_extraction_error }
+          : {}),
+        previousSnapshots: source.custom.previous_snapshots?.length ?? 0,
+        ...(auto
+          ? {
+              autoCaptureNote:
+                auto.method === "crossref_title"
+                  ? `⚠ automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.crossref_title} (${Math.round((auto.score ?? 0) * 100)}% Übereinstimmung)`
+                  : `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS[auto.method]}`,
+            }
+          : {}),
+      },
+    ];
+  });
+
+  // The reference-import section only exists once there is a briefing to
+  // scan. Keeping it gated matters beyond tidiness: getBackendsHealth spawns
+  // CLI child processes on every call, so computing it unconditionally would
+  // cost a process spawn on every load of a briefing-less project.
+  const health = briefingImported ? await getBackendsHealth(id) : null;
+  let referenceImport: ReferenceImportVM | null = null;
+  if (briefingImported && health) {
+    const [candidates, unpaywall] = await Promise.all([
+      getReferenceCandidates(id),
+      Promise.resolve(getUnpaywallSetting()),
+    ]);
+    referenceImport = {
+      scanState: getReferenceScanState(id, register),
+      unpaywall,
+      candidates,
+      // Capture keeps no durable state, so the page has to ask the runner
+      // directly whether a batch is live — a reload could not surface it
+      // otherwise, and the review panel would offer a submit that 409s.
+      captureRunActive: getReferenceCaptureRun(id)?.isActive() ?? false,
+      // Server-derived per-candidate outcomes of the last capture run: the
+      // durable "why did this not import", re-read on every render so a fast
+      // run + refresh cannot race the feedback away.
+      captureOutcomes: getReferenceCaptureOutcomes(id),
+      llmAvailable: health.primary.usable,
+      ...(register.project.reference_scan?.method !== undefined
+        ? { lastScanMethod: register.project.reference_scan.method }
+        : {}),
+    };
+  }
 
   return (
     <div className="space-y-6">
@@ -40,162 +172,61 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       {independence.sharedModelFamily ? (
         <IndependenceNotice modelFamily={independence.modelFamily} />
       ) : null}
+      {health ? (
+        <BackendHealthNotice
+          projectId={id}
+          health={health}
+          mode="verification"
+        />
+      ) : null}
 
-      <section className="rounded-md border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-700">Claim-Status</h2>
-        {summary.total_claims === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">
-            Noch keine Claims – sie entstehen mit der Extraktion aus dem
-            Briefing.
-          </p>
-        ) : (
-          <dl className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
-            {STATUS_ORDER.map((status) => (
-              <div
-                key={status}
-                className="rounded-md bg-slate-50 px-3 py-2 text-center"
-              >
-                <dt className="text-xs text-slate-500">
-                  {STATUS_LABELS[status]}
-                </dt>
-                <dd className="text-lg font-semibold">
-                  {summary.claim_counts[status]}
-                </dd>
-              </div>
-            ))}
-          </dl>
+      <Workbench
+        projectId={id}
+        briefing={briefing}
+        briefingText={briefingContent?.text ?? null}
+        draft={draft}
+        queue={buildAdjudicationQueue(register)}
+        evidenceDisplay={buildEvidenceDisplayMap(id, register)}
+        counts={summary.claim_counts}
+        totalClaims={summary.total_claims}
+        openExistenceCount={getOpenExistenceCheckCount(register)}
+        verificationBlockedReason={
+          register.claims.length === 0
+            ? "Vor der Prüfung müssen Claims extrahiert sein."
+            : null
+        }
+        sources={sources}
+        sourceSetRevision={register.project.source_set_revision}
+        pendingTriggers={pendingTriggerCount(id)}
+        extractionActivity={deriveExtractionActivity(
+          register,
+          getActiveRun(id)?.kind === "extraction",
         )}
-      </section>
+        referenceImport={referenceImport}
+      />
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">
-          Arbeitsschritte
+          Weitere Sichten
         </h2>
-        <ol className="mt-3 space-y-2 text-sm">
-          <li className="flex items-center gap-2">
-            <span
-              className={
-                summary.briefing_imported ? "text-green-600" : "text-slate-400"
-              }
-            >
-              {summary.briefing_imported ? "✓" : "○"}
-            </span>
+        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {!briefingImported ? (
             <Link
-              href={`/projects/${summary.id}/briefing`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+              href={`/projects/${summary.id}/research`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
             >
-              Briefing importieren
+              In der Anwendung recherchieren
             </Link>
-            {summary.briefing_imported ? null : (
-              <span className="text-slate-500">
-                oder{" "}
-                <Link
-                  href={`/projects/${summary.id}/research`}
-                  className="underline decoration-slate-300 hover:decoration-slate-600"
-                >
-                  in der Anwendung recherchieren
-                </Link>
-              </span>
-            )}
-          </li>
-          <li className="flex items-center gap-2">
-            <span
-              className={
-                summary.source_count > 0 ? "text-green-600" : "text-slate-400"
-              }
-            >
-              {summary.source_count > 0 ? "✓" : "○"}
-            </span>
-            <Link
-              href={`/projects/${summary.id}/sources`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-            >
-              Quellen erfassen
-            </Link>
-          </li>
-          <li className="flex items-center gap-2">
-            <span
-              className={
-                summary.total_claims > 0 ? "text-green-600" : "text-slate-400"
-              }
-            >
-              {summary.total_claims > 0 ? "✓" : "○"}
-            </span>
-            <Link
-              href={`/projects/${summary.id}/extraction`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-            >
-              Claims extrahieren
-            </Link>
-          </li>
-          <li className="flex items-center gap-2">
-            <span
-              className={
-                summary.total_claims > 0 &&
-                summary.claim_counts.captured +
-                  summary.claim_counts.existence_checked ===
-                  0
-                  ? "text-green-600"
-                  : "text-slate-400"
-              }
-            >
-              {summary.total_claims > 0 &&
-              summary.claim_counts.captured +
-                summary.claim_counts.existence_checked ===
-                0
-                ? "✓"
-                : "○"}
-            </span>
-            <Link
-              href={`/projects/${summary.id}/verification`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-            >
-              Claims prüfen (Existenz, Attribution, Kalibrierung)
-            </Link>
-          </li>
-          <li className="flex items-center gap-2">
-            <span
-              className={
-                summary.total_claims > 0 &&
-                summary.claim_counts.pending_adjudication === 0
-                  ? "text-green-600"
-                  : "text-slate-400"
-              }
-            >
-              {summary.total_claims > 0 &&
-              summary.claim_counts.pending_adjudication === 0
-                ? "✓"
-                : "○"}
-            </span>
-            <Link
-              href={`/projects/${summary.id}/review`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-            >
-              Adjudizieren und reparieren
-            </Link>
-          </li>
-          {summary.adopted_claims > 0 ? (
-            <li className="flex items-center gap-2">
-              <span
-                className={
-                  summary.pending_relevance === 0
-                    ? "text-green-600"
-                    : "text-slate-400"
-                }
-              >
-                {summary.pending_relevance === 0 ? "✓" : "○"}
-              </span>
-              <Link
-                href={`/projects/${summary.id}/relevance`}
-                className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-              >
-                Einschlägigkeit der übernommenen Claims prüfen (
-                {summary.adopted_claims} übernommen)
-              </Link>
-            </li>
           ) : null}
-        </ol>
-        <p className="mt-3 flex flex-wrap gap-x-4 text-sm">
+          {summary.adopted_claims > 0 ? (
+            <Link
+              href={`/projects/${summary.id}/relevance`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Einschlägigkeit der übernommenen Claims prüfen (
+              {summary.adopted_claims} übernommen)
+            </Link>
+          ) : null}
           <Link
             href={`/projects/${summary.id}/history`}
             className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"

@@ -40,7 +40,7 @@ function describeProgress(event: Record<string, unknown>): string | null {
 
 /**
  * Start/restart button + live progress via the shared SSE hook, the
- * reference-scan twin of ExtractionPanel. Deliberately no RunControls
+ * reference-scan twin of the workbench's run panels. Deliberately no RunControls
  * wiring (not built for this run kind) and no "already scanned" gate — a
  * rescan is expected and always allowed while nothing is currently running.
  */
