@@ -25,9 +25,9 @@ import type { JobRunner } from "../runs/job-runner";
 import type { RunHandle } from "../runs/types";
 import { formatCitation } from "../sources/csl";
 import { applyExtractionOutput } from "./apply-extraction-output";
-import { EXTRACTION_FAILED_PREFIX } from "./derive-state";
+import { EXTRACTION_ACTOR, EXTRACTION_FAILED_PREFIX } from "./derive-state";
 
-const ACTOR = "system:extraction" as const;
+const ACTOR = EXTRACTION_ACTOR;
 
 export interface SourceExtractionDependencies {
   orchestrator?: Orchestrator;

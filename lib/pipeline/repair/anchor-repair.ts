@@ -144,6 +144,14 @@ export async function repairClaimAnchor(
  * truth, quote-first — so the passage the reviewer was shown beside the
  * claim is exactly the one that gets replaced.
  *
+ * REFUSES while the project has an unpublished briefing draft. Publishing a
+ * revision clears the draft — so repairing a passage over an open draft
+ * would silently throw away an unrelated, half-finished rewrite of the whole
+ * briefing that the workbench autosaved. Publishing or discarding the draft
+ * first is a decision only the reviewer can make, so this asks for it
+ * instead of guessing; the check runs before anything else, so nothing is
+ * written on that path.
+ *
  * Deliberately no `tx.reviseClaimAnchor` here: `publishBriefingRevision`'s
  * silent re-anchor pass already remaps every claim whose quote moved in the
  * rewritten text, and an extra audited anchor event would double-record the
@@ -158,6 +166,13 @@ export async function repairBriefingPassage(
   claimId: string,
   newParagraphText: string,
 ): Promise<void> {
+  if (requireProjectStore(projectId).readDraft() !== null) {
+    throw new AnchorPreconditionError(
+      "Es liegt eine ungespeicherte Briefing-Überarbeitung vor – bitte " +
+        "zuerst den Entwurf veröffentlichen oder verwerfen, dann die " +
+        "Passage korrigieren.",
+    );
+  }
   const { register, text, paragraphs } = await readBriefingContext(
     projectId,
     claimId,

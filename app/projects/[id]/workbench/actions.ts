@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
   discardBriefingDraft,
+  enqueueSourceExtraction,
+  getBriefing,
   publishBriefingRevision,
+  readProject,
   saveBriefingDraft,
   startSourceExtraction,
   startUnevidencedExtraction,
@@ -62,9 +65,36 @@ export interface BriefingFormState {
 }
 
 /**
+ * Re-triggers the extraction pass of every source the project already has,
+ * after its FIRST briefing arrived. Capturing a source always enqueues its
+ * pass (`../sources/actions.ts`), but on a briefing-less project that pass
+ * fails its precondition and the auto-chain drops it with a warning — by
+ * contract, since a dropped trigger costs a moment of automation, not data.
+ * Nothing re-triggered those sources once the briefing was imported, which
+ * is the one moment where the whole backlog becomes runnable at once.
+ *
+ * Wiring, deliberately in the app layer: the pipeline use-case stays free of
+ * run side effects, exactly like capture and revision, which enqueue from
+ * their actions rather than from `captureSource`/`reviseSource`.
+ *
+ * Enqueuing per source is safe even for a source whose pass somehow did run:
+ * the chain coalesces consecutive identical triggers, and a repeated pass
+ * merges into the existing claims instead of duplicating them.
+ */
+async function backfillSourceExtractions(projectId: string): Promise<void> {
+  const register = await readProject(projectId);
+  for (const source of register.sources) {
+    enqueueSourceExtraction(projectId, source.id);
+  }
+}
+
+/**
  * Publishes the editor's text as the briefing's next revision — or, for a
  * project without a briefing yet, as the initial import (the pipeline
- * use-case decides, and requires the tool name only on that path).
+ * use-case decides, and requires the tool name only on that path). Only that
+ * initial import backfills the extraction passes that were dropped while the
+ * project had no briefing; an ordinary revision (2, 3, …) must not re-run
+ * every source.
  */
 export async function publishBriefingRevisionAction(
   projectId: string,
@@ -73,14 +103,23 @@ export async function publishBriefingRevisionAction(
 ): Promise<BriefingFormState> {
   const text = String(formData.get("text") ?? "");
   const tool = String(formData.get("tool") ?? "").trim();
-  const result = await runPipelineAction(() =>
-    publishBriefingRevision(projectId, {
+  const result = await runPipelineAction(async () => {
+    // Asked BEFORE publishing, inside the same error policy: afterwards a
+    // briefing always exists. The published revision cannot answer it
+    // either — revision 1 is stored as an absent field, so a checksum no-op
+    // republish of a live revision 1 looks exactly like a fresh import.
+    const initialImport = (await getBriefing(projectId)) === null;
+    await publishBriefingRevision(projectId, {
       text,
       ...(tool.length > 0 ? { tool } : {}),
-    }),
-  );
+    });
+    return { initialImport };
+  });
   if (result.error !== null) {
     return { error: result.error };
+  }
+  if (result.value.initialImport) {
+    await backfillSourceExtractions(projectId);
   }
   revalidateWorkbench(projectId);
   return { error: null, published: true };

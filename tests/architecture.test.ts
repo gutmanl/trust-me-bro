@@ -343,9 +343,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.pauseRun).toBeDefined();
     expect(surface.resumeRun).toBeDefined();
     expect(surface.cancelRun).toBeDefined();
-    // Runner UI: project-level status truth + the kind-agnostic run handle.
+    // Runner UI: project-level status truth. The live run handle stays
+    // internal — the kind-agnostic status stream route that used to need it
+    // is gone, and the unified event stream attaches to runs itself.
     expect(surface.getActiveRun).toBeDefined();
-    expect(surface.getActiveRunHandle).toBeDefined();
+    expect(surface.getActiveRunHandle).toBeUndefined();
     // Workbench epic: the unified project event stream the single SSE route
     // consumes. The runner's run-start announcement stays internal — even
     // its project-filtered wrapper is not on the surface, because the route

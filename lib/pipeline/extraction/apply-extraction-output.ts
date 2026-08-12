@@ -12,9 +12,9 @@ import type {
 } from "../../register";
 import { evidenceIdAt, nextClaimId } from "../ids";
 import { RECHECK_STATUSES } from "../verification/recheck-statuses";
-import { EXTRACTION_COMPLETED_PREFIX } from "./derive-state";
+import { EXTRACTION_ACTOR, EXTRACTION_COMPLETED_PREFIX } from "./derive-state";
 
-const ACTOR = "system:extraction" as const;
+const ACTOR = EXTRACTION_ACTOR;
 
 /**
  * Anchor of a claim whose `anchor_quote` occurs nowhere in the briefing.

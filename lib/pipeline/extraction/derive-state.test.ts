@@ -19,11 +19,15 @@ function baseRegister(): ClaimsRegister {
   return register;
 }
 
-function withCompletion(register: ClaimsRegister, reason: string): void {
+function withCompletion(
+  register: ClaimsRegister,
+  reason: string,
+  actor = "system:extraction",
+): void {
   register.project_events.push({
     seq: register.project_events.length + 1,
     at: "2026-08-11T09:00:00Z",
-    actor: "system:extraction",
+    actor,
     event: "batch_run_completed",
     reason,
     prev_hash: "a".repeat(64),
@@ -61,6 +65,27 @@ describe("deriveExtractionActivity", () => {
     expect(deriveExtractionActivity(register, false).lastOutcome).toBe(
       "failed",
     );
+  });
+
+  it("ignores a batch_run_completed written by another run kind", () => {
+    // The event type is shared vocabulary, the reason prefixes are not: a
+    // foreign batch completion carries neither prefix and would otherwise be
+    // reported as a "completed" extraction pass. The actor is what tells the
+    // two apart, so it is part of the filter.
+    const register = baseRegister();
+    withCompletion(
+      register,
+      `${EXTRACTION_COMPLETED_PREFIX} (Quelle src_a, Lauf 1).`,
+    );
+    withCompletion(
+      register,
+      "Relevanzprüfung abgeschlossen.",
+      "system:relevance_run",
+    );
+
+    const activity = deriveExtractionActivity(register, false);
+    expect(activity.lastOutcome).toBe("completed");
+    expect(activity.lastMessage).toContain("Quelle src_a");
   });
 
   it("the LAST pass wins — a successful retry clears the earlier failure", () => {

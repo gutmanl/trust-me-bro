@@ -69,6 +69,26 @@ describe("parseInline", () => {
     ]);
   });
 
+  it("rejects a protocol-relative href, rendering the literal source as text", () => {
+    // "//host" inherits the page's scheme and would be a live off-site link
+    // — the allowlist demands an explicit http(s) scheme, so this stays text.
+    expect(parseInline("[x](//evil.example)")).toEqual([
+      { t: "text", v: "[x](//evil.example)" },
+    ]);
+  });
+
+  it("rejects whitespace-obfuscated scheme spellings, rendering them as text", () => {
+    // Leading space before the scheme…
+    expect(parseInline("[x]( javascript:alert(1))")).toEqual([
+      { t: "text", v: "[x]( javascript:alert(1))" },
+    ]);
+    // …and a newline inside it: the allowlist matches the href verbatim, it
+    // never strips or normalizes whitespace first.
+    expect(parseInline("[x](java\nscript:alert(1))")).toEqual([
+      { t: "text", v: "[x](java\nscript:alert(1))" },
+    ]);
+  });
+
   it("leaves an unbalanced ** marker as literal text", () => {
     expect(parseInline("**bold without closing")).toEqual([
       { t: "text", v: "**bold without closing" },

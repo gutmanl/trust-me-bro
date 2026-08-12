@@ -203,6 +203,10 @@ export class ReferenceCapturePreconditionError extends PipelineError {}
  * the quote does not actually occur in the paragraph the user picked. The
  * whole point of a manual re-anchor is that the anchor afterwards RESOLVES,
  * so committing one that does not would defeat it.
+ *
+ * The passage repair adds one precondition of its own: it publishes a
+ * briefing revision, which clears the project's draft, so it refuses while
+ * an unpublished draft exists rather than destroying it.
  */
 export class AnchorPreconditionError extends PipelineError {}
 

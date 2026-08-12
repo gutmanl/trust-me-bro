@@ -141,10 +141,12 @@ export type {
 // itself stays internal (runs start only through the use-cases).
 export { cancelRun, pauseRun, resumeRun } from "./runs/control";
 // Runner UI: the project-level run status the shared status bar and the
-// global start-gating read (one truth across pages), plus the live handle
-// for the kind-agnostic status stream. The runner stays internal.
+// global start-gating read (one truth across pages). The runner stays
+// internal — and so does the live run handle: its only app-facing consumer
+// was the kind-agnostic status stream route, which the unified project
+// event stream below replaced, and that stream attaches to runs internally.
 export type { ActiveRunStatus } from "./runs/status";
-export { getActiveRun, getActiveRunHandle } from "./runs/status";
+export { getActiveRun } from "./runs/status";
 // Workbench epic: the unified per-project event stream — one SSE route
 // follows EVERY run of a project, including runs the auto-chain starts after
 // the client connected. The runner's run-start announcement and the project

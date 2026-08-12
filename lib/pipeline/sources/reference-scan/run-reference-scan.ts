@@ -66,16 +66,15 @@ export interface ReferenceScanRunSummary {
  * missed, and Crossref resolves citations without their own identifier to a
  * candidate DOI by title/author/year similarity.
  *
- * DELIBERATE DIVERGENCE from extraction's hard preflight gate (run-
- * extraction.ts): an unusable primary backend NEVER blocks this run. The
- * regex channel alone is still a complete (if narrower) scan, so the run
- * always starts once its OWN preconditions hold (briefing imported) and
- * simply degrades to regex-only — recorded both in
- * the completion reason AND in the durable pointer's `method` field
- * ("regex" vs. "regex+llm"), so the degradation is visible without reading
- * event prose. Crossref failures are absorbed the same way, one level
- * down (see crossref.ts) — nothing here ever throws because a remote
- * service was unavailable.
+ * DELIBERATE DIVERGENCE from extraction's hard preflight gate
+ * (run-source-extraction.ts): an unusable primary backend NEVER blocks this
+ * run. The regex channel alone is still a complete (if narrower) scan, so
+ * the run always starts once its OWN preconditions hold (briefing imported)
+ * and simply degrades to regex-only — recorded both in the completion reason
+ * AND in the durable pointer's `method` field ("regex" vs. "regex+llm"), so
+ * the degradation is visible without reading event prose. Crossref failures
+ * are absorbed the same way, one level down (see crossref.ts) — nothing here
+ * ever throws because a remote service was unavailable.
  */
 export async function startReferenceScan(
   projectId: string,

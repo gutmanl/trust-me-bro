@@ -241,8 +241,10 @@ export interface BriefingDraft {
   /** ISO timestamp of the save. */
   saved_at: string;
   /** The briefing revision (0 before any briefing exists) the draft's text
-   * was started from — lets the workbench detect that the briefing moved on
-   * underneath an open draft. */
+   * was started from. Recorded for future conflict detection — nothing
+   * currently compares it against the live revision, so it is informational:
+   * publishing a draft written against an older revision is not refused or
+   * flagged today. */
   based_on_revision: number;
 }
 

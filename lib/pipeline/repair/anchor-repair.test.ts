@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RegisterStore } from "../../register";
 import { decideClaim } from "../adjudication/decide";
 import { importBriefing } from "../briefing";
+import {
+  discardBriefingDraft,
+  getBriefingDraft,
+  saveBriefingDraft,
+} from "../briefing-revision";
 import { AnchorPreconditionError } from "../errors";
 import { createProject } from "../projects";
 import { repairBriefingPassage, repairClaimAnchor } from "./anchor-repair";
@@ -275,5 +280,50 @@ describe("repairBriefingPassage", () => {
     await expect(
       repairBriefingPassage(PROJECT, "clm_ghost", "Neuer Text."),
     ).rejects.toBeInstanceOf(AnchorPreconditionError);
+  });
+
+  it("refuses while an unpublished briefing draft exists, leaving both untouched", async () => {
+    // Publishing a revision clears the project's draft, so a passage repair
+    // run over an open draft would silently destroy an unrelated,
+    // half-finished rewrite of the whole briefing.
+    const claimId = await addClaim({
+      id: "clm_draft_guard",
+      anchor: "p2",
+      quote: "Die mediane Reviewzeit sinkt um 55 %.",
+    });
+    await saveBriefingDraft(PROJECT, "Eine ganz andere, offene Überarbeitung.");
+    const store = RegisterStore.forProject(PROJECT);
+    const before = await store.read();
+
+    await expect(
+      repairBriefingPassage(PROJECT, claimId, "Absatz zwei, korrigiert."),
+    ).rejects.toBeInstanceOf(AnchorPreconditionError);
+
+    // Neither side moved: no revision, and the draft is still there.
+    expect(await store.read()).toEqual(before);
+    expect((await getBriefingDraft(PROJECT))?.text).toBe(
+      "Eine ganz andere, offene Überarbeitung.",
+    );
+  });
+
+  it("works again once the draft has been discarded", async () => {
+    const claimId = await addClaim({
+      id: "clm_after_discard",
+      anchor: "p2",
+      quote: "Die mediane Reviewzeit sinkt um 55 %.",
+    });
+    await saveBriefingDraft(PROJECT, "Offene Überarbeitung.");
+    await discardBriefingDraft(PROJECT);
+
+    const corrected = "Absatz zwei: Die mediane Reviewzeit sinkt um 40 %.";
+    await repairBriefingPassage(PROJECT, claimId, corrected);
+
+    const store = RegisterStore.forProject(PROJECT);
+    const after = await store.read();
+    expect(after.project.briefing_import?.revision).toBe(2);
+    expect(
+      store.blobs().readText(after.project.briefing_import!.blob_path),
+    ).toBe([P1, corrected, P3].join("\n\n"));
+    expect((await store.verify()).ok).toBe(true);
   });
 });
