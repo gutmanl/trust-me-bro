@@ -98,7 +98,12 @@ export function VerificationPanel({
         event.type === "item_completed" &&
         event.itemId !== "__spot_check__"
       ) {
-        setChecked((count) => count + 1);
+        // Absolute from the event's 0-based index, never an increment: the
+        // shared stream replays a run's events on (re)connect, and
+        // incrementing would count every replayed claim a second time. The
+        // spot-check pseudo-item trails the claims, so for a real claim the
+        // index still counts claims.
+        setChecked((count) => Math.max(count, (Number(event.index) || 0) + 1));
       }
     },
     onDone: () => {

@@ -52,19 +52,26 @@ export async function GET(
 
   let unsubscribe: (() => void) | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
+  /** Set by teardown, whether it was the client hanging up (cancel) or a
+   * failed enqueue. Read back after the subscription is created, because the
+   * initial replay can tear the connection down BEFORE there is anything to
+   * unsubscribe. */
+  let closed = false;
+
+  const teardown = (): void => {
+    closed = true;
+    unsubscribe?.();
+    unsubscribe = undefined;
+    if (heartbeat !== undefined) {
+      clearInterval(heartbeat);
+      heartbeat = undefined;
+    }
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const stop = (): void => {
-        unsubscribe?.();
-        unsubscribe = undefined;
-        if (heartbeat !== undefined) {
-          clearInterval(heartbeat);
-          heartbeat = undefined;
-        }
-      };
       const close = (): void => {
-        stop();
+        teardown();
         try {
           controller.close();
         } catch {
@@ -86,21 +93,23 @@ export async function GET(
       push(sse("state", { activeRun: getActiveRun(id) ?? null }));
       // Attaches to the currently active run AND to every run started later;
       // deliberately never closes on a terminal event.
-      unsubscribe = streamProjectRunEvents(id, (envelope) => {
+      const stop = streamProjectRunEvents(id, (envelope) => {
         push(sse("progress", envelope));
       });
+      if (closed) {
+        // The client was already gone when the snapshot or the active run's
+        // synchronous replay was pushed. teardown() ran before this
+        // subscription existed, so drop it here — and install no heartbeat
+        // on a controller that will never accept a chunk again.
+        stop();
+        return;
+      }
+      unsubscribe = stop;
       heartbeat = setInterval(() => {
         push(new TextEncoder().encode(": ping\n\n"));
       }, HEARTBEAT_MS);
     },
-    cancel() {
-      unsubscribe?.();
-      unsubscribe = undefined;
-      if (heartbeat !== undefined) {
-        clearInterval(heartbeat);
-        heartbeat = undefined;
-      }
-    },
+    cancel: teardown,
   });
 
   return new Response(stream, {

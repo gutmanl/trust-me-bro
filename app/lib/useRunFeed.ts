@@ -9,6 +9,56 @@ export interface ProgressLine {
   text: string;
 }
 
+/**
+ * Remembers that a run of the panel's kind has ended, so its `onDone` is
+ * still delivered when the panel only starts watching AFTERWARDS.
+ *
+ * Why this is not just "fire onDone on the terminal event": a panel becomes
+ * `watching` from its start action's response, and a short run can be over
+ * before that response commits — reference capture in particular finishes a
+ * cached or instantly-failing batch in milliseconds. The panel then flips to
+ * "Wird erfasst …" with the terminal event already behind it and nothing
+ * left to end it: stuck until a manual reload. The per-feature capture route
+ * papered over this by replaying the finished run's log; the unified stream
+ * follows only live runs, so the latch belongs here.
+ *
+ * Terminal events are latched per run, and each latched run is reported at
+ * most once, so an `active` flag that flips back and forth cannot re-fire a
+ * run's completion.
+ */
+export interface RunDoneLatch {
+  /** Records a run's terminal event. Returns whether `onDone` must fire now
+   * — i.e. the panel is watching and has not been told about this run yet. */
+  terminated(runId: string, active: boolean): boolean;
+  /** Called when the panel's `active` flag settles. Returns whether a
+   * latched terminal event still owes this panel its `onDone`. */
+  watched(active: boolean): boolean;
+}
+
+export function createRunDoneLatch(): RunDoneLatch {
+  let terminatedRunId: string | null = null;
+  let notifiedRunId: string | null = null;
+  const owed = (active: boolean): boolean =>
+    active && terminatedRunId !== null && terminatedRunId !== notifiedRunId;
+  return {
+    terminated(runId, active) {
+      terminatedRunId = runId;
+      if (!owed(active)) {
+        return false;
+      }
+      notifiedRunId = runId;
+      return true;
+    },
+    watched(active) {
+      if (!owed(active)) {
+        return false;
+      }
+      notifiedRunId = terminatedRunId;
+      return true;
+    },
+  };
+}
+
 export interface RunFeedOptions {
   /** Run kind this panel shows ("extraction", "verification", …). */
   kind: string;
@@ -63,6 +113,10 @@ export function useRunFeed(options: RunFeedOptions): {
   const [lines, setLines] = useState<ProgressLine[]>([]);
   const counter = useRef(0);
   const feedRunId = useRef<string | null>(null);
+  // useState, not useRef: the latch must be readable during render (it is
+  // handed to the effect below), which the refs lint rule rightly forbids.
+  // The lazy initializer keeps it stable for the panel's lifetime.
+  const [latch] = useState(createRunDoneLatch);
 
   const { connectionLost } = useProjectEvents(
     { kind: options.kind },
@@ -84,11 +138,14 @@ export function useRunFeed(options: RunFeedOptions): {
         setLines((previous) => [...previous, line]);
       }
       if (
-        active &&
-        (envelope.event.type === "run_completed" ||
-          envelope.event.type === "run_cancelled")
+        envelope.event.type === "run_completed" ||
+        envelope.event.type === "run_cancelled"
       ) {
-        onDone();
+        // Latched even while the panel is not watching yet: a short run can
+        // end before the start action's response makes `active` true.
+        if (latch.terminated(envelope.runId, active)) {
+          onDone();
+        }
       }
     },
     (snapshotRun) => {
@@ -109,6 +166,17 @@ export function useRunFeed(options: RunFeedOptions): {
       }
     },
   );
+
+  // The other half of the latch: the panel started watching a run that is
+  // already over. Declared AFTER useProjectEvents so a subscriber mounting
+  // into a live stream has replayed first — a run whose terminal event is
+  // delivered during that replay reports through the handler above, not
+  // twice.
+  useEffect(() => {
+    if (latch.watched(options.active)) {
+      callbacks.current.onDone();
+    }
+  }, [latch, options.active]);
 
   return { lines, connectionLost };
 }

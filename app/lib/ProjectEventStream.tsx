@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -49,6 +50,16 @@ function isTerminal(type: unknown): boolean {
   return type === "run_completed" || type === "run_cancelled";
 }
 
+function sameStatus(a: ActiveRunStatus, b: ActiveRunStatus): boolean {
+  return (
+    a.runId === b.runId &&
+    a.kind === b.kind &&
+    a.phase === b.phase &&
+    a.completed === b.completed &&
+    a.total === b.total
+  );
+}
+
 /**
  * The project's live run status, folded from the stream. Kept out of the
  * component so the reconciliation rules are readable in one place:
@@ -61,8 +72,23 @@ function isTerminal(type: unknown): boolean {
  * - `completed` comes from the event's absolute 0-based index, never from an
  *   increment: the stream replays a run's events on (re)connect, and
  *   incrementing would double-count what the snapshot already reflects.
+ * - An event that changes nothing returns the PREVIOUS object, not an equal
+ *   copy. Most envelopes (item_started, and every event during a reconnect's
+ *   replay) say nothing new about the status, and every re-render of this
+ *   provider re-renders every start-gated button on the page.
  */
 function reduceActiveRun(
+  previous: ActiveRunStatus | null,
+  envelope: RunEnvelope,
+): ActiveRunStatus | null {
+  const next = foldActiveRun(previous, envelope);
+  if (previous !== null && next !== null && sameStatus(previous, next)) {
+    return previous;
+  }
+  return next;
+}
+
+function foldActiveRun(
   previous: ActiveRunStatus | null,
   envelope: RunEnvelope,
 ): ActiveRunStatus | null {
@@ -223,10 +249,17 @@ export function ProjectEventStreamProvider({
     };
   }, [projectId, router]);
 
+  // Memoized so a re-render that changed nothing (a router.refresh() landing
+  // with the same run, a parent re-render) does not churn every consumer —
+  // `subscribe` is stable, so the value only changes when the status or the
+  // connection state genuinely did.
+  const value = useMemo(
+    () => ({ activeRun, connectionLost, subscribe }),
+    [activeRun, connectionLost, subscribe],
+  );
+
   return (
-    <ProjectEventStreamContext.Provider
-      value={{ activeRun, connectionLost, subscribe }}
-    >
+    <ProjectEventStreamContext.Provider value={value}>
       {children}
     </ProjectEventStreamContext.Provider>
   );
