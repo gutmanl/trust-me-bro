@@ -9,7 +9,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "cli/**/*.test.ts", "tests/**/*.test.ts"],
+    include: [
+      "lib/**/*.test.ts",
+      "cli/**/*.test.ts",
+      "tests/**/*.test.ts",
+      "app/**/*.test.{ts,tsx}",
+    ],
     env: {
       // Hermetic identity (TMB-47): tests must never read a developer's
       // real ~/.trustmebro/config.json, and the handle mirrors the
