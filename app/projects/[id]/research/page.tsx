@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
-import { ResearchGuidance } from "@/app/components/ResearchGuidance";
+import { ResearchHub } from "@/app/components/ResearchHub";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import {
   getBackendsHealth,
@@ -64,7 +64,7 @@ export default async function ResearchPage(
             </Link>
             .
           </p>
-          <ResearchGuidance />
+          <ResearchHub question={register.project.research_question} />
         </>
       )}
     </div>

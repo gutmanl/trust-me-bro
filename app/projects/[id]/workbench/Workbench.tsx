@@ -35,6 +35,7 @@ import { useCollapsedRefresh } from "./use-collapsed-refresh";
  */
 export function Workbench({
   projectId,
+  researchQuestion,
   briefing,
   briefingText,
   briefingMeta,
@@ -53,6 +54,7 @@ export function Workbench({
   referenceImport,
 }: {
   projectId: string;
+  researchQuestion: string;
   briefing: BriefingViewModel | null;
   briefingText: string | null;
   briefingMeta: BriefingImport | null;
@@ -161,6 +163,7 @@ export function Workbench({
       <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <BriefingPane
           projectId={projectId}
+          researchQuestion={researchQuestion}
           briefing={briefing}
           briefingText={briefingText}
           briefingMeta={briefingMeta}

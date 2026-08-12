@@ -30,5 +30,5 @@ export async function createProjectAction(
   if (result.error !== null) {
     return { error: result.error };
   }
-  redirect(`/projects/${id}`);
+  redirect(`/projects/${id}/start`);
 }

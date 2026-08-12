@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { BackendHealthCards } from "@/app/components/BackendHealthCards";
-import { ResearchGuidance } from "@/app/components/ResearchGuidance";
+import { ResearchHub } from "@/app/components/ResearchHub";
 import { primaryButtonClass } from "@/app/components/ui";
 import {
   getInstallationBackendsHealth,
@@ -141,7 +141,7 @@ export default async function SetupPage(props: PageProps<"/setup">) {
             Recherchefrage, einem importierten Briefing und dessen Quellen –
             geprüft wird von dort aus schrittweise.
           </p>
-          <ResearchGuidance />
+          <ResearchHub compact />
           <div className="flex flex-wrap items-start gap-3">
             <Link href="/projects/new" className={primaryButtonClass}>
               Erstes Projekt anlegen

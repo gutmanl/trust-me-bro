@@ -183,6 +183,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
 
       <Workbench
         projectId={id}
+        researchQuestion={summary.research_question}
         briefing={briefing}
         briefingText={briefingContent?.text ?? null}
         briefingMeta={briefingContent?.meta ?? null}

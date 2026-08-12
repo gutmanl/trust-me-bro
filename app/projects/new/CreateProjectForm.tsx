@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
+import { QuestionGuidance } from "@/app/components/ResearchHub";
 import {
   ErrorBanner,
   inputClass,
   primaryButtonClass,
 } from "@/app/components/ui";
+import { assessResearchQuestion } from "@/app/lib/research-tools";
 import {
   isValidProjectId,
   mintProjectId,
@@ -16,6 +18,11 @@ import type { CreateProjectFormState } from "./actions";
 import { createProjectAction } from "./actions";
 
 const initialState: CreateProjectFormState = { error: null };
+
+/** Debounce delay for the live question-quality hints (Task 12): long
+ * enough that ordinary typing doesn't re-run the heuristics on every
+ * keystroke, short enough that the hints still feel live. */
+const HINT_DEBOUNCE_MS = 400;
 
 /**
  * Creation form. The id is suggested live from the research question but
@@ -38,6 +45,17 @@ export function CreateProjectForm({
   // rejected is visible as such before submitting rather than after.
   const idValid = isValidProjectId(id);
 
+  const [question, setQuestion] = useState("");
+  const [hints, setHints] = useState<ReturnType<typeof assessResearchQuestion>>(
+    [],
+  );
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHints(question.trim() ? assessResearchQuestion(question) : []);
+    }, HINT_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [question]);
+
   return (
     <form action={formAction} className="space-y-5">
       <div>
@@ -55,6 +73,7 @@ export function CreateProjectForm({
           className={inputClass}
           placeholder="z. B. Reduzieren LLM-gestützte Code-Reviews die Reviewzeit?"
           onChange={(event) => {
+            setQuestion(event.target.value);
             if (!idTouched) {
               setId(mintProjectId(event.target.value));
             }
@@ -64,6 +83,25 @@ export function CreateProjectForm({
           Nach der Anlage unveränderlich – eine geänderte Recherchefrage ist per
           Definition ein neues Projekt.
         </p>
+        {hints.length > 0 ? (
+          <ul className="mt-2 space-y-1 text-xs">
+            {hints.map((hint, index) => (
+              <li
+                key={index}
+                className={
+                  hint.severity === "warnung"
+                    ? "text-amber-800"
+                    : "text-slate-500"
+                }
+              >
+                {hint.text}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="mt-2">
+          <QuestionGuidance />
+        </div>
       </div>
 
       <div>

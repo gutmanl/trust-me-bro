@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 
+import { ResearchHub } from "@/app/components/ResearchHub";
 import {
   ErrorBanner,
   inputClass,
@@ -35,6 +36,7 @@ import { BriefingReadView } from "./BriefingReadView";
  */
 export function BriefingPane({
   projectId,
+  researchQuestion,
   briefing,
   briefingText,
   briefingMeta,
@@ -49,6 +51,7 @@ export function BriefingPane({
   onHoverParagraph,
 }: {
   projectId: string;
+  researchQuestion: string;
   briefing: BriefingViewModel | null;
   /** The frozen briefing's text, or null before the first import. */
   briefingText: string | null;
@@ -67,7 +70,13 @@ export function BriefingPane({
   const [editing, setEditing] = useState(false);
 
   if (briefing === null || briefingText === null || briefingMeta === null) {
-    return <BriefingImportPane projectId={projectId} draft={draft} />;
+    return (
+      <BriefingImportPane
+        projectId={projectId}
+        researchQuestion={researchQuestion}
+        draft={draft}
+      />
+    );
   }
 
   return (
@@ -169,15 +178,18 @@ const importInitial: BriefingFormState = { error: null };
  */
 function BriefingImportPane({
   projectId,
+  researchQuestion,
   draft,
 }: {
   projectId: string;
+  researchQuestion: string;
   draft: BriefingDraft | null;
 }) {
   const [state, formAction, pending] = useActionState(
     publishBriefingRevisionAction.bind(null, projectId),
     importInitial,
   );
+  const toolInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-5">
@@ -197,6 +209,7 @@ function BriefingImportPane({
             id="tool"
             name="tool"
             required
+            ref={toolInputRef}
             placeholder="z. B. you.com Research"
             className={inputClass}
           />
@@ -234,6 +247,18 @@ function BriefingImportPane({
         </Link>
         .
       </p>
+
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <ResearchHub
+          question={researchQuestion}
+          compact
+          onToolChosen={(tool) => {
+            if (toolInputRef.current) {
+              toolInputRef.current.value = tool.name;
+            }
+          }}
+        />
+      </div>
     </section>
   );
 }
