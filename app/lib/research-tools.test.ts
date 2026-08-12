@@ -123,6 +123,85 @@ describe("RESEARCH_TOOLS", () => {
       "agent_cli",
     ]);
   });
+
+  // Copy-fidelity pin: the approved German copy for every field of every
+  // tool is deliberately re-typed here, in full, rather than compared
+  // field-by-field or via a fixture shared with research-tools.ts. The
+  // duplication IS the regression guard — an accidental edit to any name,
+  // url, mode, strengths or caveats text in the implementation fails this
+  // test even though a same-file fixture would happily drift alongside it.
+  it("pins every field of every tool verbatim against the approved copy", () => {
+    expect(RESEARCH_TOOLS).toEqual([
+      {
+        id: "elicit",
+        name: "Elicit",
+        url: "https://elicit.com",
+        mode: "Im Eingabefeld den Modus »Research Agent« wählen (nicht die einfache Paper-Suche)",
+        strengths:
+          "Durchsucht wissenschaftliche Literatur und belegt Aussagen mit Paper-Zitaten samt DOI",
+        caveats:
+          "Auf englischsprachige Literatur ausgelegt – die Frage ggf. auf Englisch stellen, das Briefing anschließend auf Deutsch anfordern",
+      },
+      {
+        id: "chatgpt",
+        name: "ChatGPT (OpenAI)",
+        url: "https://chatgpt.com",
+        mode: "In der Eingabeleiste unter Werkzeugen »Deep Research« aktivieren",
+        strengths:
+          "Ausführliche Web-Recherche mit Quellenangaben, gut für Marktüberblicke und graue Literatur",
+        caveats:
+          "Zitiert auch Blogs und Anbieterseiten – im Prompt explizit DOI-belegte Literatur verlangen",
+      },
+      {
+        id: "gemini",
+        name: "Gemini (Google)",
+        url: "https://gemini.google.com",
+        mode: "Modell-/Werkzeugauswahl auf »Deep Research« stellen und den Rechercheplan bestätigen",
+        strengths:
+          "Breite Web-Recherche mit strukturiertem Bericht, Export nach Google Docs",
+        caveats:
+          "Quellenangaben teils ohne Identifikator – DOIs/arXiv-Ids explizit anfordern",
+      },
+      {
+        id: "perplexity",
+        name: "Perplexity",
+        url: "https://www.perplexity.ai",
+        mode: "Suchmodus »Research« wählen; für Literatur den akademischen Fokus aktivieren",
+        strengths: "Schnelle, quellenreiche Recherche mit direkter Zitatliste",
+        caveats:
+          "Kurze Berichte – die Anforderungen an Absatzstruktur und wörtliche Zitate im Prompt betonen",
+      },
+      {
+        id: "claude",
+        name: "Claude (Anthropic)",
+        url: "https://claude.ai",
+        mode: "Recherche-Funktion (»Research«) aktivieren, sofern im Tarif verfügbar",
+        strengths:
+          "Sorgfältige Quellenarbeit und gute Umsetzung von Formatvorgaben",
+        caveats: "Verfügbarkeit der Recherche-Funktion hängt vom Tarif ab",
+      },
+      {
+        id: "consensus",
+        name: "Consensus",
+        url: "https://consensus.app",
+        mode: "Frage direkt stellen; Ergebnisansicht mit Papers und DOI-Angaben nutzen",
+        strengths:
+          "Evidenzfokus: aggregiert empirische Befunde aus begutachteten Studien",
+        caveats:
+          "Liefert Antworten je Einzelfrage statt eines Fließtext-Briefings – Ergebnisse selbst zu Absätzen zusammenführen",
+      },
+      {
+        id: "agent_cli",
+        name: "Agenten-CLI (Claude Code / Codex)",
+        url: "",
+        mode: "Im Terminal starten und den Prompt als Auftrag übergeben; Web-Zugriff des Agenten erlauben",
+        strengths:
+          "Frei steuerbar, Ergebnis landet als Datei direkt auf der eigenen Maschine",
+        caveats:
+          "Rechercheumfang selbst begrenzen (Zeit/Quellenzahl), sonst läuft der Agent lange",
+      },
+    ]);
+  });
 });
 
 describe("buildResearchPrompt", () => {

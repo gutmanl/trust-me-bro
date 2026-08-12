@@ -56,7 +56,7 @@ export function QuestionGuidance() {
             <p className="mt-1">
               „Inwiefern reduziert der Einsatz von LLM-gestützten Code-Reviews
               die Reviewzeit bei mittelgroßen Softwareprojekten im Vergleich zu
-              manueller Review, gemessen über die ersten sechs Monate nach
+              manuellen Reviews, gemessen über die ersten sechs Monate nach
               Einführung?“
             </p>
           </div>
@@ -81,6 +81,15 @@ function QuestionHints({ question }: { question: string }) {
             hint.severity === "warnung" ? "text-amber-800" : "text-slate-500"
           }
         >
+          {/* Severity must not be color-only (a11y): a visible glyph plus an
+           * sr-only label carries "warnung" for anyone who can't rely on
+           * amber-vs-slate. The approved hint text itself stays untouched. */}
+          {hint.severity === "warnung" ? (
+            <>
+              <span aria-hidden="true">⚠ </span>
+              <span className="sr-only">Achtung: </span>
+            </>
+          ) : null}
           {hint.text}
         </li>
       ))}
@@ -201,10 +210,10 @@ function ResearchHubBody({
 
       <QuestionHints question={effectiveQuestion} />
 
-      <div>
-        <p className="mb-2 text-sm font-medium text-slate-700">
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium text-slate-700">
           Recherche-Werkzeug wählen
-        </p>
+        </legend>
         <div className="grid gap-3 sm:grid-cols-2">
           {RESEARCH_TOOLS.map((tool) => (
             <ToolCard
@@ -215,7 +224,7 @@ function ResearchHubBody({
             />
           ))}
         </div>
-      </div>
+      </fieldset>
 
       {prompt ? (
         <div>

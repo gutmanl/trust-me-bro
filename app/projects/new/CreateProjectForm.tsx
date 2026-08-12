@@ -94,6 +94,15 @@ export function CreateProjectForm({
                     : "text-slate-500"
                 }
               >
+                {/* Severity must not be color-only (a11y) — same marker as
+                 * ResearchHub's QuestionHints; the approved hint text stays
+                 * untouched. */}
+                {hint.severity === "warnung" ? (
+                  <>
+                    <span aria-hidden="true">⚠ </span>
+                    <span className="sr-only">Achtung: </span>
+                  </>
+                ) : null}
                 {hint.text}
               </li>
             ))}
