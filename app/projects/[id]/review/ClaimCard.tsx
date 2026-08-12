@@ -13,7 +13,7 @@ import {
   SUPPORT_LABELS,
 } from "../../status-labels";
 import { ComplaintDialog } from "./ComplaintDialog";
-import { RepairPanel } from "./RepairPanel";
+import { RepairPanel, type ParagraphOption } from "./RepairPanel";
 import { ROUTING_LABELS } from "./routing-labels";
 
 /**
@@ -37,6 +37,8 @@ export function ClaimCard({
   currentSeconds,
   onSelect,
   showAnchor = false,
+  paragraphs,
+  anchoredParagraph,
 }: {
   projectId: string;
   marker: ClaimMarkerVM;
@@ -49,8 +51,17 @@ export function ClaimCard({
   currentSeconds: () => number;
   onSelect: (claimId: string, evidenceId?: string) => void;
   showAnchor?: boolean;
+  /** The briefing's paragraphs, passed through to the repair panel's anchor
+   * picker. */
+  paragraphs?: ParagraphOption[];
+  /** The paragraph this card sits beside, seeding the passage editor. */
+  anchoredParagraph?: ParagraphOption;
 }) {
   const { claim } = marker;
+  // The repair panel is reachable for a contested claim (all three repairs)
+  // and for a claim whose anchor drifted (the two anchor repairs) — a
+  // misplaced anchor is a defect in any status, not a verification verdict.
+  const showRepair = claim.status === "contested" || marker.anchorDrifted;
   return (
     <div
       id={`claim-card-${claim.id}`}
@@ -77,6 +88,14 @@ export function ClaimCard({
         {routing ? (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
             {ROUTING_LABELS[routing]}
+          </span>
+        ) : null}
+        {marker.anchorDrifted ? (
+          <span
+            title="Der zitierte Wortlaut steht nicht mehr an der Stelle, auf die der Anker zeigt – die Position ist nur noch geschätzt."
+            className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800"
+          >
+            Anker verschoben
           </span>
         ) : null}
         <span className="ml-auto text-xs text-slate-400">
@@ -154,8 +173,13 @@ export function ClaimCard({
             />
           ) : null}
 
-          {claim.status === "contested" ? (
-            <RepairPanel projectId={projectId} claim={claim} />
+          {showRepair ? (
+            <RepairPanel
+              projectId={projectId}
+              claim={claim}
+              paragraphs={paragraphs}
+              anchoredParagraph={anchoredParagraph}
+            />
           ) : null}
 
           {claim.status === "revised" ? (

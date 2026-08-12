@@ -9,6 +9,8 @@ import {
   decideClaim,
   discardClaim,
   proposeRepair,
+  repairBriefingPassage,
+  repairClaimAnchor,
   RunActiveError,
   startVerification,
   VerificationPreconditionError,
@@ -136,6 +138,59 @@ export async function discardClaimAction(
   }
   revalidatePath(`/projects/${projectId}/review`);
   return { error: null, decided: true };
+}
+
+export interface AnchorRepairFormState {
+  error: string | null;
+  repaired?: boolean;
+}
+
+/**
+ * Manual re-anchor of a claim (workbench epic): the text is right, the
+ * anchor drifted. Available in any claim status — a misplaced anchor is a
+ * bookkeeping defect, not a verdict — and refused by the pipeline unless the
+ * quote actually occurs in the chosen paragraph.
+ */
+export async function repairClaimAnchorAction(
+  projectId: string,
+  claimId: string,
+  _previous: AnchorRepairFormState,
+  formData: FormData,
+): Promise<AnchorRepairFormState> {
+  const anchor = String(formData.get("anchor") ?? "");
+  const quote = String(formData.get("quote") ?? "");
+  const result = await runPipelineAction(() =>
+    repairClaimAnchor(projectId, claimId, { anchor, quote }),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null, repaired: true };
+}
+
+/**
+ * The other direction: the anchor is right, the PASSAGE is wrong. Rewrites
+ * that one paragraph and publishes the result as an ordinary briefing
+ * revision, whose silent re-anchor pass follows every claim whose quote
+ * moved. The claim itself keeps its status and goes on through its normal
+ * repair re-entry.
+ */
+export async function repairBriefingPassageAction(
+  projectId: string,
+  claimId: string,
+  _previous: AnchorRepairFormState,
+  formData: FormData,
+): Promise<AnchorRepairFormState> {
+  const passage = String(formData.get("passage") ?? "");
+  const result = await runPipelineAction(() =>
+    repairBriefingPassage(projectId, claimId, passage),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null, repaired: true };
 }
 
 /** Complaint: transitions to contested; the repair step follows there. */

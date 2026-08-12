@@ -63,6 +63,11 @@ export interface PublishBriefingRevisionInput {
    * prior import's tool verbatim; a value given here is ignored on that
    * path. */
   tool?: string;
+  /** German reason recorded on the `briefing_revised` event. Defaults to the
+   * plain workbench wording; callers that revise on behalf of something more
+   * specific (the passage repair, which names its claim) pass their own.
+   * Ignored on the initial-import path, which records its own event. */
+  reason?: string;
 }
 
 /**
@@ -138,7 +143,7 @@ export async function publishBriefingRevision(
       blob_path: blob.blobPath,
       tool: current.tool,
       actor: getCurrentActor(),
-      reason: "Briefing überarbeitet (Arbeitsbereich).",
+      reason: input.reason ?? "Briefing überarbeitet (Arbeitsbereich).",
     });
     // Deliberately computed here, not from the register read above: it is
     // pure (no I/O), and running it against tx.listClaims() — the claim

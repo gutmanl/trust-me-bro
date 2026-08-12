@@ -231,6 +231,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.proposeRepair).toBeDefined();
     expect(surface.applyRepair).toBeDefined();
     expect(surface.discardClaim).toBeDefined();
+    // Workbench epic: the two manual anchor repairs; their paragraph
+    // resolution helpers stay internal.
+    expect(surface.repairClaimAnchor).toBeDefined();
+    expect(surface.repairBriefingPassage).toBeDefined();
+    expect(surface.anchorIndex).toBeUndefined();
     expect(surface.getProjectBlob).toBeDefined();
     expect(surface.getChainVerification).toBeDefined();
     // TMB-41: derived export accessors; the pure builders stay internal.

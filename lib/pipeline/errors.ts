@@ -196,6 +196,16 @@ export class ReferenceScanPreconditionError extends PipelineError {}
  * auto-import): no candidates selected. */
 export class ReferenceCapturePreconditionError extends PipelineError {}
 
+/**
+ * Preconditions of a manual anchor repair are not met (workbench epic):
+ * there is no briefing, the addressed claim does not exist, the chosen
+ * paragraph is outside the briefing, or — the check this type exists for —
+ * the quote does not actually occur in the paragraph the user picked. The
+ * whole point of a manual re-anchor is that the anchor afterwards RESOLVES,
+ * so committing one that does not would defeat it.
+ */
+export class AnchorPreconditionError extends PipelineError {}
+
 /** Preconditions of publishing a briefing revision are not met (workbench
  * epic): no text to publish (empty input and no saved draft, or the text
  * itself is blank). Missing-tool and reserved-prefix precondition on the

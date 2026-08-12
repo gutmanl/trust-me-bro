@@ -19,6 +19,14 @@ export type {
   RepairProposalOutcome,
 } from "./repair/run-repair";
 export type { ReEntryTarget } from "./repair/re-entry";
+// Workbench epic: the two manual anchor repairs the workbench offers beside
+// the wording repair — re-point the claim, or rewrite the passage it points
+// at. The paragraph resolution helpers stay internal.
+export {
+  repairBriefingPassage,
+  repairClaimAnchor,
+} from "./repair/anchor-repair";
+export type { RepairClaimAnchorInput } from "./repair/anchor-repair";
 export type { RepairOutput } from "../adapters";
 // Pure, node:fs-free modules consumed by CLIENT components deep-import past
 // this barrel (which transitively pulls node:fs): the effort-timer reducer,
