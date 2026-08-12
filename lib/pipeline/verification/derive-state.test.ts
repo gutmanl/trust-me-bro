@@ -59,6 +59,13 @@ describe("deriveVerificationState", () => {
       false,
     );
     expect(state).toMatchObject({ status: "interrupted", openClaims: 1 });
+    // An interrupted run is by definition one whose completion event never
+    // arrived, so there is no reason text to carry — pinned because the
+    // workbench's run-state line keys on it: a UI branch that gated the
+    // interrupted message on `reason` would render nothing, exactly for the
+    // state that most needs saying.
+    expect(state.reason).toBeUndefined();
+    expect(state.completedAt).toBeUndefined();
   });
 
   it("derives halted vs completed from remaining claims, not event text", () => {

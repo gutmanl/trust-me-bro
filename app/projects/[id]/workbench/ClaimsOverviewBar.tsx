@@ -174,11 +174,25 @@ export function ClaimsOverviewBar({
           deleted verification page that was not volatile run progress. An
           interrupted or halted run leaves claims unchecked, and without this
           line that would be visible only as claims quietly sitting in
-          captured/existence_checked. */}
-      {verificationState.reason !== undefined &&
-      (verificationState.status === "interrupted" ||
-        verificationState.status === "halted" ||
-        verificationState.status === "completed") ? (
+          captured/existence_checked.
+
+          The interrupted case is deliberately NOT gated on `reason`:
+          `deriveVerificationState` only sets that field from a
+          verification_run_completed event, and "interrupted" is by
+          definition the state where that closing event never arrived (an
+          opening bracket without a close). Gating all three arms on `reason`
+          — as the first version of this block did — made the interrupted
+          message unreachable, i.e. hid exactly the state that most needs
+          saying. Hence: a fixed message for interrupted, the event's own
+          reason only where the event exists. */}
+      {verificationState.status === "interrupted" ? (
+        <p className="mt-2 text-xs text-amber-700">
+          Prüflauf unterbrochen – über „Prüfung fortsetzen“ wieder aufnehmen;
+          fortgesetzt wird nur mit den offenen Claims.
+        </p>
+      ) : verificationState.reason !== undefined &&
+        (verificationState.status === "halted" ||
+          verificationState.status === "completed") ? (
         <p
           className={`mt-2 text-xs ${
             verificationState.status === "completed"
@@ -186,11 +200,9 @@ export function ClaimsOverviewBar({
               : "text-amber-700"
           }`}
         >
-          {verificationState.status === "interrupted"
-            ? "Prüflauf unterbrochen – Fortsetzen prüft nur die offenen Claims. "
-            : verificationState.status === "halted"
-              ? "Prüflauf angehalten – es verbleiben offene Claims. "
-              : "Letzter Prüflauf: "}
+          {verificationState.status === "halted"
+            ? "Prüflauf angehalten – es verbleiben offene Claims. "
+            : "Letzter Prüflauf: "}
           {verificationState.reason}
         </p>
       ) : null}
