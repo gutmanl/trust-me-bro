@@ -192,10 +192,6 @@ export class BriefingAlreadyImportedError extends PipelineError {
  * no briefing imported yet. */
 export class ReferenceScanPreconditionError extends PipelineError {}
 
-/** Preconditions of a reference capture batch are not met (reference
- * auto-import): no candidates selected. */
-export class ReferenceCapturePreconditionError extends PipelineError {}
-
 /**
  * Preconditions of a manual anchor repair are not met (workbench epic):
  * there is no briefing, the addressed claim does not exist, the chosen

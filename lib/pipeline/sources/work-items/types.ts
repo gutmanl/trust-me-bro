@@ -67,20 +67,4 @@ export interface SourceWorkItemVM {
   /** ISO timestamp of the recorded failure; present when status is
    * "failed". */
   failedAt?: string;
-  /** Retryable input snapshot of a failed MANUAL attempt, for pre-filling
-   * the retry. Reference-import failures retry through their candidate row
-   * instead. */
-  retryInput?: {
-    kind: "doi" | "arxiv" | "url" | "upload";
-    source_type: SourceType;
-    identifier?: string;
-    document_url?: string;
-    manual?: {
-      title: string;
-      authors?: string;
-      year?: string;
-      container_title?: string;
-    };
-    upload?: { blob_path: string; filename: string };
-  };
 }

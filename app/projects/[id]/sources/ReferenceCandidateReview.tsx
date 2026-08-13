@@ -10,7 +10,12 @@ import {
 } from "@/app/components/ui";
 import type { ReviewCandidate, SourceWorkItemVM } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
-import { formatTimestamp } from "../../status-labels";
+import { formatTimestamp, SOURCE_TYPE_LABELS } from "../../status-labels";
+import {
+  CapturingChip,
+  FailureBox,
+  QueuedChip,
+} from "../workbench/WorkItemRow";
 import type {
   CandidateCaptureFormState,
   ReadyCandidatesFormState,
@@ -22,12 +27,11 @@ import {
 
 const initialState: CandidateCaptureFormState = { error: null };
 
-const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
-  { value: "peer_reviewed_publication", label: "Begutachtete Publikation" },
-  { value: "preprint", label: "Preprint" },
-  { value: "grey_literature", label: "Grauliteratur" },
-  { value: "vendor_documentation", label: "Herstellerdokumentation" },
-];
+/** Derived from the one house label map — the dropdown can never drift
+ * from how the rest of the app names a source type. */
+const SOURCE_TYPE_OPTIONS = (
+  Object.entries(SOURCE_TYPE_LABELS) as [SourceType, string][]
+).map(([value, label]) => ({ value, label }));
 
 const METHOD_LABELS: Record<ReviewCandidate["method"], string> = {
   doi: "DOI",
@@ -103,11 +107,11 @@ export function CandidateRow({
     initialState,
   );
 
-  const capturing =
-    liveCapturing || workItem?.status === "capturing" || undefined;
+  const capturing = liveCapturing || workItem?.status === "capturing";
   const queued = !capturing && workItem?.status === "queued";
-  const failed = !capturing && !queued ? workItem : undefined;
-  const busy = Boolean(capturing) || queued;
+  const failure =
+    !capturing && workItem?.status === "failed" ? workItem : undefined;
+  const busy = capturing || queued;
 
   return (
     <li className="px-4 py-3">
@@ -115,29 +119,20 @@ export function CandidateRow({
         <p className="text-sm font-medium text-slate-800">
           {candidate.title ?? candidate.raw_text}
         </p>
-        {capturing ? (
-          <span className="flex items-center gap-1.5 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-            Wird erfasst …
-          </span>
-        ) : queued ? (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-            Wartet in der Warteschlange
-          </span>
-        ) : null}
+        {capturing ? <CapturingChip /> : queued ? <QueuedChip /> : null}
       </div>
       <CandidateMeta candidate={candidate} />
 
-      {failed?.status === "failed" ? (
-        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
-          ⚠ Beim letzten Versuch nicht übernommen: {failed.error}
-          {failed.failedAt !== undefined ? (
+      {failure !== undefined ? (
+        <FailureBox>
+          ⚠ Beim letzten Versuch nicht übernommen: {failure.error}
+          {failure.failedAt !== undefined ? (
             <span className="text-amber-700">
               {" "}
-              ({formatTimestamp(failed.failedAt)})
+              ({formatTimestamp(failure.failedAt)})
             </span>
           ) : null}
-        </p>
+        </FailureBox>
       ) : null}
 
       {busy ? null : !open ? (

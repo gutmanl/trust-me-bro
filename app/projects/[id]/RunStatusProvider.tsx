@@ -14,7 +14,6 @@ const RUN_KIND_LABELS: Record<string, string> = {
   extraction: "Extraktion",
   verification: "Prüflauf",
   reference_scan: "Referenz-Scan",
-  reference_capture: "Quellenerfassung",
   source_capture: "Quellenerfassung",
   research: "Recherche",
   relevance: "Relevanzprüfung",

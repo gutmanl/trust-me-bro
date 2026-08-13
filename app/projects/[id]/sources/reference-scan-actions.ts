@@ -11,6 +11,7 @@ import {
 } from "@/lib/pipeline";
 import type { ReferenceCaptureSelection } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
+import { SOURCE_TYPE_LABELS } from "../../status-labels";
 
 export interface ReferenceScanFormState {
   error: string | null;
@@ -36,12 +37,8 @@ export interface CandidateCaptureFormState {
   queued?: string;
 }
 
-const SOURCE_TYPES: SourceType[] = [
-  "peer_reviewed_publication",
-  "preprint",
-  "grey_literature",
-  "vendor_documentation",
-];
+// Derived from the one house label map, like the dropdowns it validates.
+const SOURCE_TYPES = Object.keys(SOURCE_TYPE_LABELS) as SourceType[];
 
 function optional(value: FormDataEntryValue | null): string | undefined {
   const text = String(value ?? "").trim();

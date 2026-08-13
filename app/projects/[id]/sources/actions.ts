@@ -11,6 +11,7 @@ import {
 } from "@/lib/pipeline";
 import type { CaptureKind, ManualCaptureInput } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
+import { SOURCE_TYPE_LABELS } from "../../status-labels";
 
 export interface SourceFormState {
   error: string | null;
@@ -19,12 +20,8 @@ export interface SourceFormState {
   queued?: string;
 }
 
-const SOURCE_TYPES: SourceType[] = [
-  "peer_reviewed_publication",
-  "preprint",
-  "grey_literature",
-  "vendor_documentation",
-];
+// Derived from the one house label map, like the dropdowns it validates.
+const SOURCE_TYPES = Object.keys(SOURCE_TYPE_LABELS) as SourceType[];
 
 const CAPTURE_KINDS: CaptureKind[] = ["doi", "arxiv", "url", "upload"];
 

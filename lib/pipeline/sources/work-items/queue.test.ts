@@ -140,41 +140,6 @@ describe("enqueueManualCapture", () => {
         .equals(content),
     ).toBe(true);
   });
-
-  it("re-uses the frozen blob when a retry arrives without a fresh upload", async () => {
-    const chain = fakeChain();
-    const store = RegisterStore.forProject(PROJECT_ID);
-    const blob = store.blobs().put(Buffer.from("%PDF-1.7 alt"), "pdf");
-    await recordCaptureFailure(
-      PROJECT_ID,
-      {
-        workItemId: "wi_retry-upload",
-        origin: "manual",
-        label: "Alt",
-        request: {
-          kind: "upload",
-          sourceType: "grey_literature",
-          manual: { title: "Alt" },
-          uploadBlob: { blob_path: blob.blobPath, filename: "alt.pdf" },
-        },
-      },
-      new DocumentFetchError("Extraktion fehlgeschlagen."),
-    );
-    await enqueueManualCapture(
-      PROJECT_ID,
-      {
-        kind: "upload",
-        sourceType: "grey_literature",
-        manual: { title: "Alt, korrigiert" },
-      },
-      { chain, retryOf: "wi_retry-upload" },
-    );
-    expect(chain.enqueued[0].workItemId).toBe("wi_retry-upload");
-    expect(chain.enqueued[0].request.uploadBlob).toEqual({
-      blob_path: blob.blobPath,
-      filename: "alt.pdf",
-    });
-  });
 });
 
 describe("retryManualCapture", () => {
@@ -261,10 +226,9 @@ describe("getSourceWorkItems", () => {
     ]);
     const failed = rows.find((row) => row.status === "failed");
     expect(failed?.error).toBe("Nicht abrufbar.");
-    expect(failed?.retryInput?.identifier).toBe("10.1/x");
   });
 
-  it("attaches no retry input to reference-import failures", async () => {
+  it("keeps reference-import failures visible with their reason", async () => {
     await recordCaptureFailure(
       PROJECT_ID,
       {
@@ -281,6 +245,6 @@ describe("getSourceWorkItems", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].origin).toBe("reference_import");
-    expect(rows[0].retryInput).toBeUndefined();
+    expect(rows[0].error).toBe("Kein PDF.");
   });
 });

@@ -54,7 +54,6 @@ const sweepInitial: RunFormState = { error: null };
  * status bar above it can never name the same run differently. */
 const CHAIN_KINDS = new Set([
   "reference_scan",
-  "reference_capture",
   "source_capture",
   "extraction",
   "existence_check",

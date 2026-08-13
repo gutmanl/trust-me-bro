@@ -15,6 +15,33 @@ const ORIGIN_LABELS: Record<SourceWorkItemVM["origin"], string> = {
   reference_import: "aus dem Referenz-Import",
 };
 
+/** Shared status pieces of the unified list's rows — one definition, so a
+ * capture work item and a candidate mid-capture can never drift apart. */
+export function CapturingChip() {
+  return (
+    <span className="flex items-center gap-1.5 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+      Wird erfasst …
+    </span>
+  );
+}
+
+export function QueuedChip() {
+  return (
+    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+      Wartet in der Warteschlange
+    </span>
+  );
+}
+
+export function FailureBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+      {children}
+    </div>
+  );
+}
+
 /**
  * One not-yet-successful capture work item in the sources list (source work
  * items): queued, capturing, or durably failed. A successful item never
@@ -38,14 +65,9 @@ export function WorkItemRow({
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-medium text-slate-800">{item.label}</p>
         {capturing ? (
-          <span className="flex items-center gap-1.5 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-            Wird erfasst …
-          </span>
+          <CapturingChip />
         ) : item.status === "queued" ? (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-            Wartet in der Warteschlange
-          </span>
+          <QueuedChip />
         ) : (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
             Erfassung fehlgeschlagen
@@ -57,7 +79,7 @@ export function WorkItemRow({
       </div>
 
       {!capturing && item.status === "failed" ? (
-        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+        <FailureBox>
           <p>
             ⚠ {item.error ?? "Unbekannter Fehler."}
             {item.failedAt !== undefined ? (
@@ -71,10 +93,12 @@ export function WorkItemRow({
             <RetryButton projectId={projectId} workItemId={item.workItemId} />
           ) : (
             <p className="mt-1 text-amber-700">
-              Über die Kandidatenprüfung unten erneut übernehmen.
+              Der zugehörige Kandidat ist im aktuellen Scan-Ergebnis nicht mehr
+              offen – ein erneuter Referenz-Scan nimmt ihn gegebenenfalls wieder
+              auf; alternativ die Quelle oben rechts manuell erfassen.
             </p>
           )}
-        </div>
+        </FailureBox>
       ) : null}
     </li>
   );

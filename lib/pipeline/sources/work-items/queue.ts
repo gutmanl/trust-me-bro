@@ -101,16 +101,13 @@ function displayLabel(input: {
  * half synchronously, freezes an uploaded document into the blob store so
  * the queue never holds bytes, and pushes the work item onto the project's
  * auto-chain. Returns immediately — progress and outcome arrive through the
- * shared event stream and the durable failure derivation.
- *
- * `retryOf` re-submits a failed work item under its OWN id, which is what
- * lets the eventual success resolve the recorded failure; a retry without a
- * fresh upload reuses the frozen blob of the failed attempt.
+ * shared event stream and the durable failure derivation. Retrying a
+ * failed item is `retryManualCapture`'s job, from the durable snapshot.
  */
 export async function enqueueManualCapture(
   projectId: string,
   input: ManualCaptureInput,
-  options: { retryOf?: string } & WorkItemQueueDependencies = {},
+  options: WorkItemQueueDependencies = {},
 ): Promise<{ workItemId: string }> {
   const store = requireProjectStore(projectId);
   validateManualInput(input);
@@ -121,23 +118,8 @@ export async function enqueueManualCapture(
       .blobs()
       .put(input.upload.content, extFromFilename(input.upload.filename));
     uploadBlob = { blob_path: blob.blobPath, filename: input.upload.filename };
-  } else if (options.retryOf !== undefined && input.kind === "upload") {
-    // A retry that did not re-upload keeps the failed attempt's frozen
-    // document — that is the point of freezing it at enqueue time.
-    const register = await store.read();
-    const failure = deriveOpenCaptureFailures(register).find(
-      (candidate) =>
-        candidate.workItemId === options.retryOf &&
-        candidate.origin === "manual",
-    );
-    if (failure?.input.upload !== undefined) {
-      uploadBlob = { ...failure.input.upload };
-    }
   }
   if (input.kind === "upload" && uploadBlob === undefined) {
-    // Checked here rather than in validateManualInput: a retry of a failed
-    // upload legitimately arrives without fresh bytes and reuses the frozen
-    // blob resolved just above.
     throw new InvalidSourceInputError(
       "Für eine Datei-Quelle muss ein Dokument hochgeladen werden.",
     );
@@ -154,14 +136,13 @@ export async function enqueueManualCapture(
     ...(uploadBlob !== undefined ? { uploadBlob } : {}),
   };
 
-  const workItemId = options.retryOf ?? `wi_${randomUUID()}`;
   const item: SourceCaptureWorkItem = {
-    workItemId,
+    workItemId: `wi_${randomUUID()}`,
     origin: "manual",
     label: displayLabel({
       manual: input.manual,
       identifier: input.identifier,
-      uploadFilename: input.upload?.filename ?? uploadBlob?.filename,
+      uploadFilename: input.upload?.filename,
       kind: input.kind,
     }),
     request,
@@ -170,7 +151,7 @@ export async function enqueueManualCapture(
     projectId,
     item,
   );
-  return { workItemId };
+  return { workItemId: item.workItemId };
 }
 
 /**
@@ -219,7 +200,6 @@ export function getSourceWorkItems(
       status: "failed",
       error: failure.reason,
       failedAt: failure.failedAt,
-      ...(failure.origin === "manual" ? { retryInput: failure.input } : {}),
     });
   }
   return rows;
@@ -227,8 +207,9 @@ export function getSourceWorkItems(
 
 /**
  * Re-queues a failed manual work item from its durable input snapshot, as
- * recorded — the one-click retry. The modal-based retry path (adjusting the
- * input first) goes through `enqueueManualCapture` with `retryOf` instead.
+ * recorded — the one-click retry, re-using the same work-item id so the
+ * eventual success resolves the recorded failure. A frozen upload rides
+ * along by blob reference; nothing is re-uploaded.
  */
 export async function retryManualCapture(
   projectId: string,

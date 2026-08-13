@@ -14,7 +14,7 @@ export interface ActiveRunStatus {
    * hand-off) instead of only "a run exists", so its live state resets on a
    * genuine change rather than desyncing. */
   runId: string;
-  /** Feature the run belongs to ("extraction", "reference_capture", …); null
+  /** Feature the run belongs to ("extraction", "source_capture", …); null
    * for the rare kind-less run. The UI maps it to a German label. */
   kind: string | null;
   /** Cooperative control phase. An active run is never "cancelled" (that is a

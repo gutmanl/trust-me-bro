@@ -10,6 +10,7 @@ import {
   primaryButtonClass,
   SuccessBanner,
 } from "@/app/components/ui";
+import { SOURCE_TYPE_LABELS } from "../../status-labels";
 import type { ReviseFormState, SourceFormState } from "./actions";
 import { enqueueCaptureSourceAction, reviseSourceAction } from "./actions";
 
@@ -272,14 +273,11 @@ function CaptureSourceFields({
             }
             className={inputClass}
           >
-            <option value="peer_reviewed_publication">
-              Begutachtete Publikation
-            </option>
-            <option value="preprint">Preprint</option>
-            <option value="grey_literature">Grauliteratur</option>
-            <option value="vendor_documentation">
-              Herstellerdokumentation
-            </option>
+            {Object.entries(SOURCE_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </div>
 

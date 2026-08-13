@@ -115,14 +115,13 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
   const runExistenceCheck = deps.startExistenceCheck ?? startExistenceCheck;
 
   /**
-   * The reference chain's two start-fns are the only ones resolved on first
-   * use rather than imported at the top, for two reasons that happen to
-   * point the same way.
+   * The reference chain's two functions are resolved on first use rather
+   * than imported at the top, for two reasons that happen to point the same
+   * way.
    *
-   * Correctness: the automatic capture reaches startReferenceCapture, and
-   * THAT module imports `enqueueSourceExtraction` from here (its documented
-   * per-item chaining exception) — a static import would close an import
-   * cycle where today there is none.
+   * Correctness: `buildAutoCaptureItems` lives beside the candidate-capture
+   * enqueue path, which imports `enqueueSourceCapture` from here — a static
+   * import would close an import cycle where today there is none.
    *
    * Weight: the scan pulls the whole adapter/orchestrator graph behind it,
    * and every module that touches this one (which is every source capture
