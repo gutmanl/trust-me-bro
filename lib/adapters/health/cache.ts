@@ -1,3 +1,4 @@
+import { processGlobal, resetProcessGlobal } from "../../process-global";
 import type { ProbeResult } from "./types";
 
 /**
@@ -8,16 +9,23 @@ import type { ProbeResult } from "./types";
  * lives in the register, operational snapshots may die with the process.
  */
 
-let loginProbes = new Map<string, ProbeResult>();
+const CACHE_KEY = "adapters/login-probe-cache";
+
+/** Anchored on `globalThis` (lib/process-global.ts): the probe is triggered
+ * from one module graph and read by the page render in another, and a
+ * per-graph Map meant the paid-for result was invisible to the reader. */
+function loginProbes(): Map<string, ProbeResult> {
+  return processGlobal(CACHE_KEY, () => new Map<string, ProbeResult>());
+}
 
 export function getCachedLoginProbe(cli: string): ProbeResult | undefined {
-  return loginProbes.get(cli);
+  return loginProbes().get(cli);
 }
 
 export function setCachedLoginProbe(cli: string, result: ProbeResult): void {
-  loginProbes.set(cli, result);
+  loginProbes().set(cli, result);
 }
 
 export function __resetLoginProbeCacheForTests(): void {
-  loginProbes = new Map();
+  resetProcessGlobal(CACHE_KEY);
 }

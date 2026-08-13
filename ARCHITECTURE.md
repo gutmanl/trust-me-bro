@@ -7,6 +7,12 @@ change that erodes one fails the build rather than the review.
 ## Layers
 
 ```
+lib/process-global.ts
+                Dependency-free leaf below every layer: anchors the
+                process-wide singletons (job runner, auto-chain, CLI
+                concurrency gate, login-probe cache) on globalThis, because
+                Next evaluates a module once per bundle and a module-level
+                singleton is therefore not one per process.
 lib/identity/   Foundation: sole reader of process.env and the stored
                 first-run configuration; answers "current actor" and
                 "current workspace root".

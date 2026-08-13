@@ -1,3 +1,4 @@
+import { processGlobal } from "../../process-global";
 import { startSourceExtraction } from "../extraction/run-source-extraction";
 import type { buildAutoCaptureItems } from "../sources/reference-scan/enqueue-candidate-capture";
 import type { startReferenceScan } from "../sources/reference-scan/run-reference-scan";
@@ -337,11 +338,13 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
 /** Process-global chain, mirroring the runner's own singleton-with-factory
  * (getGlobalJobRunner): the app layer calls the three bound functions below;
  * tests use createAutoChain directly with injected fakes. */
-let globalChain: AutoChain | undefined;
-
-function getGlobalAutoChain(): AutoChain {
-  globalChain ??= createAutoChain();
-  return globalChain;
+/** Anchored on `globalThis` like the runner it queues onto: the page reads
+ * the waiting backlog through `pendingCaptureItems`, the actions push onto
+ * it, and a per-module-graph variable would let those be two queues. Exported
+ * for the process-global test only — the app layer uses the bound functions
+ * below, tests build their own chain with createAutoChain. */
+export function getGlobalAutoChain(): AutoChain {
+  return processGlobal("runs/auto-chain", createAutoChain);
 }
 
 export function enqueueSourceExtraction(

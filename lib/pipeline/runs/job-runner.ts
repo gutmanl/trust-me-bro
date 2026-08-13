@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { processGlobal } from "../../process-global";
 import { RunActiveError } from "../errors";
 import type {
   RunControlState,
@@ -281,10 +282,14 @@ export function createJobRunner(options?: {
   };
 }
 
-/** Process-global runner, mirroring the adapter layer's global gate. */
-let globalRunner: JobRunner | undefined;
-
+/**
+ * Process-global runner, mirroring the adapter layer's global gate.
+ *
+ * Anchored on `globalThis` (see lib/process-global.ts), not on a module-level
+ * variable: the SSE route reaches this from a different module graph than the
+ * server actions that start runs, and a per-graph variable handed it an empty
+ * runner whose events nobody ever emitted.
+ */
 export function getGlobalJobRunner(): JobRunner {
-  globalRunner ??= createJobRunner();
-  return globalRunner;
+  return processGlobal("runs/job-runner", createJobRunner);
 }

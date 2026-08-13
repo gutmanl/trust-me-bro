@@ -1,5 +1,8 @@
 import { loadAdapterConfig } from "../../identity";
+import { processGlobal, resetProcessGlobal } from "../../process-global";
 import type { ConcurrencyGate } from "../core/contracts";
+
+const GATE_KEY = "adapters/concurrency-gate";
 
 /**
  * Counting semaphore over promises: at most `capacity` tasks run at once,
@@ -41,8 +44,6 @@ export function createConcurrencyGate(capacity: number): ConcurrencyGate {
   };
 }
 
-let globalGate: ConcurrencyGate | undefined;
-
 /**
  * The global CLI gate of the epic: one gate across all projects and jobs in
  * this process, sized once from the adapter config — parallel verification
@@ -50,10 +51,15 @@ let globalGate: ConcurrencyGate | undefined;
  * (protecting the user's subscription quota).
  */
 export function getGlobalConcurrencyGate(): ConcurrencyGate {
-  globalGate ??= createConcurrencyGate(loadAdapterConfig().maxConcurrency);
-  return globalGate;
+  // Anchored on `globalThis` (lib/process-global.ts): a second module graph
+  // would otherwise get a SECOND gate, and two gates of size n let 2n child
+  // processes run at once — silently past the cap that keeps this inside the
+  // subscription's terms.
+  return processGlobal(GATE_KEY, () =>
+    createConcurrencyGate(loadAdapterConfig().maxConcurrency),
+  );
 }
 
 export function __resetGlobalConcurrencyGateForTests(): void {
-  globalGate = undefined;
+  resetProcessGlobal(GATE_KEY);
 }
