@@ -9,11 +9,14 @@ import {
   DocumentFetchError,
   InvalidSourceInputError,
   PipelineError,
+  SourceCorrectionPreconditionError,
+  UnknownSourceError,
 } from "../../errors";
 import { createProject } from "../../projects";
 import { recordCaptureFailure } from "./failures";
 import {
   enqueueManualCapture,
+  enqueueSourceCorrection,
   getSourceWorkItems,
   retryManualCapture,
 } from "./queue";
@@ -142,11 +145,123 @@ describe("enqueueManualCapture", () => {
   });
 });
 
+describe("enqueueSourceCorrection", () => {
+  async function addSource(id: string): Promise<void> {
+    await RegisterStore.forProject(PROJECT_ID).transaction((tx) => {
+      tx.addSource({
+        id,
+        type: "document",
+        title: "Falsch erfasst",
+        custom: { source_type: "preprint" },
+      });
+    });
+  }
+
+  it("rejects an unknown target source", async () => {
+    await expect(
+      enqueueSourceCorrection(PROJECT_ID, "src_fehlt", {
+        kind: "doi",
+        identifier: "10.1109/TSE.2025.3489012",
+      }),
+    ).rejects.toThrow(UnknownSourceError);
+  });
+
+  it("queues a correction item carrying the target and its current type", async () => {
+    await addSource("src_falsch");
+    const chain = fakeChain();
+    const { workItemId } = await enqueueSourceCorrection(
+      PROJECT_ID,
+      "src_falsch",
+      { kind: "doi", identifier: "10.1109/TSE.2025.3489012" },
+      { chain },
+    );
+    expect(workItemId).toMatch(/^wi_/);
+    expect(chain.enqueued[0]).toMatchObject({
+      workItemId,
+      origin: "correction",
+      request: {
+        kind: "doi",
+        identifier: "10.1109/TSE.2025.3489012",
+        targetSourceId: "src_falsch",
+        // Inherited from the target — a correction never silently
+        // reclassifies.
+        sourceType: "preprint",
+      },
+    });
+  });
+
+  it("rejects a second correction while one is queued for the same source", async () => {
+    await addSource("src_falsch");
+    const chain = fakeChain({
+      queued: [
+        {
+          workItemId: "wi_läuft",
+          origin: "correction",
+          label: "Korrektur",
+          targetSourceId: "src_falsch",
+        },
+      ],
+    });
+    await expect(
+      enqueueSourceCorrection(
+        PROJECT_ID,
+        "src_falsch",
+        { kind: "doi", identifier: "10.1109/TSE.2025.3489012" },
+        { chain },
+      ),
+    ).rejects.toThrow(SourceCorrectionPreconditionError);
+  });
+
+  it("validates the corrected identity synchronously", async () => {
+    await addSource("src_falsch");
+    await expect(
+      enqueueSourceCorrection(PROJECT_ID, "src_falsch", {
+        kind: "doi",
+        identifier: "kein-doi",
+      }),
+    ).rejects.toThrow(InvalidSourceInputError);
+  });
+});
+
 describe("retryManualCapture", () => {
   it("rejects a work item without an open failure", async () => {
     await expect(retryManualCapture(PROJECT_ID, "wi_unknown")).rejects.toThrow(
       PipelineError,
     );
+  });
+
+  it("re-queues a failed correction as a correction, target preserved", async () => {
+    await recordCaptureFailure(
+      PROJECT_ID,
+      {
+        workItemId: "wi_korrektur",
+        origin: "correction",
+        label: "10.1109/TSE.2025.3489012",
+        request: {
+          kind: "doi",
+          sourceType: "preprint",
+          targetSourceId: "src_falsch",
+          identifier: "10.1109/TSE.2025.3489012",
+        },
+      },
+      new DocumentFetchError("Nicht abrufbar."),
+    );
+    const chain = fakeChain();
+    const { workItemId } = await retryManualCapture(
+      PROJECT_ID,
+      "wi_korrektur",
+      { chain },
+    );
+    expect(workItemId).toBe("wi_korrektur");
+    expect(chain.enqueued[0]).toMatchObject({
+      workItemId: "wi_korrektur",
+      origin: "correction",
+      request: {
+        kind: "doi",
+        targetSourceId: "src_falsch",
+        identifier: "10.1109/TSE.2025.3489012",
+      },
+    });
   });
 
   it("re-queues the recorded input snapshot under the same id", async () => {

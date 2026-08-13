@@ -3,11 +3,14 @@
 import { useActionState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
+import type { CaptureKind, SourceWorkItemVM } from "@/lib/pipeline";
+import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
 import { useStartGate } from "../RunStatusProvider";
-import { ReviseSourceForm } from "../sources/SourceForms";
+import { CorrectSourceForm } from "../sources/SourceForms";
 import type { RunFormState } from "./actions";
 import { startSourceExtractionAction } from "./actions";
+import { DismissButton, FailureBox, RetryButton } from "./WorkItemRow";
 
 /**
  * One captured source as the workbench shows it. Assembled server-side (the
@@ -35,6 +38,14 @@ export interface SourceRowVM {
   extractionOutcome: "completed" | "failed" | null;
   /** Completion reason of that pass, shown on failure. */
   extractionMessage?: string;
+  /** Identifier shape of the source's current identity — prefill for the
+   * correction modal's kind tabs (source correction). */
+  currentKind: CaptureKind;
+  /** Current classification, prefill for the correction modal's type
+   * select. */
+  currentSourceType: SourceType;
+  /** Earlier identity corrections, for the history note. */
+  previousIdentities: number;
 }
 
 const initialState: RunFormState = { error: null };
@@ -50,6 +61,8 @@ export function SourceRow({
   source,
   extractionRunning,
   extractingLive,
+  correction,
+  correctingLive,
 }: {
   projectId: string;
   source: SourceRowVM;
@@ -60,6 +73,14 @@ export function SourceRow({
   /** THIS source's extraction pass is live right now (item-keyed stream
    * state, shared via the rail like `extractionRunning`). */
   extractingLive: boolean;
+  /** THIS source's pending/failed identity correction, if any (source
+   * correction) — joined from the work-item list by the rail, so a
+   * correction renders as state ON the source's row, never as a second
+   * row for the same source. */
+  correction?: SourceWorkItemVM;
+  /** THIS source's correction is running right now (item-keyed stream
+   * state, shared via the rail). */
+  correctingLive: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     startSourceExtractionAction.bind(null, projectId, source.id),
@@ -93,6 +114,17 @@ export function SourceRow({
         {source.previousSnapshots > 0 ? (
           <span>{source.previousSnapshots} frühere Revision(en)</span>
         ) : null}
+        {source.previousIdentities > 0 ? <span>Kennung korrigiert</span> : null}
+        {correctingLive || correction?.status === "capturing" ? (
+          <span className="flex items-center gap-1 text-blue-700">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+            Kennung wird korrigiert …
+          </span>
+        ) : correction?.status === "queued" ? (
+          <span className="text-slate-600">
+            Korrektur wartet in der Warteschlange
+          </span>
+        ) : null}
         {extractingLive ? (
           <span className="flex items-center gap-1 text-blue-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
@@ -120,7 +152,37 @@ export function SourceRow({
         </div>
       ) : null}
 
-      <ReviseSourceForm projectId={projectId} sourceId={source.id} />
+      {!correctingLive && correction?.status === "failed" ? (
+        <FailureBox>
+          <p>
+            ⚠ Korrektur fehlgeschlagen:{" "}
+            {correction.error ?? "Unbekannter Fehler."}
+            {correction.failedAt !== undefined ? (
+              <span className="text-amber-700">
+                {" "}
+                ({formatTimestamp(correction.failedAt)})
+              </span>
+            ) : null}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <RetryButton
+              projectId={projectId}
+              workItemId={correction.workItemId}
+            />
+            <DismissButton
+              projectId={projectId}
+              workItemId={correction.workItemId}
+            />
+          </div>
+        </FailureBox>
+      ) : null}
+
+      <CorrectSourceForm
+        projectId={projectId}
+        sourceId={source.id}
+        currentKind={source.currentKind}
+        currentSourceType={source.currentSourceType}
+      />
 
       {blockedBy || extractionRunning ? null : (
         <form action={formAction} className="mt-1">

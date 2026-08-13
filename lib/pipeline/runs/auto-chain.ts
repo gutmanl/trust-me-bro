@@ -47,6 +47,9 @@ function itemInfo(item: SourceCaptureWorkItem): SourceCaptureItemInfo {
     workItemId: item.workItemId,
     origin: item.origin,
     label: item.label,
+    ...(item.request.targetSourceId !== undefined
+      ? { targetSourceId: item.request.targetSourceId }
+      : {}),
   };
 }
 

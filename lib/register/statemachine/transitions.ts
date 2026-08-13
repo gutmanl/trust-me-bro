@@ -132,6 +132,21 @@ const notAutoConfirmable: Gate = (claim) =>
 const always: Gate = () => ok;
 
 /**
+ * Structural signal a source correction can act on: was this claim's LATEST
+ * transition specifically a routing into adjudication because its existence
+ * check failed? Mirrors someExistenceCheckFailed/isAdopted — the gate only
+ * checks shape; WHICH claims are readmitted (those citing the corrected
+ * source) is the correction use-case's decision, like every other
+ * system-only edge here.
+ */
+const routedByFailedExistenceCheck: Gate = (claim) =>
+  claim.history.at(-1)?.routing === "existence_check_failed"
+    ? ok
+    : fail(
+        "claim's latest transition was not routed via existence_check_failed",
+      );
+
+/**
  * Adoption edges of the warm run (TMB-43) are only takeable by claims that
  * actually carry adoption provenance — a structural, self-enforcing check:
  * normal extraction can never mint a pre-confirmed claim because its claims
@@ -328,6 +343,20 @@ export const TRANSITIONS: TransitionDef[] = [
     to: "recheck_required",
     actorKind: "system",
     gate: always,
+  },
+  // Source correction (Korrektur der Quellenkennung): a claim stuck in
+  // adjudication ONLY because stage 1 could not verify its wording against a
+  // wrongly identified source was never a human-workflow case — the source,
+  // not the claim, was at fault. Once the identity is corrected, the claim
+  // is withdrawn back into the cascade like the settled statuses above. The
+  // gate self-enforces the "only existence-check routings" scope from the
+  // claim's own history; a rubric complaint or spot-check routing can never
+  // take this edge.
+  {
+    from: "pending_adjudication",
+    to: "recheck_required",
+    actorKind: "system",
+    gate: routedByFailedExistenceCheck,
   },
   // Re-entry after recheck: always the full cascade from stage 1 —
   // the revised source text can invalidate any stage's determination, and

@@ -7,10 +7,15 @@ import {
   dismissCaptureFailure,
   enqueueExistenceCheck,
   enqueueManualCapture,
+  enqueueSourceCorrection,
   retryManualCapture,
   reviseSource,
 } from "@/lib/pipeline";
-import type { CaptureKind, ManualCaptureInput } from "@/lib/pipeline";
+import type {
+  CaptureKind,
+  ManualCaptureInput,
+  SourceCorrectionInput,
+} from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { SOURCE_TYPE_LABELS } from "../../status-labels";
 
@@ -29,6 +34,40 @@ const CAPTURE_KINDS: CaptureKind[] = ["doi", "arxiv", "url", "upload"];
 function optional(value: FormDataEntryValue | null): string | undefined {
   const text = String(value ?? "").trim();
   return text.length > 0 ? text : undefined;
+}
+
+/** The identity half both the capture modal and the correction form submit:
+ * identifier, document URL, manual metadata and the uploaded file — one
+ * parser, so the two forms can never drift apart. */
+async function parseIdentityFormData(
+  formData: FormData,
+): Promise<Omit<ManualCaptureInput, "kind" | "sourceType">> {
+  const input: Omit<ManualCaptureInput, "kind" | "sourceType"> = {};
+  const identifier = optional(formData.get("identifier"));
+  if (identifier !== undefined) {
+    input.identifier = identifier;
+  }
+  const documentUrl = optional(formData.get("document_url"));
+  if (documentUrl !== undefined) {
+    input.documentUrl = documentUrl;
+  }
+  const title = optional(formData.get("title"));
+  if (title) {
+    input.manual = {
+      title,
+      authors: optional(formData.get("authors")),
+      year: optional(formData.get("year")),
+      container_title: optional(formData.get("container_title")),
+    };
+  }
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    input.upload = {
+      content: Buffer.from(await file.arrayBuffer()),
+      filename: file.name,
+    };
+  }
+  return input;
 }
 
 /**
@@ -55,33 +94,8 @@ export async function enqueueCaptureSourceAction(
   const input: ManualCaptureInput = {
     kind: kind as CaptureKind,
     sourceType: sourceType as SourceType,
+    ...(await parseIdentityFormData(formData)),
   };
-  const identifier = optional(formData.get("identifier"));
-  if (identifier !== undefined) {
-    input.identifier = identifier;
-  }
-  const documentUrl = optional(formData.get("document_url"));
-  if (documentUrl !== undefined) {
-    input.documentUrl = documentUrl;
-  }
-
-  const title = optional(formData.get("title"));
-  if (title) {
-    input.manual = {
-      title,
-      authors: optional(formData.get("authors")),
-      year: optional(formData.get("year")),
-      container_title: optional(formData.get("container_title")),
-    };
-  }
-
-  const file = formData.get("file");
-  if (file instanceof File && file.size > 0) {
-    input.upload = {
-      content: Buffer.from(await file.arrayBuffer()),
-      filename: file.name,
-    };
-  }
 
   const result = await runPipelineAction(() =>
     enqueueManualCapture(projectId, input),
@@ -132,20 +146,61 @@ export async function dismissCaptureAction(
   return { error: null };
 }
 
-export interface ReviseFormState {
+export interface CorrectSourceFormState {
   error: string | null;
-  /** Set after a successful submit: whether a new revision was created. */
+  /** Document mode, after a successful submit: whether a new revision was
+   * created (false = checksum-identical no-op). */
   revised?: boolean;
   newRevision?: number;
   recheckedCount?: number;
+  /** Identity mode: work-item id of the queued correction — the modal
+   * closes on it; progress arrives through the source row's live state. */
+  queuedCorrection?: string;
 }
 
-export async function reviseSourceAction(
+/**
+ * The combined "Quelle korrigieren" action: document mode re-freezes the
+ * current document synchronously (TMB-44 revision, unchanged semantics);
+ * identity mode queues an asynchronous identity correction work item
+ * (source correction) whose per-source status the row shows live.
+ */
+export async function correctSourceAction(
   projectId: string,
   sourceId: string,
-  _previous: ReviseFormState,
+  _previous: CorrectSourceFormState,
   formData: FormData,
-): Promise<ReviseFormState> {
+): Promise<CorrectSourceFormState> {
+  const mode = String(formData.get("mode") ?? "document");
+
+  if (mode === "identity") {
+    const kind = String(formData.get("kind") ?? "");
+    if (!CAPTURE_KINDS.includes(kind as CaptureKind)) {
+      return { error: "Unbekannte Erfassungsart." };
+    }
+    const sourceType = optional(formData.get("source_type"));
+    if (
+      sourceType !== undefined &&
+      !SOURCE_TYPES.includes(sourceType as SourceType)
+    ) {
+      return { error: "Bitte einen Quellentyp wählen." };
+    }
+    const input: SourceCorrectionInput = {
+      kind: kind as CaptureKind,
+      ...(sourceType !== undefined
+        ? { sourceType: sourceType as SourceType }
+        : {}),
+      ...(await parseIdentityFormData(formData)),
+    };
+    const result = await runPipelineAction(() =>
+      enqueueSourceCorrection(projectId, sourceId, input),
+    );
+    if (result.error !== null) {
+      return { error: result.error };
+    }
+    revalidatePath(`/projects/${projectId}`);
+    return { error: null, queuedCorrection: result.value.workItemId };
+  }
+
   const input = {
     projectId,
     sourceId,

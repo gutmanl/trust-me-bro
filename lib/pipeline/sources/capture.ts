@@ -60,8 +60,11 @@ function requireManual(manual: ManualMetadata | undefined): ManualMetadata {
   return manual;
 }
 
-async function resolveMetadata(
-  input: CaptureSourceInput,
+/** Identity resolution shared by capture and correction (source
+ * correction): DOI/arXiv resolve to CSL metadata (verified), URL/upload
+ * carry manual metadata (unverified). Internal — not on the barrel. */
+export async function resolveMetadata(
+  input: Pick<CaptureSourceInput, "kind" | "identifier" | "manual">,
   fetcher: HttpFetcher,
 ): Promise<{ resolved: ResolvedMetadata; verified: boolean }> {
   switch (input.kind) {

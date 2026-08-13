@@ -13,6 +13,7 @@ const initialRetryState: RetryCaptureState = { error: null };
 const ORIGIN_LABELS: Record<SourceWorkItemVM["origin"], string> = {
   manual: "manuell erfasst",
   reference_import: "aus dem Referenz-Import",
+  correction: "Korrektur der Quellenkennung",
 };
 
 /** Shared status pieces of the unified list's rows — one definition, so a
@@ -89,17 +90,17 @@ export function WorkItemRow({
               </span>
             ) : null}
           </p>
-          {item.origin === "manual" ? null : (
+          {item.origin === "reference_import" ? (
             <p className="mt-1 text-amber-700">
               Der zugehörige Kandidat ist im aktuellen Scan-Ergebnis nicht mehr
               offen – ein erneuter Referenz-Scan nimmt ihn gegebenenfalls wieder
               auf; alternativ die Quelle oben rechts manuell erfassen.
             </p>
-          )}
+          ) : null}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            {item.origin === "manual" ? (
+            {item.origin === "reference_import" ? null : (
               <RetryButton projectId={projectId} workItemId={item.workItemId} />
-            ) : null}
+            )}
             <DismissButton projectId={projectId} workItemId={item.workItemId} />
           </div>
         </FailureBox>
@@ -108,7 +109,10 @@ export function WorkItemRow({
   );
 }
 
-function RetryButton({
+/** "Erneut versuchen" on a failed manual/correction row (source work
+ * items): re-queues the durable input snapshot under the same work-item id.
+ * Shared with the source row's correction-failure note. */
+export function RetryButton({
   projectId,
   workItemId,
 }: {

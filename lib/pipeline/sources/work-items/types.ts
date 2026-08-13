@@ -17,6 +17,11 @@ import type { ManualMetadata } from "../csl";
 export interface SourceCaptureRequest {
   kind: "doi" | "arxiv" | "url" | "upload";
   sourceType: SourceType;
+  /** Set ONLY for correction items (source correction): the EXISTING
+   * source whose identity this request replaces — the item then runs
+   * `correctSource` instead of `captureSource` and never creates a new
+   * source. */
+  targetSourceId?: string;
   identifier?: string;
   documentUrl?: string;
   /** Corpus-integrity guard for auto-derived document URLs (reference
@@ -34,10 +39,15 @@ export interface SourceCaptureRequest {
   };
 }
 
+/** How a work item entered the queue: the manual capture modal, a
+ * reference-import candidate, or a correction of an existing source's
+ * identity (source correction). */
+export type SourceWorkItemOrigin = "manual" | "reference_import" | "correction";
+
 /** One queued or running capture work item, as the auto-chain carries it. */
 export interface SourceCaptureWorkItem {
   workItemId: string;
-  origin: "manual" | "reference_import";
+  origin: SourceWorkItemOrigin;
   /** Display label of the row while the item is queued/running (the
    * eventual source's citation does not exist yet). */
   label: string;
@@ -47,8 +57,11 @@ export interface SourceCaptureWorkItem {
 /** Identity + label of a queued/running item, for status displays. */
 export interface SourceCaptureItemInfo {
   workItemId: string;
-  origin: "manual" | "reference_import";
+  origin: SourceWorkItemOrigin;
   label: string;
+  /** The corrected source, for correction items — lets the UI render the
+   * item's state on that source's own row. */
+  targetSourceId?: string;
 }
 
 /**
@@ -59,8 +72,11 @@ export interface SourceCaptureItemInfo {
  */
 export interface SourceWorkItemVM {
   workItemId: string;
-  origin: "manual" | "reference_import";
+  origin: SourceWorkItemOrigin;
   label: string;
+  /** The corrected source, for correction items — such rows render on that
+   * source's own row instead of as standalone list entries. */
+  targetSourceId?: string;
   status: "queued" | "capturing" | "failed";
   /** German failure reason; present when status is "failed". */
   error?: string;

@@ -7,8 +7,8 @@ import {
 import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
-import { RECHECK_STATUSES } from "../verification/recheck-statuses";
 import { acquireDocument, buildSnapshot, extractTextOrError } from "./document";
+import { sweepSourceRecheck } from "./recheck";
 import type { CaptureDependencies } from "./capture";
 import { nodeHttpFetcher } from "./node-http-fetcher";
 
@@ -101,26 +101,14 @@ export async function reviseSource(
     );
     const projectRevision = tx.getProject().source_set_revision;
 
-    const affected = tx
-      .listClaims()
-      .filter(
-        (claim) =>
-          RECHECK_STATUSES.has(claim.status) &&
-          claim.evidence.some(
-            (evidence) => evidence.source_id === input.sourceId,
-          ),
-      );
-    for (const claim of affected) {
-      tx.transitionClaim(claim.id, {
-        to: "recheck_required",
-        actor: "system:source_revision",
-        reason:
-          `Bestandsrevision der Quelle ${input.sourceId} ` +
-          `(Snapshot-Revision ${lockedSnapshot.revision} → ${newRevision}): ` +
-          "bisherige Prüfung bezog sich auf die alte Fassung.",
-        at: now,
-      });
-    }
+    const recheckedClaimIds = sweepSourceRecheck(tx, input.sourceId, {
+      actor: "system:source_revision",
+      at: now,
+      reason:
+        `Bestandsrevision der Quelle ${input.sourceId} ` +
+        `(Snapshot-Revision ${lockedSnapshot.revision} → ${newRevision}): ` +
+        "bisherige Prüfung bezog sich auf die alte Fassung.",
+    });
     tx.recordProjectEvent({
       event: "source_set_revised",
       reason:
@@ -128,14 +116,14 @@ export async function reviseSource(
         `${lockedSnapshot.revision} → ${newRevision} ` +
         `(sha256 ${lockedSnapshot.sha256.slice(0, 12)}… → ${blob.sha256.slice(0, 12)}…), ` +
         `Quellenbestand-Revision ${projectRevision}; ` +
-        `${affected.length} Claim(s) zur Nachprüfung markiert.`,
+        `${recheckedClaimIds.length} Claim(s) zur Nachprüfung markiert.`,
       actor: getCurrentActor(),
       at: now,
     });
     return {
       revised: true,
       newRevision,
-      recheckedClaimIds: affected.map((claim) => claim.id),
+      recheckedClaimIds,
     };
   });
 }

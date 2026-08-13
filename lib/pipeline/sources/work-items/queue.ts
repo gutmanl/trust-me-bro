@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import type { ClaimsRegister, SourceType } from "../../../register";
-import { InvalidSourceInputError, PipelineError } from "../../errors";
+import {
+  InvalidSourceInputError,
+  PipelineError,
+  SourceCorrectionPreconditionError,
+  UnknownSourceError,
+} from "../../errors";
 import { requireProjectStore } from "../../projects";
 import type { AutoChain } from "../../runs/auto-chain";
 import {
@@ -46,7 +51,9 @@ export interface WorkItemQueueDependencies {
  * the DOI resolve, is the document a real PDF) stay with the asynchronous
  * attempt and surface as the work item's failure state.
  */
-function validateManualInput(input: ManualCaptureInput): void {
+function validateManualInput(
+  input: Omit<ManualCaptureInput, "sourceType">,
+): void {
   switch (input.kind) {
     case "doi":
       if (!normalizeDoi(input.identifier ?? "")) {
@@ -154,6 +161,100 @@ export async function enqueueManualCapture(
   return { workItemId: item.workItemId };
 }
 
+/** What the correction section of the source modal submits (source
+ * correction): the capture shape minus the mandatory source type — a
+ * correction keeps the target's current classification unless the form
+ * overrides it. */
+export interface SourceCorrectionInput extends Omit<
+  ManualCaptureInput,
+  "sourceType"
+> {
+  sourceType?: SourceType;
+}
+
+/**
+ * Queues one identity correction of an EXISTING source (source correction):
+ * validates the corrected identity synchronously, freezes an upload, and
+ * pushes a "correction" work item — carrying the target source id — onto
+ * the same per-project chain as every capture, so it serializes with all
+ * other runs. At most one correction per source may be queued or running:
+ * two queued corrections of the same source would race for the same
+ * identity slot, and the second submit is virtually always a mistake.
+ */
+export async function enqueueSourceCorrection(
+  projectId: string,
+  sourceId: string,
+  input: SourceCorrectionInput,
+  options: WorkItemQueueDependencies = {},
+): Promise<{ workItemId: string }> {
+  const store = requireProjectStore(projectId);
+  validateManualInput(input);
+  const register = await store.read();
+  const source = register.sources.find(
+    (candidate) => candidate.id === sourceId,
+  );
+  if (!source) {
+    throw new UnknownSourceError(sourceId);
+  }
+  const active = (options.chain?.activeCaptureItem ?? activeCaptureItem)(
+    projectId,
+  );
+  const queued = (options.chain?.pendingCaptureItems ?? pendingCaptureItems)(
+    projectId,
+  );
+  if (
+    [active, ...queued].some(
+      (item) => item !== undefined && item.targetSourceId === sourceId,
+    )
+  ) {
+    throw new SourceCorrectionPreconditionError(
+      `Für Quelle "${sourceId}" läuft bereits eine Korrektur – ` +
+        "bitte deren Abschluss abwarten.",
+    );
+  }
+
+  let uploadBlob: { blob_path: string; filename: string } | undefined;
+  if (input.upload !== undefined) {
+    const blob = store
+      .blobs()
+      .put(input.upload.content, extFromFilename(input.upload.filename));
+    uploadBlob = { blob_path: blob.blobPath, filename: input.upload.filename };
+  }
+  if (input.kind === "upload" && uploadBlob === undefined) {
+    throw new InvalidSourceInputError(
+      "Für eine Datei-Quelle muss ein Dokument hochgeladen werden.",
+    );
+  }
+
+  const request: SourceCaptureRequest = {
+    kind: input.kind,
+    sourceType: input.sourceType ?? source.custom.source_type,
+    targetSourceId: sourceId,
+    ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
+    ...(input.documentUrl !== undefined
+      ? { documentUrl: input.documentUrl }
+      : {}),
+    ...(input.manual !== undefined ? { manual: input.manual } : {}),
+    ...(uploadBlob !== undefined ? { uploadBlob } : {}),
+  };
+  const item: SourceCaptureWorkItem = {
+    workItemId: `wi_${randomUUID()}`,
+    origin: "correction",
+    label: displayLabel({
+      manual: input.manual,
+      identifier: input.identifier,
+      uploadFilename: input.upload?.filename,
+      kind: input.kind,
+    }),
+    request,
+  };
+  (options.chain?.enqueueSourceCapture ?? enqueueSourceCapture)(
+    projectId,
+    item,
+  );
+  return { workItemId: item.workItemId };
+}
+
 /**
  * The unified work-item status list of a project (source work items):
  * capturing first (at most one — the chain is sequential), then the waiting
@@ -197,6 +298,9 @@ export function getSourceWorkItems(
         uploadFilename: failure.input.upload?.filename,
         kind: failure.input.kind,
       }),
+      ...(failure.input.target_source_id !== undefined
+        ? { targetSourceId: failure.input.target_source_id }
+        : {}),
       status: "failed",
       error: failure.reason,
       failedAt: failure.failedAt,
@@ -206,10 +310,12 @@ export function getSourceWorkItems(
 }
 
 /**
- * Re-queues a failed manual work item from its durable input snapshot, as
- * recorded — the one-click retry, re-using the same work-item id so the
- * eventual success resolves the recorded failure. A frozen upload rides
- * along by blob reference; nothing is re-uploaded.
+ * Re-queues a failed manual or correction work item from its durable input
+ * snapshot, as recorded — the one-click retry, re-using the same work-item
+ * id so the eventual success resolves the recorded failure. A frozen
+ * upload rides along by blob reference; nothing is re-uploaded.
+ * Reference-import failures are excluded: their retry path is the
+ * candidate review, whose per-row form can also fix the inputs.
  */
 export async function retryManualCapture(
   projectId: string,
@@ -220,7 +326,8 @@ export async function retryManualCapture(
   const register = await store.read();
   const failure = deriveOpenCaptureFailures(register).find(
     (candidate) =>
-      candidate.workItemId === workItemId && candidate.origin === "manual",
+      candidate.workItemId === workItemId &&
+      (candidate.origin === "manual" || candidate.origin === "correction"),
   );
   if (!failure) {
     throw new PipelineError(
@@ -231,6 +338,9 @@ export async function retryManualCapture(
   const request: SourceCaptureRequest = {
     kind: input.kind,
     sourceType: input.source_type,
+    ...(input.target_source_id !== undefined
+      ? { targetSourceId: input.target_source_id }
+      : {}),
     ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
     ...(input.document_url !== undefined
       ? { documentUrl: input.document_url }
@@ -247,7 +357,7 @@ export async function retryManualCapture(
   };
   const item: SourceCaptureWorkItem = {
     workItemId,
-    origin: "manual",
+    origin: failure.origin,
     label: displayLabel({
       manual: input.manual,
       identifier: input.identifier,

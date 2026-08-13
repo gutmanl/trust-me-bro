@@ -124,6 +124,10 @@ export const CaptureFailureInput = z.strictObject({
   source_type: SourceType,
   identifier: z.string().min(1).optional(),
   document_url: z.string().min(1).optional(),
+  /** Present only for correction attempts (source correction): the id of
+   * the EXISTING source whose identity this input is meant to replace —
+   * a correction never creates a source (documented extension, additive). */
+  target_source_id: SourceId.optional(),
   manual: z
     .strictObject({
       title: z.string().min(1),
@@ -152,10 +156,32 @@ export type CaptureFailureInput = z.infer<typeof CaptureFailureInput>;
  */
 export const CaptureFailure = z.strictObject({
   work_item_id: z.string().min(1),
-  origin: z.enum(["manual", "reference_import"]),
+  // "correction": the attempt targeted an existing source's identity
+  // (source correction) — the input then carries `target_source_id`.
+  origin: z.enum(["manual", "reference_import", "correction"]),
   input: CaptureFailureInput,
 });
 export type CaptureFailure = z.infer<typeof CaptureFailure>;
+
+/**
+ * Payload of a `source_identity_corrected` event (source correction): the
+ * complete before/after bibliographic core, following the full-snapshot
+ * idiom of `Revision`/`ConfigChange`/`AnchorChange` — an auditor reads the
+ * old identity, the new identity, the snapshot rotation and every claim the
+ * correction pulled back into recheck from this one entry, without
+ * replaying the chain (documented extension, additive).
+ */
+export const IdentityChange = z.strictObject({
+  source_id: SourceId,
+  previous_item: z.record(z.string(), z.unknown()),
+  new_item: z.record(z.string(), z.unknown()),
+  snapshot_revision: z.strictObject({
+    from: z.int().min(1),
+    to: z.int().min(1),
+  }),
+  recheck_claim_ids: z.array(ClaimId),
+});
+export type IdentityChange = z.infer<typeof IdentityChange>;
 
 /** A project-wide event without claim reference, structurally chain-linked
  * like a history entry. */
@@ -173,6 +199,9 @@ export const ProjectEvent = z.strictObject({
   /** Only on `source_capture_failed` events (source work items, documented
    * extension, additive). */
   capture_failure: CaptureFailure.optional(),
+  /** Only on `source_identity_corrected` events (source correction,
+   * documented extension, additive). */
+  identity_change: IdentityChange.optional(),
   /** The single source an extraction bracket event targeted: set on
    * `batch_run_started`/`batch_run_completed` for per-source passes, absent
    * for the project-wide sweep and for events from before this extension —

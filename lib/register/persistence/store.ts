@@ -26,6 +26,7 @@ import { withProjectLock } from "./lock";
 import { findIntegrityProblems } from "./validate";
 import { renderBriefing } from "../projection/render-briefing";
 import type { BriefingRenderContext } from "../projection/render-briefing";
+import { toPlainCsl } from "../projection/csl";
 import {
   adoptClaim,
   applyTransition,
@@ -37,6 +38,7 @@ import type { SourceSnapshot } from "../schema/source";
 import type {
   CalibrationResult,
   RelationType,
+  SourceType,
   SupportDegree,
 } from "../schema/enums";
 import type { CaptureFailureInput, HistoryEntry } from "../schema/history";
@@ -90,7 +92,7 @@ export interface RegisterTransaction {
    */
   recordCaptureFailure(input: {
     work_item_id: string;
-    origin: "manual" | "reference_import";
+    origin: "manual" | "reference_import" | "correction";
     input: CaptureFailureInput;
     actor: ActorId;
     reason: string;
@@ -157,6 +159,48 @@ export interface RegisterTransaction {
    * this capability, once invoked, always performs a revision.
    */
   reviseSource(sourceId: string, snapshot: SourceSnapshot): void;
+  /**
+   * Replaces a source's bibliographic core on the SAME id (source
+   * correction): the superseded plain CSL core moves to
+   * `custom.previous_identities` (with its identifier verification), the
+   * new item's fields become the source's own, `identifier_verified` is
+   * RE-STAMPED wholesale (omitting it clears an earlier stamp, matching
+   * captureSource's url/upload semantics) and `correction_attempt_id`
+   * records the correcting work item. Everything else in `custom` —
+   * snapshot history, `auto_capture` first-entry provenance,
+   * `capture_attempt_id` — carries forward untouched; pair with
+   * `reviseSource` in the same transaction for the document rotation.
+   * Returns the superseded and the new plain core for the caller's
+   * `recordIdentityCorrection` payload.
+   */
+  correctSourceIdentity(
+    sourceId: string,
+    input: {
+      item: Record<string, unknown>;
+      replacedAt: string;
+      identifierVerified?: { status: boolean; at: string };
+      correctionAttemptId: string;
+      sourceType?: SourceType;
+    },
+  ): {
+    previousItem: Record<string, unknown>;
+    newItem: Record<string, unknown>;
+  };
+  /**
+   * Records the correction's audit event (source correction): appends
+   * `source_identity_corrected` carrying the full before/after core —
+   * mirrors `updateConfig`'s shape for a structured, payload-bearing event.
+   */
+  recordIdentityCorrection(input: {
+    source_id: string;
+    previous_item: Record<string, unknown>;
+    new_item: Record<string, unknown>;
+    snapshot_revision: { from: number; to: number };
+    recheck_claim_ids: string[];
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): ProjectEvent;
   /**
    * Rotates the briefing to a new revision (briefing revision workflow,
    * mirror of `reviseSource`): the current `briefing_import` moves to
@@ -668,6 +712,78 @@ function createTransaction(
       ];
       source.custom.snapshot = structuredClone(snapshot);
       draft.project.source_set_revision += 1;
+    },
+    correctSourceIdentity(
+      sourceId,
+      { item, replacedAt, identifierVerified, correctionAttemptId, sourceType },
+    ) {
+      const index = draft.sources.findIndex(
+        (candidate) => candidate.id === sourceId,
+      );
+      if (index === -1) {
+        throw new Error(`unknown source ${sourceId}`);
+      }
+      const existing = draft.sources[index];
+      const previousItem = toPlainCsl(existing);
+      // identifier_verified is re-stamped wholesale below (the OLD stamp
+      // moves into the archived identity); everything else in `custom`
+      // carries forward.
+      const { identifier_verified: previousVerification, ...carriedCustom } =
+        existing.custom;
+      const corrected: Source = {
+        ...structuredClone(item),
+        id: existing.id,
+        type: String(item.type ?? "document"),
+        custom: {
+          ...carriedCustom,
+          ...(sourceType !== undefined ? { source_type: sourceType } : {}),
+          ...(identifierVerified !== undefined
+            ? { identifier_verified: { ...identifierVerified } }
+            : {}),
+          previous_identities: [
+            ...(existing.custom.previous_identities ?? []),
+            {
+              replaced_at: replacedAt,
+              item: previousItem,
+              ...(previousVerification !== undefined
+                ? { identifier_verified: previousVerification }
+                : {}),
+            },
+          ],
+          correction_attempt_id: correctionAttemptId,
+        },
+      };
+      draft.sources[index] = corrected;
+      return {
+        previousItem,
+        newItem: toPlainCsl(structuredClone(corrected)),
+      };
+    },
+    recordIdentityCorrection({
+      source_id,
+      previous_item,
+      new_item,
+      snapshot_revision,
+      recheck_claim_ids,
+      actor,
+      reason,
+      at,
+    }) {
+      const entry = chain.append({
+        at: at ?? new Date().toISOString(),
+        actor,
+        event: "source_identity_corrected",
+        reason,
+        identity_change: {
+          source_id,
+          previous_item,
+          new_item,
+          snapshot_revision,
+          recheck_claim_ids,
+        },
+      }) as ProjectEvent;
+      draft.project_events.push(entry);
+      return entry;
     },
     reviseBriefing({ sha256, blob_path, tool, actor, reason, at }) {
       const current = draft.project.briefing_import;

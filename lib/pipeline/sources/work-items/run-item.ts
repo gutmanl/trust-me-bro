@@ -1,10 +1,14 @@
 import { requireProjectStore } from "../../projects";
-import { enqueueSourceExtraction } from "../../runs/auto-chain";
+import {
+  enqueueExistenceCheck,
+  enqueueSourceExtraction,
+} from "../../runs/auto-chain";
 import { getGlobalJobRunner } from "../../runs/job-runner";
 import type { JobRunner } from "../../runs/job-runner";
 import type { RunHandle } from "../../runs/types";
 import { captureSource } from "../capture";
 import type { CaptureSourceInput } from "../capture";
+import { correctSource } from "../correction";
 import type { HttpFetcher } from "../fetch-port";
 import { recordCaptureFailure } from "./failures";
 import type { SourceCaptureRequest, SourceCaptureWorkItem } from "./types";
@@ -101,6 +105,40 @@ async function captureWorkItem(
 ): Promise<SourceCaptureItemResult> {
   const input = toCaptureSourceInput(projectId, item.workItemId, item.request);
   try {
+    if (item.request.targetSourceId !== undefined) {
+      // Correction item (source correction): replace the target's identity
+      // instead of creating a source. Its claims keep their evidence, so
+      // nothing new is extracted — but the readmitted claims need stage 1
+      // against the corrected identity/document.
+      const result = await correctSource(
+        {
+          projectId,
+          sourceId: item.request.targetSourceId,
+          kind: input.kind,
+          correctionAttemptId: item.workItemId,
+          ...(input.identifier !== undefined
+            ? { identifier: input.identifier }
+            : {}),
+          ...(input.documentUrl !== undefined
+            ? { documentUrl: input.documentUrl }
+            : {}),
+          ...(input.manual !== undefined ? { manual: input.manual } : {}),
+          ...(input.upload !== undefined ? { upload: input.upload } : {}),
+          sourceType: input.sourceType,
+        },
+        { fetcher },
+      );
+      if (result.recheckedClaimIds.length > 0) {
+        enqueueExistenceCheck(projectId);
+      }
+      return {
+        workItemId: item.workItemId,
+        sourceId: item.request.targetSourceId,
+        message:
+          `Quellenkennung von "${item.request.targetSourceId}" korrigiert – ` +
+          `${result.recheckedClaimIds.length} Claim(s) zur Nachprüfung markiert.`,
+      };
+    }
     const source = await captureSource(input, { fetcher });
     // Per-item chaining, like the reference capture batch before it: every
     // successful capture is followed by its own extraction pass, without

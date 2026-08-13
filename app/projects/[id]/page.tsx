@@ -49,6 +49,25 @@ const AUTO_CAPTURE_METHOD_LABELS: Record<
   unresolved: "textuell gefunden, manuell vervollständigt",
 };
 
+/** Identifier shape of a source's CURRENT identity, prefilling the
+ * correction modal's kind tabs (source correction) — pure presentation
+ * derivation, so it lives here rather than in the pipeline. */
+function identifierKindOf(
+  source: Record<string, unknown>,
+): "doi" | "arxiv" | "url" | "upload" {
+  if (typeof source.DOI === "string" && source.DOI.length > 0) {
+    return "doi";
+  }
+  const url = typeof source.URL === "string" ? source.URL : undefined;
+  if (url !== undefined && url.includes("arxiv.org")) {
+    return "arxiv";
+  }
+  if (url !== undefined && url.length > 0) {
+    return "url";
+  }
+  return "upload";
+}
+
 /**
  * The project page IS the workbench (workbench epic). It replaces the five
  * staged step pages — briefing, sources, extraction, verification, review —
@@ -120,6 +139,9 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         ...(extractionOutcomes.get(source.id)?.outcome === "failed"
           ? { extractionMessage: extractionOutcomes.get(source.id)?.message }
           : {}),
+        currentKind: identifierKindOf(source as Record<string, unknown>),
+        currentSourceType: source.custom.source_type as SourceType,
+        previousIdentities: source.custom.previous_identities?.length ?? 0,
       },
     ];
   });

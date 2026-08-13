@@ -39,6 +39,20 @@ export const IdentifierVerification = z.strictObject({
 });
 
 /**
+ * A superseded bibliographic core (source correction): what the source's
+ * plain CSL-JSON item (minus `custom`) looked like before an identity
+ * correction replaced it — the identity-level counterpart of
+ * `previous_snapshots`. The old identifier verification rides along, since
+ * the replacing core gets a fresh one (documented extension, additive).
+ */
+export const PreviousIdentity = z.strictObject({
+  replaced_at: IsoDateTime,
+  item: z.record(z.string(), z.unknown()),
+  identifier_verified: IdentifierVerification.optional(),
+});
+export type PreviousIdentity = z.infer<typeof PreviousIdentity>;
+
+/**
  * Provenance of a source captured through the reference auto-import flow
  * (reference auto-import): which candidate text it came from and by which
  * channel it was resolved, kept durable so review UIs can recognize
@@ -79,6 +93,17 @@ export const SourceCustom = z.strictObject({
    * same id — the successful retry needs no event of its own (documented
    * extension, additive). */
   capture_attempt_id: z.string().min(1).optional(),
+  /** Superseded bibliographic cores of earlier identity corrections (source
+   * correction), append-only in correction order — mirrors
+   * `previous_snapshots` for the document (documented extension,
+   * additive). */
+  previous_identities: z.array(PreviousIdentity).optional(),
+  /** Work-item id of the correction attempt that most recently replaced
+   * this source's identity (source correction) — provenance of the current
+   * bibliographic core, the counterpart of `capture_attempt_id` for the
+   * original entry, which stays untouched (documented extension,
+   * additive). */
+  correction_attempt_id: z.string().min(1).optional(),
 });
 
 /**

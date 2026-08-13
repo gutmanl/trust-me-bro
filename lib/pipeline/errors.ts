@@ -133,6 +133,11 @@ export class VerificationPreconditionError extends PipelineError {}
  * no snapshot. */
 export class SourceRevisionPreconditionError extends PipelineError {}
 
+/** A source correction cannot run (source correction): no frozen snapshot
+ * to correct against, or a correction for the same source is already in
+ * flight. */
+export class SourceCorrectionPreconditionError extends PipelineError {}
+
 /** The referenced source does not exist in the project. */
 export class UnknownSourceError extends PipelineError {
   constructor(readonly sourceId: string) {

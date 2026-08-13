@@ -120,6 +120,97 @@ describe("startSourceCaptureItem", () => {
   });
 });
 
+describe("startSourceCaptureItem with a correction item", () => {
+  async function addWrongSource(): Promise<string> {
+    const { captureSource } = await import("../capture");
+    const source = await captureSource(
+      {
+        projectId: PROJECT_ID,
+        kind: "upload",
+        sourceType: "grey_literature",
+        manual: { title: "Falsches Paper" },
+        upload: { content: Buffer.from("Falscher Text."), filename: "f.txt" },
+      },
+      { fetcher: fakeFetcher({}) },
+    );
+    return source.id;
+  }
+
+  function correctionItem(
+    workItemId: string,
+    targetSourceId: string,
+  ): SourceCaptureWorkItem {
+    return {
+      workItemId,
+      origin: "correction",
+      label: "10.1109/TSE.2025.3489012",
+      request: {
+        kind: "doi",
+        sourceType: "grey_literature",
+        targetSourceId,
+        identifier: "10.1109/TSE.2025.3489012",
+        documentUrl: "https://example.org/paper.pdf",
+      },
+    };
+  }
+
+  it("corrects the target instead of creating a source", async () => {
+    const targetId = await addWrongSource();
+    const runner = createJobRunner();
+    const fetcher = fakeFetcher({
+      "https://doi.org/": {
+        contentType: "application/vnd.citationstyles.csl+json",
+        body: Buffer.from(CSL_JSON_RESPONSE),
+      },
+      "https://example.org/paper.pdf": {
+        contentType: "application/pdf",
+        body: PDF_BYTES,
+      },
+    });
+    const handle = await startSourceCaptureItem(
+      PROJECT_ID,
+      correctionItem("wi_korrektur", targetId),
+      { runner, fetcher },
+    );
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    expect(register.sources).toHaveLength(1);
+    const source = register.sources[0];
+    expect(source.id).toBe(targetId);
+    expect(source.DOI).toBe("10.1109/TSE.2025.3489012");
+    expect(source.custom.correction_attempt_id).toBe("wi_korrektur");
+    expect(source.custom.previous_identities).toHaveLength(1);
+    expect(
+      register.project_events.filter(
+        (event) => event.event === "source_identity_corrected",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("records a correction failure carrying the target source id", async () => {
+    const targetId = await addWrongSource();
+    const runner = createJobRunner();
+    const handle = await startSourceCaptureItem(
+      PROJECT_ID,
+      correctionItem("wi_korrektur_fail", targetId),
+      { runner, fetcher: fakeFetcher({}) },
+    );
+    expect(await handle.done).toEqual({ succeeded: 0, failed: 1 });
+
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    // The target source is untouched by the failed attempt.
+    expect(register.sources[0].title).toBe("Falsches Paper");
+    const failure = register.project_events.at(-1);
+    expect(failure?.event).toBe("source_capture_failed");
+    expect(failure?.capture_failure).toMatchObject({
+      work_item_id: "wi_korrektur_fail",
+      origin: "correction",
+      input: { kind: "doi", target_source_id: targetId },
+    });
+  });
+});
+
 describe("toCaptureSourceInput", () => {
   it("reads a frozen upload's bytes back from the blob store", () => {
     const store = RegisterStore.forProject(PROJECT_ID);

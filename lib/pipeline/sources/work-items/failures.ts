@@ -18,6 +18,9 @@ export function captureFailureInputOf(
   return {
     kind: request.kind,
     source_type: request.sourceType,
+    ...(request.targetSourceId !== undefined
+      ? { target_source_id: request.targetSourceId }
+      : {}),
     ...(request.identifier !== undefined
       ? { identifier: request.identifier }
       : {}),
@@ -79,7 +82,7 @@ export async function recordCaptureFailure(
 /** One unresolved durable capture failure, ready for display and retry. */
 export interface CaptureFailureVM {
   workItemId: string;
-  origin: "manual" | "reference_import";
+  origin: "manual" | "reference_import" | "correction";
   reason: string;
   failedAt: string;
   input: CaptureFailureInput;
@@ -91,10 +94,14 @@ export interface CaptureFailureVM {
  * every work item some source's `custom.capture_attempt_id` already claims —
  * a successful retry resolves its failure by existing, no "resolved" event
  * needed — and minus every failure a later `source_capture_dismissed`
- * event waved off. Chain order carries the semantics: a dismissal only
- * covers the failures BEFORE it, so a fresh failure of the same work item
- * reopens the entry. Pure register derivation; the caller overlays the
- * volatile queued/running state, which takes precedence in display.
+ * event waved off. A correction failure (source correction) is instead
+ * resolved by a later `source_identity_corrected` event of its TARGET
+ * source: any successful correction of that source supersedes every prior
+ * failed attempt on it, whatever its work-item id. Chain order carries the
+ * semantics throughout: a dismissal/correction only covers the failures
+ * BEFORE it, so a fresh failure reopens the entry. Pure register
+ * derivation; the caller overlays the volatile queued/running state, which
+ * takes precedence in display.
  */
 export function deriveOpenCaptureFailures(
   register: ClaimsRegister,
@@ -113,6 +120,18 @@ export function deriveOpenCaptureFailures(
       event.work_item_id !== undefined
     ) {
       open.delete(event.work_item_id);
+      continue;
+    }
+    if (
+      event.event === "source_identity_corrected" &&
+      event.identity_change !== undefined
+    ) {
+      const correctedSourceId = event.identity_change.source_id;
+      for (const [workItemId, entry] of open) {
+        if (entry.input.target_source_id === correctedSourceId) {
+          open.delete(workItemId);
+        }
+      }
       continue;
     }
     const failure = event.capture_failure;

@@ -654,6 +654,99 @@ describe("invalid transitions have zero side effects", () => {
   });
 });
 
+describe("source-correction readmission edge (pending_adjudication → recheck_required)", () => {
+  it("readmits a claim whose LATEST transition was routed via existence_check_failed", async () => {
+    await store.transaction((tx) => {
+      tx.addClaim({
+        claim: newClaim("clm_gestrandet"),
+        actor: "system:extraction",
+        reason: "Extrahiert.",
+      });
+      tx.setExistenceCheck("clm_gestrandet", "ev_0001", {
+        status: "failed",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_gestrandet", {
+        to: "pending_adjudication",
+        actor: "system:existence_check",
+        reason: "Wortlaut nicht gefunden.",
+        routing: "existence_check_failed",
+      });
+    });
+    await store.transaction((tx) => {
+      const entry = tx.transitionClaim("clm_gestrandet", {
+        to: "recheck_required",
+        actor: "system:source_correction",
+        reason: "Quellenkennung korrigiert.",
+      });
+      expect(entry.to_status).toBe("recheck_required");
+    });
+  });
+
+  it("rejects a claim whose adjudication has a different routing", async () => {
+    await store.transaction((tx) => {
+      tx.addClaim({
+        claim: newClaim("clm_eskaliert"),
+        actor: "system:extraction",
+        reason: "Extrahiert.",
+      });
+      tx.setExistenceCheck("clm_eskaliert", "ev_0001", {
+        status: "passed",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_eskaliert", {
+        to: "existence_checked",
+        actor: "system:existence_check",
+        reason: "Existenz nachgewiesen.",
+      });
+      tx.transitionClaim("clm_eskaliert", {
+        to: "pending_adjudication",
+        actor: "system:verification",
+        reason: "Adapterfehler.",
+        routing: "escalated",
+      });
+    });
+    await expect(
+      store.transaction((tx) => {
+        tx.transitionClaim("clm_eskaliert", {
+          to: "recheck_required",
+          actor: "system:source_correction",
+          reason: "Quellenkennung korrigiert.",
+        });
+      }),
+    ).rejects.toBeInstanceOf(GateRejectedError);
+  });
+
+  it("is a system-only edge", async () => {
+    await store.transaction((tx) => {
+      tx.addClaim({
+        claim: newClaim("clm_menschlich"),
+        actor: "system:extraction",
+        reason: "Extrahiert.",
+      });
+      tx.setExistenceCheck("clm_menschlich", "ev_0001", {
+        status: "failed",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_menschlich", {
+        to: "pending_adjudication",
+        actor: "system:existence_check",
+        reason: "Wortlaut nicht gefunden.",
+        routing: "existence_check_failed",
+      });
+    });
+    await expect(
+      store.transaction((tx) => {
+        tx.transitionClaim("clm_menschlich", {
+          to: "recheck_required",
+          actor: "human:lg",
+          reason: "Von Hand zurückgeholt.",
+        });
+      }),
+    ).rejects.toBeInstanceOf(InvalidTransitionError);
+  });
+});
+
 describe("transition table sanity", () => {
   it("keeps discarded fully terminal; confirmed has exactly the TMB-7 reopening edges", () => {
     expect(TRANSITIONS.filter((def) => def.from === "discarded")).toHaveLength(

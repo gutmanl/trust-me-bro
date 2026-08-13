@@ -166,6 +166,59 @@ describe("deriveOpenCaptureFailures", () => {
     expect(deriveOpenCaptureFailures(register)).toEqual([]);
   });
 
+  it("resolves correction failures via a later corrected event of their target, chain-ordered", async () => {
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const correctionItem: SourceCaptureWorkItem = {
+      workItemId: "wi_korrektur",
+      origin: "correction",
+      label: "10.1000/richtig",
+      request: {
+        kind: "doi",
+        sourceType: "preprint",
+        targetSourceId: "src_falsch",
+        identifier: "10.1000/richtig",
+      },
+    };
+    await recordCaptureFailure(
+      PROJECT_ID,
+      correctionItem,
+      new DocumentFetchError("Nicht abrufbar."),
+    );
+    const open = deriveOpenCaptureFailures(await store.read());
+    expect(open.map((entry) => entry.workItemId)).toEqual(["wi_korrektur"]);
+    expect(open[0].input.target_source_id).toBe("src_falsch");
+
+    // A successful correction of a DIFFERENT source resolves nothing.
+    const corrected = (sourceId: string, workItemId: string) =>
+      store.transaction((tx) => {
+        tx.recordIdentityCorrection({
+          source_id: sourceId,
+          previous_item: { title: "Alt" },
+          new_item: { title: "Neu" },
+          snapshot_revision: { from: 1, to: 2 },
+          recheck_claim_ids: [],
+          actor: "system:source_correction",
+          reason: `Quellenkennung von ${sourceId} korrigiert (${workItemId}).`,
+        });
+      });
+    await corrected("src_andere", "wi_x");
+    expect(deriveOpenCaptureFailures(await store.read())).toHaveLength(1);
+
+    // A correction of the TARGET resolves it — under ANY work-item id: the
+    // user may have fixed the source through a fresh correction rather
+    // than the failed item's retry.
+    await corrected("src_falsch", "wi_neu");
+    expect(deriveOpenCaptureFailures(await store.read())).toHaveLength(0);
+
+    // Chain order: a failure recorded AFTER the correction reopens.
+    await recordCaptureFailure(
+      PROJECT_ID,
+      { ...correctionItem, workItemId: "wi_nochmal" },
+      new DocumentFetchError("Wieder nicht."),
+    );
+    expect(deriveOpenCaptureFailures(await store.read())).toHaveLength(1);
+  });
+
   it("returns an empty list for a register without failures", async () => {
     const register = await RegisterStore.forProject(PROJECT_ID).read();
     expect(deriveOpenCaptureFailures(register)).toEqual([]);

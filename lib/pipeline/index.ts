@@ -81,11 +81,15 @@ export type { CaptureKind, CaptureSourceInput } from "./sources/capture";
 // the failure recorder, the request/work-item shapes — stay off the barrel.
 export {
   enqueueManualCapture,
+  enqueueSourceCorrection,
   getSourceWorkItems,
   retryManualCapture,
 } from "./sources/work-items/queue";
 export { dismissCaptureFailure } from "./sources/work-items/failures";
-export type { ManualCaptureInput } from "./sources/work-items/queue";
+export type {
+  ManualCaptureInput,
+  SourceCorrectionInput,
+} from "./sources/work-items/queue";
 export type { SourceWorkItemVM } from "./sources/work-items/types";
 export { getSourceCaptureRun } from "./sources/work-items/run-item";
 // TMB-44: revises a captured source's snapshot.

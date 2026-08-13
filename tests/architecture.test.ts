@@ -175,6 +175,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.dismissCaptureFailure).toBeDefined();
     expect(surface.getSourceWorkItems).toBeDefined();
     expect(surface.getSourceCaptureRun).toBeDefined();
+    // Source correction: only the enqueue is app-facing — the correction
+    // use-case itself runs exclusively inside the queued work item.
+    expect(surface.enqueueSourceCorrection).toBeDefined();
+    expect(surface.correctSource).toBeUndefined();
+    expect(surface.sweepSourceRecheck).toBeUndefined();
     expect(surface.startSourceCaptureItem).toBeUndefined();
     expect(surface.recordCaptureFailure).toBeUndefined();
     expect(surface.deriveOpenCaptureFailures).toBeUndefined();
@@ -762,6 +767,15 @@ describe("status model transition table", () => {
       },
       {
         from: "confirmed",
+        to: "recheck_required",
+        actorKind: "system",
+        decision: null,
+      },
+      // Ratified with the source correction: an identity correction readmits
+      // claims that adjudication only holds because of a failed existence
+      // check (gate: latest routing === existence_check_failed).
+      {
+        from: "pending_adjudication",
         to: "recheck_required",
         actorKind: "system",
         decision: null,

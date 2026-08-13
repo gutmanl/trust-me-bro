@@ -109,7 +109,8 @@ export function SourcesRail({
   // The unified list's row buckets. A candidate's capture state IS its work
   // item (same id), rendered on the candidate row — so those work items must
   // not ALSO render as standalone rows; only orphans (candidate rescanned
-  // away) keep their own row.
+  // away) keep their own row. Correction items render as state on their
+  // target source's row for the same reason (source correction).
   const openCandidates =
     referenceImport?.candidates.filter(
       (candidate) => !candidate.alreadyCaptured,
@@ -122,10 +123,19 @@ export function SourcesRail({
       .filter((item) => item.origin === "reference_import")
       .map((item) => [item.workItemId, item]),
   );
-  const standaloneWorkItems = workItems.filter(
-    (item) =>
-      item.origin !== "reference_import" ||
-      !openCandidateIds.has(item.workItemId),
+  const correctionBySource = new Map(
+    workItems
+      .filter(
+        (item) =>
+          item.origin === "correction" && item.targetSourceId !== undefined,
+      )
+      .map((item) => [item.targetSourceId, item]),
+  );
+  const standaloneWorkItems = workItems.filter((item) =>
+    item.origin === "correction"
+      ? false
+      : item.origin !== "reference_import" ||
+        !openCandidateIds.has(item.workItemId),
   );
   const readyCandidateCount = openCandidates.filter(
     (candidate) => candidate.selected,
@@ -209,15 +219,23 @@ export function SourcesRail({
                 liveCapturing={capturingItems.has(candidate.candidate_id)}
               />
             ))}
-            {sources.map((source) => (
-              <SourceRow
-                key={source.id}
-                projectId={projectId}
-                source={source}
-                extractionRunning={extractionRunning}
-                extractingLive={extractingSources.has(source.id)}
-              />
-            ))}
+            {sources.map((source) => {
+              const correction = correctionBySource.get(source.id);
+              return (
+                <SourceRow
+                  key={source.id}
+                  projectId={projectId}
+                  source={source}
+                  extractionRunning={extractionRunning}
+                  extractingLive={extractingSources.has(source.id)}
+                  correction={correction}
+                  correctingLive={
+                    correction !== undefined &&
+                    capturingItems.has(correction.workItemId)
+                  }
+                />
+              );
+            })}
           </ul>
         )}
 

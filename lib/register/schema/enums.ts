@@ -192,5 +192,14 @@ export const ProjectEventType = z.enum([
    * about the recorded attempt, not about the work item forever
    * (documented extension, additive). */
   "source_capture_dismissed",
+  /** Source correction (Korrektur der Quellenkennung): a source captured
+   * under a wrong — typically hallucinated — identifier had its
+   * bibliographic core replaced on the SAME source id, so all citing
+   * evidence stays valid. Carries the full before/after core in
+   * `identity_change`; the superseded core also moves to the source's
+   * `custom.previous_identities`. Structurally distinct from
+   * `source_set_revised` (content-only document rotation) so the timeline
+   * can tell the two apart (documented extension, additive). */
+  "source_identity_corrected",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;
