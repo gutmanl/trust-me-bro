@@ -46,6 +46,10 @@ export function CreateProjectForm({
   const idValid = isValidProjectId(id);
 
   const [question, setQuestion] = useState("");
+  // Controlled like the question field, so React's automatic form reset
+  // after a failed server action doesn't revert them to their defaults.
+  const [primaryCli, setPrimaryCli] = useState("claude");
+  const [secondaryCli, setSecondaryCli] = useState("codex");
   const [hints, setHints] = useState<ReturnType<typeof assessResearchQuestion>>(
     [],
   );
@@ -72,6 +76,9 @@ export function CreateProjectForm({
           rows={2}
           className={inputClass}
           placeholder="z. B. Reduzieren LLM-gestützte Code-Reviews die Reviewzeit?"
+          // Controlled so React's automatic form reset after the server
+          // action doesn't wipe the question when creation fails.
+          value={question}
           onChange={(event) => {
             setQuestion(event.target.value);
             if (!idTouched) {
@@ -148,7 +155,8 @@ export function CreateProjectForm({
           <select
             id="primary_cli"
             name="primary_cli"
-            defaultValue="claude"
+            value={primaryCli}
+            onChange={(event) => setPrimaryCli(event.target.value)}
             className={inputClass}
           >
             <option value="claude">Claude Code (Anthropic)</option>
@@ -171,7 +179,8 @@ export function CreateProjectForm({
           <select
             id="secondary_cli"
             name="secondary_cli"
-            defaultValue="codex"
+            value={secondaryCli}
+            onChange={(event) => setSecondaryCli(event.target.value)}
             className={inputClass}
           >
             <option value="">Keine – Divergenzregel deaktiviert</option>
