@@ -317,6 +317,66 @@ describe("workbench epic: briefing revisions and quote-based anchors", () => {
     };
     expect(ProjectEvent.safeParse(event).success).toBe(false);
   });
+
+  it("round-trips a source_capture_failed event carrying capture_failure", () => {
+    const event = {
+      seq: 4,
+      at: "2026-08-13T09:00:00Z",
+      actor: "system:capture",
+      event: "source_capture_failed",
+      reason: "Dokument nicht abrufbar (HTTP 404).",
+      capture_failure: {
+        work_item_id: "wi_3f2a",
+        origin: "manual",
+        input: {
+          kind: "upload",
+          source_type: "preprint",
+          manual: { title: "Ein Bericht", year: "2026" },
+          upload: {
+            blob_path: `blobs/ab/${"ab".repeat(32)}.pdf`,
+            filename: "bericht.pdf",
+          },
+        },
+      },
+      prev_hash: "aa11bb".padEnd(64, "0"),
+      hash: "cc22dd".padEnd(64, "0"),
+    };
+    const result = ProjectEvent.safeParse(event);
+    expect(result.success).toBe(true);
+    expect(result.data?.capture_failure?.work_item_id).toBe("wi_3f2a");
+  });
+
+  it("rejects capture_failure with an unknown origin", () => {
+    const event = {
+      seq: 4,
+      at: "2026-08-13T09:00:00Z",
+      actor: "system:capture",
+      event: "source_capture_failed",
+      reason: "Dokument nicht abrufbar.",
+      capture_failure: {
+        work_item_id: "wi_3f2a",
+        origin: "batch",
+        input: { kind: "doi", source_type: "preprint" },
+      },
+      prev_hash: "aa11bb".padEnd(64, "0"),
+      hash: "cc22dd".padEnd(64, "0"),
+    };
+    expect(ProjectEvent.safeParse(event).success).toBe(false);
+  });
+
+  it("accepts a per-source extraction bracket event carrying source_id", () => {
+    const event = {
+      seq: 5,
+      at: "2026-08-13T09:10:00Z",
+      actor: "system:extraction",
+      event: "batch_run_completed",
+      reason: 'Extraktion abgeschlossen – Quelle "src_meyer2026".',
+      source_id: "src_meyer2026",
+      prev_hash: "aa11bb".padEnd(64, "0"),
+      hash: "cc22dd".padEnd(64, "0"),
+    };
+    expect(ProjectEvent.safeParse(event).success).toBe(true);
+  });
 });
 
 describe("standalone sub-schemas", () => {

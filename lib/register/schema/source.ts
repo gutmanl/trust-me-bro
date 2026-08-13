@@ -73,6 +73,12 @@ export const SourceCustom = z.strictObject({
   /** Absent for manually captured sources; present when captured via the
    * reference auto-import flow (documented extension, additive). */
   auto_capture: AutoCaptureProvenance.optional(),
+  /** Work-item id of the capture attempt that created this source, when it
+   * went through the asynchronous capture queue (source work items). Its
+   * presence resolves an earlier `source_capture_failed` event carrying the
+   * same id — the successful retry needs no event of its own (documented
+   * extension, additive). */
+  capture_attempt_id: z.string().min(1).optional(),
 });
 
 /**

@@ -39,7 +39,7 @@ import type {
   RelationType,
   SupportDegree,
 } from "../schema/enums";
-import type { HistoryEntry } from "../schema/history";
+import type { CaptureFailureInput, HistoryEntry } from "../schema/history";
 import {
   buildRegisterJsonSchema,
   serializeJsonSchema,
@@ -67,11 +67,31 @@ export interface RegisterTransaction {
   /** Adds a source entry (CSL-JSON item with `custom` block). Validated with
    * everything else at commit. */
   addSource(source: Source): void;
-  /** Appends a project-wide event with its chain link. */
+  /** Appends a project-wide event with its chain link. `source_id` is the
+   * optional per-source attribution of extraction bracket events (source
+   * work items) — a plain scalar rides the generic appender, unlike the
+   * structured payloads that get capabilities of their own. */
   recordProjectEvent(input: {
     event: ProjectEventType;
     reason: string;
     actor: ActorId;
+    source_id?: string;
+    at?: string;
+  }): ProjectEvent;
+  /**
+   * Records one failed source-capture attempt (source work items): appends a
+   * `source_capture_failed` event carrying the work-item id, origin and the
+   * retryable input snapshot — the durable "why did this not import" that
+   * the volatile run log cannot provide across restarts. Mirrors
+   * `reviseClaimAnchor`'s shape: mint one chain-linked event, no other
+   * mutation.
+   */
+  recordCaptureFailure(input: {
+    work_item_id: string;
+    origin: "manual" | "reference_import";
+    input: CaptureFailureInput;
+    actor: ActorId;
+    reason: string;
     at?: string;
   }): ProjectEvent;
   /**
@@ -551,12 +571,24 @@ function createTransaction(
     addSource(source) {
       draft.sources.push(source);
     },
-    recordProjectEvent({ event, reason, actor, at }) {
+    recordProjectEvent({ event, reason, actor, source_id, at }) {
       const entry = chain.append({
         at: at ?? new Date().toISOString(),
         actor,
         event,
         reason,
+        ...(source_id !== undefined ? { source_id } : {}),
+      }) as ProjectEvent;
+      draft.project_events.push(entry);
+      return entry;
+    },
+    recordCaptureFailure({ work_item_id, origin, input, actor, reason, at }) {
+      const entry = chain.append({
+        at: at ?? new Date().toISOString(),
+        actor,
+        event: "source_capture_failed",
+        reason,
+        capture_failure: { work_item_id, origin, input },
       }) as ProjectEvent;
       draft.project_events.push(entry);
       return entry;

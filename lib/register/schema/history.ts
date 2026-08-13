@@ -5,13 +5,16 @@ import {
   ComplaintCategory,
   ProjectEventType,
   RoutingReason,
+  SourceType,
 } from "./enums";
 import {
   ActorId,
+  BlobPath,
   ClaimId,
   EvidenceId,
   IsoDateTime,
   Sha256Hex,
+  SourceId,
 } from "./primitives";
 import { ProjectConfig } from "./project";
 
@@ -108,6 +111,52 @@ export const AnchorChange = z.strictObject({
 });
 export type AnchorChange = z.infer<typeof AnchorChange>;
 
+/**
+ * The retryable input snapshot of a failed source-capture attempt (source
+ * work items): everything needed to pre-fill and re-run the attempt, WITHOUT
+ * the uploaded document's bytes — an upload is frozen as a content-addressed
+ * blob at enqueue time and referenced here by path, keeping the register
+ * git-diffable (F3) while still making a retry possible after a restart
+ * without re-uploading.
+ */
+export const CaptureFailureInput = z.strictObject({
+  kind: z.enum(["doi", "arxiv", "url", "upload"]),
+  source_type: SourceType,
+  identifier: z.string().min(1).optional(),
+  document_url: z.string().min(1).optional(),
+  manual: z
+    .strictObject({
+      title: z.string().min(1),
+      authors: z.string().min(1).optional(),
+      year: z.string().min(1).optional(),
+      container_title: z.string().min(1).optional(),
+    })
+    .optional(),
+  upload: z
+    .strictObject({
+      blob_path: BlobPath,
+      filename: z.string().min(1),
+    })
+    .optional(),
+});
+export type CaptureFailureInput = z.infer<typeof CaptureFailureInput>;
+
+/**
+ * Failure payload of a `source_capture_failed` event (source work items):
+ * which work item failed, on which path it entered the workshop, and the
+ * input to retry it with. `work_item_id` correlates with a later successful
+ * attempt via the source entry's `custom.capture_attempt_id` — the latest
+ * failure of a work item is considered resolved once such a source exists,
+ * so no "resolved" event is ever needed. For reference-import items the
+ * work-item id IS the scan's candidate id.
+ */
+export const CaptureFailure = z.strictObject({
+  work_item_id: z.string().min(1),
+  origin: z.enum(["manual", "reference_import"]),
+  input: CaptureFailureInput,
+});
+export type CaptureFailure = z.infer<typeof CaptureFailure>;
+
 /** A project-wide event without claim reference, structurally chain-linked
  * like a history entry. */
 export const ProjectEvent = z.strictObject({
@@ -121,6 +170,16 @@ export const ProjectEvent = z.strictObject({
   /** Only on `claim_anchor_revised` events (workbench epic, documented
    * extension, additive). */
   anchor_change: AnchorChange.optional(),
+  /** Only on `source_capture_failed` events (source work items, documented
+   * extension, additive). */
+  capture_failure: CaptureFailure.optional(),
+  /** The single source an extraction bracket event targeted: set on
+   * `batch_run_started`/`batch_run_completed` for per-source passes, absent
+   * for the project-wide sweep and for events from before this extension —
+   * per-source run state derives from this structurally instead of parsing
+   * the German `reason` prose (source work items, documented extension,
+   * additive). */
+  source_id: SourceId.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
   state_root: ChainFields.shape.state_root,

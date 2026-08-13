@@ -354,6 +354,57 @@ describe("RegisterTransaction.reviseBriefing", () => {
   });
 });
 
+describe("RegisterTransaction.recordCaptureFailure", () => {
+  it("appends a chain-linked source_capture_failed event with the payload", async () => {
+    await store.transaction((tx) => {
+      tx.recordCaptureFailure({
+        work_item_id: "wi_test-1",
+        origin: "manual",
+        input: {
+          kind: "doi",
+          source_type: "peer_reviewed_publication",
+          identifier: "10.1000/demo.1",
+        },
+        actor: "system:capture",
+        reason: "Dokument nicht abrufbar (HTTP 404).",
+        at: "2026-08-13T09:00:00Z",
+      });
+    });
+    const register = await store.read();
+    const event = register.project_events.at(-1);
+    expect(event).toMatchObject({
+      event: "source_capture_failed",
+      actor: "system:capture",
+      capture_failure: {
+        work_item_id: "wi_test-1",
+        origin: "manual",
+        input: { kind: "doi", identifier: "10.1000/demo.1" },
+      },
+    });
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("records per-source extraction attribution via recordProjectEvent's source_id", async () => {
+    await store.transaction((tx) => {
+      tx.addSource({
+        id: "src_attr",
+        type: "article-journal",
+        custom: { source_type: "preprint" },
+      });
+      tx.recordProjectEvent({
+        event: "batch_run_completed",
+        reason: 'Extraktion abgeschlossen – Quelle "src_attr".',
+        actor: "system:extraction",
+        source_id: "src_attr",
+      });
+    });
+    const register = await store.read();
+    const event = register.project_events.at(-1);
+    expect(event?.source_id).toBe("src_attr");
+    expect((await store.verify()).ok).toBe(true);
+  });
+});
+
 describe("RegisterTransaction.reviseClaimAnchor / remapClaimAnchor", () => {
   const claimInput = {
     id: "clm_0001",

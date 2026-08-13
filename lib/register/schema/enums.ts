@@ -177,5 +177,13 @@ export const ProjectEventType = z.enum([
    * mechanical re-anchoring a briefing revision performs; carries the
    * before/after pair in `anchor_change` (documented extension, additive). */
   "claim_anchor_revised",
+  /** Source work items (workbench epic): a capture attempt that failed —
+   * manual or via reference import — recorded durably with its retryable
+   * input in `capture_failure`, so the failure and its retry survive a
+   * restart. A SUCCESSFUL capture appends no event of its own: the created
+   * source entry (carrying `custom.capture_attempt_id`) is the durable
+   * record, and its presence resolves any earlier failure of the same work
+   * item (documented extension, additive). */
+  "source_capture_failed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

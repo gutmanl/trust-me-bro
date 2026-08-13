@@ -85,6 +85,10 @@
           ],
           "type": "object"
         },
+        "capture_attempt_id": {
+          "minLength": 1,
+          "type": "string"
+        },
         "identifier_verified": {
           "additionalProperties": false,
           "properties": {
@@ -103,21 +107,15 @@
         },
         "previous_snapshots": {
           "items": {
-            "$ref": "#/$defs/__schema15"
+            "$ref": "#/$defs/__schema16"
           },
           "type": "array"
         },
         "snapshot": {
-          "$ref": "#/$defs/__schema15"
+          "$ref": "#/$defs/__schema16"
         },
         "source_type": {
-          "enum": [
-            "peer_reviewed_publication",
-            "preprint",
-            "grey_literature",
-            "vendor_documentation"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/__schema15"
         }
       },
       "required": [
@@ -126,6 +124,15 @@
       "type": "object"
     },
     "__schema15": {
+      "enum": [
+        "peer_reviewed_publication",
+        "preprint",
+        "grey_literature",
+        "vendor_documentation"
+      ],
+      "type": "string"
+    },
+    "__schema16": {
       "additionalProperties": false,
       "properties": {
         "blob_path": {
@@ -135,16 +142,16 @@
           "$ref": "#/$defs/__schema1"
         },
         "revision": {
-          "$ref": "#/$defs/__schema18"
+          "$ref": "#/$defs/__schema19"
         },
         "sha256": {
           "$ref": "#/$defs/__schema3"
         },
         "text_blob_path": {
-          "$ref": "#/$defs/__schema16"
+          "$ref": "#/$defs/__schema17"
         },
         "text_extraction_error": {
-          "$ref": "#/$defs/__schema17"
+          "$ref": "#/$defs/__schema18"
         }
       },
       "required": [
@@ -155,19 +162,18 @@
       ],
       "type": "object"
     },
-    "__schema16": {
+    "__schema17": {
       "$ref": "#/$defs/__schema4"
     },
-    "__schema17": {
+    "__schema18": {
       "minLength": 1,
       "type": "string"
     },
-    "__schema18": {
+    "__schema19": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema19": {},
     "__schema2": {
       "additionalProperties": false,
       "properties": {
@@ -198,11 +204,12 @@
       ],
       "type": "object"
     },
-    "__schema20": {
+    "__schema20": {},
+    "__schema21": {
       "pattern": "^clm_[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     },
-    "__schema21": {
+    "__schema22": {
       "enum": [
         "captured",
         "existence_checked",
@@ -217,11 +224,11 @@
       ],
       "type": "string"
     },
-    "__schema22": {
+    "__schema23": {
       "pattern": "^ev_[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     },
-    "__schema23": {
+    "__schema24": {
       "enum": [
         "supports",
         "partially_supports",
@@ -230,11 +237,11 @@
       ],
       "type": "string"
     },
-    "__schema24": {
+    "__schema25": {
       "additionalProperties": false,
       "properties": {
         "actor": {
-          "$ref": "#/$defs/__schema26"
+          "$ref": "#/$defs/__schema27"
         },
         "at": {
           "$ref": "#/$defs/__schema1"
@@ -262,7 +269,7 @@
             },
             "reviewed_evidence_ids": {
               "items": {
-                "$ref": "#/$defs/__schema22"
+                "$ref": "#/$defs/__schema23"
               },
               "type": "array"
             }
@@ -277,7 +284,7 @@
         "from_status": {
           "anyOf": [
             {
-              "$ref": "#/$defs/__schema21"
+              "$ref": "#/$defs/__schema22"
             },
             {
               "type": "null"
@@ -325,13 +332,13 @@
           "type": "string"
         },
         "seq": {
-          "$ref": "#/$defs/__schema25"
+          "$ref": "#/$defs/__schema26"
         },
         "state_root": {
-          "$ref": "#/$defs/__schema27"
+          "$ref": "#/$defs/__schema28"
         },
         "to_status": {
-          "$ref": "#/$defs/__schema21"
+          "$ref": "#/$defs/__schema22"
         }
       },
       "required": [
@@ -346,16 +353,16 @@
       ],
       "type": "object"
     },
-    "__schema25": {
+    "__schema26": {
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer"
     },
-    "__schema26": {
+    "__schema27": {
       "pattern": "^(human|system):[a-z0-9][a-z0-9_-]*$",
       "type": "string"
     },
-    "__schema27": {
+    "__schema28": {
       "$ref": "#/$defs/__schema3"
     },
     "__schema3": {
@@ -479,7 +486,7 @@
                   "type": "object"
                 },
                 "id": {
-                  "$ref": "#/$defs/__schema22"
+                  "$ref": "#/$defs/__schema23"
                 },
                 "judgments": {
                   "items": {
@@ -506,7 +513,7 @@
                         "type": "string"
                       },
                       "relation_type": {
-                        "$ref": "#/$defs/__schema23"
+                        "$ref": "#/$defs/__schema24"
                       }
                     },
                     "required": [
@@ -536,7 +543,7 @@
                   "type": "object"
                 },
                 "relation_type": {
-                  "$ref": "#/$defs/__schema23"
+                  "$ref": "#/$defs/__schema24"
                 },
                 "source_id": {
                   "$ref": "#/$defs/__schema12"
@@ -559,13 +566,13 @@
           },
           "history": {
             "items": {
-              "$ref": "#/$defs/__schema24"
+              "$ref": "#/$defs/__schema25"
             },
             "minItems": 1,
             "type": "array"
           },
           "id": {
-            "$ref": "#/$defs/__schema20"
+            "$ref": "#/$defs/__schema21"
           },
           "provenance": {
             "additionalProperties": false,
@@ -598,7 +605,7 @@
             "type": "object"
           },
           "status": {
-            "$ref": "#/$defs/__schema21"
+            "$ref": "#/$defs/__schema22"
           },
           "support_degree": {
             "enum": [
@@ -706,13 +713,13 @@
         "additionalProperties": false,
         "properties": {
           "actor": {
-            "$ref": "#/$defs/__schema26"
+            "$ref": "#/$defs/__schema27"
           },
           "anchor_change": {
             "additionalProperties": false,
             "properties": {
               "claim_id": {
-                "$ref": "#/$defs/__schema20"
+                "$ref": "#/$defs/__schema21"
               },
               "new_anchor": {
                 "minLength": 1,
@@ -740,6 +747,100 @@
           },
           "at": {
             "$ref": "#/$defs/__schema1"
+          },
+          "capture_failure": {
+            "additionalProperties": false,
+            "properties": {
+              "input": {
+                "additionalProperties": false,
+                "properties": {
+                  "document_url": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "identifier": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "doi",
+                      "arxiv",
+                      "url",
+                      "upload"
+                    ],
+                    "type": "string"
+                  },
+                  "manual": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "authors": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "container_title": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "title": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "year": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "title"
+                    ],
+                    "type": "object"
+                  },
+                  "source_type": {
+                    "$ref": "#/$defs/__schema15"
+                  },
+                  "upload": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "blob_path": {
+                        "$ref": "#/$defs/__schema4"
+                      },
+                      "filename": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "blob_path",
+                      "filename"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "source_type"
+                ],
+                "type": "object"
+              },
+              "origin": {
+                "enum": [
+                  "manual",
+                  "reference_import"
+                ],
+                "type": "string"
+              },
+              "work_item_id": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "work_item_id",
+              "origin",
+              "input"
+            ],
+            "type": "object"
           },
           "config_change": {
             "additionalProperties": false,
@@ -776,7 +877,8 @@
               "research_run_started",
               "research_run_completed",
               "briefing_revised",
-              "claim_anchor_revised"
+              "claim_anchor_revised",
+              "source_capture_failed"
             ],
             "type": "string"
           },
@@ -791,10 +893,13 @@
             "type": "string"
           },
           "seq": {
-            "$ref": "#/$defs/__schema25"
+            "$ref": "#/$defs/__schema26"
+          },
+          "source_id": {
+            "$ref": "#/$defs/__schema12"
           },
           "state_root": {
-            "$ref": "#/$defs/__schema27"
+            "$ref": "#/$defs/__schema28"
           }
         },
         "required": [
@@ -817,7 +922,7 @@
     "sources": {
       "items": {
         "additionalProperties": {
-          "$ref": "#/$defs/__schema19"
+          "$ref": "#/$defs/__schema20"
         },
         "description": "CSL-JSON item with workshop extension in `custom`",
         "properties": {
