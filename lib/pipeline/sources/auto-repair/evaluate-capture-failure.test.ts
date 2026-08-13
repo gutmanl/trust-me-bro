@@ -265,6 +265,37 @@ describe("evaluateCaptureFailureRepair", () => {
     ).toHaveLength(0);
   });
 
+  it("does not revive a failure dismissed while the evaluation was in flight", async () => {
+    await recordReferenceImportFailure();
+    const chain = chainFake();
+    // The LLM parse is the slow middle of the evaluation — dismissing the
+    // failure inside it simulates the human racing the automatic repair.
+    const racingOrchestrator = {
+      run: async () => {
+        const { dismissCaptureFailure } =
+          await import("../work-items/failures");
+        await dismissCaptureFailure(PROJECT, "cand_0001");
+        return (
+          parseOrchestrator as unknown as { run: () => Promise<unknown> }
+        ).run();
+      },
+    } as unknown as Orchestrator;
+    await evaluateCaptureFailureRepair(PROJECT, "cand_0001", {
+      fetcher: crossrefFetcher(),
+      orchestrator: racingOrchestrator,
+      chain,
+    });
+    const register = await RegisterStore.forProject(PROJECT).read();
+    // The TOCTOU re-check under the lock swallowed the late result: no
+    // suggestion, no auto-applied re-capture of the dismissed item.
+    expect(
+      register.project_events.filter(
+        (candidate) => candidate.event === "source_repair_action",
+      ),
+    ).toHaveLength(0);
+    expect(chain.enqueued).toHaveLength(0);
+  });
+
   it("records nothing when Crossref is unavailable", async () => {
     await recordReferenceImportFailure();
     const chain = chainFake();

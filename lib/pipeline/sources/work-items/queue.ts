@@ -8,10 +8,11 @@ import {
   UnknownSourceError,
 } from "../../errors";
 import { requireProjectStore } from "../../projects";
-import type { AutoChain } from "../../runs/auto-chain";
+import type { CaptureChainAccess } from "../../runs/auto-chain";
 import {
   activeCaptureItem,
   enqueueSourceCapture,
+  hasCaptureInFlight,
   pendingCaptureItems,
 } from "../../runs/auto-chain";
 import type { CaptureKind } from "../capture";
@@ -38,10 +39,7 @@ export interface ManualCaptureInput {
 
 /** Injectable chain accessors, for tests; production uses the globals. */
 export interface WorkItemQueueDependencies {
-  chain?: Pick<
-    AutoChain,
-    "enqueueSourceCapture" | "pendingCaptureItems" | "activeCaptureItem"
-  >;
+  chain?: CaptureChainAccess;
 }
 
 /**
@@ -221,15 +219,11 @@ export async function enqueueSourceCorrection(
   if (!source) {
     throw new UnknownSourceError(sourceId);
   }
-  const active = (options.chain?.activeCaptureItem ?? activeCaptureItem)(
-    projectId,
-  );
-  const queued = (options.chain?.pendingCaptureItems ?? pendingCaptureItems)(
-    projectId,
-  );
   if (
-    [active, ...queued].some(
-      (item) => item !== undefined && item.targetSourceId === sourceId,
+    hasCaptureInFlight(
+      projectId,
+      (item) => item.targetSourceId === sourceId,
+      options.chain,
     )
   ) {
     throw new SourceCorrectionPreconditionError(

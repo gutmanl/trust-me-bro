@@ -235,6 +235,45 @@ describe("evaluateSourceRepair", () => {
     expect(chain.enqueued).toHaveLength(0);
   });
 
+  it("records nothing when a human correction landed while the evaluation ran", async () => {
+    await strandClaim(1);
+    await giveSourceDeadDoi();
+    const chain = chainFake();
+    // The LLM parse is the slow middle of the evaluation — a correction
+    // landing inside it grows previous_identities, which the TOCTOU
+    // re-check under the lock detects.
+    const racingOrchestrator = {
+      run: async () => {
+        await RegisterStore.forProject(PROJECT).transaction((tx) => {
+          tx.correctSourceIdentity(sourceId, {
+            item: {
+              type: "article-journal",
+              title: "Vom Menschen korrigiert",
+              DOI: "10.1109/TSE.2025.3489012",
+            },
+            replacedAt: new Date().toISOString(),
+            correctionAttemptId: "wi_mensch",
+          });
+        });
+        return (
+          parseOrchestrator as unknown as { run: () => Promise<unknown> }
+        ).run();
+      },
+    } as unknown as Orchestrator;
+    await evaluateSourceRepair(PROJECT, sourceId, {
+      fetcher: fakeFetcher(crossrefRoutes()),
+      orchestrator: racingOrchestrator,
+      chain,
+    });
+    const register = await RegisterStore.forProject(PROJECT).read();
+    expect(
+      register.project_events.filter(
+        (candidate) => candidate.event === "source_repair_action",
+      ),
+    ).toHaveLength(0);
+    expect(chain.enqueued).toHaveLength(0);
+  });
+
   it("case (c): applies when the candidate document verifiably contains the failing quotes", async () => {
     await strandClaim(1);
     const chain = chainFake();

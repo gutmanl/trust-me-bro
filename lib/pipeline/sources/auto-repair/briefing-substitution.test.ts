@@ -78,6 +78,27 @@ describe("substituteIdentifierOccurrences", () => {
     expect(result.text).toBe("Siehe https://doi.org/10.1109/TSE.2025.3489012.");
   });
 
+  it("keeps a doi.org URL intact when the corrected identity has no DOI", () => {
+    // Regression: the bare DOI is a substring of its doi.org URL form. A
+    // correction to a DOI-less identity replaces the DOI with a full URL —
+    // applied shortest-first that would nest one URL inside the other.
+    const result = substituteIdentifierOccurrences(
+      "Siehe https://doi.org/10.9999/halluziniert.123 " +
+        "(doi:10.9999/halluziniert.123).",
+      OLD_ITEM,
+      {
+        id: "src_falsch",
+        type: "article",
+        title: "Neu",
+        URL: "https://arxiv.org/abs/2402.99999",
+      },
+    );
+    expect(result.changed).toBe(true);
+    expect(result.text).not.toContain("https://doi.org/https://");
+    expect(result.text).not.toContain("10.9999/halluziniert.123");
+    expect(result.text).toContain("https://arxiv.org/abs/2402.99999");
+  });
+
   it("replaces an arXiv id when both identities carry one", () => {
     const result = substituteIdentifierOccurrences(
       "Siehe arXiv 2401.12345 (https://arxiv.org/abs/2401.12345).",

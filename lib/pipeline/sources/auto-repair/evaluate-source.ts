@@ -1,25 +1,21 @@
 import { randomUUID } from "node:crypto";
 
-import { createProjectOrchestrator } from "../../../adapters";
-import { loadAdapterConfig } from "../../../identity";
+import type { ClaimsRegister } from "../../../register";
 import type { RepairAction } from "../../../register/schema/history";
-import { permissiveBackendPreflight, probeBackendUsable } from "../../health";
 import { requireProjectStore } from "../../projects";
 import {
-  activeCaptureItem,
   enqueueSourceCapture,
-  pendingCaptureItems,
+  hasCaptureInFlight,
 } from "../../runs/auto-chain";
 import { checkSourceLive } from "../../verification/stage1/source-check";
 import { acquireDocument, extractTextOrError } from "../document";
 import { nodeHttpFetcher } from "../node-http-fetcher";
 import { CONFIDENT_THRESHOLD } from "../reference-scan/crossref-match";
 import { deriveDocumentUrl } from "../reference-scan/derive-document-url";
-import { matchViaCrossrefTitle } from "../reference-scan/title-resolution";
 import { deriveOpenCaptureFailures } from "../work-items/failures";
 import type { SourceCaptureWorkItem } from "../work-items/types";
 import { failingExcerptsForSource } from "./candidates";
-import { deriveCitationMeta } from "./derive-candidate";
+import { rematchCitation, repairCandidateOf } from "./derive-candidate";
 import {
   AUTO_REPAIR_ACTOR,
   type AutoRepairDependencies,
@@ -27,6 +23,26 @@ import {
 import { deriveOpenRepairActions } from "./suggestions";
 import { evaluateQuoteFit } from "./quote-fit";
 import type { QuoteFitResult } from "./quote-fit";
+
+/** The evaluator's own preconditions, shared between the initial read and
+ * the TOCTOU re-check inside the recording transaction: no open suggestion
+ * for the source, no open auto_repair failure targeting it. */
+function repairStillUnattempted(
+  state: Pick<ClaimsRegister, "sources" | "project_events">,
+  sourceId: string,
+): boolean {
+  return (
+    !deriveOpenCaptureFailures(state).some(
+      (entry) =>
+        entry.origin === "auto_repair" &&
+        entry.input.target_source_id === sourceId,
+    ) &&
+    !deriveOpenRepairActions(state).some(
+      (entry) =>
+        entry.target.kind === "source" && entry.target.sourceId === sourceId,
+    )
+  );
+}
 
 /**
  * Cases (b) and (c) of the automatic repair: an already-captured,
@@ -60,33 +76,14 @@ export async function evaluateSourceRepair(
   if (!source || !rawText || !source.custom.snapshot) {
     return;
   }
-  const openFailures = deriveOpenCaptureFailures(register);
-  if (
-    openFailures.some(
-      (entry) =>
-        entry.origin === "auto_repair" &&
-        entry.input.target_source_id === sourceId,
-    )
-  ) {
+  if (!repairStillUnattempted(register, sourceId)) {
     return;
   }
   if (
-    deriveOpenRepairActions(register).some(
-      (entry) =>
-        entry.target.kind === "source" && entry.target.sourceId === sourceId,
-    )
-  ) {
-    return;
-  }
-  const active = (deps.chain?.activeCaptureItem ?? activeCaptureItem)(
-    projectId,
-  );
-  const queued = (deps.chain?.pendingCaptureItems ?? pendingCaptureItems)(
-    projectId,
-  );
-  if (
-    [active, ...queued].some(
-      (entry) => entry !== undefined && entry.targetSourceId === sourceId,
+    hasCaptureInFlight(
+      projectId,
+      (entry) => entry.targetSourceId === sourceId,
+      deps.chain,
     )
   ) {
     return;
@@ -111,22 +108,13 @@ export async function evaluateSourceRepair(
     return;
   }
 
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
-  const backendId = register.config.backends.primary.cli;
-  const primaryReady = await preflight(backendId);
-  const orchestrator =
-    deps.orchestrator ?? createProjectOrchestrator(register.config);
-
-  const meta = await deriveCitationMeta(rawText, {
-    orchestrator,
-    backendId,
-    backendUsable: primaryReady.usable,
-    timeoutMs: loadAdapterConfig().timeoutMs,
-    projectDir: store.projectDir,
-  });
-  const match = await matchViaCrossrefTitle(meta, fetcher, deps.sleep);
+  const match = await rematchCitation(
+    rawText,
+    register,
+    store.projectDir,
+    fetcher,
+    deps,
+  );
   const currentDoi =
     typeof source.DOI === "string" ? source.DOI.toLowerCase() : "";
   if (!match.doi || match.doi.toLowerCase() === currentDoi) {
@@ -183,12 +171,10 @@ export async function evaluateSourceRepair(
     basis: identityBroken
       ? "identity_unambiguous_rematch"
       : "quote_fit_rematch",
-    candidate: {
-      kind: "doi",
-      identifier: match.doi,
-      ...(derived.documentUrl ? { document_url: derived.documentUrl } : {}),
-      ...(match.title ? { title: match.title } : {}),
-    },
+    candidate: repairCandidateOf(
+      { ...match, doi: match.doi },
+      derived.documentUrl,
+    ),
     confidence: score,
     ...(quoteFit !== undefined
       ? {
@@ -216,11 +202,31 @@ export async function evaluateSourceRepair(
         `„${match.title ?? match.doi}" (${percent} % Übereinstimmung) – ` +
         `zur Übernahme per Klick.${fitNote}`;
 
+  // TOCTOU re-check under the lock (mirroring correctSource): while the
+  // slow live checks and document fetches ran, a human may have dismissed
+  // a suggestion, applied one, or corrected the identity outright — the
+  // late evaluation must not revive what was just settled. The identity
+  // itself is pinned by the correction-count: any correction that landed
+  // in between grew `previous_identities`.
+  const identityMark = source.custom.previous_identities?.length ?? 0;
+  let stillRelevant = false;
   await store.transaction((tx) => {
+    const state = {
+      sources: tx.listSources(),
+      project_events: tx.listProjectEvents(),
+    };
+    const lockedSource = state.sources.find((entry) => entry.id === sourceId);
+    stillRelevant =
+      lockedSource !== undefined &&
+      (lockedSource.custom.previous_identities?.length ?? 0) === identityMark &&
+      repairStillUnattempted(state, sourceId);
+    if (!stillRelevant) {
+      return;
+    }
     tx.recordRepairAction({ action, actor: AUTO_REPAIR_ACTOR, reason });
   });
 
-  if (mode === "applied") {
+  if (stillRelevant && mode === "applied") {
     const item: SourceCaptureWorkItem = {
       workItemId: `wi_${randomUUID()}`,
       origin: "auto_repair",

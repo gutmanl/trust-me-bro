@@ -545,6 +545,31 @@ export function activeCaptureItem(
   return getGlobalAutoChain().activeCaptureItem(projectId);
 }
 
+/** The chain slice every capture-enqueueing use-case depends on — one name
+ * instead of four hand-written `Pick`s that could drift apart. */
+export type CaptureChainAccess = Pick<
+  AutoChain,
+  "enqueueSourceCapture" | "pendingCaptureItems" | "activeCaptureItem"
+>;
+
+/**
+ * Whether any queued or active capture work item of a project matches —
+ * the shared "is someone already on this?" predicate of the correction and
+ * auto-repair preconditions. Checks the backlog AND the in-flight item;
+ * injectable chain for tests, the process-global chain in production.
+ */
+export function hasCaptureInFlight(
+  projectId: string,
+  matches: (item: SourceCaptureItemInfo) => boolean,
+  chain?: Pick<CaptureChainAccess, "pendingCaptureItems" | "activeCaptureItem">,
+): boolean {
+  const active = (chain?.activeCaptureItem ?? activeCaptureItem)(projectId);
+  const queued = (chain?.pendingCaptureItems ?? pendingCaptureItems)(projectId);
+  return [active, ...queued].some(
+    (entry) => entry !== undefined && matches(entry),
+  );
+}
+
 /**
  * Number of triggers still WAITING in the queue for a project — it excludes
  * whichever trigger (if any) is currently in flight, because `drain()` pops

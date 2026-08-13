@@ -70,6 +70,12 @@ export function substituteIdentifierOccurrences(
     }
   }
 
+  // Longest needle first: the bare DOI is a substring of its conventional
+  // `https://doi.org/<doi>` URL form, so replacing the DOI first would
+  // splice its replacement INSIDE the URL (nesting two URLs) and leave the
+  // URL needle unmatched. Replacing the longer form first consumes the
+  // overlap; the shorter needle then only hits genuinely bare occurrences.
+  replacements.sort(([a], [b]) => b.length - a.length);
   for (const [needle, replacement] of replacements) {
     if (needle.length > 0 && needle !== replacement && text.includes(needle)) {
       text = text.split(needle).join(replacement);

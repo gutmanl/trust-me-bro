@@ -9,11 +9,10 @@ import type {
 import { PipelineError, SourceCorrectionPreconditionError } from "../../errors";
 import { requireProjectStore } from "../../projects";
 import {
-  activeCaptureItem,
   enqueueSourceCapture,
-  pendingCaptureItems,
+  hasCaptureInFlight,
 } from "../../runs/auto-chain";
-import type { AutoChain } from "../../runs/auto-chain";
+import type { CaptureChainAccess } from "../../runs/auto-chain";
 import { deriveOpenCaptureFailures } from "../work-items/failures";
 import type { SourceCaptureWorkItem } from "../work-items/types";
 
@@ -54,10 +53,12 @@ const targetKey = (target: RepairActionTarget): string =>
  * identity correction of a targeted source, by the dismissal of a targeted
  * capture failure, or by that failure's structural resolution (a source
  * claiming its work-item id). Applied actions never appear here — they are
- * audit trail, visible via the timeline. Pure register derivation.
+ * audit trail, visible via the timeline. Pure register derivation; accepts
+ * the narrow slice so transaction mutators can re-derive from
+ * `tx.listSources()`/`tx.listProjectEvents()` for TOCTOU re-checks.
  */
 export function deriveOpenRepairActions(
-  register: ClaimsRegister,
+  register: Pick<ClaimsRegister, "sources" | "project_events">,
 ): RepairActionVM[] {
   const resolvedWorkItems = new Set(
     register.sources.flatMap((source) =>
@@ -208,12 +209,7 @@ export async function dismissRepairAction(
 export async function applySuggestedRepair(
   projectId: string,
   target: RepairActionVM["target"],
-  deps: {
-    chain?: Pick<
-      AutoChain,
-      "enqueueSourceCapture" | "pendingCaptureItems" | "activeCaptureItem"
-    >;
-  } = {},
+  deps: { chain?: CaptureChainAccess } = {},
 ): Promise<{ workItemId: string }> {
   const store = requireProjectStore(projectId);
   const register = await store.read();
@@ -266,16 +262,11 @@ export async function applySuggestedRepair(
         `Quelle "${target.sourceId}" existiert nicht mehr.`,
       );
     }
-    const active = (deps.chain?.activeCaptureItem ?? activeCaptureItem)(
-      projectId,
-    );
-    const queued = (deps.chain?.pendingCaptureItems ?? pendingCaptureItems)(
-      projectId,
-    );
     if (
-      [active, ...queued].some(
-        (entry) =>
-          entry !== undefined && entry.targetSourceId === target.sourceId,
+      hasCaptureInFlight(
+        projectId,
+        (entry) => entry.targetSourceId === target.sourceId,
+        deps.chain,
       )
     ) {
       throw new SourceCorrectionPreconditionError(

@@ -104,10 +104,12 @@ export interface CaptureFailureVM {
  * semantics throughout: a dismissal/correction only covers the failures
  * BEFORE it, so a fresh failure reopens the entry. Pure register
  * derivation; the caller overlays the volatile queued/running state, which
- * takes precedence in display.
+ * takes precedence in display. Accepts the narrow slice so transaction
+ * mutators can re-derive from `tx.listSources()`/`tx.listProjectEvents()`
+ * for TOCTOU re-checks under the lock.
  */
 export function deriveOpenCaptureFailures(
-  register: ClaimsRegister,
+  register: Pick<ClaimsRegister, "sources" | "project_events">,
 ): CaptureFailureVM[] {
   const resolved = new Set(
     register.sources.flatMap((source) =>

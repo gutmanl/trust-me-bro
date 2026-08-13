@@ -1,24 +1,19 @@
-import { createProjectOrchestrator } from "../../../adapters";
 import type { Orchestrator } from "../../../adapters";
-import { loadAdapterConfig } from "../../../identity";
 import type { RepairAction } from "../../../register/schema/history";
-import { permissiveBackendPreflight, probeBackendUsable } from "../../health";
 import type { BackendPreflight } from "../../health";
 import { requireProjectStore } from "../../projects";
 import {
-  activeCaptureItem,
   enqueueSourceCapture,
-  pendingCaptureItems,
+  hasCaptureInFlight,
 } from "../../runs/auto-chain";
-import type { AutoChain } from "../../runs/auto-chain";
+import type { CaptureChainAccess } from "../../runs/auto-chain";
 import type { HttpFetcher } from "../fetch-port";
 import { nodeHttpFetcher } from "../node-http-fetcher";
 import { CONFIDENT_THRESHOLD } from "../reference-scan/crossref-match";
 import { deriveDocumentUrl } from "../reference-scan/derive-document-url";
-import { matchViaCrossrefTitle } from "../reference-scan/title-resolution";
 import { deriveOpenCaptureFailures } from "../work-items/failures";
 import type { SourceCaptureWorkItem } from "../work-items/types";
-import { deriveCitationMeta } from "./derive-candidate";
+import { rematchCitation, repairCandidateOf } from "./derive-candidate";
 
 /** Actor of every automatic-repair register write. */
 export const AUTO_REPAIR_ACTOR = "system:auto_repair";
@@ -28,10 +23,7 @@ export interface AutoRepairDependencies {
   orchestrator?: Orchestrator;
   preflight?: BackendPreflight;
   sleep?: (ms: number) => Promise<void>;
-  chain?: Pick<
-    AutoChain,
-    "enqueueSourceCapture" | "pendingCaptureItems" | "activeCaptureItem"
-  >;
+  chain?: CaptureChainAccess;
 }
 
 /**
@@ -64,37 +56,24 @@ export async function evaluateCaptureFailureRepair(
     return;
   }
   // A retry of this very item already queued/active? Leave it alone.
-  const active = (deps.chain?.activeCaptureItem ?? activeCaptureItem)(
-    projectId,
-  );
-  const queued = (deps.chain?.pendingCaptureItems ?? pendingCaptureItems)(
-    projectId,
-  );
   if (
-    [active, ...queued].some(
-      (entry) => entry !== undefined && entry.workItemId === workItemId,
+    hasCaptureInFlight(
+      projectId,
+      (entry) => entry.workItemId === workItemId,
+      deps.chain,
     )
   ) {
     return;
   }
 
   const fetcher = deps.fetcher ?? nodeHttpFetcher;
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
-  const backendId = register.config.backends.primary.cli;
-  const primaryReady = await preflight(backendId);
-  const orchestrator =
-    deps.orchestrator ?? createProjectOrchestrator(register.config);
-
-  const meta = await deriveCitationMeta(rawText, {
-    orchestrator,
-    backendId,
-    backendUsable: primaryReady.usable,
-    timeoutMs: loadAdapterConfig().timeoutMs,
-    projectDir: store.projectDir,
-  });
-  const match = await matchViaCrossrefTitle(meta, fetcher, deps.sleep);
+  const match = await rematchCitation(
+    rawText,
+    register,
+    store.projectDir,
+    fetcher,
+    deps,
+  );
   const failedIdentifier = (failure.input.identifier ?? "").toLowerCase();
   if (!match.doi || match.doi.toLowerCase() === failedIdentifier) {
     // Nothing new to try — the failure stands exactly as today.
@@ -112,12 +91,10 @@ export async function evaluateCaptureFailureRepair(
     target: { kind: "capture_failure", work_item_id: workItemId },
     mode: score >= CONFIDENT_THRESHOLD ? "applied" : "suggested",
     basis: "capture_failure_rematch",
-    candidate: {
-      kind: "doi",
-      identifier: match.doi,
-      ...(derived.documentUrl ? { document_url: derived.documentUrl } : {}),
-      ...(match.title ? { title: match.title } : {}),
-    },
+    candidate: repairCandidateOf(
+      { ...match, doi: match.doi },
+      derived.documentUrl,
+    ),
     confidence: score,
   };
   const percent = Math.round(score * 100);
@@ -129,11 +106,26 @@ export async function evaluateCaptureFailureRepair(
       : `Reparaturvorschlag: Titelabgleich fand „${match.title ?? match.doi}" ` +
         `(${percent} % Übereinstimmung) – zur Übernahme per Klick.`;
 
+  // TOCTOU re-check under the lock (mirroring correctSource): the slow
+  // network/LLM work above raced against human dismissals — a failure the
+  // reviewer dropped in the meantime must not sprout a suggestion, let
+  // alone an automatic re-capture.
+  let stillOpen = false;
   await store.transaction((tx) => {
+    stillOpen = deriveOpenCaptureFailures({
+      sources: tx.listSources(),
+      project_events: tx.listProjectEvents(),
+    }).some(
+      (entry) =>
+        entry.workItemId === workItemId && entry.origin === "reference_import",
+    );
+    if (!stillOpen) {
+      return;
+    }
     tx.recordRepairAction({ action, actor: AUTO_REPAIR_ACTOR, reason });
   });
 
-  if (action.mode === "applied") {
+  if (stillOpen && action.mode === "applied") {
     const item: SourceCaptureWorkItem = {
       workItemId,
       origin: "auto_repair",

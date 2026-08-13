@@ -30,19 +30,20 @@ export function verdictBadgeClassName(severity: VerdictSeverity): string {
   }
 }
 
-/** Severity chip per evidence relation, matching the verdict palette. */
+/** Severity chip per evidence relation — delegating keeps the palette in
+ * one place, so a color tweak cannot update one badge and miss the other. */
 export function relationBadgeClassName(
   relation: "supports" | "partially_supports" | "contradicts" | "not_relevant",
 ): string {
   switch (relation) {
     case "supports":
-      return "bg-green-100 text-green-800";
+      return verdictBadgeClassName("green");
     case "partially_supports":
-      return "bg-amber-100 text-amber-800";
+      return verdictBadgeClassName("amber");
     case "contradicts":
-      return "bg-red-100 text-red-800";
+      return verdictBadgeClassName("red");
     case "not_relevant":
-      return "bg-slate-100 text-slate-600";
+      return verdictBadgeClassName("slate");
   }
 }
 

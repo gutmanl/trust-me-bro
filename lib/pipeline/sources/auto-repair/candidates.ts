@@ -1,24 +1,23 @@
-import type { ClaimsRegister } from "../../../register";
+import type { Claim, ClaimsRegister } from "../../../register";
 import { requireProjectStore } from "../../projects";
+
+/** A claim stuck in adjudication BECAUSE its existence check failed — the
+ * same structural predicate the correction's readmission edge keys on
+ * (`history.at(-1)?.routing === "existence_check_failed"`), shared so the
+ * two derivations below cannot diverge. */
+const strandedByExistenceCheck = (claim: Claim): boolean =>
+  claim.status === "pending_adjudication" &&
+  claim.history.at(-1)?.routing === "existence_check_failed";
 
 /**
  * Sources worth an automatic repair evaluation (automatic repair): every
- * distinct source cited by evidence of a claim currently stuck in
- * adjudication BECAUSE its existence check failed — the same structural
- * predicate the correction's readmission edge keys on
- * (`history.at(-1)?.routing === "existence_check_failed"`).
+ * distinct source cited by evidence of a stranded claim.
  */
 export function sourcesNeedingRepairEvaluation(
   register: ClaimsRegister,
 ): string[] {
   const sourceIds = new Set<string>();
-  for (const claim of register.claims) {
-    if (
-      claim.status !== "pending_adjudication" ||
-      claim.history.at(-1)?.routing !== "existence_check_failed"
-    ) {
-      continue;
-    }
+  for (const claim of register.claims.filter(strandedByExistenceCheck)) {
     for (const evidence of claim.evidence) {
       sourceIds.add(evidence.source_id);
     }
@@ -44,13 +43,7 @@ export function failingExcerptsForSource(
   sourceId: string,
 ): string[] {
   const excerpts: string[] = [];
-  for (const claim of register.claims) {
-    if (
-      claim.status !== "pending_adjudication" ||
-      claim.history.at(-1)?.routing !== "existence_check_failed"
-    ) {
-      continue;
-    }
+  for (const claim of register.claims.filter(strandedByExistenceCheck)) {
     for (const evidence of claim.evidence) {
       if (evidence.source_id === sourceId) {
         excerpts.push(evidence.verbatim_excerpt);
