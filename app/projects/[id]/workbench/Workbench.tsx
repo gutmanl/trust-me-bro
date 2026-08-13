@@ -10,6 +10,7 @@ import type {
   EvidenceDisplay,
   ExtractionActivity,
   QueueEntry,
+  SourceWorkItemVM,
   VerificationState,
 } from "@/lib/pipeline";
 import type { BriefingImport, ClaimStatus } from "@/lib/register";
@@ -48,6 +49,7 @@ export function Workbench({
   verificationState,
   verificationBlockedReason,
   sources,
+  workItems,
   sourceSetRevision,
   pendingTriggers,
   extractionActivity,
@@ -67,6 +69,7 @@ export function Workbench({
   verificationState: VerificationState;
   verificationBlockedReason: string | null;
   sources: SourceRowVM[];
+  workItems: SourceWorkItemVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
   extractionActivity: ExtractionActivity;
@@ -180,6 +183,7 @@ export function Workbench({
         <SourcesRail
           projectId={projectId}
           sources={sources}
+          workItems={workItems}
           sourceSetRevision={sourceSetRevision}
           pendingTriggers={pendingTriggers}
           extractionActivity={extractionActivity}

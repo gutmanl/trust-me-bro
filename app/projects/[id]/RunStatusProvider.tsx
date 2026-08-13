@@ -15,6 +15,7 @@ const RUN_KIND_LABELS: Record<string, string> = {
   verification: "Prüflauf",
   reference_scan: "Referenz-Scan",
   reference_capture: "Quellenerfassung",
+  source_capture: "Quellenerfassung",
   research: "Recherche",
   relevance: "Relevanzprüfung",
   existence_check: "Existenzprüfung",

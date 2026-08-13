@@ -4,17 +4,19 @@ import { revalidatePath } from "next/cache";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
-  captureSource,
   enqueueExistenceCheck,
-  enqueueSourceExtraction,
+  enqueueManualCapture,
+  retryManualCapture,
   reviseSource,
 } from "@/lib/pipeline";
-import type { CaptureKind, CaptureSourceInput } from "@/lib/pipeline";
+import type { CaptureKind, ManualCaptureInput } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 
 export interface SourceFormState {
   error: string | null;
-  captured?: string;
+  /** Work-item id of the queued capture, set after a successful submit —
+   * the modal closes on it; the row's progress arrives via the stream. */
+  queued?: string;
 }
 
 const SOURCE_TYPES: SourceType[] = [
@@ -31,7 +33,14 @@ function optional(value: FormDataEntryValue | null): string | undefined {
   return text.length > 0 ? text : undefined;
 }
 
-export async function captureSourceAction(
+/**
+ * Queues a manual source capture as a work item (source work items): the
+ * action only parses the form and enqueues — network, PDF check and
+ * freezing happen in the item's own run, whose per-item status the sources
+ * list shows live. Chaining the extraction pass lives inside the item's
+ * step now, not here.
+ */
+export async function enqueueCaptureSourceAction(
   projectId: string,
   _previous: SourceFormState,
   formData: FormData,
@@ -45,13 +54,18 @@ export async function captureSourceAction(
     return { error: "Bitte einen Quellentyp wählen." };
   }
 
-  const input: CaptureSourceInput = {
-    projectId,
+  const input: ManualCaptureInput = {
     kind: kind as CaptureKind,
     sourceType: sourceType as SourceType,
-    identifier: optional(formData.get("identifier")),
-    documentUrl: optional(formData.get("document_url")),
   };
+  const identifier = optional(formData.get("identifier"));
+  if (identifier !== undefined) {
+    input.identifier = identifier;
+  }
+  const documentUrl = optional(formData.get("document_url"));
+  if (documentUrl !== undefined) {
+    input.documentUrl = documentUrl;
+  }
 
   const title = optional(formData.get("title"));
   if (title) {
@@ -71,16 +85,35 @@ export async function captureSourceAction(
     };
   }
 
-  const result = await runPipelineAction(() => captureSource(input));
+  const result = await runPipelineAction(() =>
+    enqueueManualCapture(projectId, input),
+  );
   if (result.error !== null) {
     return { error: result.error };
   }
-  // Workbench epic: a freshly captured source auto-chains its own extraction
-  // pass (then an existence check) through the drain queue — sequential per
-  // project, so it never races a pass already running for this project.
-  enqueueSourceExtraction(projectId, result.value.id);
   revalidatePath(`/projects/${projectId}`);
-  return { error: null, captured: result.value.id };
+  return { error: null, queued: result.value.workItemId };
+}
+
+export interface RetryCaptureState {
+  error: string | null;
+}
+
+/** One-click retry of a failed capture work item, from its durable input
+ * snapshot — no re-upload, no modal. */
+export async function retryCaptureAction(
+  projectId: string,
+  workItemId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(() =>
+    retryManualCapture(projectId, workItemId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
 }
 
 export interface ReviseFormState {

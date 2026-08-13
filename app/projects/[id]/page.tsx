@@ -6,6 +6,7 @@ import {
   buildAdjudicationQueue,
   buildEvidenceDisplayMap,
   deriveExtractionActivity,
+  deriveSourceExtractionOutcomes,
   deriveSourceLifecycles,
   formatCitation,
   getBackendsHealth,
@@ -20,6 +21,7 @@ import {
   getReferenceCaptureOutcomes,
   getReferenceCaptureRun,
   getReferenceScanState,
+  getSourceWorkItems,
   getUnpaywallSetting,
   getVerificationState,
   pendingTriggerCount,
@@ -82,6 +84,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       lifecycle,
     ]),
   );
+  const extractionOutcomes = deriveSourceExtractionOutcomes(register);
   const sources: SourceRowVM[] = register.sources.flatMap((source) => {
     const snapshot = source.custom.snapshot;
     const lifecycle = lifecycles.get(source.id);
@@ -115,9 +118,16 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
                   : `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS[auto.method]}`,
             }
           : {}),
+        extractionOutcome: extractionOutcomes.get(source.id)?.outcome ?? null,
+        ...(extractionOutcomes.get(source.id)?.outcome === "failed"
+          ? { extractionMessage: extractionOutcomes.get(source.id)?.message }
+          : {}),
       },
     ];
   });
+  // The not-yet-sources half of the unified list: queued/capturing from the
+  // chain and runner, durable failures from the register.
+  const workItems = getSourceWorkItems(id, register);
 
   // The reference-import section only exists once there is a briefing to
   // scan. Keeping it gated matters beyond tidiness: getBackendsHealth spawns
@@ -200,6 +210,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             : null
         }
         sources={sources}
+        workItems={workItems}
         sourceSetRevision={register.project.source_set_revision}
         pendingTriggers={pendingTriggerCount(id)}
         extractionActivity={deriveExtractionActivity(

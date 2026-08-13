@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
+import { Modal } from "@/app/components/Modal";
 import {
   ErrorBanner,
   fileInputClass,
@@ -10,7 +11,7 @@ import {
   SuccessBanner,
 } from "@/app/components/ui";
 import type { ReviseFormState, SourceFormState } from "./actions";
-import { captureSourceAction, reviseSourceAction } from "./actions";
+import { enqueueCaptureSourceAction, reviseSourceAction } from "./actions";
 
 const initialState: SourceFormState = { error: null };
 
@@ -77,13 +78,81 @@ function ManualFields({ required }: { required: boolean }) {
   );
 }
 
-export function CaptureSourceForm({ projectId }: { projectId: string }) {
+/**
+ * "+ Quelle erfassen" in the sources-list header: opens the capture modal
+ * (source work items). Mounting the modal is opening it; a successful
+ * submit closes it and the queued work item appears as a list row.
+ */
+export function CaptureSourceButton({ projectId }: { projectId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+      >
+        + Quelle erfassen
+      </button>
+      {open ? (
+        <CaptureSourceModal
+          projectId={projectId}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function CaptureSourceModal({
+  projectId,
+  onClose,
+}: {
+  projectId: string;
+  onClose: () => void;
+}) {
   const [kind, setKind] = useState<Kind>("doi");
   const [state, formAction, pending] = useActionState(
-    captureSourceAction.bind(null, projectId),
+    enqueueCaptureSourceAction.bind(null, projectId),
     initialState,
   );
+  // Close exactly once per successful submit (state identity change), from
+  // an effect — closing also unmounts this component, so it must not happen
+  // during render.
+  const adopted = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (state.queued !== undefined && adopted.current !== state.queued) {
+      adopted.current = state.queued;
+      onClose();
+    }
+  }, [state.queued, onClose]);
 
+  return (
+    <Modal title="Quelle erfassen" onClose={onClose}>
+      <CaptureSourceFields
+        kind={kind}
+        onKindChange={setKind}
+        formAction={formAction}
+        pending={pending}
+        error={state.error}
+      />
+    </Modal>
+  );
+}
+
+function CaptureSourceFields({
+  kind,
+  onKindChange,
+  formAction,
+  pending,
+  error,
+}: {
+  kind: Kind;
+  onKindChange: (kind: Kind) => void;
+  formAction: (formData: FormData) => void;
+  pending: boolean;
+  error: string | null;
+}) {
   return (
     <div className="space-y-4">
       <div className="flex gap-1 rounded-md bg-slate-100 p-1">
@@ -91,7 +160,7 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
           <button
             key={tab.kind}
             type="button"
-            onClick={() => setKind(tab.kind)}
+            onClick={() => onKindChange(tab.kind)}
             className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
               kind === tab.kind
                 ? "bg-white text-slate-900 shadow-sm"
@@ -214,17 +283,18 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
           </select>
         </div>
 
-        <ErrorBanner message={state.error} />
-        {state.captured ? (
-          <SuccessBanner>
-            Quelle <span className="font-mono">{state.captured}</span> erfasst
-            und Snapshot eingefroren.
-          </SuccessBanner>
-        ) : null}
+        <ErrorBanner message={error} />
 
         <button type="submit" disabled={pending} className={primaryButtonClass}>
-          {pending ? "Wird erfasst …" : "Quelle erfassen und einfrieren"}
+          {pending ? "Wird eingereiht …" : "Erfassung starten"}
         </button>
+        <p className="text-xs text-slate-500">
+          Die Erfassung läuft im Hintergrund und reiht sich hinter laufende
+          Schritte des Projekts ein; der Fortschritt erscheint direkt in der
+          Quellenliste. Ein Server-Neustart verwirft eine noch wartende
+          Erfassung – begonnene oder fehlgeschlagene Versuche bleiben
+          erhalten.
+        </p>
       </form>
     </div>
   );
@@ -233,10 +303,10 @@ export function CaptureSourceForm({ projectId }: { projectId: string }) {
 const initialReviseState: ReviseFormState = { error: null };
 
 /**
- * Disclosure-style per-source revision form (TMB-44), rendered for any
- * source with a snapshot: re-fetch from a URL or upload the current
- * document; identical content is recognized via checksum and changes
- * nothing.
+ * Per-source revision (TMB-44), now behind a modal like the capture form:
+ * re-fetch from a URL or upload the current document; identical content is
+ * recognized via checksum and changes nothing. The outcome banners render
+ * under the trigger, where the row shows them after the modal closed.
  */
 export function ReviseSourceForm({
   projectId,
@@ -250,85 +320,94 @@ export function ReviseSourceForm({
     reviseSourceAction.bind(null, projectId, sourceId),
     initialReviseState,
   );
-
-  if (!open) {
-    return (
-      <div className="mt-2">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-xs font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700"
-        >
-          Quelle revidieren …
-        </button>
-        {state.revised === true ? (
-          <SuccessBanner>
-            Revision {state.newRevision} erstellt – {state.recheckedCount}{" "}
-            Claim(s) zur Nachprüfung markiert.
-          </SuccessBanner>
-        ) : null}
-        {state.revised === false ? (
-          <SuccessBanner>
-            Inhalt unverändert (Prüfsumme identisch) – keine neue Revision.
-          </SuccessBanner>
-        ) : null}
-      </div>
-    );
-  }
+  // Close on a successful submit (state identity change), like the capture
+  // modal: `revised` is set on success in both of its variants.
+  const adopted = useRef<ReviseFormState | undefined>(undefined);
+  useEffect(() => {
+    if (state.revised !== undefined && adopted.current !== state) {
+      adopted.current = state;
+      setOpen(false);
+    }
+  }, [state]);
 
   return (
-    <form
-      action={formAction}
-      className="mt-3 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3"
-    >
-      <p className="text-xs text-slate-600">
-        Aktualisierte Fassung der Quelle laden: Die alte Revision bleibt im
-        Blob-Store erhalten; betroffene, bereits geprüfte Claims wandern zur
-        Nachprüfung.
-      </p>
-      <div>
-        <label
-          htmlFor={`revise_url_${sourceId}`}
-          className="mb-1 block text-xs font-medium"
-        >
-          Dokument-URL (PDF/HTML)
-        </label>
-        <input
-          id={`revise_url_${sourceId}`}
-          name="document_url"
-          type="url"
-          placeholder="https://… – oder unten Datei hochladen"
-          className={`${inputClass} font-mono`}
-        />
-      </div>
-      <div>
-        <label
-          htmlFor={`revise_file_${sourceId}`}
-          className="mb-1 block text-xs font-medium"
-        >
-          … oder Quellendokument hochladen
-        </label>
-        <input
-          id={`revise_file_${sourceId}`}
-          name="file"
-          type="file"
-          accept=".pdf,.html,.htm,.txt,.md,application/pdf,text/html,text/plain"
-          className={fileInputClass}
-        />
-      </div>
-      <ErrorBanner message={state.error} />
-      <div className="flex gap-2">
-        <button type="submit" disabled={pending} className={primaryButtonClass}>
-          {pending ? "Wird revidiert …" : "Revision erstellen"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
-        >
-          Abbrechen
-        </button>
-      </div>
-    </form>
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700"
+      >
+        Quelle revidieren …
+      </button>
+      {state.revised === true ? (
+        <SuccessBanner>
+          Revision {state.newRevision} erstellt – {state.recheckedCount}{" "}
+          Claim(s) zur Nachprüfung markiert.
+        </SuccessBanner>
+      ) : null}
+      {state.revised === false ? (
+        <SuccessBanner>
+          Inhalt unverändert (Prüfsumme identisch) – keine neue Revision.
+        </SuccessBanner>
+      ) : null}
+      {open ? (
+        <Modal title="Quelle revidieren" onClose={() => setOpen(false)}>
+          <form action={formAction} className="space-y-3">
+            <p className="text-xs text-slate-600">
+              Aktualisierte Fassung der Quelle laden: Die alte Revision bleibt
+              im Blob-Store erhalten; betroffene, bereits geprüfte Claims
+              wandern zur Nachprüfung.
+            </p>
+            <div>
+              <label
+                htmlFor={`revise_url_${sourceId}`}
+                className="mb-1 block text-xs font-medium"
+              >
+                Dokument-URL (PDF/HTML)
+              </label>
+              <input
+                id={`revise_url_${sourceId}`}
+                name="document_url"
+                type="url"
+                placeholder="https://… – oder unten Datei hochladen"
+                className={`${inputClass} font-mono`}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor={`revise_file_${sourceId}`}
+                className="mb-1 block text-xs font-medium"
+              >
+                … oder Quellendokument hochladen
+              </label>
+              <input
+                id={`revise_file_${sourceId}`}
+                name="file"
+                type="file"
+                accept=".pdf,.html,.htm,.txt,.md,application/pdf,text/html,text/plain"
+                className={fileInputClass}
+              />
+            </div>
+            <ErrorBanner message={state.error} />
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={pending}
+                className={primaryButtonClass}
+              >
+                {pending ? "Wird revidiert …" : "Revision erstellen"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+    </div>
   );
 }

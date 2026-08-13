@@ -29,6 +29,12 @@ export interface SourceRowVM {
   textExtractionError?: string;
   previousSnapshots: number;
   autoCaptureNote?: string;
+  /** How this source's LAST extraction pass ended (source work items),
+   * from the bracket events' structured source_id; null before the first
+   * attributed pass. */
+  extractionOutcome: "completed" | "failed" | null;
+  /** Completion reason of that pass, shown on failure. */
+  extractionMessage?: string;
 }
 
 const initialState: RunFormState = { error: null };
@@ -43,6 +49,7 @@ export function SourceRow({
   projectId,
   source,
   extractionRunning,
+  extractingLive,
 }: {
   projectId: string;
   source: SourceRowVM;
@@ -50,6 +57,9 @@ export function SourceRow({
    * the rows share the rail's one stream subscription — and needed at all
    * because `useStartGate("extraction")` reports null for its own kind. */
   extractionRunning: boolean;
+  /** THIS source's extraction pass is live right now (item-keyed stream
+   * state, shared via the rail like `extractionRunning`). */
+  extractingLive: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     startSourceExtractionAction.bind(null, projectId, source.id),
@@ -83,7 +93,22 @@ export function SourceRow({
         {source.previousSnapshots > 0 ? (
           <span>{source.previousSnapshots} frühere Revision(en)</span>
         ) : null}
+        {extractingLive ? (
+          <span className="flex items-center gap-1 text-blue-700">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+            Claims werden extrahiert …
+          </span>
+        ) : source.extractionOutcome === "completed" ? (
+          <span className="text-green-600">✓ Claims extrahiert</span>
+        ) : null}
       </div>
+
+      {!extractingLive && source.extractionOutcome === "failed" ? (
+        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+          ⚠ {source.extractionMessage ?? "Letzte Extraktion ohne Ergebnis."}{" "}
+          Der Extraktions-Button unten startet den Durchlauf erneut.
+        </div>
+      ) : null}
 
       {source.autoCaptureNote !== undefined ? (
         <p className="mt-1 text-xs text-slate-500">{source.autoCaptureNote}</p>

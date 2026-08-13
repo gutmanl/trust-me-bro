@@ -4,11 +4,13 @@ import { useActionState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
 import { useProjectEvents } from "@/app/lib/ProjectEventStream";
+import { useItemLiveStatus } from "@/app/lib/useItemLiveStatus";
 import type {
   ExtractionActivity,
   ReferenceCaptureOutcome,
   ReferenceScanState,
   ReviewCandidate,
+  SourceWorkItemVM,
   UnpaywallSetting,
 } from "@/lib/pipeline";
 import {
@@ -18,11 +20,12 @@ import {
 } from "../RunStatusProvider";
 import { ReferenceCandidateReview } from "../sources/ReferenceCandidateReview";
 import { ReferenceScanPanel } from "../sources/ReferenceScanPanel";
-import { CaptureSourceForm } from "../sources/SourceForms";
+import { CaptureSourceButton } from "../sources/SourceForms";
 import { UnpaywallSettingPanel } from "../sources/UnpaywallSettingPanel";
 import type { RunFormState } from "./actions";
 import { startUnevidencedExtractionAction } from "./actions";
 import { SourceRow, type SourceRowVM } from "./SourceRow";
+import { WorkItemRow } from "./WorkItemRow";
 
 /** Everything the reference auto-import section needs; null before a
  * briefing exists, because there is nothing to scan for references in. */
@@ -47,6 +50,7 @@ const sweepInitial: RunFormState = { error: null };
 const CHAIN_KINDS = new Set([
   "reference_scan",
   "reference_capture",
+  "source_capture",
   "extraction",
   "existence_check",
 ]);
@@ -65,6 +69,7 @@ const CHAIN_KINDS = new Set([
 export function SourcesRail({
   projectId,
   sources,
+  workItems,
   sourceSetRevision,
   pendingTriggers,
   extractionActivity,
@@ -73,6 +78,9 @@ export function SourcesRail({
 }: {
   projectId: string;
   sources: SourceRowVM[];
+  /** Queued/capturing/failed capture work items — the not-yet-sources half
+   * of the unified list (source work items). */
+  workItems: SourceWorkItemVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
   /** How the last extraction pass ended — the durable half of the run state
@@ -88,6 +96,11 @@ export function SourcesRail({
     sweepInitial,
   );
   const { blockedBy } = useStartGate("extraction");
+  // Live per-item state from the shared stream: which capture work item and
+  // which source's extraction pass are running RIGHT NOW — the server VM
+  // only knows the state as of its render.
+  const capturingItems = useItemLiveStatus("source_capture");
+  const extractingSources = useItemLiveStatus("extraction");
 
   // `useStartGate("extraction")` reports null while an EXTRACTION run is
   // live — by design, so the panel that started it shows progress instead of
@@ -121,41 +134,46 @@ export function SourcesRail({
           >
             Bestand Rev. {sourceSetRevision}
           </span>
-          {chainLabel !== null ? (
-            <span
-              className={`ml-auto rounded-full px-2 py-0.5 text-xs ${
-                chainRunning
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-amber-100 text-amber-800"
-              }`}
-            >
-              {chainLabel}
-            </span>
-          ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            {chainLabel !== null ? (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs ${
+                  chainRunning
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {chainLabel}
+              </span>
+            ) : null}
+            <CaptureSourceButton projectId={projectId} />
+          </div>
         </div>
-        {sources.length === 0 ? (
+        {sources.length === 0 && workItems.length === 0 ? (
           <p className="px-4 py-5 text-sm text-slate-500">
-            Noch keine Quellen erfasst.
+            Noch keine Quellen erfasst – oben rechts eine Quelle erfassen.
           </p>
         ) : (
           <ul className="divide-y divide-slate-100">
+            {workItems.map((item) => (
+              <WorkItemRow
+                key={item.workItemId}
+                projectId={projectId}
+                item={item}
+                liveCapturing={capturingItems.has(item.workItemId)}
+              />
+            ))}
             {sources.map((source) => (
               <SourceRow
                 key={source.id}
                 projectId={projectId}
                 source={source}
                 extractionRunning={extractionRunning}
+                extractingLive={extractingSources.has(source.id)}
               />
             ))}
           </ul>
         )}
-      </div>
-
-      <div className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">
-          Quelle erfassen
-        </h2>
-        <CaptureSourceForm projectId={projectId} />
       </div>
 
       {referenceImport !== null ? (
