@@ -121,12 +121,19 @@ export function renderBriefing(
     "",
     `**Projekt:** ${register.project.id}`,
     "",
-    view.isFullyAdjudicated
-      ? `**Prüfstand:** GEPRÜFT – kein Claim zur Adjudikation offen` +
+    // Three states, not two: a briefing whose claims have not been extracted
+    // yet has nothing open AND nothing checked, and calling that "IN PRÜFUNG
+    // – 0 Claim(s) offen" would be as misleading here as "GEPRÜFT" was
+    // before. This is the state every freshly imported briefing renders in,
+    // since freezeBriefing writes this file before any claim exists.
+    register.claims.length === 0
+      ? `**Prüfstand:** NICHT BEGONNEN – noch keine Claims aus dem Briefing extrahiert`
+      : view.isFullyAdjudicated
+        ? `**Prüfstand:** GEPRÜFT – kein Claim zur Adjudikation offen` +
           (view.unconfirmedCount > 0
             ? ` (${view.unconfirmedCount} Claim(s) nicht bestätigt)`
             : "")
-      : `**Prüfstand:** IN PRÜFUNG – ${view.openCount} Claim(s) zur Adjudikation offen`,
+        : `**Prüfstand:** IN PRÜFUNG – ${view.openCount} Claim(s) zur Adjudikation offen`,
     "",
     ...(context.sharedModelFamily
       ? [

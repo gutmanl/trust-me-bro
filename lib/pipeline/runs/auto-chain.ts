@@ -1,10 +1,15 @@
 import { startSourceExtraction } from "../extraction/run-source-extraction";
+import type { startAutoReferenceCapture } from "../sources/reference-scan/run-auto-reference-capture";
+import type { startReferenceScan } from "../sources/reference-scan/run-reference-scan";
 import { startExistenceCheck } from "../verification/run-existence-check";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
 
 type PendingTrigger =
-  { kind: "extraction"; sourceId: string } | { kind: "existence_check" };
+  | { kind: "extraction"; sourceId: string }
+  | { kind: "existence_check" }
+  | { kind: "reference_scan" }
+  | { kind: "reference_capture" };
 
 function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
   if (a.kind === "extraction" && b.kind === "extraction") {
@@ -14,20 +19,30 @@ function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
 }
 
 function describeTrigger(trigger: PendingTrigger): string {
-  return trigger.kind === "extraction"
-    ? `extraction (source "${trigger.sourceId}")`
-    : "existence check";
+  switch (trigger.kind) {
+    case "extraction":
+      return `extraction (source "${trigger.sourceId}")`;
+    case "existence_check":
+      return "existence check";
+    case "reference_scan":
+      return "reference scan";
+    case "reference_capture":
+      return "automatic reference capture";
+  }
 }
 
 export interface AutoChainDependencies {
   runner?: JobRunner;
   startSourceExtraction?: typeof startSourceExtraction;
   startExistenceCheck?: typeof startExistenceCheck;
+  startReferenceScan?: typeof startReferenceScan;
+  startAutoReferenceCapture?: typeof startAutoReferenceCapture;
 }
 
 export interface AutoChain {
   enqueueSourceExtraction(projectId: string, sourceId: string): void;
   enqueueExistenceCheck(projectId: string): void;
+  enqueueReferenceScan(projectId: string): void;
   /** Waiting-backlog length for a project — for UI/status, not a control
    * surface. See the exported `pendingTriggerCount` below for the full
    * contract (what "waiting" excludes, and why 0 does not mean idle). */
@@ -43,19 +58,62 @@ export interface AutoChain {
  * every previously created claim for dedupe, so two extraction passes for
  * the same project can never race each other.
  *
+ * The same shape carries the second chain: a published briefing chains
+ * "scan the briefing for its references → capture the ones that resolved
+ * cleanly", from where the capture's own per-source extraction triggers
+ * (run-reference-capture.ts) rejoin the chain above. Both chains share one
+ * queue per project, which is what keeps them off each other's toes on the
+ * single-writer runner.
+ *
  * In-memory only, like the runner itself: a server restart drops whatever
  * was still queued. That is safe because nothing here is the durable truth —
  * claim statuses already record exactly what stage-1 still needs to see
  * (`captured` / `recheck_required`), the existence check re-derives its own
  * worklist from those statuses on every run, and a manual "re-extract this
- * source" action always exists as a human-triggered recovery. A dropped
- * trigger therefore never loses data, only a moment of automation.
+ * source" action always exists as a human-triggered recovery. The reference
+ * chain is drop-safe for the same reason: the scan and the capture both keep
+ * their own manual buttons, and neither leaves half-written state behind.
+ * A dropped trigger therefore never loses data, only a moment of automation.
  */
 export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
   const runner = deps.runner ?? getGlobalJobRunner();
   const runSourceExtraction =
     deps.startSourceExtraction ?? startSourceExtraction;
   const runExistenceCheck = deps.startExistenceCheck ?? startExistenceCheck;
+
+  /**
+   * The reference chain's two start-fns are the only ones resolved on first
+   * use rather than imported at the top, for two reasons that happen to
+   * point the same way.
+   *
+   * Correctness: the automatic capture reaches startReferenceCapture, and
+   * THAT module imports `enqueueSourceExtraction` from here (its documented
+   * per-item chaining exception) — a static import would close an import
+   * cycle where today there is none.
+   *
+   * Weight: the scan pulls the whole adapter/orchestrator graph behind it,
+   * and every module that touches this one (which is every source capture
+   * path) would have paid for that graph at load time whether or not a
+   * briefing was ever published.
+   *
+   * Both are cached after the first resolution, and tests inject the
+   * dependency and never reach this path.
+   */
+  let referenceScan = deps.startReferenceScan;
+  async function runReferenceScan(projectId: string) {
+    referenceScan ??= (
+      await import("../sources/reference-scan/run-reference-scan")
+    ).startReferenceScan;
+    return referenceScan(projectId, { runner });
+  }
+
+  let autoReferenceCapture = deps.startAutoReferenceCapture;
+  async function runAutoReferenceCapture(projectId: string) {
+    autoReferenceCapture ??= (
+      await import("../sources/reference-scan/run-auto-reference-capture")
+    ).startAutoReferenceCapture;
+    return autoReferenceCapture(projectId, { runner });
+  }
 
   const pending = new Map<string, PendingTrigger[]>();
   const draining = new Set<string>();
@@ -92,6 +150,20 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       // project — pushed to the FRONT, ahead of whatever is already
       // waiting, exactly as the brief requires.
       queue.unshift({ kind: "existence_check" });
+    } else if (trigger.kind === "reference_scan") {
+      const handle = await runReferenceScan(projectId);
+      await handle.done;
+      // Chained unconditionally, exactly like the existence check above:
+      // whether the scan actually found anything worth capturing is the
+      // capture's own question to answer against the committed scan result,
+      // not something to decide from a run summary here.
+      queue.unshift({ kind: "reference_capture" });
+    } else if (trigger.kind === "reference_capture") {
+      // No run at all when nothing resolved cleanly enough to capture
+      // unattended — the common case for a briefing whose citations all
+      // need a human. Not an error, so nothing is logged.
+      const handle = await runAutoReferenceCapture(projectId);
+      await handle?.done;
     } else {
       const handle = await runExistenceCheck(projectId, { runner });
       await handle.done;
@@ -185,6 +257,9 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     enqueueExistenceCheck(projectId) {
       push(projectId, { kind: "existence_check" });
     },
+    enqueueReferenceScan(projectId) {
+      push(projectId, { kind: "reference_scan" });
+    },
     pendingTriggerCount(projectId) {
       return pending.get(projectId)?.length ?? 0;
     },
@@ -210,6 +285,14 @@ export function enqueueSourceExtraction(
 
 export function enqueueExistenceCheck(projectId: string): void {
   getGlobalAutoChain().enqueueExistenceCheck(projectId);
+}
+
+/** Scans the freshly published briefing for its references and captures the
+ * cleanly resolved ones — enqueued by the workbench's publish action, so a
+ * briefing arrives with its own bibliography instead of an empty source
+ * list. */
+export function enqueueReferenceScan(projectId: string): void {
+  getGlobalAutoChain().enqueueReferenceScan(projectId);
 }
 
 /**

@@ -27,13 +27,17 @@ import type { RunHandle } from "@/lib/pipeline/runs/types";
  * backend CLI.
  */
 
-const { enqueue } = vi.hoisted(() => ({ enqueue: vi.fn() }));
+const { enqueue, enqueueScan } = vi.hoisted(() => ({
+  enqueue: vi.fn(),
+  enqueueScan: vi.fn(),
+}));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("@/lib/pipeline", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/pipeline")>()),
   enqueueSourceExtraction: enqueue,
+  enqueueReferenceScan: enqueueScan,
 }));
 
 const PROJECT = "proj_workbench_actions";
@@ -138,6 +142,9 @@ beforeEach(async () => {
   enqueue.mockImplementation((projectId: string, sourceId: string) => {
     chain.enqueueSourceExtraction(projectId, sourceId);
   });
+  // Only the wiring is under test here — that the publish action asks for a
+  // scan, and when. The chain's own reference triggers have their own tests.
+  enqueueScan.mockReset();
 });
 
 afterEach(() => {
@@ -213,5 +220,76 @@ describe("publishBriefingRevisionAction — extraction backfill", () => {
     );
     expect(state.error).not.toBeNull();
     expect(enqueue).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The other half of the publish action: a briefing must arrive with the
+ * sources it cites, instead of sitting in front of an empty source list
+ * while the workbench reports nothing waiting for adjudication.
+ */
+describe("publishBriefingRevisionAction — reference scan", () => {
+  it("scans the briefing on the initial import", async () => {
+    const { publishBriefingRevisionAction } = await import("./actions");
+
+    await publishBriefingRevisionAction(
+      PROJECT,
+      { error: null },
+      publishForm(BRIEFING, "you.com"),
+    );
+
+    expect(enqueueScan).toHaveBeenCalledExactlyOnceWith(PROJECT);
+  });
+
+  it("scans again after a revision that changed the text", async () => {
+    const { publishBriefingRevisionAction } = await import("./actions");
+    await importBriefing({
+      projectId: PROJECT,
+      content: BRIEFING,
+      tool: "you.com",
+    });
+
+    await publishBriefingRevisionAction(
+      PROJECT,
+      { error: null },
+      publishForm(
+        `${BRIEFING}\n\nAbsatz drei: eine neue Quelle, doi:10.1000/x.`,
+      ),
+    );
+
+    expect(enqueueScan).toHaveBeenCalledExactlyOnceWith(PROJECT);
+  });
+
+  it("does not scan when the republished text is identical", async () => {
+    const { publishBriefingRevisionAction } = await import("./actions");
+    await importBriefing({
+      projectId: PROJECT,
+      content: BRIEFING,
+      tool: "you.com",
+    });
+
+    // Checksum-identical republish: a total no-op in the use-case, so the
+    // text a scan would read is the text the last scan already read.
+    const state = await publishBriefingRevisionAction(
+      PROJECT,
+      { error: null },
+      publishForm(BRIEFING),
+    );
+
+    expect(state).toEqual({ error: null, published: true });
+    expect(enqueueScan).not.toHaveBeenCalled();
+  });
+
+  it("does not scan when publishing fails", async () => {
+    const { publishBriefingRevisionAction } = await import("./actions");
+
+    const state = await publishBriefingRevisionAction(
+      PROJECT,
+      { error: null },
+      publishForm(BRIEFING),
+    );
+
+    expect(state.error).not.toBeNull();
+    expect(enqueueScan).not.toHaveBeenCalled();
   });
 });

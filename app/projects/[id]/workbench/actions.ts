@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
   discardBriefingDraft,
+  enqueueReferenceScan,
   enqueueSourceExtraction,
   getBriefing,
   publishBriefingRevision,
@@ -95,6 +96,15 @@ async function backfillSourceExtractions(projectId: string): Promise<void> {
  * initial import backfills the extraction passes that were dropped while the
  * project had no briefing; an ordinary revision (2, 3, …) must not re-run
  * every source.
+ *
+ * Every publish that CHANGED the briefing additionally starts the reference
+ * chain: scan the new text for the sources it cites, capture the ones that
+ * resolved cleanly, and let those captures chain their own extraction. A
+ * briefing therefore arrives with its bibliography and its first claims by
+ * itself — before this, a freshly imported briefing sat in front of an empty
+ * source list, produced no claims, and the workbench reported that nothing
+ * was waiting for adjudication, which read like a verdict rather than like
+ * work not yet started.
  */
 export async function publishBriefingRevisionAction(
   projectId: string,
@@ -108,18 +118,27 @@ export async function publishBriefingRevisionAction(
     // briefing always exists. The published revision cannot answer it
     // either — revision 1 is stored as an absent field, so a checksum no-op
     // republish of a live revision 1 looks exactly like a fresh import.
-    const initialImport = (await getBriefing(projectId)) === null;
-    await publishBriefingRevision(projectId, {
+    const before = await getBriefing(projectId);
+    const published = await publishBriefingRevision(projectId, {
       text,
       ...(tool.length > 0 ? { tool } : {}),
     });
-    return { initialImport };
+    const initialImport = before === null;
+    // Republishing checksum-identical text is a total no-op inside the
+    // use-case — no revision, no event, no register write. The text a scan
+    // would read is then the text the last scan already read, so re-running
+    // it would only spend Crossref and LLM quota on the same answer.
+    const changed = initialImport || published.sha256 !== before.meta.sha256;
+    return { initialImport, changed };
   });
   if (result.error !== null) {
     return { error: result.error };
   }
   if (result.value.initialImport) {
     await backfillSourceExtractions(projectId);
+  }
+  if (result.value.changed) {
+    enqueueReferenceScan(projectId);
   }
   revalidateWorkbench(projectId);
   return { error: null, published: true };

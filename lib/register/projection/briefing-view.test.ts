@@ -115,6 +115,19 @@ describe("buildBriefingViewModel", () => {
     expect(done.unconfirmedCount).toBe(1);
   });
 
+  it("calls a claim-free briefing unstarted, never fully adjudicated", () => {
+    // The state every briefing is in between its import and its first
+    // extraction pass. "No claim is pending" is vacuously true here, and
+    // reporting it as the checked-and-nothing-open banner told the user the
+    // opposite of the truth: nothing had been looked at at all.
+    const fresh = buildBriefingViewModel(BRIEFING, registerWith([]));
+    expect(fresh.isFullyAdjudicated).toBe(false);
+    expect(fresh.openCount).toBe(0);
+    expect(renderBriefing(BRIEFING, registerWith([]))).toContain(
+      "NICHT BEGONNEN – noch keine Claims aus dem Briefing extrahiert",
+    );
+  });
+
   it("agrees with the markdown projection on the banner line", () => {
     const register = registerWith([
       { id: "clm_0001", status: "pending_adjudication", anchor: "p1" },

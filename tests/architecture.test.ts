@@ -201,6 +201,7 @@ describe("public surface of lib/pipeline", () => {
     // functions; the factory and the singleton-getter stay internal.
     expect(surface.enqueueSourceExtraction).toBeDefined();
     expect(surface.enqueueExistenceCheck).toBeDefined();
+    expect(surface.enqueueReferenceScan).toBeDefined();
     expect(surface.pendingTriggerCount).toBeDefined();
     expect(surface.createAutoChain).toBeUndefined();
     // Reference auto-import: scan + selective capture use-cases; the
@@ -212,6 +213,10 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.getReferenceCaptureRun).toBeDefined();
     expect(surface.getReferenceCaptureOutcomes).toBeDefined();
     expect(surface.getReferenceCandidates).toBeDefined();
+    // The automatic post-publish capture is reached only through the
+    // auto-chain: neither its policy nor its use-case is app-facing.
+    expect(surface.selectAutoCaptures).toBeUndefined();
+    expect(surface.startAutoReferenceCapture).toBeUndefined();
     expect(surface.scanRegex).toBeUndefined();
     expect(surface.mergeCandidates).toBeUndefined();
     expect(surface.candidateId).toBeUndefined();

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SourceExtractionSummary } from "../extraction/run-source-extraction";
+import type { ReferenceCaptureItemResult } from "../sources/reference-scan/run-reference-capture";
+import type { ReferenceScanRunSummary } from "../sources/reference-scan/run-reference-scan";
 import type { ExistenceCheckItemResult } from "../verification/run-existence-check";
 import { createAutoChain } from "./auto-chain";
 import { createJobRunner } from "./job-runner";
@@ -17,6 +19,12 @@ const fakeExtractionSummary: SourceExtractionSummary = {
 const fakeExistenceCheckResult: ExistenceCheckItemResult = {
   claimId: "claim_1",
   passed: true,
+  message: "ok",
+};
+
+const fakeScanSummary: ReferenceScanRunSummary = {
+  method: "regex",
+  candidateCount: 2,
   message: "ok",
 };
 
@@ -84,6 +92,62 @@ function fakeExtractionThatFailsFor(
         (id) => id,
         async () => fakeExtractionSummary,
         { kind: "extraction" },
+      );
+    },
+  );
+}
+
+/** The reference chain's two start-fns, faked the same way: real submits
+ * through the real runner, so "the scan and the capture cannot overlap" is
+ * asserted against the actual single-writer rule rather than against a
+ * promise ordering the fakes invented. */
+function fakeReferenceScan(runner: JobRunner) {
+  return vi.fn(
+    async (
+      projectId: string,
+      deps?: { runner?: JobRunner },
+    ): Promise<RunHandle<ReferenceScanRunSummary>> =>
+      (deps?.runner ?? runner).submit(
+        projectId,
+        ["briefing"],
+        () => "briefing",
+        async () => fakeScanSummary,
+        { kind: "reference_scan" },
+      ),
+  );
+}
+
+function fakeFailingReferenceScan() {
+  return vi.fn(async (): Promise<RunHandle<ReferenceScanRunSummary>> => {
+    throw new Error("boom on the scan");
+  });
+}
+
+/** `candidateCount` items — 0 means the real thing's "nothing resolved
+ * cleanly enough" answer, which starts no run at all and returns undefined. */
+function fakeAutoReferenceCapture(runner: JobRunner, candidateCount: number) {
+  return vi.fn(
+    async (
+      projectId: string,
+      deps?: { runner?: JobRunner },
+    ): Promise<RunHandle<ReferenceCaptureItemResult> | undefined> => {
+      if (candidateCount === 0) {
+        return undefined;
+      }
+      const items = Array.from(
+        { length: candidateCount },
+        (_unused, index) => `cand_${index}`,
+      );
+      return (deps?.runner ?? runner).submit(
+        projectId,
+        items,
+        (id) => id,
+        async (id) => ({
+          candidateId: id,
+          sourceId: `src_${id}`,
+          message: "ok",
+        }),
+        { kind: "reference_capture" },
       );
     },
   );
@@ -358,6 +422,133 @@ describe("createAutoChain: errors never kill the drain", () => {
     await vi.waitFor(() => {
       expect(startExistenceCheck).toHaveBeenCalledWith("proj_b", { runner });
     });
+
+    warn.mockRestore();
+  });
+});
+
+describe("createAutoChain: reference-scan → auto-capture chaining", () => {
+  it("captures the resolved candidates right after the scan it follows", async () => {
+    const runner = createJobRunner();
+    const startReferenceScan = fakeReferenceScan(runner);
+    const startAutoReferenceCapture = fakeAutoReferenceCapture(runner, 2);
+    const chain = createAutoChain({
+      runner,
+      startReferenceScan,
+      startAutoReferenceCapture,
+    });
+
+    chain.enqueueReferenceScan("proj_a");
+
+    await vi.waitFor(() => {
+      expect(startAutoReferenceCapture).toHaveBeenCalledTimes(1);
+    });
+    expect(startReferenceScan).toHaveBeenCalledWith("proj_a", { runner });
+    expect(startAutoReferenceCapture).toHaveBeenCalledWith("proj_a", {
+      runner,
+    });
+    const scanOrder = startReferenceScan.mock.invocationCallOrder[0];
+    const captureOrder = startAutoReferenceCapture.mock.invocationCallOrder[0];
+    expect(scanOrder).toBeLessThan(captureOrder);
+
+    await vi.waitFor(() => {
+      expect(chain.pendingTriggerCount("proj_a")).toBe(0);
+    });
+  });
+
+  it("drains on past a scan that left nothing worth capturing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const runner = createJobRunner();
+    const startReferenceScan = fakeReferenceScan(runner);
+    // No run at all: the honest signal for "every citation needs a human".
+    const startAutoReferenceCapture = fakeAutoReferenceCapture(runner, 0);
+    const startSourceExtraction = fakeExtraction(runner);
+    const startExistenceCheck = fakeExistenceCheck(runner);
+    const chain = createAutoChain({
+      runner,
+      startReferenceScan,
+      startAutoReferenceCapture,
+      startSourceExtraction,
+      startExistenceCheck,
+    });
+
+    chain.enqueueReferenceScan("proj_a");
+    chain.enqueueExistenceCheck("proj_a");
+
+    // The empty capture is a normal outcome, not a failed trigger: whatever
+    // was queued behind it still runs, and nothing is logged.
+    await vi.waitFor(() => {
+      expect(startExistenceCheck).toHaveBeenCalledTimes(1);
+    });
+    expect(startAutoReferenceCapture).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+
+    warn.mockRestore();
+  });
+
+  it("collapses a burst of publishes into one scan", async () => {
+    const runner = createJobRunner();
+    const startReferenceScan = fakeReferenceScan(runner);
+    const startAutoReferenceCapture = fakeAutoReferenceCapture(runner, 1);
+    const chain = createAutoChain({
+      runner,
+      startReferenceScan,
+      startAutoReferenceCapture,
+    });
+
+    // Blocked behind an active run so all three enqueues land in the backlog
+    // together, the same setup the extraction-coalescing test uses.
+    let release!: () => void;
+    const blocker = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const manual = runner.submit(
+      "proj_a",
+      ["x"],
+      (item) => item,
+      async () => blocker,
+      { kind: "verification" },
+    );
+
+    chain.enqueueReferenceScan("proj_a");
+    chain.enqueueReferenceScan("proj_a");
+    chain.enqueueReferenceScan("proj_a");
+
+    release();
+    await manual.done;
+
+    await vi.waitFor(() => {
+      expect(startAutoReferenceCapture).toHaveBeenCalledTimes(1);
+    });
+    expect(startReferenceScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs and continues past a scan whose start-fn throws", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const runner = createJobRunner();
+    const startReferenceScan = fakeFailingReferenceScan();
+    const startAutoReferenceCapture = fakeAutoReferenceCapture(runner, 1);
+    const startSourceExtraction = fakeExtraction(runner);
+    const startExistenceCheck = fakeExistenceCheck(runner);
+    const chain = createAutoChain({
+      runner,
+      startReferenceScan,
+      startAutoReferenceCapture,
+      startSourceExtraction,
+      startExistenceCheck,
+    });
+
+    chain.enqueueReferenceScan("proj_a");
+    chain.enqueueSourceExtraction("proj_a", "src_1");
+
+    // A failed scan chains no capture of its own, but the trigger behind it
+    // is untouched.
+    await vi.waitFor(() => {
+      expect(startExistenceCheck).toHaveBeenCalledTimes(1);
+    });
+    expect(startAutoReferenceCapture).not.toHaveBeenCalled();
+    expect(startSourceExtraction).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
 
     warn.mockRestore();
   });

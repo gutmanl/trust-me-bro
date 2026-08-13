@@ -58,10 +58,15 @@ export interface BriefingViewModel {
   openCount: number;
   /** Claims not (yet) confirmed, including discarded ones. */
   unconfirmedCount: number;
-  /** Banner condition (TMB-33): no claim awaits adjudication. Named
-   * `isFullyAdjudicated` rather than `isVerified` to avoid falsely
-   * suggesting the verification stage — the computed condition is "no claim
-   * pending adjudication". */
+  /** Banner condition (TMB-33): the briefing HAS claims and none of them
+   * awaits adjudication. Named `isFullyAdjudicated` rather than `isVerified`
+   * to avoid falsely suggesting the verification stage.
+   *
+   * The claim-count guard is not pedantry: "no claim is pending" is
+   * vacuously true for a briefing whose claims have not been extracted yet,
+   * and reporting that as a green "checked, nothing open" banner told the
+   * user the exact opposite of the truth — nothing had been examined at
+   * all. An empty briefing is unstarted, never finished. */
   isFullyAdjudicated: boolean;
 }
 
@@ -201,6 +206,6 @@ export function buildBriefingViewModel(
     evidenceNumbers,
     openCount,
     unconfirmedCount,
-    isFullyAdjudicated: openCount === 0,
+    isFullyAdjudicated: register.claims.length > 0 && openCount === 0,
   };
 }

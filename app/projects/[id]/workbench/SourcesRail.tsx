@@ -11,7 +11,11 @@ import type {
   ReviewCandidate,
   UnpaywallSetting,
 } from "@/lib/pipeline";
-import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
+import {
+  runKindLabel,
+  StartBlockedNotice,
+  useStartGate,
+} from "../RunStatusProvider";
 import { ReferenceCandidateReview } from "../sources/ReferenceCandidateReview";
 import { ReferenceScanPanel } from "../sources/ReferenceScanPanel";
 import { CaptureSourceForm } from "../sources/SourceForms";
@@ -33,6 +37,19 @@ export interface ReferenceImportVM {
 }
 
 const sweepInitial: RunFormState = { error: null };
+
+/** The run kinds the auto-chain drives, in the order they chain: a published
+ * briefing enters at the reference scan and leaves after the existence
+ * check. Kinds outside this set (verification, relevance, …) belong to other
+ * panels — the shared status bar reports those. Only the membership lives
+ * here; the labels stay in RunStatusProvider's one map, so this chip and the
+ * status bar above it can never name the same run differently. */
+const CHAIN_KINDS = new Set([
+  "reference_scan",
+  "reference_capture",
+  "extraction",
+  "existence_check",
+]);
 
 /**
  * The workbench's source column: the captured sources with their lifecycle,
@@ -78,16 +95,18 @@ export function SourcesRail({
   // flag; here the shared stream's active run does it, for the sweep button
   // and for every source row's re-extract alike.
   const extractionRunning = activeRun?.kind === "extraction";
-  const chainRunning =
-    extractionRunning || activeRun?.kind === "existence_check";
+  // The chain carries four kinds now: a published briefing enters it at
+  // reference_scan and leaves it at existence_check. `pendingTriggers` cannot
+  // say WHICH of them is waiting (the auto-chain deliberately exposes only a
+  // count), so the waiting label has to name the chain rather than a step.
+  const runningLabel =
+    activeRun?.kind && CHAIN_KINDS.has(activeRun.kind)
+      ? `${runKindLabel(activeRun.kind)} läuft …`
+      : undefined;
+  const chainRunning = runningLabel !== undefined;
   const chainLabel =
-    activeRun?.kind === "existence_check"
-      ? "Existenzprüfung läuft …"
-      : extractionRunning
-        ? "Extraktion läuft …"
-        : pendingTriggers > 0
-          ? "Extraktion ausstehend"
-          : null;
+    runningLabel ??
+    (pendingTriggers > 0 ? "Automatischer Folgeschritt ausstehend" : null);
 
   return (
     <section className="space-y-4">
@@ -145,9 +164,11 @@ export function SourcesRail({
             Referenzen aus dem Briefing importieren
           </h2>
           <p className="mt-1 mb-3 text-xs text-slate-600">
-            Durchsucht das eingefrorene Briefing nach zitierten Quellen (DOI,
-            arXiv-Id, URL sowie im Fließtext genannte Referenzen) und schlägt
-            sie zur Übernahme vor.
+            Läuft automatisch nach der ersten Übernahme des Briefings und nach
+            jeder Revision mit geändertem Text: durchsucht den eingefrorenen
+            Text nach zitierten Quellen (DOI, arXiv-Id, URL sowie im Fließtext
+            genannte Referenzen). Eindeutig aufgelöste Treffer werden dabei
+            selbst erfasst, alle übrigen bleiben unten zur Prüfung stehen.
           </p>
           <div className="space-y-4">
             <UnpaywallSettingPanel
@@ -163,14 +184,19 @@ export function SourcesRail({
             {referenceImport.scanState.status !== "not_started" ? (
               <p className="text-xs text-slate-600">
                 {referenceImport.scanState.candidateCount} Kandidat(en) gefunden
-                (
+                –{" "}
                 {
                   referenceImport.candidates.filter(
-                    (candidate) =>
-                      candidate.capturable && !candidate.alreadyCaptured,
+                    (candidate) => candidate.alreadyCaptured,
                   ).length
                 }{" "}
-                automatisch erfassbar).
+                bereits erfasst,{" "}
+                {
+                  referenceImport.candidates.filter(
+                    (candidate) => !candidate.alreadyCaptured,
+                  ).length
+                }{" "}
+                offen.
               </p>
             ) : null}
             {referenceImport.candidates.length > 0 ? (
