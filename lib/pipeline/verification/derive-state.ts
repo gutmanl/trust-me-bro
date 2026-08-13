@@ -1,4 +1,5 @@
 import type { ClaimsRegister } from "../../register";
+import { deriveRunBracket } from "../runs/derive-bracket";
 import { pickUnfinishedClaims } from "./select-claims";
 
 /**
@@ -27,48 +28,46 @@ export function deriveVerificationState(
   register: ClaimsRegister,
   hasActiveRun: boolean,
 ): VerificationState {
-  const started = register.project_events.filter(
-    (event) => event.event === "verification_run_started",
-  );
-  const completed = register.project_events.filter(
-    (event) => event.event === "verification_run_completed",
-  );
-  const lastStarted = started.at(-1);
-  const lastCompleted = completed.at(-1);
   const openClaims = pickUnfinishedClaims(register).length;
   const totalClaims = register.claims.length;
+  const bracket = deriveRunBracket(
+    register.project_events,
+    "verification_run_started",
+    "verification_run_completed",
+    hasActiveRun,
+  );
 
-  if (hasActiveRun) {
-    return {
-      status: "running",
-      startedAt: lastStarted?.at,
-      openClaims,
-      totalClaims,
-    };
+  switch (bracket.phase) {
+    case "running":
+      return {
+        status: "running",
+        startedAt: bracket.startedAt,
+        openClaims,
+        totalClaims,
+      };
+    case "interrupted":
+      // Opening bracket without a close: the process was interrupted. Every
+      // fully checked claim is already committed individually — restarting is
+      // safe and only checks the remainder.
+      return {
+        status: "interrupted",
+        startedAt: bracket.startedAt,
+        openClaims,
+        totalClaims,
+      };
+    case "closed":
+      return {
+        // halted = ended cleanly, but claims remain open (rate-limit pause or
+        // item error); derived structurally from the claim statuses, not from
+        // the event text.
+        status: openClaims > 0 ? "halted" : "completed",
+        startedAt: bracket.startedAt,
+        completedAt: bracket.completedAt,
+        reason: bracket.reason,
+        openClaims,
+        totalClaims,
+      };
+    case "not_started":
+      return { status: "not_started", openClaims, totalClaims };
   }
-  if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    // Opening bracket without a close: the process was interrupted. Every
-    // fully checked claim is already committed individually — restarting is
-    // safe and only checks the remainder.
-    return {
-      status: "interrupted",
-      startedAt: lastStarted.at,
-      openClaims,
-      totalClaims,
-    };
-  }
-  if (lastCompleted) {
-    return {
-      // halted = ended cleanly, but claims remain open (rate-limit pause or
-      // item error); derived structurally from the claim statuses, not from
-      // the event text.
-      status: openClaims > 0 ? "halted" : "completed",
-      startedAt: lastStarted?.at,
-      completedAt: lastCompleted.at,
-      reason: lastCompleted.reason,
-      openClaims,
-      totalClaims,
-    };
-  }
-  return { status: "not_started", openClaims, totalClaims };
 }

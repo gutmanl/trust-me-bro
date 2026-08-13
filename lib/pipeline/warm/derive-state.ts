@@ -1,4 +1,5 @@
 import type { ClaimsRegister } from "../../register";
+import { deriveRunBracket } from "../runs/derive-bracket";
 import { pendingRelevancePopulation } from "./select-claims";
 
 /**
@@ -44,40 +45,38 @@ export function deriveRelevanceState(
     return { status: "not_applicable", pendingClaims, adoptedClaims };
   }
 
-  const started = register.project_events.filter(
-    (event) => event.event === "relevance_run_started",
+  const bracket = deriveRunBracket(
+    register.project_events,
+    "relevance_run_started",
+    "relevance_run_completed",
+    hasActiveRun,
   );
-  const completed = register.project_events.filter(
-    (event) => event.event === "relevance_run_completed",
-  );
-  const lastStarted = started.at(-1);
-  const lastCompleted = completed.at(-1);
 
-  if (hasActiveRun) {
-    return {
-      status: "running",
-      startedAt: lastStarted?.at,
-      pendingClaims,
-      adoptedClaims,
-    };
+  switch (bracket.phase) {
+    case "running":
+      return {
+        status: "running",
+        startedAt: bracket.startedAt,
+        pendingClaims,
+        adoptedClaims,
+      };
+    case "interrupted":
+      return {
+        status: "interrupted",
+        startedAt: bracket.startedAt,
+        pendingClaims,
+        adoptedClaims,
+      };
+    case "closed":
+      return {
+        status: pendingClaims > 0 ? "halted" : "completed",
+        startedAt: bracket.startedAt,
+        completedAt: bracket.completedAt,
+        reason: bracket.reason,
+        pendingClaims,
+        adoptedClaims,
+      };
+    case "not_started":
+      return { status: "not_started", pendingClaims, adoptedClaims };
   }
-  if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    return {
-      status: "interrupted",
-      startedAt: lastStarted.at,
-      pendingClaims,
-      adoptedClaims,
-    };
-  }
-  if (lastCompleted) {
-    return {
-      status: pendingClaims > 0 ? "halted" : "completed",
-      startedAt: lastStarted?.at,
-      completedAt: lastCompleted.at,
-      reason: lastCompleted.reason,
-      pendingClaims,
-      adoptedClaims,
-    };
-  }
-  return { status: "not_started", pendingClaims, adoptedClaims };
 }

@@ -423,7 +423,7 @@ export class RegisterStore {
           actor: params.actor,
           event: "project_created",
           reason: "Projekt angelegt.",
-        }) as ProjectEvent,
+        }),
       );
       chain.seal(draft);
       const validated = this.validate(draft);
@@ -556,7 +556,7 @@ export class RegisterStore {
               event: "content_updated",
               reason:
                 "Inhaltsänderung ohne eigenen Verlaufseintrag versiegelt.",
-            }) as ProjectEvent,
+            }),
           );
         }
       }
@@ -626,6 +626,19 @@ function createTransaction(
     return evidence;
   };
 
+  /** The single point through which every chained project event is minted:
+   * append to the chain, materialize into the draft, hand the entry back.
+   * No narrowing needed — the appender returns the payload plus the chain
+   * link, which structurally IS a `ProjectEvent` (`state_root` is stamped
+   * later, at commit-time sealing). */
+  const appendProjectEvent = (
+    payload: Omit<ProjectEvent, "seq" | "prev_hash" | "hash" | "state_root">,
+  ): ProjectEvent => {
+    const entry: ProjectEvent = chain.append(payload);
+    draft.project_events.push(entry);
+    return entry;
+  };
+
   return {
     getProject: () => structuredClone(draft.project),
     getConfig: () => structuredClone(draft.config),
@@ -643,38 +656,32 @@ function createTransaction(
       draft.sources.push(source);
     },
     recordProjectEvent({ event, reason, actor, source_id, work_item_id, at }) {
-      const entry = chain.append({
+      return appendProjectEvent({
         at: at ?? new Date().toISOString(),
         actor,
         event,
         reason,
         ...(source_id !== undefined ? { source_id } : {}),
         ...(work_item_id !== undefined ? { work_item_id } : {}),
-      }) as ProjectEvent;
-      draft.project_events.push(entry);
-      return entry;
+      });
     },
     recordCaptureFailure({ work_item_id, origin, input, actor, reason, at }) {
-      const entry = chain.append({
+      return appendProjectEvent({
         at: at ?? new Date().toISOString(),
         actor,
         event: "source_capture_failed",
         reason,
         capture_failure: { work_item_id, origin, input },
-      }) as ProjectEvent;
-      draft.project_events.push(entry);
-      return entry;
+      });
     },
     recordRepairAction({ action, actor, reason, at }) {
-      const entry = chain.append({
+      return appendProjectEvent({
         at: at ?? new Date().toISOString(),
         actor,
         event: "source_repair_action",
         reason,
         repair_action: structuredClone(action),
-      }) as ProjectEvent;
-      draft.project_events.push(entry);
-      return entry;
+      });
     },
     recordBriefingImport({ sha256, blob_path, tool, actor, at }) {
       if (draft.project.briefing_import) {
@@ -684,14 +691,12 @@ function createTransaction(
       }
       const imported_at = at ?? new Date().toISOString();
       draft.project.briefing_import = { imported_at, sha256, blob_path, tool };
-      draft.project_events.push(
-        chain.append({
-          at: imported_at,
-          actor,
-          event: "briefing_imported",
-          reason: `Briefing eingefroren (${tool}).`,
-        }) as ProjectEvent,
-      );
+      appendProjectEvent({
+        at: imported_at,
+        actor,
+        event: "briefing_imported",
+        reason: `Briefing eingefroren (${tool}).`,
+      });
     },
     recordReferenceScan({
       sha256,
@@ -710,14 +715,12 @@ function createTransaction(
         method,
         candidate_count,
       };
-      draft.project_events.push(
-        chain.append({
-          at: scanned_at,
-          actor,
-          event: "reference_scan_completed",
-          reason,
-        }) as ProjectEvent,
-      );
+      appendProjectEvent({
+        at: scanned_at,
+        actor,
+        event: "reference_scan_completed",
+        reason,
+      });
     },
     addClaim(input) {
       return structuredClone(createClaim(draft, chain, input));
@@ -805,7 +808,7 @@ function createTransaction(
       reason,
       at,
     }) {
-      const entry = chain.append({
+      return appendProjectEvent({
         at: at ?? new Date().toISOString(),
         actor,
         event: "source_identity_corrected",
@@ -817,9 +820,7 @@ function createTransaction(
           snapshot_revision,
           recheck_claim_ids,
         },
-      }) as ProjectEvent;
-      draft.project_events.push(entry);
-      return entry;
+      });
     },
     reviseBriefing({ sha256, blob_path, tool, actor, reason, at }) {
       const current = draft.project.briefing_import;
@@ -840,14 +841,12 @@ function createTransaction(
         tool,
         revision: (current.revision ?? 1) + 1,
       };
-      draft.project_events.push(
-        chain.append({
-          at: imported_at,
-          actor,
-          event: "briefing_revised",
-          reason,
-        }) as ProjectEvent,
-      );
+      appendProjectEvent({
+        at: imported_at,
+        actor,
+        event: "briefing_revised",
+        reason,
+      });
     },
     reviseClaimAnchor(claimId, { new_anchor, new_quote, actor, reason, at }) {
       const claim = mutableClaim(claimId);
@@ -859,7 +858,7 @@ function createTransaction(
       if (new_quote !== undefined) {
         claim.anchor_quote = new_quote;
       }
-      const entry = chain.append({
+      return appendProjectEvent({
         at: at ?? new Date().toISOString(),
         actor,
         event: "claim_anchor_revised",
@@ -871,9 +870,7 @@ function createTransaction(
           ...(previous_quote !== undefined ? { previous_quote } : {}),
           ...(new_quote !== undefined ? { new_quote } : {}),
         },
-      }) as ProjectEvent;
-      draft.project_events.push(entry);
-      return entry;
+      });
     },
     remapClaimAnchor(claimId, { anchor, quote }) {
       const claim = mutableClaim(claimId);
@@ -886,15 +883,13 @@ function createTransaction(
     updateConfig({ config, actor, reason, at }) {
       const previous = structuredClone(draft.config);
       draft.config = structuredClone(config);
-      const entry = chain.append({
+      return appendProjectEvent({
         at: at ?? new Date().toISOString(),
         actor,
         event: "config_changed",
         reason,
         config_change: { previous, next: structuredClone(config) },
-      }) as ProjectEvent;
-      draft.project_events.push(entry);
-      return entry;
+      });
     },
     transitionClaim(claimId, request) {
       return structuredClone(

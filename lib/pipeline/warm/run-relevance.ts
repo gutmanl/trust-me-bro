@@ -3,7 +3,7 @@ import type { JobRequest, Orchestrator, RelevanceInput } from "../../adapters";
 import { loadAdapterConfig } from "../../identity";
 import type { ClaimsRegister, RegisterStore } from "../../register";
 import { RelevancePreconditionError } from "../errors";
-import { permissiveBackendPreflight, probeBackendUsable } from "../health";
+import { resolvePreflight } from "../health";
 import { buildProjectOrchestrator } from "../runs/build-orchestrator";
 import type { BackendPreflight } from "../health";
 import { requireProjectStore } from "../projects";
@@ -92,9 +92,7 @@ export async function startRelevanceCheck(
 
   // Preflight (TMB-49): refuse a run against an unusable primary CLI
   // BEFORE it starts, with the targeted setup hint.
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const preflight = resolvePreflight(deps);
   const primaryReady = await preflight(register.config.backends.primary.cli);
   if (!primaryReady.usable) {
     throw new RelevancePreconditionError(

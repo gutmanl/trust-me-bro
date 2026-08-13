@@ -1,4 +1,5 @@
 import type { ClaimsRegister } from "../../register";
+import { deriveRunBracket } from "../runs/derive-bracket";
 
 /**
  * Research state derived purely from the register, exactly like the
@@ -29,36 +30,38 @@ export function deriveResearchState(
   register: ClaimsRegister,
   hasActiveRun: boolean,
 ): ResearchState {
-  const started = register.project_events.filter(
-    (event) => event.event === "research_run_started",
-  );
-  const completed = register.project_events.filter(
-    (event) => event.event === "research_run_completed",
-  );
-  const lastStarted = started.at(-1);
-  const lastCompleted = completed.at(-1);
   const briefingPresent = register.project.briefing_import !== undefined;
+  const bracket = deriveRunBracket(
+    register.project_events,
+    "research_run_started",
+    "research_run_completed",
+    hasActiveRun,
+  );
 
-  if (hasActiveRun) {
-    return { status: "running", startedAt: lastStarted?.at, briefingPresent };
+  switch (bracket.phase) {
+    case "running":
+      return {
+        status: "running",
+        startedAt: bracket.startedAt,
+        briefingPresent,
+      };
+    case "interrupted":
+      return {
+        status: "interrupted",
+        startedAt: bracket.startedAt,
+        briefingPresent,
+      };
+    case "closed":
+      return {
+        // A completed bracket with a briefing is a success; without one the
+        // run reached its end without producing anything usable.
+        status: briefingPresent ? "completed" : "failed",
+        startedAt: bracket.startedAt,
+        completedAt: bracket.completedAt,
+        reason: bracket.reason,
+        briefingPresent,
+      };
+    case "not_started":
+      return { status: "not_started", briefingPresent };
   }
-  if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    return {
-      status: "interrupted",
-      startedAt: lastStarted.at,
-      briefingPresent,
-    };
-  }
-  if (lastCompleted) {
-    return {
-      // A completed bracket with a briefing is a success; without one the
-      // run reached its end without producing anything usable.
-      status: briefingPresent ? "completed" : "failed",
-      startedAt: lastStarted?.at,
-      completedAt: lastCompleted.at,
-      reason: lastCompleted.reason,
-      briefingPresent,
-    };
-  }
-  return { status: "not_started", briefingPresent };
 }

@@ -30,6 +30,7 @@ import { CaptureSourceButton } from "../sources/SourceForms";
 import { UnpaywallSettingPanel } from "../sources/UnpaywallSettingPanel";
 import type { RunFormState } from "./actions";
 import { startUnevidencedExtractionAction } from "./actions";
+import { deriveRailBuckets } from "./derive-rail-buckets";
 import { SourceRow, type SourceRowVM } from "./SourceRow";
 import { WorkItemRow } from "./WorkItemRow";
 
@@ -111,75 +112,21 @@ export function SourcesRail({
   const capturingItems = useItemLiveStatus("source_capture");
   const extractingSources = useItemLiveStatus("extraction");
 
-  // The unified list's row buckets. A candidate's capture state IS its work
-  // item (same id), rendered on the candidate row — so those work items must
-  // not ALSO render as standalone rows; only orphans (candidate rescanned
-  // away) keep their own row. Correction items render as state on their
-  // target source's row for the same reason (source correction).
-  const openCandidates =
-    referenceImport?.candidates.filter(
-      (candidate) => !candidate.alreadyCaptured,
-    ) ?? [];
-  const openCandidateIds = new Set(
-    openCandidates.map((candidate) => candidate.candidate_id),
-  );
-  const workItemByCandidate = new Map(
-    workItems
-      // An auto-repair retry of a failed reference-import candidate keeps
-      // the candidate's work-item id — its live state belongs on the
-      // candidate row too.
-      .filter(
-        (item) =>
-          item.origin === "reference_import" ||
-          (item.origin === "auto_repair" && item.targetSourceId === undefined),
-      )
-      .map((item) => [item.workItemId, item]),
-  );
-  // ALL correction items per source, not just the latest: a fresh
-  // correction may be running while an earlier attempt's open failure is
-  // still on the books — the row must show both (live progress AND every
-  // failure's retry/dismiss), or the loser of a per-source collision would
-  // render nowhere. Auto-repair items targeting a source render there too.
-  const correctionsBySource = new Map<string, SourceWorkItemVM[]>();
-  for (const item of workItems) {
-    if (
-      (item.origin === "correction" || item.origin === "auto_repair") &&
-      item.targetSourceId !== undefined
-    ) {
-      const list = correctionsBySource.get(item.targetSourceId) ?? [];
-      list.push(item);
-      correctionsBySource.set(item.targetSourceId, list);
-    }
-  }
-  const standaloneWorkItems = workItems.filter((item) => {
-    if (item.origin === "correction" || item.targetSourceId !== undefined) {
-      // Renders as state on the target source's row.
-      return false;
-    }
-    if (item.origin === "manual") {
-      return true;
-    }
-    // reference_import and target-less auto_repair items render on their
-    // candidate's row while that candidate is still open.
-    return !openCandidateIds.has(item.workItemId);
+  // The unified list's row buckets — the bucketing rules live in
+  // derive-rail-buckets.ts as a pure, tested derivation.
+  const {
+    openCandidates,
+    workItemByCandidate,
+    correctionsBySource,
+    standaloneWorkItems,
+    suggestionByWorkItem,
+    suggestionBySource,
+    readyCandidateCount,
+  } = deriveRailBuckets({
+    candidates: referenceImport?.candidates,
+    workItems,
+    repairSuggestions,
   });
-  const suggestionByWorkItem = new Map(
-    repairSuggestions.flatMap((entry) =>
-      entry.target.kind === "capture_failure"
-        ? [[entry.target.workItemId, entry] as const]
-        : [],
-    ),
-  );
-  const suggestionBySource = new Map(
-    repairSuggestions.flatMap((entry) =>
-      entry.target.kind === "source"
-        ? [[entry.target.sourceId, entry] as const]
-        : [],
-    ),
-  );
-  const readyCandidateCount = openCandidates.filter(
-    (candidate) => candidate.selected,
-  ).length;
 
   // `useStartGate("extraction")` reports null while an EXTRACTION run is
   // live — by design, so the panel that started it shows progress instead of

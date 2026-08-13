@@ -4,11 +4,7 @@ import { loadAdapterConfig } from "../../identity";
 import { evaluateAutoConfirmation } from "../../register";
 import type { ClaimsRegister, RegisterStore, Source } from "../../register";
 import { VerificationPreconditionError } from "../errors";
-import {
-  permissiveBackendPreflight,
-  probeBackendUsable,
-  withoutSecondaryBackend,
-} from "../health";
+import { resolvePreflight, withoutSecondaryBackend } from "../health";
 import type { BackendPreflight } from "../health";
 import { DEFAULT_SECOND_OPINION, requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
@@ -138,9 +134,7 @@ export async function startVerification(
   // stage 1 (deterministic existence check) must stay usable with the LLM
   // backends down. An unusable primary locks only the LLM stages per claim;
   // an unusable secondary disables the divergence rule for this run.
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const preflight = resolvePreflight(deps);
   const primaryReady = await preflight(register.config.backends.primary.cli);
   const secondaryCli = register.config.backends.secondary?.cli;
   const secondaryReady =

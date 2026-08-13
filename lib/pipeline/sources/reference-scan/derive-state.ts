@@ -1,16 +1,16 @@
 import type { ClaimsRegister } from "../../../register";
+import { deriveRunBracket } from "../../runs/derive-bracket";
 
 /**
  * Reference-scan state derived purely from the register (plus the volatile
- * "a live run exists" flag), mirroring extraction/derive-state.ts: the
- * reference_scan_started/completed events bracket a run, and — because the
- * pointer is written in the SAME transaction as the completion event
- * (run-reference-scan.ts's atomicity) — a dangling open bracket
- * unambiguously means the process was interrupted before anything was
- * written, exactly like extraction. Unlike extraction there is no "failed"
- * status: a reference scan never fails outright, at worst it degrades to
- * the regex-only channel (see run-reference-scan.ts's doc comment) — that
- * degradation still ends in a completed scan.
+ * "a live run exists" flag): the reference_scan_started/completed events
+ * bracket a run, and — because the pointer is written in the SAME
+ * transaction as the completion event (run-reference-scan.ts's atomicity) —
+ * a dangling open bracket unambiguously means the process was interrupted
+ * before anything was written, exactly like extraction. Unlike extraction
+ * there is no "failed" status: a reference scan never fails outright, at
+ * worst it degrades to the regex-only channel (see run-reference-scan.ts's
+ * doc comment) — that degradation still ends in a completed scan.
  */
 
 export type ReferenceScanStatus =
@@ -31,34 +31,36 @@ export function deriveReferenceScanState(
   register: ClaimsRegister,
   hasActiveRun: boolean,
 ): ReferenceScanState {
-  const started = register.project_events.filter(
-    (event) => event.event === "reference_scan_started",
-  );
-  const completed = register.project_events.filter(
-    (event) => event.event === "reference_scan_completed",
-  );
-  const lastStarted = started.at(-1);
-  const lastCompleted = completed.at(-1);
   const candidateCount = register.project.reference_scan?.candidate_count ?? 0;
+  const bracket = deriveRunBracket(
+    register.project_events,
+    "reference_scan_started",
+    "reference_scan_completed",
+    hasActiveRun,
+  );
 
-  if (hasActiveRun) {
-    return { status: "running", startedAt: lastStarted?.at, candidateCount };
+  switch (bracket.phase) {
+    case "running":
+      return {
+        status: "running",
+        startedAt: bracket.startedAt,
+        candidateCount,
+      };
+    case "interrupted":
+      return {
+        status: "interrupted",
+        startedAt: bracket.startedAt,
+        candidateCount,
+      };
+    case "closed":
+      return {
+        status: "completed",
+        startedAt: bracket.startedAt,
+        completedAt: bracket.completedAt,
+        reason: bracket.reason,
+        candidateCount,
+      };
+    case "not_started":
+      return { status: "not_started", candidateCount };
   }
-  if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
-    return {
-      status: "interrupted",
-      startedAt: lastStarted.at,
-      candidateCount,
-    };
-  }
-  if (lastCompleted) {
-    return {
-      status: "completed",
-      startedAt: lastStarted?.at,
-      completedAt: lastCompleted.at,
-      reason: lastCompleted.reason,
-      candidateCount,
-    };
-  }
-  return { status: "not_started", candidateCount };
 }

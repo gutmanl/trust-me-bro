@@ -153,6 +153,22 @@ export const permissiveBackendPreflight: BackendPreflight = async () => ({
 });
 
 /**
+ * The run use-cases' shared resolution of that seam: an explicitly injected
+ * preflight wins; otherwise an injected orchestrator selects the permissive
+ * answer (it never talks to real CLIs, so probing them would be meaningless)
+ * and only the default orchestrator probes the real CLI.
+ */
+export function resolvePreflight(deps: {
+  preflight?: BackendPreflight;
+  orchestrator?: unknown;
+}): BackendPreflight {
+  return (
+    deps.preflight ??
+    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable)
+  );
+}
+
+/**
  * Effective config for a run whose secondary backend failed preflight
  * (TMB-49 graceful degradation): the divergence rule is disabled for this
  * run only — the saved project settings stay untouched, the run event notes

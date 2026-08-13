@@ -11,7 +11,7 @@ import type {
 import { loadAdapterConfig } from "../../../identity";
 import type { ClaimsRegister, RegisterStore } from "../../../register";
 import { ReferenceScanPreconditionError } from "../../errors";
-import { permissiveBackendPreflight, probeBackendUsable } from "../../health";
+import { resolvePreflight } from "../../health";
 import type { BackendPreflight } from "../../health";
 import { requireProjectStore } from "../../projects";
 import { getGlobalJobRunner } from "../../runs/job-runner";
@@ -33,6 +33,7 @@ import { deriveDocumentUrl } from "./derive-document-url";
 import { deriveReferenceScanState } from "./derive-state";
 import type { ReferenceScanState } from "./derive-state";
 import { scanRegex } from "./scan-regex";
+import type { ReferenceRegexHit } from "./scan-regex";
 import { ReferenceScanResult } from "./schema";
 import type { ReferenceCandidate } from "./schema";
 
@@ -86,9 +87,7 @@ export async function startReferenceScan(
       "Vor dem Referenz-Scan muss ein Briefing importiert sein.",
     );
   }
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const preflight = resolvePreflight(deps);
   const primaryReady = await preflight(register.config.backends.primary.cli);
 
   const runner = deps.runner ?? getGlobalJobRunner();
@@ -159,27 +158,18 @@ interface RunContext {
   runId: string;
 }
 
-async function runReferenceScanOnce(
-  context: RunContext,
-): Promise<ReferenceScanRunSummary> {
-  const { store, register, briefingText, runId } = context;
-
-  await store.transaction((tx) => {
-    tx.recordProjectEvent({
-      event: "reference_scan_started",
-      reason: `Referenz-Scan gestartet (Lauf ${runId}).`,
-      actor: ACTOR,
-    });
-  });
-
-  const regexHits = scanRegex(briefingText);
-  const footnotes = parseFootnoteDefinitions(briefingText);
-  const footnoteByMarker = new Map(footnotes.map((def) => [def.marker, def]));
-
-  // A footnote whose marker also appears inline next to a URL/DOI IS that
-  // inline source (Elicit cites each source both ways). Its marker is
-  // "claimed": the footnote's title enriches the identifier candidate below,
-  // and its separate report by the LLM/footnote channel is a duplicate.
+/**
+ * The deterministic channel: regex identifier hits become candidate seeds.
+ * A footnote whose marker also appears inline next to a URL/DOI IS that
+ * inline source (Elicit cites each source both ways). Its marker is
+ * "claimed": the footnote's title enriches the identifier candidate (a bare
+ * URL has none), and its separate report by the LLM/footnote channel is a
+ * duplicate.
+ */
+function buildRegexSeeds(
+  regexHits: ReferenceRegexHit[],
+  footnoteByMarker: Map<string, FootnoteDefinition>,
+): { regexSeeds: CandidateSeed[]; claimedMarkers: Set<string> } {
   const claimedMarkers = new Set<string>();
   for (const hit of regexHits) {
     for (const marker of footnoteMarkersIn(hit.raw_text)) {
@@ -188,7 +178,6 @@ async function runReferenceScanOnce(
       }
     }
   }
-
   const regexSeeds: CandidateSeed[] = regexHits.map((hit) => {
     const def = footnoteMarkersIn(hit.raw_text)
       .map((marker) => footnoteByMarker.get(marker))
@@ -199,49 +188,77 @@ async function runReferenceScanOnce(
       ...(hit.doi ? { doi: hit.doi } : {}),
       ...(hit.arxiv_id ? { arxiv_id: hit.arxiv_id } : {}),
       ...(hit.url ? { url: hit.url } : {}),
-      // The footnote for this citation's marker gives the inline URL/DOI a
-      // title it otherwise lacks (a bare URL has none).
       ...(def?.title ? { title: def.title } : {}),
     };
   });
+  return { regexSeeds, claimedMarkers };
+}
 
-  let parsed: ParsedReference[] = [];
-  let method: "regex" | "regex+llm" = "regex";
-  let degradationNote = "";
-
-  if (context.backendUsable) {
-    // Only identifier spans are hidden from the LLM; footnote titles are left
-    // visible so the model reports (and enriches) them as it normally would.
-    const alreadyDetected = regexHits.map((hit) => hit.matchedText);
-    const input: ReferenceParseInput = {
-      briefing_text: briefingText,
-      already_detected: alreadyDetected,
+/** The optional LLM channel: hunts textual citations the regex missed. Only
+ * identifier spans are hidden from the LLM; footnote titles are left visible
+ * so the model reports (and enriches) them as it normally would. Every
+ * failure degrades to the regex-only method with a visible note — this
+ * channel never fails a scan. */
+async function runLlmChannel(
+  context: RunContext,
+  regexHits: ReferenceRegexHit[],
+): Promise<{
+  parsed: ParsedReference[];
+  method: "regex" | "regex+llm";
+  degradationNote: string;
+}> {
+  if (!context.backendUsable) {
+    return {
+      parsed: [],
+      method: "regex",
+      degradationNote: ` LLM-Kanal übersprungen (Backend nicht einsatzbereit: ${context.backendHint ?? "unbekannt"}).`,
     };
-    const job: JobRequest<"reference_parse"> = {
-      kind: "reference_parse",
-      projectDir: store.projectDir,
-      input,
-      prompt: renderPromptForJob("reference_parse", input),
-      timeoutMs: context.timeoutMs,
-    };
-    const outcome = await context.orchestrator.run(context.backendId, job);
-    if (outcome.status === "ok") {
-      parsed = outcome.output.references;
-      method = "regex+llm";
-    } else if (outcome.status === "paused") {
-      degradationNote = ` LLM-Kanal übersprungen (Rate-Limit: ${outcome.reason}).`;
-    } else {
-      degradationNote = ` LLM-Kanal übersprungen (erschöpft: ${outcome.lastError.message}).`;
-    }
-  } else {
-    degradationNote = ` LLM-Kanal übersprungen (Backend nicht einsatzbereit: ${context.backendHint ?? "unbekannt"}).`;
   }
+  const input: ReferenceParseInput = {
+    briefing_text: context.briefingText,
+    already_detected: regexHits.map((hit) => hit.matchedText),
+  };
+  const job: JobRequest<"reference_parse"> = {
+    kind: "reference_parse",
+    projectDir: context.store.projectDir,
+    input,
+    prompt: renderPromptForJob("reference_parse", input),
+    timeoutMs: context.timeoutMs,
+  };
+  const outcome = await context.orchestrator.run(context.backendId, job);
+  if (outcome.status === "ok") {
+    return {
+      parsed: outcome.output.references,
+      method: "regex+llm",
+      degradationNote: "",
+    };
+  }
+  return {
+    parsed: [],
+    method: "regex",
+    degradationNote:
+      outcome.status === "paused"
+        ? ` LLM-Kanal übersprungen (Rate-Limit: ${outcome.reason}).`
+        : ` LLM-Kanal übersprungen (erschöpft: ${outcome.lastError.message}).`,
+  };
+}
 
-  // De-dup units: the briefing paragraphs that carry an inline identifier,
-  // plus the footnote definitions already claimed by an inline identifier
-  // (their titles now live on the identifier candidate). An LLM citation that
-  // re-reports either — the same paragraph in prose, or the same footnote
-  // definition — is a duplicate of the identifier candidate and dropped.
+/**
+ * De-duplicates the LLM citations against the identifier channel and splits
+ * them by whether they carry their own identifier. De-dup units: the
+ * briefing paragraphs that carry an inline identifier, plus the footnote
+ * definitions already claimed by an inline identifier (their titles now
+ * live on the identifier candidate). An LLM citation that re-reports either
+ * — the same paragraph in prose, or the same footnote definition — is a
+ * duplicate of the identifier candidate and dropped.
+ */
+function partitionLlmReferences(
+  parsed: ParsedReference[],
+  briefingText: string,
+  regexHits: ReferenceRegexHit[],
+  footnotes: FootnoteDefinition[],
+  claimedMarkers: Set<string>,
+): { identifiedSeeds: CandidateSeed[]; withoutIdentifier: ParsedReference[] } {
   const identifierSpans = regexHits.map((hit) => hit.matchedText);
   const identifiedParagraphs = briefingText
     .split(/\r?\n\s*\r?\n/)
@@ -256,14 +273,9 @@ async function runReferenceScanOnce(
     [...identifiedParagraphs, ...claimedFootnoteTexts],
     identifierSpans,
   );
-  const parsedWithIdentifier = parsedNew.filter(
-    (reference) => reference.doi || reference.arxiv_id || reference.url,
-  );
-  const parsedWithoutIdentifier = parsedNew.filter(
-    (reference) => !reference.doi && !reference.arxiv_id && !reference.url,
-  );
-  const parsedIdentifiedSeeds: CandidateSeed[] = parsedWithIdentifier.map(
-    (reference) => ({
+  const identifiedSeeds: CandidateSeed[] = parsedNew
+    .filter((reference) => reference.doi || reference.arxiv_id || reference.url)
+    .map((reference) => ({
       raw_text: reference.raw_text,
       method: reference.doi ? "doi" : reference.arxiv_id ? "arxiv" : "url",
       ...(reference.doi ? { doi: reference.doi } : {}),
@@ -273,51 +285,22 @@ async function runReferenceScanOnce(
       ...(reference.year !== undefined ? { year: reference.year } : {}),
       title: reference.title,
       ...(reference.venue ? { venue: reference.venue } : {}),
-    }),
+    }));
+  const withoutIdentifier = parsedNew.filter(
+    (reference) => !reference.doi && !reference.arxiv_id && !reference.url,
   );
+  return { identifiedSeeds, withoutIdentifier };
+}
 
-  // Footnote definitions WITHOUT an inline identifier are references with no
-  // pasted link; they feed the same Crossref title-resolution as the LLM's
-  // identifier-less citations — but only when the LLM channel did NOT run (it
-  // reads the footnotes itself). Claimed footnotes are already represented by
-  // their inline identifier candidate, so they are skipped here.
-  const footnoteReferences: ParsedReference[] =
-    method === "regex"
-      ? footnotes
-          .filter((def) => !claimedMarkers.has(def.marker))
-          .map((def) => ({
-            raw_text: def.rawText,
-            authors: [],
-            title: def.title,
-          }))
-      : [];
-
-  // Pre-filter against already-captured sources BEFORE any Crossref lookup
-  // (quota) — both the identified pool and the identifier-less pool headed
-  // for Crossref.
-  const identifiedPool = excludeCaptured(
-    [...regexSeeds, ...parsedIdentifiedSeeds],
-    register.sources,
-  );
-  // Identity cross-check (automatic repair): every DOI/arXiv seed that
-  // carries a cited title gets its identifier's resolved metadata compared
-  // against that title BEFORE it can be auto-captured — the preventive
-  // guard against hallucinated identifiers that resolve to a real but
-  // wrong work. Sequential like every other remote loop here; failures
-  // fail open inside the check.
-  const preCrossrefPool: CandidateSeed[] = [];
-  for (const seed of identifiedPool) {
-    preCrossrefPool.push(
-      await crossCheckIdentifiedSeed(seed, context.fetcher, context.sleep),
-    );
-  }
-  const remainingWithoutIdentifier = excludeCaptured(
-    [...parsedWithoutIdentifier, ...footnoteReferences],
-    register.sources,
-  );
-
+/** Sequential Crossref title-resolution of the identifier-less pool —
+ * deterministic call order for tests and gentler on Crossref's rate limit;
+ * failures are absorbed one level down (crossref.ts). */
+async function resolveViaCrossrefTitle(
+  references: ParsedReference[],
+  context: RunContext,
+): Promise<CandidateSeed[]> {
   const crossrefSeeds: CandidateSeed[] = [];
-  for (const reference of remainingWithoutIdentifier) {
+  for (const reference of references) {
     const resolution = await matchViaCrossrefTitle(
       reference,
       context.fetcher,
@@ -341,6 +324,84 @@ async function runReferenceScanOnce(
         : {}),
     });
   }
+  return crossrefSeeds;
+}
+
+async function runReferenceScanOnce(
+  context: RunContext,
+): Promise<ReferenceScanRunSummary> {
+  const { store, register, briefingText, runId } = context;
+
+  await store.transaction((tx) => {
+    tx.recordProjectEvent({
+      event: "reference_scan_started",
+      reason: `Referenz-Scan gestartet (Lauf ${runId}).`,
+      actor: ACTOR,
+    });
+  });
+
+  const regexHits = scanRegex(briefingText);
+  const footnotes = parseFootnoteDefinitions(briefingText);
+  const footnoteByMarker = new Map(footnotes.map((def) => [def.marker, def]));
+  const { regexSeeds, claimedMarkers } = buildRegexSeeds(
+    regexHits,
+    footnoteByMarker,
+  );
+
+  const { parsed, method, degradationNote } = await runLlmChannel(
+    context,
+    regexHits,
+  );
+  const { identifiedSeeds, withoutIdentifier } = partitionLlmReferences(
+    parsed,
+    briefingText,
+    regexHits,
+    footnotes,
+    claimedMarkers,
+  );
+
+  // Footnote definitions WITHOUT an inline identifier are references with no
+  // pasted link; they feed the same Crossref title-resolution as the LLM's
+  // identifier-less citations — but only when the LLM channel did NOT run (it
+  // reads the footnotes itself). Claimed footnotes are already represented by
+  // their inline identifier candidate, so they are skipped here.
+  const footnoteReferences: ParsedReference[] =
+    method === "regex"
+      ? footnotes
+          .filter((def) => !claimedMarkers.has(def.marker))
+          .map((def) => ({
+            raw_text: def.rawText,
+            authors: [],
+            title: def.title,
+          }))
+      : [];
+
+  // Pre-filter against already-captured sources BEFORE any Crossref lookup
+  // (quota) — both the identified pool and the identifier-less pool headed
+  // for Crossref.
+  const identifiedPool = excludeCaptured(
+    [...regexSeeds, ...identifiedSeeds],
+    register.sources,
+  );
+  // Identity cross-check (automatic repair): every DOI/arXiv seed that
+  // carries a cited title gets its identifier's resolved metadata compared
+  // against that title BEFORE it can be auto-captured — the preventive
+  // guard against hallucinated identifiers that resolve to a real but
+  // wrong work. Sequential like every other remote loop here; failures
+  // fail open inside the check.
+  const preCrossrefPool: CandidateSeed[] = [];
+  for (const seed of identifiedPool) {
+    preCrossrefPool.push(
+      await crossCheckIdentifiedSeed(seed, context.fetcher, context.sleep),
+    );
+  }
+  const crossrefSeeds = await resolveViaCrossrefTitle(
+    excludeCaptured(
+      [...withoutIdentifier, ...footnoteReferences],
+      register.sources,
+    ),
+    context,
+  );
 
   const mergedCandidates = mergeCandidates([
     ...preCrossrefPool,

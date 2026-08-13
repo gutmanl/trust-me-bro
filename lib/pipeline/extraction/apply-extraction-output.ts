@@ -101,6 +101,59 @@ function resolveAnchor(quote: string, briefingParagraphs: string[]): string {
 }
 
 /**
+ * History reason of a newly created claim. The creation gate decides the
+ * STATUS; this classifies the routing for the reader of the history:
+ * evidence-less because everything was filtered (hallucinated source ids),
+ * evidence-less because nothing was extractable, bundled (atomicity gate),
+ * or the regular case.
+ */
+function classifyCreationReason(
+  keptEvidence: readonly ExtractedEvidence[],
+  extractedEvidenceCount: number,
+  text: string,
+  scope: string,
+): string {
+  if (keptEvidence.length === 0) {
+    return extractedEvidenceCount > 0
+      ? "Alle Fundstellen nannten unbekannte Quellen-Ids " +
+          "(mutmaßlich halluzinierte Referenzen) und wurden verworfen – " +
+          "unbelegter Claim zur Adjudikation."
+      : "Keine Fundstelle extrahierbar – unbelegter Claim zur Adjudikation.";
+  }
+  return isAtomicClaimText(text)
+    ? `Aus dem Briefing extrahiert (${scope}).`
+    : "Atomaritätsgate: Extraktionsergebnis bündelt mehrere Aussagen – zur Adjudikation.";
+}
+
+/** New evidence on a claim in a settled status pulls it to recheck_required
+ * (TMB-44 edges) — one transition per touched claim, naming the sources
+ * whose evidence triggered the recheck. Returns the pulled claim ids. */
+function pullSettledClaimsToRecheck(
+  tx: RegisterTransaction,
+  knownClaims: Iterable<KnownClaim>,
+  now: string,
+): string[] {
+  const recheckPulled: string[] = [];
+  for (const known of new Set(knownClaims)) {
+    if (
+      known.addedSourceIds.length === 0 ||
+      !RECHECK_STATUSES.has(known.status)
+    ) {
+      continue;
+    }
+    const sources = [...new Set(known.addedSourceIds)].join(", ");
+    tx.transitionClaim(known.id, {
+      to: "recheck_required",
+      actor: ACTOR,
+      reason: `Neue Fundstelle aus Quelle ${sources} – erneute Prüfung erforderlich.`,
+      at: now,
+    });
+    recheckPulled.push(known.id);
+  }
+  return recheckPulled;
+}
+
+/**
  * Commits one extraction pass. Dedupe runs IN the transaction against fresh
  * claims: a candidate whose normalizeForSearch(text) equals an existing
  * non-discarded claim's normalized text is treated as additional evidence for
@@ -246,25 +299,17 @@ export function applyExtractionOutput(
       }
       continue;
     }
-    // The creation gate decides the status; the reason classifies the
-    // routing for the history (unevidenced vs. bundled vs. filtered vs.
-    // regular).
-    const reason =
-      evidence.length === 0
-        ? extracted.evidence.length > 0
-          ? "Alle Fundstellen nannten unbekannte Quellen-Ids " +
-            "(mutmaßlich halluzinierte Referenzen) und wurden verworfen – " +
-            "unbelegter Claim zur Adjudikation."
-          : "Keine Fundstelle extrahierbar – unbelegter Claim zur Adjudikation."
-        : isAtomicClaimText(extracted.text)
-          ? `Aus dem Briefing extrahiert (${scope}).`
-          : "Atomaritätsgate: Extraktionsergebnis bündelt mehrere Aussagen – zur Adjudikation.";
     create({
       text: extracted.text,
       claim_type: extracted.claim_type,
       quote: extracted.anchor_quote,
       evidence,
-      reason,
+      reason: classifyCreationReason(
+        evidence,
+        extracted.evidence.length,
+        extracted.text,
+        scope,
+      ),
     });
   }
 
@@ -300,23 +345,11 @@ export function applyExtractionOutput(
     });
   }
 
-  const recheckPulled: string[] = [];
-  for (const known of new Set(byNormalizedText.values())) {
-    if (
-      known.addedSourceIds.length === 0 ||
-      !RECHECK_STATUSES.has(known.status)
-    ) {
-      continue;
-    }
-    const sources = [...new Set(known.addedSourceIds)].join(", ");
-    tx.transitionClaim(known.id, {
-      to: "recheck_required",
-      actor: ACTOR,
-      reason: `Neue Fundstelle aus Quelle ${sources} – erneute Prüfung erforderlich.`,
-      at: now,
-    });
-    recheckPulled.push(known.id);
-  }
+  const recheckPulled = pullSettledClaimsToRecheck(
+    tx,
+    byNormalizedText.values(),
+    now,
+  );
 
   tx.recordProjectEvent({
     event: "batch_run_completed",

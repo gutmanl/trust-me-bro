@@ -5,7 +5,7 @@ import { loadAdapterConfig } from "../../identity";
 import type { ClaimsRegister, RegisterStore } from "../../register";
 import { freezeBriefing } from "../briefing";
 import { ResearchPreconditionError } from "../errors";
-import { permissiveBackendPreflight, probeBackendUsable } from "../health";
+import { resolvePreflight } from "../health";
 import type { BackendPreflight } from "../health";
 import { requireProjectStore } from "../projects";
 import { getGlobalJobRunner } from "../runs/job-runner";
@@ -50,9 +50,7 @@ export async function startResearch(
     );
   }
 
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const preflight = resolvePreflight(deps);
   const primaryReady = await preflight(register.config.backends.primary.cli);
   if (!primaryReady.usable) {
     throw new ResearchPreconditionError(

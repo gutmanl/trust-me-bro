@@ -26,7 +26,7 @@ import {
   pendingTriggerCount,
   readProject,
 } from "@/lib/pipeline";
-import type { SourceType } from "@/lib/register";
+import type { Source, SourceType } from "@/lib/register";
 import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
 import { formatTimestamp, SOURCE_TYPE_LABELS } from "../status-labels";
 import type { ReferenceImportVM } from "./workbench/SourcesRail";
@@ -52,10 +52,10 @@ const AUTO_CAPTURE_METHOD_LABELS: Record<
 
 /** Identifier shape of a source's CURRENT identity, prefilling the
  * correction modal's kind tabs (source correction) — pure presentation
- * derivation, so it lives here rather than in the pipeline. */
-function identifierKindOf(
-  source: Record<string, unknown>,
-): "doi" | "arxiv" | "url" | "upload" {
+ * derivation, so it lives here rather than in the pipeline. `DOI`/`URL`
+ * are unconstrained CSL passthrough fields on `Source` (loose object),
+ * hence the typeof narrowing. */
+function identifierKindOf(source: Source): "doi" | "arxiv" | "url" | "upload" {
   if (typeof source.DOI === "string" && source.DOI.length > 0) {
     return "doi";
   }
@@ -140,7 +140,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         ...(extractionOutcomes.get(source.id)?.outcome === "failed"
           ? { extractionMessage: extractionOutcomes.get(source.id)?.message }
           : {}),
-        currentKind: identifierKindOf(source as Record<string, unknown>),
+        currentKind: identifierKindOf(source),
         currentSourceType: source.custom.source_type as SourceType,
         previousIdentities: source.custom.previous_identities?.length ?? 0,
       },

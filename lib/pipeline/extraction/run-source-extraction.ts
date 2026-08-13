@@ -15,7 +15,7 @@ import type {
   Source,
 } from "../../register";
 import { ExtractionPreconditionError, UnknownSourceError } from "../errors";
-import { permissiveBackendPreflight, probeBackendUsable } from "../health";
+import { resolvePreflight } from "../health";
 import type { BackendPreflight } from "../health";
 import { requireProjectStore } from "../projects";
 import { briefingRenderContext } from "../research/independence";
@@ -99,9 +99,7 @@ async function start(
   }
   // Preflight (TMB-49): a run against an unusable primary CLI is refused
   // BEFORE it starts — with the targeted setup hint, not a mid-run error.
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const preflight = resolvePreflight(deps);
   const primaryReady = await preflight(register.config.backends.primary.cli);
   if (!primaryReady.usable) {
     throw new ExtractionPreconditionError(

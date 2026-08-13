@@ -10,7 +10,7 @@ import type {
 import { loadAdapterConfig } from "../../../identity";
 import type { ClaimsRegister } from "../../../register";
 import type { RepairAction } from "../../../register/schema/history";
-import { permissiveBackendPreflight, probeBackendUsable } from "../../health";
+import { resolvePreflight } from "../../health";
 import type { BackendPreflight } from "../../health";
 import type { HttpFetcher } from "../fetch-port";
 import { cleanReferenceTitle } from "../reference-scan/reference-title";
@@ -98,9 +98,7 @@ export async function rematchCitation(
   fetcher: HttpFetcher,
   deps: RematchDependencies,
 ): Promise<TitleMatch> {
-  const preflight =
-    deps.preflight ??
-    (deps.orchestrator ? permissiveBackendPreflight : probeBackendUsable);
+  const preflight = resolvePreflight(deps);
   const backendId = register.config.backends.primary.cli;
   const primaryReady = await preflight(backendId);
   const orchestrator =
