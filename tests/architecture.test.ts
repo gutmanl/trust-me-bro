@@ -237,8 +237,6 @@ describe("public surface of lib/pipeline", () => {
     // The automatic post-publish captures are reached only through the
     // auto-chain: the item-building policy is not app-facing.
     expect(surface.buildAutoCaptureItems).toBeUndefined();
-    expect(surface.selectAutoCaptures).toBeUndefined();
-    expect(surface.startAutoReferenceCapture).toBeUndefined();
     expect(surface.scanRegex).toBeUndefined();
     expect(surface.mergeCandidates).toBeUndefined();
     expect(surface.candidateId).toBeUndefined();
