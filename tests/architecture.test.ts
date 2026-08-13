@@ -201,6 +201,9 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.startSourceExtraction).toBeDefined();
     expect(surface.startUnevidencedExtraction).toBeDefined();
     expect(surface.deriveExtractionActivity).toBeDefined();
+    // Source work items: the per-source verdict of the last pass, read off
+    // the bracket events' structured source_id.
+    expect(surface.deriveSourceExtractionOutcomes).toBeDefined();
     expect(surface.deriveSourceLifecycles).toBeDefined();
     expect(surface.applyExtractionOutput).toBeUndefined();
     expect(surface.startVerification).toBeDefined();

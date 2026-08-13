@@ -141,7 +141,10 @@ export type {
   SourceExtractionDependencies,
   SourceExtractionSummary,
 } from "./extraction/run-source-extraction";
-export { deriveExtractionActivity } from "./extraction/derive-state";
+export {
+  deriveExtractionActivity,
+  deriveSourceExtractionOutcomes,
+} from "./extraction/derive-state";
 export type { ExtractionActivity } from "./extraction/derive-state";
 export { deriveSourceLifecycles } from "./sources/source-lifecycle";
 export type { SourceLifecycle } from "./sources/source-lifecycle";

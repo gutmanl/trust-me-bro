@@ -197,6 +197,9 @@ describe("per-source extraction pass", () => {
       "batch_run_completed",
     ]);
     expect(batchEvents[0].reason).toContain("src_studie");
+    // Source work items: both brackets carry the structured attribution.
+    expect(batchEvents[0].source_id).toBe("src_studie");
+    expect(batchEvents[1].source_id).toBe("src_studie");
     expect((await store.verify()).ok).toBe(true);
     expect(deriveExtractionActivity(register, false).lastOutcome).toBe(
       "completed",
@@ -252,7 +255,9 @@ describe("per-source extraction pass", () => {
 
     const register = await RegisterStore.forProject(PROJECT).read();
     expect(register.claims).toHaveLength(0);
-    expect(register.project_events.at(-1)?.event).toBe("batch_run_completed");
+    const failedEvent = register.project_events.at(-1);
+    expect(failedEvent?.event).toBe("batch_run_completed");
+    expect(failedEvent?.source_id).toBe("src_studie");
     expect(deriveExtractionActivity(register, false).lastOutcome).toBe(
       "failed",
     );

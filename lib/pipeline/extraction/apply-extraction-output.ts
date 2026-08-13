@@ -282,6 +282,11 @@ export function applyExtractionOutput(
       `${merged} zusätzliche Fundstelle(n) an bestehenden Claims; ` +
       `${recheckPulled.length} Claim(s) zur Nachprüfung.`,
     actor: ACTOR,
+    // Structured per-source attribution (source work items): absent for the
+    // sweep, so per-row status never misreads a sweep as a source pass.
+    ...(meta.targetSourceId !== null
+      ? { source_id: meta.targetSourceId }
+      : {}),
     at: now,
   });
 

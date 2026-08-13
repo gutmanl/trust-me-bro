@@ -4,6 +4,7 @@ import type { ClaimsRegister } from "../../register";
 import exampleProject from "../../register/schema/__fixtures__/example-project.json";
 import {
   deriveExtractionActivity,
+  deriveSourceExtractionOutcomes,
   EXTRACTION_COMPLETED_PREFIX,
   EXTRACTION_FAILED_PREFIX,
 } from "./derive-state";
@@ -23,6 +24,7 @@ function withCompletion(
   register: ClaimsRegister,
   reason: string,
   actor = "system:extraction",
+  sourceId?: string,
 ): void {
   register.project_events.push({
     seq: register.project_events.length + 1,
@@ -30,6 +32,7 @@ function withCompletion(
     actor,
     event: "batch_run_completed",
     reason,
+    ...(sourceId !== undefined ? { source_id: sourceId } : {}),
     prev_hash: "a".repeat(64),
     hash: "b".repeat(64),
   });
@@ -95,5 +98,47 @@ describe("deriveExtractionActivity", () => {
     expect(deriveExtractionActivity(register, false).lastOutcome).toBe(
       "completed",
     );
+  });
+});
+
+describe("deriveSourceExtractionOutcomes", () => {
+  it("keys the last verdict per source off the structured source_id", () => {
+    const register = baseRegister();
+    withCompletion(
+      register,
+      `${EXTRACTION_FAILED_PREFIX} beendet (Quelle src_a, Lauf 1): erschöpft.`,
+      "system:extraction",
+      "src_a",
+    );
+    withCompletion(
+      register,
+      `${EXTRACTION_COMPLETED_PREFIX} (Quelle src_a, Lauf 2): 2 Claim(s).`,
+      "system:extraction",
+      "src_a",
+    );
+    withCompletion(
+      register,
+      `${EXTRACTION_FAILED_PREFIX} beendet (Quelle src_b, Lauf 3): erschöpft.`,
+      "system:extraction",
+      "src_b",
+    );
+    const outcomes = deriveSourceExtractionOutcomes(register);
+    expect(outcomes.get("src_a")?.outcome).toBe("completed");
+    expect(outcomes.get("src_b")?.outcome).toBe("failed");
+    expect(outcomes.get("src_b")?.message).toContain("Quelle src_b");
+  });
+
+  it("leaves out sweeps, foreign actors and legacy events without source_id", () => {
+    const register = baseRegister();
+    // Sweep completion: no source_id by design.
+    withCompletion(register, `${EXTRACTION_COMPLETED_PREFIX} (Sweep, Lauf 1).`);
+    // Legacy per-source completion from before the extension: prose only.
+    withCompletion(
+      register,
+      `${EXTRACTION_COMPLETED_PREFIX} (Quelle src_old, Lauf 0).`,
+    );
+    // Foreign actor carrying a source_id must not count as extraction.
+    withCompletion(register, "Anderer Lauf.", "system:relevance_run", "src_x");
+    expect(deriveSourceExtractionOutcomes(register).size).toBe(0);
   });
 });

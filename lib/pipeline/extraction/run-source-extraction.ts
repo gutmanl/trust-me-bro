@@ -160,6 +160,7 @@ async function runPassOnce(
       event: "batch_run_started",
       reason: `Claim-Extraktion gestartet (${scope}, Backend ${backendId}, Lauf ${runId}).`,
       actor: ACTOR,
+      ...(target !== null ? { source_id: target.id } : {}),
     });
   });
 
@@ -195,7 +196,7 @@ async function runPassOnce(
       outcome.status === "paused"
         ? `Lauf pausiert (Rate-Limit): ${outcome.reason} – später erneut starten.`
         : `Extraktion nach ${outcome.attempts} Versuch(en) erschöpft: ${outcome.lastError.message}`;
-    await recordFailedCompletion(store, scope, runId, message);
+    await recordFailedCompletion(store, scope, runId, message, target?.id);
     return { outcome: "failed", created: 0, merged: 0, message };
   }
 
@@ -229,7 +230,7 @@ async function runPassOnce(
     const message = `Extraktionsergebnis vom Register zurückgewiesen: ${
       error instanceof Error ? error.message : String(error)
     }`;
-    await recordFailedCompletion(store, scope, runId, message);
+    await recordFailedCompletion(store, scope, runId, message, target?.id);
     return { outcome: "failed", created: 0, merged: 0, message };
   }
 }
@@ -239,12 +240,14 @@ async function recordFailedCompletion(
   scope: string,
   runId: string,
   message: string,
+  sourceId?: string,
 ): Promise<void> {
   await store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "batch_run_completed",
       reason: `${EXTRACTION_FAILED_PREFIX} beendet (${scope}, Lauf ${runId}): ${message}`,
       actor: ACTOR,
+      ...(sourceId !== undefined ? { source_id: sourceId } : {}),
     });
   });
 }

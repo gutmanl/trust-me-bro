@@ -61,3 +61,34 @@ export function deriveExtractionActivity(
     lastMessage: lastCompleted.reason,
   };
 }
+
+/** How each source's LAST extraction pass ended, keyed by source id — read
+ * off the structured `source_id` the bracket events carry since the source
+ * work items extension. Events from before that extension have no
+ * `source_id` and stay out on purpose: better no per-row verdict than one
+ * inferred from parsing German prose. Sweep completions (no source) never
+ * appear here; `deriveExtractionActivity` remains their home. */
+export function deriveSourceExtractionOutcomes(
+  register: ClaimsRegister,
+): Map<string, { outcome: "completed" | "failed"; message: string }> {
+  const outcomes = new Map<
+    string,
+    { outcome: "completed" | "failed"; message: string }
+  >();
+  for (const event of register.project_events) {
+    if (
+      event.event !== "batch_run_completed" ||
+      event.actor !== EXTRACTION_ACTOR ||
+      event.source_id === undefined
+    ) {
+      continue;
+    }
+    outcomes.set(event.source_id, {
+      outcome: event.reason.startsWith(EXTRACTION_FAILED_PREFIX)
+        ? "failed"
+        : "completed",
+      message: event.reason,
+    });
+  }
+  return outcomes;
+}
