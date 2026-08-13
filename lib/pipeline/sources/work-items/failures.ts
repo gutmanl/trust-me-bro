@@ -1,3 +1,4 @@
+import { getCurrentActor } from "../../../identity";
 import type { ClaimsRegister } from "../../../register";
 import type { CaptureFailureInput } from "../../../register/schema/history";
 import { PipelineError } from "../../errors";
@@ -89,8 +90,11 @@ export interface CaptureFailureVM {
  * `source_capture_failed` event per work item (append order decides), minus
  * every work item some source's `custom.capture_attempt_id` already claims —
  * a successful retry resolves its failure by existing, no "resolved" event
- * needed. Pure register derivation; the caller overlays the volatile
- * queued/running state, which takes precedence in display.
+ * needed — and minus every failure a later `source_capture_dismissed`
+ * event waved off. Chain order carries the semantics: a dismissal only
+ * covers the failures BEFORE it, so a fresh failure of the same work item
+ * reopens the entry. Pure register derivation; the caller overlays the
+ * volatile queued/running state, which takes precedence in display.
  */
 export function deriveOpenCaptureFailures(
   register: ClaimsRegister,
@@ -102,8 +106,15 @@ export function deriveOpenCaptureFailures(
         : [],
     ),
   );
-  const latest = new Map<string, CaptureFailureVM>();
+  const open = new Map<string, CaptureFailureVM>();
   for (const event of register.project_events) {
+    if (
+      event.event === "source_capture_dismissed" &&
+      event.work_item_id !== undefined
+    ) {
+      open.delete(event.work_item_id);
+      continue;
+    }
     const failure = event.capture_failure;
     if (event.event !== "source_capture_failed" || failure === undefined) {
       continue;
@@ -111,7 +122,7 @@ export function deriveOpenCaptureFailures(
     if (resolved.has(failure.work_item_id)) {
       continue;
     }
-    latest.set(failure.work_item_id, {
+    open.set(failure.work_item_id, {
       workItemId: failure.work_item_id,
       origin: failure.origin,
       reason: event.reason,
@@ -119,5 +130,37 @@ export function deriveOpenCaptureFailures(
       input: failure.input,
     });
   }
-  return [...latest.values()];
+  return [...open.values()];
+}
+
+/**
+ * Dismisses a work item's open capture failure (source work items): appends
+ * a `source_capture_dismissed` event that hides the failure row without
+ * erasing anything from the chain — the human judgment "this attempt is not
+ * worth keeping in view", recorded under the human's own actor. The one
+ * resolution path for failures that can never succeed by retry, like a
+ * reference-import item whose candidate left the scan result.
+ */
+export async function dismissCaptureFailure(
+  projectId: string,
+  workItemId: string,
+): Promise<void> {
+  const store = requireProjectStore(projectId);
+  const register = await store.read();
+  const failure = deriveOpenCaptureFailures(register).find(
+    (candidate) => candidate.workItemId === workItemId,
+  );
+  if (!failure) {
+    throw new PipelineError(
+      `Zum Arbeitsposten "${workItemId}" liegt kein offener Fehlschlag vor.`,
+    );
+  }
+  await store.transaction((tx) => {
+    tx.recordProjectEvent({
+      event: "source_capture_dismissed",
+      reason: `Fehlgeschlagener Erfassungsversuch verworfen: ${failure.reason}`,
+      actor: getCurrentActor(),
+      work_item_id: workItemId,
+    });
+  });
 }

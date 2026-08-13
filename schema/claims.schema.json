@@ -878,7 +878,8 @@
               "research_run_completed",
               "briefing_revised",
               "claim_anchor_revised",
-              "source_capture_failed"
+              "source_capture_failed",
+              "source_capture_dismissed"
             ],
             "type": "string"
           },
@@ -900,6 +901,10 @@
           },
           "state_root": {
             "$ref": "#/$defs/__schema28"
+          },
+          "work_item_id": {
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [

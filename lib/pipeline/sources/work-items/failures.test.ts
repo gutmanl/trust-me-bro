@@ -10,6 +10,7 @@ import { createProject } from "../../projects";
 import {
   captureFailureInputOf,
   deriveOpenCaptureFailures,
+  dismissCaptureFailure,
   recordCaptureFailure,
 } from "./failures";
 import type { SourceCaptureWorkItem } from "./types";
@@ -168,5 +169,58 @@ describe("deriveOpenCaptureFailures", () => {
   it("returns an empty list for a register without failures", async () => {
     const register = await RegisterStore.forProject(PROJECT_ID).read();
     expect(deriveOpenCaptureFailures(register)).toEqual([]);
+  });
+});
+
+describe("dismissCaptureFailure", () => {
+  it("rejects a work item without an open failure", async () => {
+    await expect(
+      dismissCaptureFailure(PROJECT_ID, "wi_unknown"),
+    ).rejects.toThrow(/kein offener Fehlschlag/);
+  });
+
+  it("hides the failure via a human-attributed event, chain intact", async () => {
+    await recordCaptureFailure(
+      PROJECT_ID,
+      manualItem("wi_dismissed"),
+      new DocumentFetchError("Dauerhaft nicht abrufbar."),
+    );
+    await dismissCaptureFailure(PROJECT_ID, "wi_dismissed");
+
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const register = await store.read();
+    expect(deriveOpenCaptureFailures(register)).toEqual([]);
+    const event = register.project_events.at(-1);
+    expect(event).toMatchObject({
+      event: "source_capture_dismissed",
+      actor: "human:lg",
+      work_item_id: "wi_dismissed",
+    });
+    expect(event?.reason).toContain("Dauerhaft nicht abrufbar.");
+    // Nothing was erased: the failure event stays in the chain.
+    expect(
+      register.project_events.filter(
+        (entry) => entry.event === "source_capture_failed",
+      ),
+    ).toHaveLength(1);
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("a NEWER failure of the same work item reopens the entry", async () => {
+    await recordCaptureFailure(
+      PROJECT_ID,
+      manualItem("wi_back"),
+      new DocumentFetchError("Erster Fehler."),
+    );
+    await dismissCaptureFailure(PROJECT_ID, "wi_back");
+    await recordCaptureFailure(
+      PROJECT_ID,
+      manualItem("wi_back"),
+      new DocumentFetchError("Neuer Fehler nach Verwerfen."),
+    );
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    const open = deriveOpenCaptureFailures(register);
+    expect(open).toHaveLength(1);
+    expect(open[0].reason).toBe("Neuer Fehler nach Verwerfen.");
   });
 });

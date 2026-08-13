@@ -172,6 +172,7 @@ describe("public surface of lib/pipeline", () => {
     // and the request/work-item shapes stay internal.
     expect(surface.enqueueManualCapture).toBeDefined();
     expect(surface.retryManualCapture).toBeDefined();
+    expect(surface.dismissCaptureFailure).toBeDefined();
     expect(surface.getSourceWorkItems).toBeDefined();
     expect(surface.getSourceCaptureRun).toBeDefined();
     expect(surface.startSourceCaptureItem).toBeUndefined();

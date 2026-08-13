@@ -180,6 +180,11 @@ export const ProjectEvent = z.strictObject({
    * the German `reason` prose (source work items, documented extension,
    * additive). */
   source_id: SourceId.optional(),
+  /** The capture work item a `source_capture_dismissed` event resolves
+   * (source work items). A plain scalar like `source_id` above — the
+   * failure being dismissed already carries its full snapshot in its own
+   * event's `capture_failure` (documented extension, additive). */
+  work_item_id: z.string().min(1).optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
   state_root: ChainFields.shape.state_root,

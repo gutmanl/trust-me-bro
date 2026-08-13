@@ -13,6 +13,7 @@ import type { SourceType } from "@/lib/register";
 import { formatTimestamp, SOURCE_TYPE_LABELS } from "../../status-labels";
 import {
   CapturingChip,
+  DismissButton,
   FailureBox,
   QueuedChip,
 } from "../workbench/WorkItemRow";
@@ -125,13 +126,21 @@ export function CandidateRow({
 
       {failure !== undefined ? (
         <FailureBox>
-          ⚠ Beim letzten Versuch nicht übernommen: {failure.error}
-          {failure.failedAt !== undefined ? (
-            <span className="text-amber-700">
-              {" "}
-              ({formatTimestamp(failure.failedAt)})
-            </span>
-          ) : null}
+          <p>
+            ⚠ Beim letzten Versuch nicht übernommen: {failure.error}
+            {failure.failedAt !== undefined ? (
+              <span className="text-amber-700">
+                {" "}
+                ({formatTimestamp(failure.failedAt)})
+              </span>
+            ) : null}
+          </p>
+          <div className="mt-1 flex">
+            <DismissButton
+              projectId={projectId}
+              workItemId={failure.workItemId}
+            />
+          </div>
         </FailureBox>
       ) : null}
 

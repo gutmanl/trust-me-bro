@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
+  dismissCaptureFailure,
   enqueueExistenceCheck,
   enqueueManualCapture,
   retryManualCapture,
@@ -105,6 +106,24 @@ export async function retryCaptureAction(
 ): Promise<RetryCaptureState> {
   const result = await runPipelineAction(() =>
     retryManualCapture(projectId, workItemId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
+}
+
+/** Dismisses a failed capture work item's row (source work items): appends
+ * the durable dismissal event — the failure stays in the chain, only the
+ * row disappears. */
+export async function dismissCaptureAction(
+  projectId: string,
+  workItemId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(() =>
+    dismissCaptureFailure(projectId, workItemId),
   );
   if (result.error !== null) {
     return { error: result.error };

@@ -185,5 +185,12 @@ export const ProjectEventType = z.enum([
    * record, and its presence resolves any earlier failure of the same work
    * item (documented extension, additive). */
   "source_capture_failed",
+  /** Source work items: a human dismissed a failed capture attempt —
+   * carries the id in the event's `work_item_id` scalar and hides the
+   * failure from the work-item list without erasing it from the chain. A
+   * NEWER failure of the same work item reappears: dismissal is a judgment
+   * about the recorded attempt, not about the work item forever
+   * (documented extension, additive). */
+  "source_capture_dismissed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

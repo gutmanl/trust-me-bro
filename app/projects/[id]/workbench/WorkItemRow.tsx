@@ -6,7 +6,7 @@ import { ErrorBanner } from "@/app/components/ui";
 import type { SourceWorkItemVM } from "@/lib/pipeline";
 import { formatTimestamp } from "../../status-labels";
 import type { RetryCaptureState } from "../sources/actions";
-import { retryCaptureAction } from "../sources/actions";
+import { dismissCaptureAction, retryCaptureAction } from "../sources/actions";
 
 const initialRetryState: RetryCaptureState = { error: null };
 
@@ -89,15 +89,19 @@ export function WorkItemRow({
               </span>
             ) : null}
           </p>
-          {item.origin === "manual" ? (
-            <RetryButton projectId={projectId} workItemId={item.workItemId} />
-          ) : (
+          {item.origin === "manual" ? null : (
             <p className="mt-1 text-amber-700">
               Der zugehörige Kandidat ist im aktuellen Scan-Ergebnis nicht mehr
               offen – ein erneuter Referenz-Scan nimmt ihn gegebenenfalls wieder
               auf; alternativ die Quelle oben rechts manuell erfassen.
             </p>
           )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {item.origin === "manual" ? (
+              <RetryButton projectId={projectId} workItemId={item.workItemId} />
+            ) : null}
+            <DismissButton projectId={projectId} workItemId={item.workItemId} />
+          </div>
         </FailureBox>
       ) : null}
     </li>
@@ -116,13 +120,41 @@ function RetryButton({
     initialRetryState,
   );
   return (
-    <form action={formAction} className="mt-1.5">
+    <form action={formAction}>
       <button
         type="submit"
         disabled={pending}
         className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
       >
         {pending ? "Wird eingereiht …" : "Erneut versuchen"}
+      </button>
+      <ErrorBanner message={state.error} />
+    </form>
+  );
+}
+
+/** "Verwerfen" on a failed row (source work items): appends the durable
+ * dismissal event — the row disappears, the chain keeps the failure.
+ * Shared with the candidate row's failure note. */
+export function DismissButton({
+  projectId,
+  workItemId,
+}: {
+  projectId: string;
+  workItemId: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    dismissCaptureAction.bind(null, projectId, workItemId),
+    initialRetryState,
+  );
+  return (
+    <form action={formAction}>
+      <button
+        type="submit"
+        disabled={pending}
+        className="px-1 py-1 text-xs font-medium text-amber-800 underline decoration-amber-300 hover:text-amber-950 disabled:opacity-50"
+      >
+        {pending ? "Wird verworfen …" : "Verwerfen"}
       </button>
       <ErrorBanner message={state.error} />
     </form>

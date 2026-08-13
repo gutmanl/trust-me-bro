@@ -84,6 +84,7 @@ export {
   getSourceWorkItems,
   retryManualCapture,
 } from "./sources/work-items/queue";
+export { dismissCaptureFailure } from "./sources/work-items/failures";
 export type { ManualCaptureInput } from "./sources/work-items/queue";
 export type { SourceWorkItemVM } from "./sources/work-items/types";
 export { getSourceCaptureRun } from "./sources/work-items/run-item";
