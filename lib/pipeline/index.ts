@@ -73,6 +73,20 @@ export type {
 export { mintProjectId, slugify } from "./ids";
 export { captureSource } from "./sources/capture";
 export type { CaptureKind, CaptureSourceInput } from "./sources/capture";
+// Source work items (workbench epic): manual capture and reference-import
+// captures run asynchronously through the auto-chain as per-item
+// "source_capture" runs; queued/running state is volatile chain/runner
+// truth, failures are durable register events, success is the source entry
+// itself (custom.capture_attempt_id). The internals — the trigger runner,
+// the failure recorder, the request/work-item shapes — stay off the barrel.
+export {
+  enqueueManualCapture,
+  getSourceWorkItems,
+  retryManualCapture,
+} from "./sources/work-items/queue";
+export type { ManualCaptureInput } from "./sources/work-items/queue";
+export type { SourceWorkItemVM } from "./sources/work-items/types";
+export { getSourceCaptureRun } from "./sources/work-items/run-item";
 // TMB-44: revises a captured source's snapshot.
 export { reviseSource } from "./sources/revise";
 export type { ReviseSourceInput, ReviseSourceResult } from "./sources/revise";

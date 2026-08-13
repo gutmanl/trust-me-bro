@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceExtractionSummary } from "../extraction/run-source-extraction";
 import type { ReferenceCaptureItemResult } from "../sources/reference-scan/run-reference-capture";
 import type { ReferenceScanRunSummary } from "../sources/reference-scan/run-reference-scan";
+import type { SourceCaptureItemResult } from "../sources/work-items/run-item";
+import type { SourceCaptureWorkItem } from "../sources/work-items/types";
 import type { ExistenceCheckItemResult } from "../verification/run-existence-check";
 import { createAutoChain } from "./auto-chain";
 import { createJobRunner } from "./job-runner";
@@ -591,6 +593,164 @@ describe("createAutoChain: pendingTriggerCount", () => {
     await vi.waitFor(() => {
       expect(chain.pendingTriggerCount("proj_a")).toBe(0);
     });
+  });
+});
+
+describe("createAutoChain: source-capture work items", () => {
+  function workItem(workItemId: string): SourceCaptureWorkItem {
+    return {
+      workItemId,
+      origin: "manual",
+      label: `Posten ${workItemId}`,
+      request: {
+        kind: "doi",
+        sourceType: "peer_reviewed_publication",
+        identifier: "10.1/x",
+      },
+    };
+  }
+
+  /** Capture-item fake through the real runner, gated per item so the tests
+   * can observe the in-flight state between item_started and release. */
+  function fakeSourceCaptureItem(runner: JobRunner) {
+    const gates = new Map<string, () => void>();
+    const fn = vi.fn(
+      async (
+        projectId: string,
+        item: SourceCaptureWorkItem,
+        deps?: { runner?: JobRunner },
+      ): Promise<RunHandle<SourceCaptureItemResult>> =>
+        (deps?.runner ?? runner).submit(
+          projectId,
+          [item],
+          (entry) => entry.workItemId,
+          async (entry) =>
+            new Promise<SourceCaptureItemResult>((resolve) => {
+              gates.set(entry.workItemId, () =>
+                resolve({
+                  workItemId: entry.workItemId,
+                  sourceId: "src_fake",
+                  message: "ok",
+                }),
+              );
+            }),
+          { kind: "source_capture" },
+        ),
+    );
+    return {
+      fn,
+      release(workItemId: string) {
+        gates.get(workItemId)?.();
+        gates.delete(workItemId);
+      },
+    };
+  }
+
+  it("runs queued items sequentially and reports active/pending honestly", async () => {
+    const runner = createJobRunner();
+    const capture = fakeSourceCaptureItem(runner);
+    const chain = createAutoChain({
+      runner,
+      startSourceExtraction: fakeExtraction(runner),
+      startExistenceCheck: fakeExistenceCheck(runner),
+      startSourceCaptureItem: capture.fn,
+    });
+
+    chain.enqueueSourceCapture("proj_a", workItem("wi_1"));
+    chain.enqueueSourceCapture("proj_a", workItem("wi_2"));
+
+    // First item in flight: it is the active one, only the second waits.
+    await vi.waitFor(() => {
+      expect(chain.activeCaptureItem("proj_a")?.workItemId).toBe("wi_1");
+    });
+    expect(
+      chain.pendingCaptureItems("proj_a").map((item) => item.workItemId),
+    ).toEqual(["wi_2"]);
+
+    capture.release("wi_1");
+    await vi.waitFor(() => {
+      expect(chain.activeCaptureItem("proj_a")?.workItemId).toBe("wi_2");
+    });
+    expect(chain.pendingCaptureItems("proj_a")).toEqual([]);
+
+    capture.release("wi_2");
+    await vi.waitFor(() => {
+      expect(chain.activeCaptureItem("proj_a")).toBeUndefined();
+    });
+    expect(capture.fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears the active item even when the start-fn throws", async () => {
+    const runner = createJobRunner();
+    const failing = vi.fn(async () => {
+      throw new Error("capture start failed");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const chain = createAutoChain({
+      runner,
+      startSourceExtraction: fakeExtraction(runner),
+      startExistenceCheck: fakeExistenceCheck(runner),
+      startSourceCaptureItem: failing,
+    });
+
+    chain.enqueueSourceCapture("proj_a", workItem("wi_boom"));
+
+    await vi.waitFor(() => {
+      expect(failing).toHaveBeenCalledTimes(1);
+    });
+    await vi.waitFor(() => {
+      expect(chain.activeCaptureItem("proj_a")).toBeUndefined();
+    });
+    expect(chain.pendingTriggerCount("proj_a")).toBe(0);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("coalesces only same-id bursts, never distinct work items", async () => {
+    const runner = createJobRunner();
+    const capture = fakeSourceCaptureItem(runner);
+    const chain = createAutoChain({
+      runner,
+      startSourceExtraction: fakeExtraction(runner),
+      startExistenceCheck: fakeExistenceCheck(runner),
+      startSourceCaptureItem: capture.fn,
+    });
+
+    // Blocks the project so all triggers queue up before draining.
+    let release!: () => void;
+    const blocker = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const manual = runner.submit(
+      "proj_a",
+      ["x"],
+      (item) => item,
+      async () => blocker,
+      { kind: "verification" },
+    );
+
+    chain.enqueueSourceCapture("proj_a", workItem("wi_a"));
+    chain.enqueueSourceCapture("proj_a", workItem("wi_a"));
+    chain.enqueueSourceCapture("proj_a", workItem("wi_b"));
+    expect(
+      chain.pendingCaptureItems("proj_a").map((item) => item.workItemId),
+    ).toEqual(["wi_a", "wi_a", "wi_b"]);
+
+    release();
+    await manual.done;
+
+    await vi.waitFor(() => {
+      expect(chain.activeCaptureItem("proj_a")?.workItemId).toBe("wi_a");
+    });
+    capture.release("wi_a");
+    await vi.waitFor(() => {
+      expect(chain.activeCaptureItem("proj_a")?.workItemId).toBe("wi_b");
+    });
+    capture.release("wi_b");
+    await vi.waitFor(() => {
+      expect(chain.pendingTriggerCount("proj_a")).toBe(0);
+    });
+    // wi_a ran once (duplicate coalesced), wi_b ran once.
+    expect(capture.fn).toHaveBeenCalledTimes(2);
   });
 });
 

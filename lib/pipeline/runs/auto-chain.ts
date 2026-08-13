@@ -1,6 +1,11 @@
 import { startSourceExtraction } from "../extraction/run-source-extraction";
 import type { startAutoReferenceCapture } from "../sources/reference-scan/run-auto-reference-capture";
 import type { startReferenceScan } from "../sources/reference-scan/run-reference-scan";
+import type { startSourceCaptureItem } from "../sources/work-items/run-item";
+import type {
+  SourceCaptureItemInfo,
+  SourceCaptureWorkItem,
+} from "../sources/work-items/types";
 import { startExistenceCheck } from "../verification/run-existence-check";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
@@ -9,11 +14,17 @@ type PendingTrigger =
   | { kind: "extraction"; sourceId: string }
   | { kind: "existence_check" }
   | { kind: "reference_scan" }
-  | { kind: "reference_capture" };
+  | { kind: "reference_capture" }
+  | { kind: "source_capture"; item: SourceCaptureWorkItem };
 
 function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
   if (a.kind === "extraction" && b.kind === "extraction") {
     return a.sourceId === b.sourceId;
+  }
+  if (a.kind === "source_capture" && b.kind === "source_capture") {
+    // Distinct work items are never duplicates; a same-id pair (a retry
+    // enqueued twice in a burst) coalesces like a repeated extraction.
+    return a.item.workItemId === b.item.workItemId;
   }
   return a.kind === b.kind;
 }
@@ -28,7 +39,17 @@ function describeTrigger(trigger: PendingTrigger): string {
       return "reference scan";
     case "reference_capture":
       return "automatic reference capture";
+    case "source_capture":
+      return `source capture (work item "${trigger.item.workItemId}")`;
   }
+}
+
+function itemInfo(item: SourceCaptureWorkItem): SourceCaptureItemInfo {
+  return {
+    workItemId: item.workItemId,
+    origin: item.origin,
+    label: item.label,
+  };
 }
 
 export interface AutoChainDependencies {
@@ -37,16 +58,28 @@ export interface AutoChainDependencies {
   startExistenceCheck?: typeof startExistenceCheck;
   startReferenceScan?: typeof startReferenceScan;
   startAutoReferenceCapture?: typeof startAutoReferenceCapture;
+  startSourceCaptureItem?: typeof startSourceCaptureItem;
 }
 
 export interface AutoChain {
   enqueueSourceExtraction(projectId: string, sourceId: string): void;
   enqueueExistenceCheck(projectId: string): void;
   enqueueReferenceScan(projectId: string): void;
+  /** Queues one capture work item (source work items): manual capture and
+   * reference-import captures both enter here, so they serialize with each
+   * other and with every other run of the project. */
+  enqueueSourceCapture(projectId: string, item: SourceCaptureWorkItem): void;
   /** Waiting-backlog length for a project — for UI/status, not a control
    * surface. See the exported `pendingTriggerCount` below for the full
    * contract (what "waiting" excludes, and why 0 does not mean idle). */
   pendingTriggerCount(projectId: string): number;
+  /** The capture work items still WAITING in the backlog, in queue order —
+   * subject to the same backlog-only caveat as `pendingTriggerCount`. */
+  pendingCaptureItems(projectId: string): SourceCaptureItemInfo[];
+  /** The capture work item whose trigger is currently in flight (popped off
+   * the backlog, run not finished), if any — the "capturing" half the
+   * backlog view cannot see. */
+  activeCaptureItem(projectId: string): SourceCaptureItemInfo | undefined;
 }
 
 /**
@@ -115,8 +148,26 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     return autoReferenceCapture(projectId, { runner });
   }
 
+  // Lazily resolved for the same cycle reason as the reference chain above:
+  // the capture item's step imports `enqueueSourceExtraction` from here (its
+  // documented per-item chaining), so a static import would close a cycle.
+  let sourceCaptureItem = deps.startSourceCaptureItem;
+  async function runSourceCaptureItem(
+    projectId: string,
+    item: SourceCaptureWorkItem,
+  ) {
+    sourceCaptureItem ??= (
+      await import("../sources/work-items/run-item")
+    ).startSourceCaptureItem;
+    return sourceCaptureItem(projectId, item, { runner });
+  }
+
   const pending = new Map<string, PendingTrigger[]>();
   const draining = new Set<string>();
+  /** The capture work item whose trigger is in flight, per project — set
+   * just before its run is submitted, cleared when the trigger settles, so
+   * status readers see "capturing" exactly while the backlog cannot. */
+  const activeCapture = new Map<string, SourceCaptureItemInfo>();
 
   /** Pops the next trigger and silently drops any consecutive duplicates
    * behind it (same kind AND, for extraction, same sourceId) — several
@@ -164,6 +215,14 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       // need a human. Not an error, so nothing is logged.
       const handle = await runAutoReferenceCapture(projectId);
       await handle?.done;
+    } else if (trigger.kind === "source_capture") {
+      activeCapture.set(projectId, itemInfo(trigger.item));
+      try {
+        const handle = await runSourceCaptureItem(projectId, trigger.item);
+        await handle.done;
+      } finally {
+        activeCapture.delete(projectId);
+      }
     } else {
       const handle = await runExistenceCheck(projectId, { runner });
       await handle.done;
@@ -260,8 +319,19 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     enqueueReferenceScan(projectId) {
       push(projectId, { kind: "reference_scan" });
     },
+    enqueueSourceCapture(projectId, item) {
+      push(projectId, { kind: "source_capture", item });
+    },
     pendingTriggerCount(projectId) {
       return pending.get(projectId)?.length ?? 0;
+    },
+    pendingCaptureItems(projectId) {
+      return (pending.get(projectId) ?? []).flatMap((trigger) =>
+        trigger.kind === "source_capture" ? [itemInfo(trigger.item)] : [],
+      );
+    },
+    activeCaptureItem(projectId) {
+      return activeCapture.get(projectId);
     },
   };
 }
@@ -293,6 +363,31 @@ export function enqueueExistenceCheck(projectId: string): void {
  * list. */
 export function enqueueReferenceScan(projectId: string): void {
   getGlobalAutoChain().enqueueReferenceScan(projectId);
+}
+
+/** Queues one capture work item on the project's chain (source work items).
+ * Callers hand in a fully prepared item — uploads already frozen as blobs —
+ * so nothing heavier than a small object ever waits in the queue. */
+export function enqueueSourceCapture(
+  projectId: string,
+  item: SourceCaptureWorkItem,
+): void {
+  getGlobalAutoChain().enqueueSourceCapture(projectId, item);
+}
+
+/** Waiting capture work items of a project, in queue order (backlog-only,
+ * like `pendingTriggerCount` — the in-flight item is `activeCaptureItem`). */
+export function pendingCaptureItems(
+  projectId: string,
+): SourceCaptureItemInfo[] {
+  return getGlobalAutoChain().pendingCaptureItems(projectId);
+}
+
+/** The capture work item currently in flight for a project, if any. */
+export function activeCaptureItem(
+  projectId: string,
+): SourceCaptureItemInfo | undefined {
+  return getGlobalAutoChain().activeCaptureItem(projectId);
 }
 
 /**

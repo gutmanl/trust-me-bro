@@ -167,6 +167,18 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.publishBriefingRevision).toBeDefined();
     expect(surface.computeReanchorUpdates).toBeUndefined();
     expect(surface.captureSource).toBeDefined();
+    // Source work items (workbench epic): the asynchronous capture queue's
+    // app-facing trio; the trigger runner, the failure recorder/derivation
+    // and the request/work-item shapes stay internal.
+    expect(surface.enqueueManualCapture).toBeDefined();
+    expect(surface.retryManualCapture).toBeDefined();
+    expect(surface.getSourceWorkItems).toBeDefined();
+    expect(surface.getSourceCaptureRun).toBeDefined();
+    expect(surface.startSourceCaptureItem).toBeUndefined();
+    expect(surface.recordCaptureFailure).toBeUndefined();
+    expect(surface.deriveOpenCaptureFailures).toBeUndefined();
+    expect(surface.pendingCaptureItems).toBeUndefined();
+    expect(surface.activeCaptureItem).toBeUndefined();
     // TMB-44: revises a captured source's snapshot; the shared document
     // acquisition helper stays internal.
     expect(surface.reviseSource).toBeDefined();

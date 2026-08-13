@@ -40,6 +40,11 @@ export interface CaptureSourceInput {
     method: "doi" | "arxiv" | "url" | "crossref_title" | "unresolved";
     score?: number;
   };
+  /** Work-item id of the capture attempt (source work items): written to
+   * `custom.capture_attempt_id`, where it resolves an earlier
+   * `source_capture_failed` event of the same work item. Absent for
+   * captures that never went through the asynchronous queue. */
+  captureAttemptId?: string;
 }
 
 export interface CaptureDependencies {
@@ -153,6 +158,9 @@ export async function captureSource(
         ...(verified ? { identifier_verified: { status: true, at: now } } : {}),
         snapshot: buildSnapshot(store.blobs(), blob, extraction, 1, now),
         ...(input.autoCapture ? { auto_capture: input.autoCapture } : {}),
+        ...(input.captureAttemptId
+          ? { capture_attempt_id: input.captureAttemptId }
+          : {}),
       },
     };
     tx.addSource(source);
