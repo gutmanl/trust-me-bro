@@ -6,7 +6,7 @@ import { ReferenceScanResult } from "./schema";
  * Shared "read + validate the scan blob" logic (reference auto-import):
  * BOTH readers of a reference-scan pointer — the review projection
  * (read-candidates.ts) and the capture batch's per-item, current-blob
- * re-read (run-reference-capture.ts) — go through this ONE function, so a
+ * re-read (enqueue-candidate-capture.ts) — go through this ONE function, so a
  * corrupt or truncated blob always surfaces the same German
  * `PipelineError`, never a raw JSON.parse SyntaxError or a ZodError. Kept
  * off the pipeline barrel: only the two in-cluster call sites use it.

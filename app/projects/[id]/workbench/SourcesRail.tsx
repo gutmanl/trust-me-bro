@@ -7,7 +7,6 @@ import { useProjectEvents } from "@/app/lib/ProjectEventStream";
 import { useItemLiveStatus } from "@/app/lib/useItemLiveStatus";
 import type {
   ExtractionActivity,
-  ReferenceCaptureOutcome,
   ReferenceScanState,
   ReviewCandidate,
   SourceWorkItemVM,
@@ -18,8 +17,14 @@ import {
   StartBlockedNotice,
   useStartGate,
 } from "../RunStatusProvider";
-import { ReferenceCandidateReview } from "../sources/ReferenceCandidateReview";
-import { ReferenceScanPanel } from "../sources/ReferenceScanPanel";
+import {
+  CandidateRow,
+  CaptureReadyCandidatesButton,
+} from "../sources/ReferenceCandidateReview";
+import {
+  ReferenceScanButton,
+  ReferenceScanNotices,
+} from "../sources/ReferenceScanPanel";
 import { CaptureSourceButton } from "../sources/SourceForms";
 import { UnpaywallSettingPanel } from "../sources/UnpaywallSettingPanel";
 import type { RunFormState } from "./actions";
@@ -27,14 +32,14 @@ import { startUnevidencedExtractionAction } from "./actions";
 import { SourceRow, type SourceRowVM } from "./SourceRow";
 import { WorkItemRow } from "./WorkItemRow";
 
-/** Everything the reference auto-import section needs; null before a
- * briefing exists, because there is nothing to scan for references in. */
+/** Everything the reference auto-import needs; null before a briefing
+ * exists, because there is nothing to scan for references in. Capture run
+ * state and outcomes are gone (source work items): candidates join the
+ * unified list and their capture state IS their work item. */
 export interface ReferenceImportVM {
   scanState: ReferenceScanState;
   unpaywall: UnpaywallSetting;
   candidates: ReviewCandidate[];
-  captureRunActive: boolean;
-  captureOutcomes: ReferenceCaptureOutcome[];
   llmAvailable: boolean;
   lastScanMethod?: "regex" | "regex+llm";
 }
@@ -102,6 +107,31 @@ export function SourcesRail({
   const capturingItems = useItemLiveStatus("source_capture");
   const extractingSources = useItemLiveStatus("extraction");
 
+  // The unified list's row buckets. A candidate's capture state IS its work
+  // item (same id), rendered on the candidate row — so those work items must
+  // not ALSO render as standalone rows; only orphans (candidate rescanned
+  // away) keep their own row.
+  const openCandidates =
+    referenceImport?.candidates.filter(
+      (candidate) => !candidate.alreadyCaptured,
+    ) ?? [];
+  const openCandidateIds = new Set(
+    openCandidates.map((candidate) => candidate.candidate_id),
+  );
+  const workItemByCandidate = new Map(
+    workItems
+      .filter((item) => item.origin === "reference_import")
+      .map((item) => [item.workItemId, item]),
+  );
+  const standaloneWorkItems = workItems.filter(
+    (item) =>
+      item.origin !== "reference_import" ||
+      !openCandidateIds.has(item.workItemId),
+  );
+  const readyCandidateCount = openCandidates.filter(
+    (candidate) => candidate.selected,
+  ).length;
+
   // `useStartGate("extraction")` reports null while an EXTRACTION run is
   // live — by design, so the panel that started it shows progress instead of
   // gating itself. The deleted ExtractionPanel compensated with a `watching`
@@ -146,21 +176,38 @@ export function SourcesRail({
                 {chainLabel}
               </span>
             ) : null}
+            {referenceImport !== null ? (
+              <ReferenceScanButton
+                projectId={projectId}
+                state={referenceImport.scanState}
+              />
+            ) : null}
             <CaptureSourceButton projectId={projectId} />
           </div>
         </div>
-        {sources.length === 0 && workItems.length === 0 ? (
+        {sources.length === 0 &&
+        standaloneWorkItems.length === 0 &&
+        openCandidates.length === 0 ? (
           <p className="px-4 py-5 text-sm text-slate-500">
             Noch keine Quellen erfasst – oben rechts eine Quelle erfassen.
           </p>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {workItems.map((item) => (
+            {standaloneWorkItems.map((item) => (
               <WorkItemRow
                 key={item.workItemId}
                 projectId={projectId}
                 item={item}
                 liveCapturing={capturingItems.has(item.workItemId)}
+              />
+            ))}
+            {openCandidates.map((candidate) => (
+              <CandidateRow
+                key={candidate.candidate_id}
+                projectId={projectId}
+                candidate={candidate}
+                workItem={workItemByCandidate.get(candidate.candidate_id)}
+                liveCapturing={capturingItems.has(candidate.candidate_id)}
               />
             ))}
             {sources.map((source) => (
@@ -174,60 +221,54 @@ export function SourcesRail({
             ))}
           </ul>
         )}
-      </div>
 
-      {referenceImport !== null ? (
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Referenzen aus dem Briefing importieren
-          </h2>
-          <p className="mt-1 mb-3 text-xs text-slate-600">
-            Läuft automatisch nach der ersten Übernahme des Briefings und nach
-            jeder Revision mit geändertem Text: durchsucht den eingefrorenen
-            Text nach zitierten Quellen (DOI, arXiv-Id, URL sowie im Fließtext
-            genannte Referenzen). Eindeutig aufgelöste Treffer werden dabei
-            selbst erfasst, alle übrigen bleiben unten zur Prüfung stehen.
-          </p>
-          <div className="space-y-4">
-            <UnpaywallSettingPanel
-              projectId={projectId}
-              setting={referenceImport.unpaywall}
-            />
-            <ReferenceScanPanel
-              projectId={projectId}
+        {referenceImport !== null ? (
+          <div className="space-y-3 border-t border-slate-100 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {referenceImport.scanState.status !== "not_started" ? (
+                <p className="text-xs text-slate-600">
+                  Referenz-Scan: {referenceImport.scanState.candidateCount}{" "}
+                  Kandidat(en) gefunden –{" "}
+                  {
+                    referenceImport.candidates.filter(
+                      (candidate) => candidate.alreadyCaptured,
+                    ).length
+                  }{" "}
+                  bereits erfasst, {openCandidates.length} offen.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-600">
+                  Der Referenz-Scan läuft automatisch nach der Übernahme des
+                  Briefings und nach jeder Revision mit geändertem Text; die
+                  gefundenen Kandidaten erscheinen als Zeilen in dieser Liste.
+                </p>
+              )}
+              {readyCandidateCount > 0 ? (
+                <CaptureReadyCandidatesButton
+                  projectId={projectId}
+                  count={readyCandidateCount}
+                />
+              ) : null}
+            </div>
+            <ReferenceScanNotices
               state={referenceImport.scanState}
               llmAvailable={referenceImport.llmAvailable}
               lastScanMethod={referenceImport.lastScanMethod}
             />
-            {referenceImport.scanState.status !== "not_started" ? (
-              <p className="text-xs text-slate-600">
-                {referenceImport.scanState.candidateCount} Kandidat(en) gefunden
-                –{" "}
-                {
-                  referenceImport.candidates.filter(
-                    (candidate) => candidate.alreadyCaptured,
-                  ).length
-                }{" "}
-                bereits erfasst,{" "}
-                {
-                  referenceImport.candidates.filter(
-                    (candidate) => !candidate.alreadyCaptured,
-                  ).length
-                }{" "}
-                offen.
-              </p>
-            ) : null}
-            {referenceImport.candidates.length > 0 ? (
-              <ReferenceCandidateReview
-                projectId={projectId}
-                candidates={referenceImport.candidates}
-                activeRun={referenceImport.captureRunActive}
-                lastOutcomes={referenceImport.captureOutcomes}
-              />
-            ) : null}
+            <details>
+              <summary className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">
+                Einstellungen für den automatischen Import
+              </summary>
+              <div className="mt-2">
+                <UnpaywallSettingPanel
+                  projectId={projectId}
+                  setting={referenceImport.unpaywall}
+                />
+              </div>
+            </details>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div className="rounded-md border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-700">

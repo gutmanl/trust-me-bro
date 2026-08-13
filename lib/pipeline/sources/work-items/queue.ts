@@ -146,9 +146,7 @@ export async function enqueueManualCapture(
   const request: SourceCaptureRequest = {
     kind: input.kind,
     sourceType: input.sourceType,
-    ...(input.identifier !== undefined
-      ? { identifier: input.identifier }
-      : {}),
+    ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
     ...(input.documentUrl !== undefined
       ? { documentUrl: input.documentUrl }
       : {}),
@@ -252,9 +250,7 @@ export async function retryManualCapture(
   const request: SourceCaptureRequest = {
     kind: input.kind,
     sourceType: input.source_type,
-    ...(input.identifier !== undefined
-      ? { identifier: input.identifier }
-      : {}),
+    ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
     ...(input.document_url !== undefined
       ? { documentUrl: input.document_url }
       : {}),

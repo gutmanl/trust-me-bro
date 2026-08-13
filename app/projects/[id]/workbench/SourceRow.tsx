@@ -105,8 +105,8 @@ export function SourceRow({
 
       {!extractingLive && source.extractionOutcome === "failed" ? (
         <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
-          ⚠ {source.extractionMessage ?? "Letzte Extraktion ohne Ergebnis."}{" "}
-          Der Extraktions-Button unten startet den Durchlauf erneut.
+          ⚠ {source.extractionMessage ?? "Letzte Extraktion ohne Ergebnis."} Der
+          Extraktions-Button unten startet den Durchlauf erneut.
         </div>
       ) : null}
 

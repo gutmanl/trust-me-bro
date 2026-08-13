@@ -219,17 +219,23 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.enqueueReferenceScan).toBeDefined();
     expect(surface.pendingTriggerCount).toBeDefined();
     expect(surface.createAutoChain).toBeUndefined();
-    // Reference auto-import: scan + selective capture use-cases; the
-    // regex/merge/Crossref/review internals stay internal.
+    // Reference auto-import: scan + per-candidate capture use-cases; the
+    // regex/merge/Crossref/review internals stay internal. The batch
+    // capture run and its volatile outcome projection are retired (source
+    // work items): candidate captures queue as work items now, and their
+    // failures are durable register events.
     expect(surface.startReferenceScan).toBeDefined();
     expect(surface.getReferenceScanState).toBeDefined();
     expect(surface.getReferenceScanRun).toBeDefined();
-    expect(surface.startReferenceCapture).toBeDefined();
-    expect(surface.getReferenceCaptureRun).toBeDefined();
-    expect(surface.getReferenceCaptureOutcomes).toBeDefined();
+    expect(surface.enqueueCandidateCapture).toBeDefined();
+    expect(surface.enqueueReadyCandidateCaptures).toBeDefined();
+    expect(surface.startReferenceCapture).toBeUndefined();
+    expect(surface.getReferenceCaptureRun).toBeUndefined();
+    expect(surface.getReferenceCaptureOutcomes).toBeUndefined();
     expect(surface.getReferenceCandidates).toBeDefined();
-    // The automatic post-publish capture is reached only through the
-    // auto-chain: neither its policy nor its use-case is app-facing.
+    // The automatic post-publish captures are reached only through the
+    // auto-chain: the item-building policy is not app-facing.
+    expect(surface.buildAutoCaptureItems).toBeUndefined();
     expect(surface.selectAutoCaptures).toBeUndefined();
     expect(surface.startAutoReferenceCapture).toBeUndefined();
     expect(surface.scanRegex).toBeUndefined();

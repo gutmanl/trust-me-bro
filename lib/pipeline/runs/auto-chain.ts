@@ -1,5 +1,5 @@
 import { startSourceExtraction } from "../extraction/run-source-extraction";
-import type { startAutoReferenceCapture } from "../sources/reference-scan/run-auto-reference-capture";
+import type { buildAutoCaptureItems } from "../sources/reference-scan/enqueue-candidate-capture";
 import type { startReferenceScan } from "../sources/reference-scan/run-reference-scan";
 import type { startSourceCaptureItem } from "../sources/work-items/run-item";
 import type {
@@ -14,7 +14,6 @@ type PendingTrigger =
   | { kind: "extraction"; sourceId: string }
   | { kind: "existence_check" }
   | { kind: "reference_scan" }
-  | { kind: "reference_capture" }
   | { kind: "source_capture"; item: SourceCaptureWorkItem };
 
 function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
@@ -37,8 +36,6 @@ function describeTrigger(trigger: PendingTrigger): string {
       return "existence check";
     case "reference_scan":
       return "reference scan";
-    case "reference_capture":
-      return "automatic reference capture";
     case "source_capture":
       return `source capture (work item "${trigger.item.workItemId}")`;
   }
@@ -57,7 +54,7 @@ export interface AutoChainDependencies {
   startSourceExtraction?: typeof startSourceExtraction;
   startExistenceCheck?: typeof startExistenceCheck;
   startReferenceScan?: typeof startReferenceScan;
-  startAutoReferenceCapture?: typeof startAutoReferenceCapture;
+  buildAutoCaptureItems?: typeof buildAutoCaptureItems;
   startSourceCaptureItem?: typeof startSourceCaptureItem;
 }
 
@@ -93,10 +90,12 @@ export interface AutoChain {
  *
  * The same shape carries the second chain: a published briefing chains
  * "scan the briefing for its references → capture the ones that resolved
- * cleanly", from where the capture's own per-source extraction triggers
- * (run-reference-capture.ts) rejoin the chain above. Both chains share one
- * queue per project, which is what keeps them off each other's toes on the
- * single-writer runner.
+ * cleanly", each capture one `source_capture` work item whose own per-source
+ * extraction trigger (work-items/run-item.ts) rejoins the chain above. Both
+ * chains share one queue per project, which is what keeps them off each
+ * other's toes on the single-writer runner. Manual captures enter the very
+ * same queue as work items (source work items) — the queue is the one
+ * serialization point for every way a source comes into being.
  *
  * In-memory only, like the runner itself: a server restart drops whatever
  * was still queued. That is safe because nothing here is the durable truth —
@@ -106,7 +105,8 @@ export interface AutoChain {
  * source" action always exists as a human-triggered recovery. The reference
  * chain is drop-safe for the same reason: the scan and the capture both keep
  * their own manual buttons, and neither leaves half-written state behind.
- * A dropped trigger therefore never loses data, only a moment of automation.
+ * A dropped capture work item loses only its queue slot — a failed ATTEMPT
+ * is durable in the register, and re-enqueueing is one click.
  */
 export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
   const runner = deps.runner ?? getGlobalJobRunner();
@@ -140,12 +140,12 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     return referenceScan(projectId, { runner });
   }
 
-  let autoReferenceCapture = deps.startAutoReferenceCapture;
-  async function runAutoReferenceCapture(projectId: string) {
-    autoReferenceCapture ??= (
-      await import("../sources/reference-scan/run-auto-reference-capture")
-    ).startAutoReferenceCapture;
-    return autoReferenceCapture(projectId, { runner });
+  let autoCaptureItems = deps.buildAutoCaptureItems;
+  async function computeAutoCaptureItems(projectId: string) {
+    autoCaptureItems ??= (
+      await import("../sources/reference-scan/enqueue-candidate-capture")
+    ).buildAutoCaptureItems;
+    return autoCaptureItems(projectId);
   }
 
   // Lazily resolved for the same cycle reason as the reference chain above:
@@ -156,9 +156,8 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     projectId: string,
     item: SourceCaptureWorkItem,
   ) {
-    sourceCaptureItem ??= (
-      await import("../sources/work-items/run-item")
-    ).startSourceCaptureItem;
+    sourceCaptureItem ??= (await import("../sources/work-items/run-item"))
+      .startSourceCaptureItem;
     return sourceCaptureItem(projectId, item, { runner });
   }
 
@@ -204,17 +203,17 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     } else if (trigger.kind === "reference_scan") {
       const handle = await runReferenceScan(projectId);
       await handle.done;
-      // Chained unconditionally, exactly like the existence check above:
-      // whether the scan actually found anything worth capturing is the
-      // capture's own question to answer against the committed scan result,
-      // not something to decide from a run summary here.
-      queue.unshift({ kind: "reference_capture" });
-    } else if (trigger.kind === "reference_capture") {
-      // No run at all when nothing resolved cleanly enough to capture
-      // unattended — the common case for a briefing whose citations all
-      // need a human. Not an error, so nothing is logged.
-      const handle = await runAutoReferenceCapture(projectId);
-      await handle?.done;
+      // The automatic captures follow right behind the scan that computed
+      // them, one work item each (source work items — the retired batch run
+      // used to sit here). An empty list is the expected outcome of a
+      // briefing whose citations all need a human, not an error.
+      const items = await computeAutoCaptureItems(projectId);
+      queue.unshift(
+        ...items.map((item): PendingTrigger => ({
+          kind: "source_capture",
+          item,
+        })),
+      );
     } else if (trigger.kind === "source_capture") {
       activeCapture.set(projectId, itemInfo(trigger.item));
       try {

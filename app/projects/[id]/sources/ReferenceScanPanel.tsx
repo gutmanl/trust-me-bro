@@ -1,96 +1,79 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 
-import {
-  ErrorBanner,
-  primaryButtonClass,
-  RunProgressFeed,
-} from "@/app/components/ui";
-import { useRunFeed } from "@/app/lib/useRunFeed";
+import { ErrorBanner } from "@/app/components/ui";
 import type { ReferenceScanState } from "@/lib/pipeline";
-import { StartBlockedNotice, useStartGate } from "../RunStatusProvider";
+import { useRunStatus } from "../RunStatusProvider";
 import type { ReferenceScanFormState } from "./reference-scan-actions";
 import { startReferenceScanAction } from "./reference-scan-actions";
 
 const initialState: ReferenceScanFormState = { error: null };
 
-function describeProgress(event: Record<string, unknown>): string | null {
-  switch (event.type) {
-    case "run_started":
-      return "Referenz-Scan gestartet – das eingefrorene Briefing wird durchsucht.";
-    case "item_started":
-      return "Wird gescannt …";
-    case "item_completed": {
-      const outcome = event.outcome as
-        | { status: string; result?: { message?: string }; error?: string }
-        | undefined;
-      if (outcome?.status === "ok") {
-        return outcome.result?.message ?? "Scan abgeschlossen.";
-      }
-      return `Fehlgeschlagen: ${outcome?.error ?? "unbekannt"}`;
-    }
-    case "run_completed":
-      return "Lauf beendet.";
-    default:
-      return null;
-  }
-}
-
 /**
- * Start/restart button + live progress via the shared SSE hook, the
- * reference-scan twin of the workbench's run panels. Deliberately no RunControls
- * wiring (not built for this run kind) and no "already scanned" gate — a
- * rescan is expected and always allowed while nothing is currently running.
+ * Compact scan control for the sources-list header (source work items — the
+ * old standalone panel with its own progress feed is gone): starting is one
+ * click, progress shows in the shared run bar and the header's chain chip,
+ * and the resulting candidates appear as rows of the unified list. No
+ * "already scanned" gate — a rescan is expected and always allowed while
+ * nothing else is running.
  */
-export function ReferenceScanPanel({
+export function ReferenceScanButton({
   projectId,
   state,
-  llmAvailable,
-  lastScanMethod,
 }: {
   projectId: string;
   state: ReferenceScanState;
-  llmAvailable: boolean;
-  /** Durable `method` of the last committed scan pointer (I2 fix) —
-   * `"regex"` means the LLM channel was skipped for that run, whatever the
-   * CURRENT live backend health says. Undefined before any scan ever ran. */
-  lastScanMethod?: "regex" | "regex+llm";
 }) {
-  const router = useRouter();
   const [formState, formAction, pending] = useActionState(
     startReferenceScanAction.bind(null, projectId),
     initialState,
   );
-  const [startedForm, setStartedForm] = useState<ReferenceScanFormState | null>(
-    null,
-  );
-  const [stopped, setStopped] = useState(false);
-
-  // Render-phase state adjustment (not an effect): a new successful action
-  // result re-arms the panel for the new run.
-  if (formState.started && startedForm !== formState) {
-    setStartedForm(formState);
-    setStopped(false);
-  }
-
-  const watching =
-    !stopped && (formState.started === true || state.status === "running");
-  const { blockedBy } = useStartGate("reference_scan");
-
-  const { lines } = useRunFeed({
-    kind: "reference_scan",
-    active: watching,
-    describe: describeProgress,
-    onDone: () => {
-      setStopped(true);
-      router.refresh();
-    },
-  });
+  // Any active run blocks the start (single writer); the button stays
+  // visible but disabled, with the reason in its tooltip — a header control
+  // has no room for the usual StartBlockedNotice.
+  const activeRun = useRunStatus();
+  const blocked = activeRun !== null;
 
   return (
-    <div className="space-y-4">
+    <form action={formAction} className="contents">
+      <button
+        type="submit"
+        disabled={pending || blocked}
+        title={
+          blocked
+            ? "Pro Projekt kann nur ein Lauf gleichzeitig laufen – bitte abwarten."
+            : "Durchsucht das eingefrorene Briefing nach zitierten Quellen."
+        }
+        className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+      >
+        {pending
+          ? "Wird gestartet …"
+          : state.status === "not_started"
+            ? "Referenzen scannen"
+            : "Erneut scannen"}
+      </button>
+      <ErrorBanner message={formState.error} />
+    </form>
+  );
+}
+
+/** The scan's durable caveats, shown with the import details below the
+ * list: LLM channel currently unavailable, and/or the last committed scan
+ * ran regex-only (I2 fix — derived from the DURABLE pointer, not the live
+ * health probe, so a degraded scan stays distinguishable from a complete
+ * one once the run is over). */
+export function ReferenceScanNotices({
+  state,
+  llmAvailable,
+  lastScanMethod,
+}: {
+  state: ReferenceScanState;
+  llmAvailable: boolean;
+  lastScanMethod?: "regex" | "regex+llm";
+}) {
+  return (
+    <>
       {!llmAvailable ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Fließtext-Erkennung (LLM) derzeit nicht verfügbar – primäres Backend
@@ -98,11 +81,6 @@ export function ReferenceScanPanel({
           Markdown-Fußnoten <code>[^n]:</code>) funktioniert unabhängig davon.
         </div>
       ) : null}
-
-      {/* I2 fix: derived from the DURABLE pointer (`method`), not the live
-          health probe above — a rate-limited backend still counts as
-          "usable" there, so without this a degraded scan would become
-          indistinguishable from a complete one once the SSE feed is gone. */}
       {lastScanMethod === "regex" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <p className="font-medium">
@@ -115,29 +93,6 @@ export function ReferenceScanPanel({
           </p>
         </div>
       ) : null}
-
-      {blockedBy && !watching ? <StartBlockedNotice label={blockedBy} /> : null}
-      {!watching && !blockedBy ? (
-        <form action={formAction}>
-          <button
-            type="submit"
-            disabled={pending}
-            className={primaryButtonClass}
-          >
-            {pending
-              ? "Wird gescannt …"
-              : state.status === "not_started"
-                ? "Referenzen scannen"
-                : "Erneut scannen"}
-          </button>
-        </form>
-      ) : null}
-
-      <ErrorBanner message={formState.error} />
-
-      {watching ? (
-        <RunProgressFeed title="Fortschritt des Referenz-Scans" lines={lines} />
-      ) : null}
-    </div>
+    </>
   );
 }

@@ -109,17 +109,14 @@ export type {
   ReferenceScanState,
   ReferenceScanStatus,
 } from "./sources/reference-scan/derive-state";
+// Source work items: candidate captures enter the same per-item queue as
+// manual captures — the batch capture run and its volatile outcome
+// projection are retired; durable failures replaced them.
 export {
-  getReferenceCaptureOutcomes,
-  getReferenceCaptureRun,
-  startReferenceCapture,
-} from "./sources/reference-scan/run-reference-capture";
-export type {
-  ReferenceCaptureDependencies,
-  ReferenceCaptureItemResult,
-  ReferenceCaptureOutcome,
-  ReferenceCaptureSelection,
-} from "./sources/reference-scan/run-reference-capture";
+  enqueueCandidateCapture,
+  enqueueReadyCandidateCaptures,
+} from "./sources/reference-scan/enqueue-candidate-capture";
+export type { ReferenceCaptureSelection } from "./sources/reference-scan/capture-input";
 export { getReferenceCandidates } from "./sources/reference-scan/read-candidates";
 export type {
   CandidateMethod,

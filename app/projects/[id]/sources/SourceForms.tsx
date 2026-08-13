@@ -292,8 +292,7 @@ function CaptureSourceFields({
           Die Erfassung läuft im Hintergrund und reiht sich hinter laufende
           Schritte des Projekts ein; der Fortschritt erscheint direkt in der
           Quellenliste. Ein Server-Neustart verwirft eine noch wartende
-          Erfassung – begonnene oder fehlgeschlagene Versuche bleiben
-          erhalten.
+          Erfassung – begonnene oder fehlgeschlagene Versuche bleiben erhalten.
         </p>
       </form>
     </div>

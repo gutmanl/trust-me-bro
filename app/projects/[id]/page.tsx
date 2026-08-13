@@ -18,8 +18,6 @@ import {
   getOpenExistenceCheckCount,
   getProjectSummary,
   getReferenceCandidates,
-  getReferenceCaptureOutcomes,
-  getReferenceCaptureRun,
   getReferenceScanState,
   getSourceWorkItems,
   getUnpaywallSetting,
@@ -140,18 +138,13 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       getReferenceCandidates(id),
       Promise.resolve(getUnpaywallSetting()),
     ]);
+    // Capture run state and per-candidate outcomes are gone from this VM
+    // (source work items): a candidate's live state arrives via its work
+    // item in the unified list, and failures are durable register events.
     referenceImport = {
       scanState: getReferenceScanState(id, register),
       unpaywall,
       candidates,
-      // Capture keeps no durable state, so the page has to ask the runner
-      // directly whether a batch is live — a reload could not surface it
-      // otherwise, and the review panel would offer a submit that 409s.
-      captureRunActive: getReferenceCaptureRun(id)?.isActive() ?? false,
-      // Server-derived per-candidate outcomes of the last capture run: the
-      // durable "why did this not import", re-read on every render so a fast
-      // run + refresh cannot race the feedback away.
-      captureOutcomes: getReferenceCaptureOutcomes(id),
       llmAvailable: health.primary.usable,
       ...(register.project.reference_scan?.method !== undefined
         ? { lastScanMethod: register.project.reference_scan.method }

@@ -134,7 +134,10 @@ describe("enqueueManualCapture", () => {
     expect(JSON.stringify(request)).not.toContain("content");
     const store = RegisterStore.forProject(PROJECT_ID);
     expect(
-      store.blobs().read(request.uploadBlob?.blob_path ?? "").equals(content),
+      store
+        .blobs()
+        .read(request.uploadBlob?.blob_path ?? "")
+        .equals(content),
     ).toBe(true);
   });
 
@@ -176,9 +179,9 @@ describe("enqueueManualCapture", () => {
 
 describe("retryManualCapture", () => {
   it("rejects a work item without an open failure", async () => {
-    await expect(
-      retryManualCapture(PROJECT_ID, "wi_unknown"),
-    ).rejects.toThrow(PipelineError);
+    await expect(retryManualCapture(PROJECT_ID, "wi_unknown")).rejects.toThrow(
+      PipelineError,
+    );
   });
 
   it("re-queues the recorded input snapshot under the same id", async () => {
@@ -251,9 +254,7 @@ describe("getSourceWorkItems", () => {
         ],
       }),
     });
-    expect(
-      rows.map((row) => [row.workItemId, row.status]),
-    ).toEqual([
+    expect(rows.map((row) => [row.workItemId, row.status])).toEqual([
       ["wi_active", "capturing"],
       ["wi_queued", "queued"],
       ["wi_failed", "failed"],
