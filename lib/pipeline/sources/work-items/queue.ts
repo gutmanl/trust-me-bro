@@ -335,7 +335,9 @@ export async function retryManualCapture(
   const failure = deriveOpenCaptureFailures(register).find(
     (candidate) =>
       candidate.workItemId === workItemId &&
-      (candidate.origin === "manual" || candidate.origin === "correction"),
+      (candidate.origin === "manual" ||
+        candidate.origin === "correction" ||
+        candidate.origin === "auto_repair"),
   );
   if (!failure) {
     throw new PipelineError(

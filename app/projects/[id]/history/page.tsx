@@ -36,6 +36,15 @@ const EVENT_LABELS: Record<string, string> = {
   relevance_run_started: "Einschlägigkeitsprüfung gestartet",
   relevance_run_completed: "Einschlägigkeitsprüfung beendet",
   config_changed: "Konfiguration geändert",
+  reference_scan_started: "Referenz-Scan gestartet",
+  reference_scan_completed: "Referenz-Scan beendet",
+  research_run_started: "Erstrecherche gestartet",
+  research_run_completed: "Erstrecherche beendet",
+  source_capture_failed: "Quellenerfassung fehlgeschlagen",
+  source_capture_dismissed: "Erfassungsversuch verworfen",
+  source_identity_corrected: "Quellenkennung korrigiert",
+  source_repair_action: "Automatische Reparatur",
+  source_repair_action_dismissed: "Reparaturvorschlag verworfen",
 };
 
 /** Human-readable status for a chain-error message, German where known. */

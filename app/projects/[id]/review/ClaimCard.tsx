@@ -3,6 +3,10 @@
 import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
 import type { RoutingReason } from "@/lib/register";
 import {
+  isCaveatParagraph,
+  splitReasoningParagraphs,
+} from "../../reasoning-paragraphs";
+import {
   CALIBRATION_LABELS,
   formatModel,
   formatTimestamp,
@@ -12,6 +16,11 @@ import {
   statusBadgeClassName,
   SUPPORT_LABELS,
 } from "../../status-labels";
+import {
+  deriveVerdict,
+  relationBadgeClassName,
+  verdictBadgeClassName,
+} from "../../verdict-labels";
 import { ComplaintDialog } from "./ComplaintDialog";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
 import { ROUTING_LABELS } from "./routing-labels";
@@ -62,6 +71,17 @@ export function ClaimCard({
   // and for a claim whose anchor drifted (the two anchor repairs) — a
   // misplaced anchor is a defect in any status, not a verification verdict.
   const showRepair = claim.status === "contested" || marker.anchorDrifted;
+  // Combined pre-check verdict (verdict redesign): one phrase from
+  // support × calibration; divergence — where both enums stay unset by
+  // construction — is detected from the evidence-level judgments.
+  const divergent = claim.evidence.some(
+    (evidence) => evidenceDisplay[`${claim.id}/${evidence.id}`]?.divergent,
+  );
+  const verdict = deriveVerdict(
+    claim.support_degree,
+    claim.calibration_result,
+    divergent,
+  );
   return (
     <div
       id={`claim-card-${claim.id}`}
@@ -85,6 +105,13 @@ export function ClaimCard({
         >
           {STATUS_LABELS[claim.status]}
         </span>
+        {verdict ? (
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs ${verdictBadgeClassName(verdict.severity)}`}
+          >
+            {verdict.phrase}
+          </span>
+        ) : null}
         {routing ? (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
             {ROUTING_LABELS[routing]}
@@ -138,6 +165,13 @@ export function ClaimCard({
             <details className="rounded-md border border-slate-200">
               <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600">
                 Automatische Vorprüfung des Claims
+                {verdict ? (
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 ${verdictBadgeClassName(verdict.severity)}`}
+                  >
+                    {verdict.phrase}
+                  </span>
+                ) : null}
               </summary>
               <dl className="space-y-1 px-3 pb-3 text-xs text-slate-700">
                 {claim.support_degree ? (
@@ -161,6 +195,24 @@ export function ClaimCard({
                   </div>
                 ) : null}
               </dl>
+              {claim.calibration_reasoning ? (
+                <div className="space-y-1 border-t border-slate-100 px-3 py-2 text-xs text-slate-600">
+                  {splitReasoningParagraphs(claim.calibration_reasoning).map(
+                    (paragraph, index) => (
+                      <p
+                        key={index}
+                        className={
+                          isCaveatParagraph(paragraph)
+                            ? "border-l-2 border-amber-300 pl-2 text-amber-800"
+                            : undefined
+                        }
+                      >
+                        {paragraph}
+                      </p>
+                    ),
+                  )}
+                </div>
+              ) : null}
             </details>
           ) : null}
 
@@ -307,8 +359,10 @@ function EvidenceCard({
                 Divergenz
               </span>
             ) : evidence.relation_type ? (
-              <span className="ml-2 text-slate-500">
-                Relation: {RELATION_LABELS[evidence.relation_type]}
+              <span
+                className={`ml-2 rounded-full px-2 py-0.5 ${relationBadgeClassName(evidence.relation_type)}`}
+              >
+                {RELATION_LABELS[evidence.relation_type]}
               </span>
             ) : null}
           </summary>
@@ -319,13 +373,32 @@ function EvidenceCard({
                 className="rounded-md border border-slate-200 p-2 text-xs"
               >
                 <p className="font-medium text-slate-700">
-                  {RELATION_LABELS[judgment.relation_type]} ·{" "}
-                  {Math.round(judgment.confidence * 100)} %
+                  <span
+                    className={`rounded-full px-2 py-0.5 ${relationBadgeClassName(judgment.relation_type)}`}
+                  >
+                    {RELATION_LABELS[judgment.relation_type]}
+                  </span>{" "}
+                  · {Math.round(judgment.confidence * 100)} %
                   <span className="ml-2 font-normal text-slate-500">
                     {judgment.backend} ({formatModel(judgment.model)})
                   </span>
                 </p>
-                <p className="mt-1 text-slate-600">{judgment.reasoning}</p>
+                <div className="mt-1 space-y-1 text-slate-600">
+                  {splitReasoningParagraphs(judgment.reasoning).map(
+                    (paragraph, paragraphIndex) => (
+                      <p
+                        key={paragraphIndex}
+                        className={
+                          isCaveatParagraph(paragraph)
+                            ? "border-l-2 border-amber-300 pl-2 text-amber-800"
+                            : undefined
+                        }
+                      >
+                        {paragraph}
+                      </p>
+                    ),
+                  )}
+                </div>
               </li>
             ))}
           </ul>

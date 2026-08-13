@@ -32,7 +32,8 @@ afterEach(() => {
 });
 
 const CURRENT = {
-  rubricVersion: "se-evidence-rubric-v1",
+  // Tracks DEFAULT_RUBRIC_VERSION — a freshly created project's config.
+  rubricVersion: "se-evidence-rubric-v1.1",
   adjudicationSampleRate: 0.1,
   maxRepairCycles: 2,
   primaryCli: "claude" as const,

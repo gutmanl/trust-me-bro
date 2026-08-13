@@ -777,6 +777,178 @@ describe("createAutoChain: source-capture work items", () => {
   });
 });
 
+describe("module-level chain wrappers", () => {
+  it("enqueueAnchorRepair rides the process-global chain and drains", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { enqueueAnchorRepair, pendingTriggerCount } =
+      await import("./auto-chain");
+    // A ghost project: the sweep's own store lookup fails, the drain
+    // catches and warns, and the backlog still empties — the wrapper and
+    // the lazy resolution are what this exercises.
+    enqueueAnchorRepair("proj_ghost-anchor");
+    await vi.waitFor(() => {
+      expect(pendingTriggerCount("proj_ghost-anchor")).toBe(0);
+    });
+    warn.mockRestore();
+  });
+
+  it("the read-side wrappers answer for an unknown project without effects", async () => {
+    const { activeCaptureItem, pendingCaptureItems } =
+      await import("./auto-chain");
+    expect(pendingCaptureItems("proj_ghost-reads")).toEqual([]);
+    expect(activeCaptureItem("proj_ghost-reads")).toBeUndefined();
+  });
+});
+
+describe("createAutoChain: automatic repair fan-out", () => {
+  function repairDeps() {
+    return {
+      evaluateCaptureFailureRepair: vi.fn(async () => {}),
+      evaluateSourceRepair: vi.fn(async () => {}),
+      listRepairEvaluationSources: vi.fn(async (): Promise<string[]> => []),
+      runFuzzyReanchorSweep: vi.fn(async () => ({
+        repaired: 0,
+        stillUnresolved: 0,
+      })),
+      runBriefingSubstitution: vi.fn(async () => ({ published: false })),
+    };
+  }
+
+  /** Capture-item fake whose step FAILS, so the trigger sees {failed: 1}. */
+  function fakeFailingSourceCaptureItem(runner: JobRunner) {
+    return vi.fn(
+      async (
+        projectId: string,
+        item: SourceCaptureWorkItem,
+        deps?: { runner?: JobRunner },
+      ): Promise<RunHandle<SourceCaptureItemResult>> =>
+        (deps?.runner ?? runner).submit(
+          projectId,
+          [item],
+          (entry) => entry.workItemId,
+          async () => {
+            throw new Error("Erfassung fehlgeschlagen (Test).");
+          },
+          { kind: "source_capture" },
+        ),
+    );
+  }
+
+  it("gives a failed reference-import capture exactly one repair evaluation", async () => {
+    const runner = createJobRunner();
+    const deps = repairDeps();
+    const chain = createAutoChain({
+      runner,
+      startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
+      startExistenceCheck: fakeExistenceCheck(runner),
+      ...deps,
+    });
+    chain.enqueueSourceCapture("proj_a", {
+      workItemId: "cand_1",
+      origin: "reference_import",
+      label: "Kandidat",
+      request: { kind: "doi", sourceType: "preprint", identifier: "10.1/x" },
+    });
+    await vi.waitFor(() => {
+      expect(deps.evaluateCaptureFailureRepair).toHaveBeenCalledWith(
+        "proj_a",
+        "cand_1",
+      );
+    });
+  });
+
+  it("never evaluates a failed manual or auto_repair capture (loop guard)", async () => {
+    const runner = createJobRunner();
+    const deps = repairDeps();
+    const chain = createAutoChain({
+      runner,
+      startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
+      startExistenceCheck: fakeExistenceCheck(runner),
+      ...deps,
+    });
+    chain.enqueueSourceCapture("proj_a", {
+      workItemId: "wi_manual",
+      origin: "manual",
+      label: "Manuell",
+      request: { kind: "doi", sourceType: "preprint", identifier: "10.1/y" },
+    });
+    chain.enqueueSourceCapture("proj_a", {
+      workItemId: "wi_auto",
+      origin: "auto_repair",
+      label: "Reparaturversuch",
+      request: { kind: "doi", sourceType: "preprint", identifier: "10.1/z" },
+    });
+    await vi.waitFor(() => {
+      expect(chain.pendingTriggerCount("proj_a")).toBe(0);
+    });
+    expect(deps.evaluateCaptureFailureRepair).not.toHaveBeenCalled();
+  });
+
+  it("chains the briefing substitution and an anchor sweep behind a successful correction", async () => {
+    const runner = createJobRunner();
+    const deps = repairDeps();
+    const chain = createAutoChain({
+      runner,
+      startSourceCaptureItem: fakeResolvingSourceCaptureItem(runner),
+      ...deps,
+    });
+    chain.enqueueSourceCapture("proj_a", {
+      workItemId: "wi_korr",
+      origin: "correction",
+      label: "Korrektur",
+      request: {
+        kind: "doi",
+        sourceType: "preprint",
+        targetSourceId: "src_falsch",
+        identifier: "10.1109/TSE.2025.3489012",
+      },
+    });
+    await vi.waitFor(() => {
+      expect(deps.runBriefingSubstitution).toHaveBeenCalledWith(
+        "proj_a",
+        "src_falsch",
+      );
+      expect(deps.runFuzzyReanchorSweep).toHaveBeenCalledWith("proj_a");
+    });
+  });
+
+  it("fans one repair evaluation per stranded source out of an existence check", async () => {
+    const runner = createJobRunner();
+    const deps = repairDeps();
+    deps.listRepairEvaluationSources.mockResolvedValue(["src_a", "src_b"]);
+    const chain = createAutoChain({
+      runner,
+      startExistenceCheck: fakeExistenceCheck(runner),
+      ...deps,
+    });
+    chain.enqueueExistenceCheck("proj_a");
+    await vi.waitFor(() => {
+      expect(deps.evaluateSourceRepair).toHaveBeenCalledWith("proj_a", "src_a");
+      expect(deps.evaluateSourceRepair).toHaveBeenCalledWith("proj_a", "src_b");
+    });
+  });
+
+  it("runs the anchor sweep for an explicit enqueue and behind an extraction", async () => {
+    const runner = createJobRunner();
+    const deps = repairDeps();
+    const chain = createAutoChain({
+      runner,
+      startSourceExtraction: fakeExtraction(runner),
+      startExistenceCheck: fakeExistenceCheck(runner),
+      ...deps,
+    });
+    chain.enqueueAnchorRepair("proj_a");
+    await vi.waitFor(() => {
+      expect(deps.runFuzzyReanchorSweep).toHaveBeenCalledTimes(1);
+    });
+    chain.enqueueSourceExtraction("proj_a", "src_x");
+    await vi.waitFor(() => {
+      // Extraction → existence check → its fan-out → the chained sweep.
+      expect(deps.runFuzzyReanchorSweep).toHaveBeenCalledTimes(2);
+    });
+  });
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
 });

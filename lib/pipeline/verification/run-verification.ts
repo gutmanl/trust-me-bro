@@ -400,7 +400,14 @@ async function applyPreCheckResult(
       return "divergence" as const;
     }
     tx.setSupportDegree(claimId, stage23.supportDegree);
-    tx.setCalibrationResult(claimId, stage23.calibration.result);
+    // The reasoning lives structurally on the claim now (verdict
+    // redesign) — the transition reason no longer duplicates the possibly
+    // multi-paragraph prose inline.
+    tx.setCalibrationResult(
+      claimId,
+      stage23.calibration.result,
+      stage23.calibration.reasoning,
+    );
     tx.transitionClaim(claimId, {
       to: "prechecked",
       actor: ACTOR_PRECHECK,
@@ -408,9 +415,8 @@ async function applyPreCheckResult(
         `Stufen 2/3 abgeschlossen: Unterstützungsgrad ${stage23.supportDegree}, ` +
         `Rubrik ${stage23.calibration.result}` +
         (stage23.calibration.mechanical === "not_met"
-          ? " (mechanisches Rubrik-Minimum verletzt)"
-          : "") +
-        `. ${stage23.calibration.reasoning}`,
+          ? " (mechanisches Rubrik-Minimum verletzt)."
+          : "."),
     });
     const verdict = evaluateAutoConfirmation(tx.getClaim(claimId));
     if (verdict.ok) {

@@ -45,6 +45,33 @@ describe("loadRubricRuleSet", () => {
     const actual = createHash("sha256").update(template).digest("hex");
     expect(actual).toBe(rules.prompt_template_sha256);
   });
+
+  it("defaults the v1 rule file's template version to 1.0.0 (pre-field file)", () => {
+    expect(
+      loadRubricRuleSet("se-evidence-rubric-v1").prompt_template_version,
+    ).toBe("1.0.0");
+  });
+});
+
+describe("loadRubricRuleSet (v1.1, verdict redesign)", () => {
+  it("loads v1.1 with the same mechanical rules and the new template version", () => {
+    const v1 = loadRubricRuleSet("se-evidence-rubric-v1");
+    const v11 = loadRubricRuleSet("se-evidence-rubric-v1.1");
+    expect(v11.rubric_version).toBe("se-evidence-rubric-v1.1");
+    expect(v11.prompt_template_version).toBe("1.1.0");
+    // Only the prompt's OUTPUT contract changed — the mechanical rules are
+    // byte-identical between the two versions.
+    expect(v11.claim_types).toEqual(v1.claim_types);
+  });
+
+  it("pins the v1.1.0 prose prompt template", () => {
+    const rules = loadRubricRuleSet("se-evidence-rubric-v1.1");
+    const template = fs.readFileSync(
+      path.join(repoRoot, "lib", "adapters", "prompts", "rubric", "v1.1.0.md"),
+    );
+    const actual = createHash("sha256").update(template).digest("hex");
+    expect(actual).toBe(rules.prompt_template_sha256);
+  });
 });
 
 describe("evaluateMechanicalRubric (rubric v1)", () => {

@@ -19,6 +19,7 @@ import {
   getProjectSummary,
   getReferenceCandidates,
   getReferenceScanState,
+  deriveOpenRepairActions,
   getSourceWorkItems,
   getUnpaywallSetting,
   getVerificationState,
@@ -148,6 +149,9 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   // The not-yet-sources half of the unified list: queued/capturing from the
   // chain and runner, durable failures from the register.
   const workItems = getSourceWorkItems(id, register);
+  // Open auto-repair suggestions, joined onto failed work items and source
+  // rows client-side by the rail.
+  const repairSuggestions = deriveOpenRepairActions(register);
 
   // The reference-import section only exists once there is a briefing to
   // scan. Keeping it gated matters beyond tidiness: getBackendsHealth spawns
@@ -226,6 +230,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         }
         sources={sources}
         workItems={workItems}
+        repairSuggestions={repairSuggestions}
         sourceSetRevision={register.project.source_set_revision}
         pendingTriggers={pendingTriggerCount(id)}
         extractionActivity={deriveExtractionActivity(

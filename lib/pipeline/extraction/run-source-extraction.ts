@@ -221,7 +221,11 @@ async function runPassOnce(
       merged: summary.merged,
       message:
         `${summary.created} neue(r) Claim(s), ${summary.merged} zusätzliche ` +
-        `Fundstelle(n), ${summary.recheckPulled.length} Claim(s) zur Nachprüfung.`,
+        `Fundstelle(n), ${summary.recheckPulled.length} Claim(s) zur Nachprüfung.` +
+        (summary.droppedUnknownSourceEvidence > 0
+          ? ` ${summary.droppedUnknownSourceEvidence} Fundstelle(n) mit ` +
+            "unbekannter Quellen-Id verworfen."
+          : ""),
     };
   } catch (error) {
     // The register rejected the bundle as a whole (unknown source

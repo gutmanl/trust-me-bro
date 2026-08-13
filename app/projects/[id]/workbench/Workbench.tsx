@@ -10,6 +10,7 @@ import type {
   EvidenceDisplay,
   ExtractionActivity,
   QueueEntry,
+  RepairActionVM,
   SourceWorkItemVM,
   VerificationState,
 } from "@/lib/pipeline";
@@ -50,6 +51,7 @@ export function Workbench({
   verificationBlockedReason,
   sources,
   workItems,
+  repairSuggestions,
   sourceSetRevision,
   pendingTriggers,
   extractionActivity,
@@ -70,6 +72,7 @@ export function Workbench({
   verificationBlockedReason: string | null;
   sources: SourceRowVM[];
   workItems: SourceWorkItemVM[];
+  repairSuggestions: RepairActionVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
   extractionActivity: ExtractionActivity;
@@ -184,6 +187,7 @@ export function Workbench({
           projectId={projectId}
           sources={sources}
           workItems={workItems}
+          repairSuggestions={repairSuggestions}
           sourceSetRevision={sourceSetRevision}
           pendingTriggers={pendingTriggers}
           extractionActivity={extractionActivity}

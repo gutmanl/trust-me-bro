@@ -8,6 +8,7 @@ import { useItemLiveStatus } from "@/app/lib/useItemLiveStatus";
 import type {
   ExtractionActivity,
   ReferenceScanState,
+  RepairActionVM,
   ReviewCandidate,
   SourceWorkItemVM,
   UnpaywallSetting,
@@ -74,6 +75,7 @@ export function SourcesRail({
   projectId,
   sources,
   workItems,
+  repairSuggestions,
   sourceSetRevision,
   pendingTriggers,
   extractionActivity,
@@ -85,6 +87,9 @@ export function SourcesRail({
   /** Queued/capturing/failed capture work items — the not-yet-sources half
    * of the unified list (source work items). */
   workItems: SourceWorkItemVM[];
+  /** Open repair suggestions (automatic repair), joined onto their failed
+   * work item or their target source's row. */
+  repairSuggestions: RepairActionVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
   /** How the last extraction pass ended — the durable half of the run state
@@ -120,27 +125,57 @@ export function SourcesRail({
   );
   const workItemByCandidate = new Map(
     workItems
-      .filter((item) => item.origin === "reference_import")
+      // An auto-repair retry of a failed reference-import candidate keeps
+      // the candidate's work-item id — its live state belongs on the
+      // candidate row too.
+      .filter(
+        (item) =>
+          item.origin === "reference_import" ||
+          (item.origin === "auto_repair" && item.targetSourceId === undefined),
+      )
       .map((item) => [item.workItemId, item]),
   );
   // ALL correction items per source, not just the latest: a fresh
   // correction may be running while an earlier attempt's open failure is
   // still on the books — the row must show both (live progress AND every
   // failure's retry/dismiss), or the loser of a per-source collision would
-  // render nowhere.
+  // render nowhere. Auto-repair items targeting a source render there too.
   const correctionsBySource = new Map<string, SourceWorkItemVM[]>();
   for (const item of workItems) {
-    if (item.origin === "correction" && item.targetSourceId !== undefined) {
+    if (
+      (item.origin === "correction" || item.origin === "auto_repair") &&
+      item.targetSourceId !== undefined
+    ) {
       const list = correctionsBySource.get(item.targetSourceId) ?? [];
       list.push(item);
       correctionsBySource.set(item.targetSourceId, list);
     }
   }
-  const standaloneWorkItems = workItems.filter((item) =>
-    item.origin === "correction"
-      ? false
-      : item.origin !== "reference_import" ||
-        !openCandidateIds.has(item.workItemId),
+  const standaloneWorkItems = workItems.filter((item) => {
+    if (item.origin === "correction" || item.targetSourceId !== undefined) {
+      // Renders as state on the target source's row.
+      return false;
+    }
+    if (item.origin === "manual") {
+      return true;
+    }
+    // reference_import and target-less auto_repair items render on their
+    // candidate's row while that candidate is still open.
+    return !openCandidateIds.has(item.workItemId);
+  });
+  const suggestionByWorkItem = new Map(
+    repairSuggestions.flatMap((entry) =>
+      entry.target.kind === "capture_failure"
+        ? [[entry.target.workItemId, entry] as const]
+        : [],
+    ),
+  );
+  const suggestionBySource = new Map(
+    repairSuggestions.flatMap((entry) =>
+      entry.target.kind === "source"
+        ? [[entry.target.sourceId, entry] as const]
+        : [],
+    ),
   );
   const readyCandidateCount = openCandidates.filter(
     (candidate) => candidate.selected,
@@ -213,6 +248,7 @@ export function SourcesRail({
                 projectId={projectId}
                 item={item}
                 liveCapturing={capturingItems.has(item.workItemId)}
+                suggestion={suggestionByWorkItem.get(item.workItemId)}
               />
             ))}
             {openCandidates.map((candidate) => (
@@ -237,6 +273,7 @@ export function SourcesRail({
                   correctingLive={corrections.some((item) =>
                     capturingItems.has(item.workItemId),
                   )}
+                  suggestion={suggestionBySource.get(source.id)}
                 />
               );
             })}

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
   discardBriefingDraft,
+  enqueueAnchorRepair,
   enqueueReferenceScan,
   enqueueSourceExtraction,
   getBriefing,
@@ -139,6 +140,9 @@ export async function publishBriefingRevisionAction(
   }
   if (result.value.changed) {
     enqueueReferenceScan(projectId);
+    // Anchor auto-repair: quotes the revision moved beyond the silent
+    // exact remap's reach get one bounded fuzzy attempt.
+    enqueueAnchorRepair(projectId);
   }
   revalidateWorkbench(projectId);
   return { error: null, published: true };

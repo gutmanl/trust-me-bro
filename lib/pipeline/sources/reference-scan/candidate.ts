@@ -30,6 +30,13 @@ export interface CandidateSeed {
   venue?: string;
   match_score?: number;
   crossref_unavailable?: boolean;
+  /** Identity cross-check verdict (automatic repair): the identifier
+   * resolves to a different work than the citation's own title describes —
+   * the review withholds such a candidate from auto-capture. */
+  identity_conflict?: boolean;
+  identity_conflict_note?: string;
+  /** The competing hypothesis: what the TITLE resolves to via Crossref. */
+  alternate_title_match?: { doi?: string; title?: string; match_score: number };
 }
 
 /**
@@ -98,6 +105,13 @@ function seedToCandidate(seed: CandidateSeed): ReferenceCandidate {
       ? { match_score: seed.match_score }
       : {}),
     ...(seed.crossref_unavailable ? { crossref_unavailable: true } : {}),
+    ...(seed.identity_conflict ? { identity_conflict: true } : {}),
+    ...(seed.identity_conflict_note
+      ? { identity_conflict_note: seed.identity_conflict_note }
+      : {}),
+    ...(seed.alternate_title_match
+      ? { alternate_title_match: { ...seed.alternate_title_match } }
+      : {}),
     suggested_source_type: suggestSourceType(seed.method),
   };
 }

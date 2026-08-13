@@ -103,7 +103,7 @@ export function isDemoProject(config: ProjectConfig): boolean {
   return config.backends.primary.cli === DEMO_BACKEND_CLI;
 }
 
-export const DEFAULT_RUBRIC_VERSION = "se-evidence-rubric-v1";
+export const DEFAULT_RUBRIC_VERSION = "se-evidence-rubric-v1.1";
 export const DEFAULT_ADJUDICATION_SAMPLE_RATE = 0.1;
 /** Repair cycles before the loop escalates to the reviewer (TMB-37); applied
  * at point of use for registers whose config predates the field. */

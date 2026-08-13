@@ -207,11 +207,22 @@ export {
 // must combine it with isRunning/getActiveRun, not read it alone (see the
 // doc comment on pendingTriggerCount itself for the full contract).
 export {
+  enqueueAnchorRepair,
   enqueueExistenceCheck,
   enqueueReferenceScan,
   enqueueSourceExtraction,
   pendingTriggerCount,
 } from "./runs/auto-chain";
+// Automatic repair: durable suggestions the UI renders (one-click apply /
+// dismiss); the evaluators, the quote-fit disambiguation, the Crossref
+// re-resolution and the briefing substitution stay internal — they run
+// only off the auto-chain.
+export {
+  applySuggestedRepair,
+  deriveOpenRepairActions,
+  dismissRepairAction,
+} from "./sources/auto-repair/suggestions";
+export type { RepairActionVM } from "./sources/auto-repair/suggestions";
 // TMB-43: warm runs — follow-up project creation with claim adoption and
 // the relevance check. Selection and state derivation stay internal.
 export { createWarmRunProject } from "./warm/create-warm-run";

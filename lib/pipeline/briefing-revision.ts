@@ -1,4 +1,5 @@
 import { getCurrentActor } from "../identity";
+import type { ActorId } from "../identity";
 import type { BriefingDraft, BriefingImport } from "../register";
 import { sha256Hex, splitBriefingParagraphs } from "../register";
 import { computeReanchorUpdates } from "./briefing-reanchor";
@@ -68,6 +69,11 @@ export interface PublishBriefingRevisionInput {
    * specific (the passage repair, which names its claim) pass their own.
    * Ignored on the initial-import path, which records its own event. */
   reason?: string;
+  /** Actor recorded on the revision — defaults to the current human actor.
+   * The automatic briefing substitution (automatic repair) passes its
+   * system token, so a mechanical revision is never misattributed to a
+   * person. Ignored on the initial-import path. */
+  actor?: ActorId;
 }
 
 /**
@@ -142,7 +148,7 @@ export async function publishBriefingRevision(
       sha256: blob.sha256,
       blob_path: blob.blobPath,
       tool: current.tool,
-      actor: getCurrentActor(),
+      actor: input.actor ?? getCurrentActor(),
       reason: input.reason ?? "Briefing überarbeitet (Arbeitsbereich).",
     });
     // Deliberately computed here, not from the register read above: it is

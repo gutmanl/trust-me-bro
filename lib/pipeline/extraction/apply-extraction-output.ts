@@ -45,6 +45,12 @@ export interface ApplySummary {
   merged: number;
   /** Ids of the claims this pass pulled into recheck_required. */
   recheckPulled: string[];
+  /** Evidence entries dropped because their source_id names no captured
+   * source (extraction salvage): a hallucinated reference no longer
+   * rejects the whole pass — the bad entry is filtered, counted here and
+   * named in the pass's closing event, while everything legitimate
+   * commits. */
+  droppedUnknownSourceEvidence: number;
 }
 
 /** Mutable bookkeeping per known claim, so one pass can attach several
@@ -146,6 +152,29 @@ export function applyExtractionOutput(
   let escalated = 0;
   let merged = 0;
 
+  // Extraction salvage: an LLM-hallucinated source_id must not reject the
+  // whole pass (the register's integrity check would, at commit). Filter
+  // per evidence entry BEFORE anything reaches the transaction's writes —
+  // a claim losing all its evidence this way falls through the ordinary
+  // no-evidence gate to adjudication instead of vanishing with the batch.
+  const knownSourceIds = new Set(tx.listSources().map((source) => source.id));
+  let droppedUnknownSourceEvidence = 0;
+  const droppedSourceIds = new Set<string>();
+  const keepKnownSources = (
+    entries: readonly ExtractedEvidence[],
+  ): ExtractedEvidence[] => {
+    const kept: ExtractedEvidence[] = [];
+    for (const entry of entries) {
+      if (knownSourceIds.has(entry.source_id)) {
+        kept.push(entry);
+      } else {
+        droppedUnknownSourceEvidence += 1;
+        droppedSourceIds.add(entry.source_id);
+      }
+    }
+    return kept;
+  };
+
   const attach = (known: KnownClaim, entry: ExtractedEvidence): void => {
     const key = pairKey(entry);
     if (known.evidencePairs.has(key)) {
@@ -209,18 +238,24 @@ export function applyExtractionOutput(
   };
 
   for (const extracted of output.claims) {
+    const evidence = keepKnownSources(extracted.evidence);
     const known = byNormalizedText.get(normalizeForSearch(extracted.text));
     if (known) {
-      for (const entry of extracted.evidence) {
+      for (const entry of evidence) {
         attach(known, entry);
       }
       continue;
     }
     // The creation gate decides the status; the reason classifies the
-    // routing for the history (unevidenced vs. bundled vs. regular).
+    // routing for the history (unevidenced vs. bundled vs. filtered vs.
+    // regular).
     const reason =
-      extracted.evidence.length === 0
-        ? "Keine Fundstelle extrahierbar – unbelegter Claim zur Adjudikation."
+      evidence.length === 0
+        ? extracted.evidence.length > 0
+          ? "Alle Fundstellen nannten unbekannte Quellen-Ids " +
+            "(mutmaßlich halluzinierte Referenzen) und wurden verworfen – " +
+            "unbelegter Claim zur Adjudikation."
+          : "Keine Fundstelle extrahierbar – unbelegter Claim zur Adjudikation."
         : isAtomicClaimText(extracted.text)
           ? `Aus dem Briefing extrahiert (${scope}).`
           : "Atomaritätsgate: Extraktionsergebnis bündelt mehrere Aussagen – zur Adjudikation.";
@@ -228,12 +263,21 @@ export function applyExtractionOutput(
       text: extracted.text,
       claim_type: extracted.claim_type,
       quote: extracted.anchor_quote,
-      evidence: extracted.evidence,
+      evidence,
       reason,
     });
   }
 
   for (const additional of output.additional_evidence) {
+    if (!knownSourceIds.has(additional.evidence.source_id)) {
+      // A stray finding whose ONLY evidence names an unknown source has
+      // nothing verifiable to contribute — skip it entirely (counted and
+      // named in the closing event) instead of minting an unbelegter
+      // claim from a hallucinated reference.
+      droppedUnknownSourceEvidence += 1;
+      droppedSourceIds.add(additional.evidence.source_id);
+      continue;
+    }
     const known = byNormalizedText.get(
       normalizeForSearch(additional.claim_text_match),
     );
@@ -280,7 +324,11 @@ export function applyExtractionOutput(
       `${EXTRACTION_COMPLETED_PREFIX} (${scope}, Lauf ${meta.runId}): ` +
       `${created} neue(r) Claim(s), davon ${escalated} zur Adjudikation; ` +
       `${merged} zusätzliche Fundstelle(n) an bestehenden Claims; ` +
-      `${recheckPulled.length} Claim(s) zur Nachprüfung.`,
+      `${recheckPulled.length} Claim(s) zur Nachprüfung.` +
+      (droppedUnknownSourceEvidence > 0
+        ? ` ${droppedUnknownSourceEvidence} Fundstelle(n) mit unbekannter ` +
+          `Quellen-Id verworfen (${[...droppedSourceIds].join(", ")}).`
+        : ""),
     actor: ACTOR,
     // Structured per-source attribution (source work items): absent for the
     // sweep, so per-row status never misreads a sweep as a source pass.
@@ -288,5 +336,11 @@ export function applyExtractionOutput(
     at: now,
   });
 
-  return { created, escalated, merged, recheckPulled };
+  return {
+    created,
+    escalated,
+    merged,
+    recheckPulled,
+    droppedUnknownSourceEvidence,
+  };
 }

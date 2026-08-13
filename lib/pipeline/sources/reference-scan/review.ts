@@ -47,6 +47,11 @@ export function buildCandidateReview(
       (candidate.method !== "url" || Boolean(candidate.title));
     const selected =
       capturable &&
+      // A candidate whose identifier and cited title point at different
+      // works (identity cross-check) is never pre-checked: the human
+      // chooses between the two hypotheses instead of auto-capturing a
+      // possibly hallucinated identifier.
+      candidate.identity_conflict !== true &&
       (candidate.method !== "crossref_title" ||
         (candidate.match_score ?? 0) >= CONFIDENT_THRESHOLD);
 

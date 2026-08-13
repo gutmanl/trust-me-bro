@@ -163,7 +163,14 @@ export async function runAttributionAndRubric(
     kind: "rubric",
     projectDir: deps.projectDir,
     input: rubricInput,
-    prompt: renderPromptForJob("rubric", rubricInput),
+    // The rule set decides which prompt template version renders — an
+    // existing project pinned to se-evidence-rubric-v1 keeps the v1.0.0
+    // prompt; new projects (v1.1 rule set) get the two-paragraph one.
+    prompt: renderPromptForJob(
+      "rubric",
+      rubricInput,
+      deps.ruleSet.prompt_template_version,
+    ),
     timeoutMs: deps.timeoutMs,
   };
   const outcome = await deps.orchestrator.run(deps.primaryBackendId, rubricJob);

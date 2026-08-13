@@ -201,5 +201,19 @@ export const ProjectEventType = z.enum([
    * `source_set_revised` (content-only document rotation) so the timeline
    * can tell the two apart (documented extension, additive). */
   "source_identity_corrected",
+  /** Automatic repair (automatische Reparatur): the system derived a
+   * corrected identity for a failed capture or a wrongly identified
+   * source — the `repair_action` payload carries the target, the derived
+   * candidate, the confidence, and whether the fix was applied
+   * automatically (`mode: "applied"`) or only suggested for one-click
+   * confirmation (`mode: "suggested"`); durable so suggestions survive a
+   * restart (documented extension, additive). */
+  "source_repair_action",
+  /** Automatic repair: a human dismissed an open repair suggestion, or a
+   * suggestion was consumed by applying it — mirrors
+   * `source_capture_dismissed`'s chain-order semantics, using the existing
+   * `source_id`/`work_item_id` scalars to name the target (documented
+   * extension, additive). */
+  "source_repair_action_dismissed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

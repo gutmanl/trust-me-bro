@@ -28,7 +28,13 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // pass is scoped to one source (or the unevidenced sweep) and reports
   // findings for already-known claims through `additional_evidence`.
   extraction: "2.0.0",
-  attribution: "1.0.0",
+  // 1.1.0 (verdict redesign): reasoning in up to two German paragraphs, a
+  // caveat paragraph starting "Jedoch:" — the UI splits on the blank line.
+  attribution: "1.1.0",
+  // The rubric template version is NOT selected from here in production:
+  // the rule set's own `prompt_template_version` (rubric-rules.ts) decides,
+  // so a project pinned to se-evidence-rubric-v1 keeps the v1.0.0 prompt.
+  // This default only serves direct renderPromptForJob calls in tests.
   rubric: "1.0.0",
   repair: "1.0.0",
   relevance: "1.0.0",

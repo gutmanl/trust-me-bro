@@ -46,6 +46,9 @@ export function captureFailureInputOf(
     ...(request.uploadBlob !== undefined
       ? { upload: { ...request.uploadBlob } }
       : {}),
+    ...(request.autoCapture !== undefined
+      ? { auto_capture: { ...request.autoCapture } }
+      : {}),
   };
 }
 
@@ -82,7 +85,7 @@ export async function recordCaptureFailure(
 /** One unresolved durable capture failure, ready for display and retry. */
 export interface CaptureFailureVM {
   workItemId: string;
-  origin: "manual" | "reference_import" | "correction";
+  origin: "manual" | "reference_import" | "correction" | "auto_repair";
   reason: string;
   failedAt: string;
   input: CaptureFailureInput;

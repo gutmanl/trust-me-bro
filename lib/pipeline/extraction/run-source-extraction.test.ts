@@ -263,7 +263,10 @@ describe("per-source extraction pass", () => {
     );
   });
 
-  it("rejects a bundle referencing unknown sources as a whole", async () => {
+  it("salvages a bundle with an unknown source: bad evidence dropped, claim escalated", async () => {
+    // Extraction salvage: a hallucinated source_id no longer rejects the
+    // whole pass — the bad evidence entry is filtered, the claim routes
+    // through the ordinary no-evidence gate, and the drop is named.
     await prepareProject();
     const badOutput: ExtractionOutput = {
       claims: [
@@ -289,8 +292,14 @@ describe("per-source extraction pass", () => {
     await handle.done;
 
     const register = await RegisterStore.forProject(PROJECT).read();
-    expect(register.claims).toHaveLength(0);
-    expect(register.project_events.at(-1)?.reason).toContain("zurückgewiesen");
+    expect(register.claims).toHaveLength(1);
+    const claim = register.claims[0];
+    expect(claim.evidence).toHaveLength(0);
+    expect(claim.status).toBe("pending_adjudication");
+    expect(claim.history[0]?.reason).toContain("unbekannte Quellen-Ids");
+    expect(register.project_events.at(-1)?.reason).toContain(
+      "Fundstelle(n) mit unbekannter Quellen-Id verworfen (src_unbekannt)",
+    );
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
   });
 });

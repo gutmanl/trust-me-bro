@@ -118,6 +118,25 @@ describe("enqueueManualCapture", () => {
     });
   });
 
+  it("carries an explicit document URL alongside the identifier", async () => {
+    const chain = fakeChain();
+    await enqueueManualCapture(
+      PROJECT_ID,
+      {
+        kind: "doi",
+        sourceType: "peer_reviewed_publication",
+        identifier: "10.1109/TSE.2025.3489012",
+        documentUrl: "https://publisher.example.org/paper.pdf",
+      },
+      { chain },
+    );
+    expect(chain.enqueued[0].request).toMatchObject({
+      kind: "doi",
+      identifier: "10.1109/TSE.2025.3489012",
+      documentUrl: "https://publisher.example.org/paper.pdf",
+    });
+  });
+
   it("freezes an upload into the blob store so the queue holds no bytes", async () => {
     const chain = fakeChain();
     const content = Buffer.from("%PDF-1.7 fake");
@@ -221,6 +240,33 @@ describe("enqueueSourceCorrection", () => {
       }),
     ).rejects.toThrow(InvalidSourceInputError);
   });
+
+  it("freezes a corrected upload into the blob store", async () => {
+    await addSource("src_falsch");
+    const chain = fakeChain();
+    const content = Buffer.from("Der richtige Volltext.");
+    const { workItemId } = await enqueueSourceCorrection(
+      PROJECT_ID,
+      "src_falsch",
+      {
+        kind: "upload",
+        sourceType: "grey_literature",
+        manual: { title: "Richtiges Paper" },
+        upload: { content, filename: "richtig.txt" },
+      },
+      { chain },
+    );
+    const request = chain.enqueued[0].request;
+    expect(chain.enqueued[0].workItemId).toBe(workItemId);
+    expect(request.sourceType).toBe("grey_literature");
+    expect(request.uploadBlob?.filename).toBe("richtig.txt");
+    expect(
+      RegisterStore.forProject(PROJECT_ID)
+        .blobs()
+        .read(request.uploadBlob?.blob_path ?? "")
+        .equals(content),
+    ).toBe(true);
+  });
 });
 
 describe("retryManualCapture", () => {
@@ -261,6 +307,57 @@ describe("retryManualCapture", () => {
         targetSourceId: "src_falsch",
         identifier: "10.1109/TSE.2025.3489012",
       },
+    });
+  });
+
+  it("re-queues a failed auto-repair attempt, origin preserved", async () => {
+    await recordCaptureFailure(
+      PROJECT_ID,
+      {
+        workItemId: "wi_auto",
+        origin: "auto_repair",
+        label: "Automatisch korrigiert",
+        request: {
+          kind: "doi",
+          sourceType: "peer_reviewed_publication",
+          identifier: "10.1109/TSE.2025.3489012",
+        },
+      },
+      new DocumentFetchError("Kein PDF gefunden."),
+    );
+    const chain = fakeChain();
+    await retryManualCapture(PROJECT_ID, "wi_auto", { chain });
+    expect(chain.enqueued[0]).toMatchObject({
+      workItemId: "wi_auto",
+      origin: "auto_repair",
+      request: { kind: "doi", identifier: "10.1109/TSE.2025.3489012" },
+    });
+  });
+
+  it("re-queues a frozen upload by blob reference, nothing re-uploaded", async () => {
+    const blob = RegisterStore.forProject(PROJECT_ID)
+      .blobs()
+      .put(Buffer.from("%PDF-1.7 fake"), "pdf");
+    await recordCaptureFailure(
+      PROJECT_ID,
+      {
+        workItemId: "wi_upload",
+        origin: "manual",
+        label: "Bericht",
+        request: {
+          kind: "upload",
+          sourceType: "grey_literature",
+          manual: { title: "Bericht" },
+          uploadBlob: { blob_path: blob.blobPath, filename: "bericht.pdf" },
+        },
+      },
+      new DocumentFetchError("Extraktion abgebrochen."),
+    );
+    const chain = fakeChain();
+    await retryManualCapture(PROJECT_ID, "wi_upload", { chain });
+    expect(chain.enqueued[0].request.uploadBlob).toEqual({
+      blob_path: blob.blobPath,
+      filename: "bericht.pdf",
     });
   });
 
@@ -341,6 +438,36 @@ describe("getSourceWorkItems", () => {
     ]);
     const failed = rows.find((row) => row.status === "failed");
     expect(failed?.error).toBe("Nicht abrufbar.");
+  });
+
+  it("labels a failed upload correction by its filename and keeps the target", async () => {
+    const blob = RegisterStore.forProject(PROJECT_ID)
+      .blobs()
+      .put(Buffer.from("%PDF-1.7 fake"), "pdf");
+    await recordCaptureFailure(
+      PROJECT_ID,
+      {
+        workItemId: "wi_upload_korrektur",
+        origin: "correction",
+        label: "richtig.pdf",
+        request: {
+          kind: "upload",
+          sourceType: "grey_literature",
+          targetSourceId: "src_falsch",
+          uploadBlob: { blob_path: blob.blobPath, filename: "richtig.pdf" },
+        },
+      },
+      new DocumentFetchError("Extraktion abgebrochen."),
+    );
+    const register = await RegisterStore.forProject(PROJECT_ID).read();
+    const rows = getSourceWorkItems(PROJECT_ID, register, {
+      chain: fakeChain(),
+    });
+    expect(rows).toHaveLength(1);
+    // No manual title, no identifier — the frozen upload's filename labels.
+    expect(rows[0].label).toBe("richtig.pdf");
+    expect(rows[0].targetSourceId).toBe("src_falsch");
+    expect(rows[0].status).toBe("failed");
   });
 
   it("keeps reference-import failures visible with their reason", async () => {

@@ -40,9 +40,11 @@ export interface SourceCaptureRequest {
 }
 
 /** How a work item entered the queue: the manual capture modal, a
- * reference-import candidate, or a correction of an existing source's
- * identity (source correction). */
-export type SourceWorkItemOrigin = "manual" | "reference_import" | "correction";
+ * reference-import candidate, a correction of an existing source's
+ * identity (source correction), or an automatic repair's own attempt
+ * (automatic repair — the loop guard keys on this origin). */
+export type SourceWorkItemOrigin =
+  "manual" | "reference_import" | "correction" | "auto_repair";
 
 /** One queued or running capture work item, as the auto-chain carries it. */
 export interface SourceCaptureWorkItem {

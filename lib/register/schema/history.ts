@@ -17,6 +17,7 @@ import {
   SourceId,
 } from "./primitives";
 import { ProjectConfig } from "./project";
+import { AutoCaptureProvenance } from "./source";
 
 /**
  * Chain fields carried by every history entry and project event. The `seq`
@@ -142,6 +143,12 @@ export const CaptureFailureInput = z.strictObject({
       filename: z.string().min(1),
     })
     .optional(),
+  /** Auto-import provenance of the failed attempt (automatic repair):
+   * kept in the durable snapshot so a later automatic re-resolution still
+   * has the raw citation text to work from — without it a failed
+   * reference-import capture would lose exactly the context the repair
+   * needs (documented extension, additive). */
+  auto_capture: AutoCaptureProvenance.optional(),
 });
 export type CaptureFailureInput = z.infer<typeof CaptureFailureInput>;
 
@@ -158,10 +165,63 @@ export const CaptureFailure = z.strictObject({
   work_item_id: z.string().min(1),
   // "correction": the attempt targeted an existing source's identity
   // (source correction) — the input then carries `target_source_id`.
-  origin: z.enum(["manual", "reference_import", "correction"]),
+  // "auto_repair": the attempt was enqueued by the automatic repair, not
+  // a human — the loop guard keys on this: an auto-repair never fires on
+  // an auto_repair-origin failure again.
+  origin: z.enum(["manual", "reference_import", "correction", "auto_repair"]),
   input: CaptureFailureInput,
 });
 export type CaptureFailure = z.infer<typeof CaptureFailure>;
+
+/** What an automatic repair targets: a failed capture attempt (work item)
+ * or an already-captured source whose identity is suspect. */
+export const RepairActionTarget = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("capture_failure"),
+    work_item_id: z.string().min(1),
+  }),
+  z.strictObject({ kind: z.literal("source"), source_id: SourceId }),
+]);
+export type RepairActionTarget = z.infer<typeof RepairActionTarget>;
+
+/** The corrected identity the automatic repair derived. */
+export const RepairActionCandidate = z.strictObject({
+  kind: z.enum(["doi", "arxiv", "url"]),
+  identifier: z.string().min(1).optional(),
+  document_url: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+});
+export type RepairActionCandidate = z.infer<typeof RepairActionCandidate>;
+
+/**
+ * Payload of a `source_repair_action` event (automatic repair): what was
+ * targeted, what candidate identity the system derived, on which basis,
+ * with which confidence — and whether it was applied automatically or
+ * only suggested. `quote_fit` carries the disambiguation evidence of the
+ * quote-containment check (how many of the failing verbatim excerpts the
+ * candidate document contains vs the current frozen text), so a reviewer
+ * sees the same numbers the automatic decision saw (documented extension,
+ * additive).
+ */
+export const RepairAction = z.strictObject({
+  target: RepairActionTarget,
+  mode: z.enum(["suggested", "applied"]),
+  basis: z.enum([
+    "capture_failure_rematch",
+    "identity_unambiguous_rematch",
+    "quote_fit_rematch",
+  ]),
+  candidate: RepairActionCandidate,
+  confidence: z.number().min(0).max(1).optional(),
+  quote_fit: z
+    .strictObject({
+      candidate_matches: z.int().min(0),
+      current_matches: z.int().min(0),
+      checked_excerpts: z.int().min(1),
+    })
+    .optional(),
+});
+export type RepairAction = z.infer<typeof RepairAction>;
 
 /**
  * Payload of a `source_identity_corrected` event (source correction): the
@@ -202,6 +262,9 @@ export const ProjectEvent = z.strictObject({
   /** Only on `source_identity_corrected` events (source correction,
    * documented extension, additive). */
   identity_change: IdentityChange.optional(),
+  /** Only on `source_repair_action` events (automatic repair, documented
+   * extension, additive). */
+  repair_action: RepairAction.optional(),
   /** The single source an extraction bracket event targeted: set on
    * `batch_run_started`/`batch_run_completed` for per-source passes, absent
    * for the project-wide sweep and for events from before this extension —

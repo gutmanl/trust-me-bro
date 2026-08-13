@@ -3,10 +3,15 @@
 import { useActionState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
-import type { SourceWorkItemVM } from "@/lib/pipeline";
+import type { RepairActionVM, SourceWorkItemVM } from "@/lib/pipeline";
 import { formatTimestamp } from "../../status-labels";
-import type { RetryCaptureState } from "../sources/actions";
-import { dismissCaptureAction, retryCaptureAction } from "../sources/actions";
+import type { RepairTargetKind, RetryCaptureState } from "../sources/actions";
+import {
+  applyRepairSuggestionAction,
+  dismissCaptureAction,
+  dismissRepairSuggestionAction,
+  retryCaptureAction,
+} from "../sources/actions";
 
 const initialRetryState: RetryCaptureState = { error: null };
 
@@ -14,6 +19,7 @@ const ORIGIN_LABELS: Record<SourceWorkItemVM["origin"], string> = {
   manual: "manuell erfasst",
   reference_import: "aus dem Referenz-Import",
   correction: "Korrektur der Quellenkennung",
+  auto_repair: "automatische Reparatur",
 };
 
 /** Shared status pieces of the unified list's rows — one definition, so a
@@ -44,6 +50,82 @@ export function FailureBox({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * One open repair suggestion (automatic repair): the system derived a
+ * candidate identity but was not confident enough to apply it on its own —
+ * indigo, not amber, so a suggestion reads distinct from a failure. Renders
+ * on the failed work-item row or the suspect source's row, with one-click
+ * apply and dismiss.
+ */
+export function SuggestionBox({
+  projectId,
+  suggestion,
+}: {
+  projectId: string;
+  suggestion: RepairActionVM;
+}) {
+  const targetKind: RepairTargetKind = suggestion.target.kind;
+  const targetId =
+    suggestion.target.kind === "capture_failure"
+      ? suggestion.target.workItemId
+      : suggestion.target.sourceId;
+  const [applyState, applyAction, applyPending] = useActionState(
+    applyRepairSuggestionAction.bind(null, projectId, targetKind, targetId),
+    initialRetryState,
+  );
+  const [dismissState, dismissAction, dismissPending] = useActionState(
+    dismissRepairSuggestionAction.bind(null, projectId, targetKind, targetId),
+    initialRetryState,
+  );
+  const candidate = suggestion.candidate;
+  return (
+    <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-xs text-indigo-900">
+      <p>
+        💡 Reparaturvorschlag: {candidate.title ?? candidate.identifier}
+        {candidate.identifier && candidate.title ? (
+          <span className="font-mono"> ({candidate.identifier})</span>
+        ) : null}
+        {suggestion.confidence !== undefined ? (
+          <span>
+            {" "}
+            – {Math.round(suggestion.confidence * 100)} % Übereinstimmung
+          </span>
+        ) : null}
+      </p>
+      {suggestion.quoteFit ? (
+        <p className="mt-0.5 text-indigo-700">
+          Zitat-Abgleich: {suggestion.quoteFit.candidateMatches} von{" "}
+          {suggestion.quoteFit.checkedExcerpts} fehlenden Zitatstellen im
+          Kandidaten gefunden, {suggestion.quoteFit.currentMatches} im aktuellen
+          Bestand.
+        </p>
+      ) : null}
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <form action={applyAction}>
+          <button
+            type="submit"
+            disabled={applyPending}
+            className="rounded-md border border-indigo-300 bg-white px-2 py-1 text-xs font-medium text-indigo-900 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            {applyPending ? "Wird eingereiht …" : "Vorschlag übernehmen"}
+          </button>
+          <ErrorBanner message={applyState.error} />
+        </form>
+        <form action={dismissAction}>
+          <button
+            type="submit"
+            disabled={dismissPending}
+            className="px-1 py-1 text-xs font-medium text-indigo-800 underline decoration-indigo-300 hover:text-indigo-950 disabled:opacity-50"
+          >
+            {dismissPending ? "Wird verworfen …" : "Verwerfen"}
+          </button>
+          <ErrorBanner message={dismissState.error} />
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/**
  * One not-yet-successful capture work item in the sources list (source work
  * items): queued, capturing, or durably failed. A successful item never
  * renders here — it becomes an ordinary source row. `liveCapturing` comes
@@ -54,10 +136,14 @@ export function WorkItemRow({
   projectId,
   item,
   liveCapturing,
+  suggestion,
 }: {
   projectId: string;
   item: SourceWorkItemVM;
   liveCapturing: boolean;
+  /** Open repair suggestion attached to this failed item, if any
+   * (automatic repair). */
+  suggestion?: RepairActionVM;
 }) {
   const capturing = item.status === "capturing" || liveCapturing;
 
@@ -104,6 +190,9 @@ export function WorkItemRow({
             <DismissButton projectId={projectId} workItemId={item.workItemId} />
           </div>
         </FailureBox>
+      ) : null}
+      {!capturing && item.status === "failed" && suggestion !== undefined ? (
+        <SuggestionBox projectId={projectId} suggestion={suggestion} />
       ) : null}
     </li>
   );

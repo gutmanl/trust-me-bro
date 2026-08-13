@@ -46,6 +46,21 @@ export const ReferenceCandidate = z.strictObject({
    * citation (network error, non-200, exhausted 429 retry) — distinct from
    * "Crossref answered but nothing scored above the floor". */
   crossref_unavailable: z.boolean().optional(),
+  /** Identity cross-check (automatic repair): the candidate's own
+   * identifier resolves to a different work than its cited title
+   * describes — a hallucinated-identifier signal. Such a candidate is
+   * never pre-selected for auto-capture; the note explains the conflict
+   * in German and `alternate_title_match` carries what the TITLE resolves
+   * to, so the review can offer both hypotheses. */
+  identity_conflict: z.boolean().optional(),
+  identity_conflict_note: z.string().min(1).optional(),
+  alternate_title_match: z
+    .strictObject({
+      doi: z.string().optional(),
+      title: z.string().optional(),
+      match_score: z.number().min(0).max(1),
+    })
+    .optional(),
   suggested_source_type: SourceType,
   /** PDF URL derived for this identifier (reference auto-import, Task 3b):
    * arXiv PDF > Crossref's own `link[]` PDF entry > Unpaywall OA PDF, first

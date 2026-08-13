@@ -41,7 +41,11 @@ import type {
   SourceType,
   SupportDegree,
 } from "../schema/enums";
-import type { CaptureFailureInput, HistoryEntry } from "../schema/history";
+import type {
+  CaptureFailureInput,
+  HistoryEntry,
+  RepairAction,
+} from "../schema/history";
 import {
   buildRegisterJsonSchema,
   serializeJsonSchema,
@@ -92,8 +96,22 @@ export interface RegisterTransaction {
    */
   recordCaptureFailure(input: {
     work_item_id: string;
-    origin: "manual" | "reference_import" | "correction";
+    origin: "manual" | "reference_import" | "correction" | "auto_repair";
     input: CaptureFailureInput;
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): ProjectEvent;
+  /**
+   * Records one automatic-repair decision durably (automatic repair):
+   * appends a `source_repair_action` event carrying the target, the
+   * derived candidate identity, basis, confidence and mode — the
+   * suggestion (or the audit record of an automatic application) that
+   * must survive a restart. Mirrors `recordCaptureFailure`'s shape: one
+   * chain-linked event, no other mutation.
+   */
+  recordRepairAction(input: {
+    action: RepairAction;
     actor: ActorId;
     reason: string;
     at?: string;
@@ -288,8 +306,15 @@ export interface RegisterTransaction {
   ): void;
   /** Sets the claim's aggregated support degree (stage 2 result). */
   setSupportDegree(claimId: string, degree: SupportDegree): void;
-  /** Sets the claim's stage-3 calibration outcome (SE-Evidenz-Rubrik). */
-  setCalibrationResult(claimId: string, result: CalibrationResult): void;
+  /** Sets the claim's stage-3 calibration outcome (SE-Evidenz-Rubrik).
+   * `reasoning` (verdict redesign) is stored structurally alongside it so
+   * the UI shows the verifier's justification first-class instead of
+   * scraping history prose; omitted = left unchanged. */
+  setCalibrationResult(
+    claimId: string,
+    result: CalibrationResult,
+    reasoning?: string,
+  ): void;
 }
 
 /**
@@ -640,6 +665,17 @@ function createTransaction(
       draft.project_events.push(entry);
       return entry;
     },
+    recordRepairAction({ action, actor, reason, at }) {
+      const entry = chain.append({
+        at: at ?? new Date().toISOString(),
+        actor,
+        event: "source_repair_action",
+        reason,
+        repair_action: structuredClone(action),
+      }) as ProjectEvent;
+      draft.project_events.push(entry);
+      return entry;
+    },
     recordBriefingImport({ sha256, blob_path, tool, actor, at }) {
       if (draft.project.briefing_import) {
         throw new Error(
@@ -885,8 +921,12 @@ function createTransaction(
     setSupportDegree(claimId, degree) {
       mutableClaim(claimId).support_degree = degree;
     },
-    setCalibrationResult(claimId, result) {
-      mutableClaim(claimId).calibration_result = result;
+    setCalibrationResult(claimId, result, reasoning) {
+      const claim = mutableClaim(claimId);
+      claim.calibration_result = result;
+      if (reasoning !== undefined) {
+        claim.calibration_reasoning = reasoning;
+      }
     },
   };
 }

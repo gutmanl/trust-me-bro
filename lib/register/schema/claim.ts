@@ -36,6 +36,13 @@ export const Claim = z.strictObject({
   status: ClaimStatus,
   support_degree: SupportDegree.optional(),
   calibration_result: CalibrationResult.optional(),
+  /** The stage-3 verifier's German reasoning for `calibration_result`
+   * (verdict redesign): up to two paragraphs separated by a blank line,
+   * the second starting "Jedoch:" for a caveat — a display convention, not
+   * separately modeled. Set together with `calibration_result` by the
+   * pre-check; absent for claims judged before this field existed
+   * (documented extension, additive). */
+  calibration_reasoning: z.string().min(1).optional(),
   briefing_anchor: z.string().min(1),
   /** Short verbatim phrase from the briefing paragraph the claim was
    * extracted from (workbench epic): the durable, quote-based anchor that

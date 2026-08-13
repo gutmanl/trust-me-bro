@@ -3,14 +3,23 @@
 import { useActionState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
-import type { CaptureKind, SourceWorkItemVM } from "@/lib/pipeline";
+import type {
+  CaptureKind,
+  RepairActionVM,
+  SourceWorkItemVM,
+} from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
 import { useStartGate } from "../RunStatusProvider";
 import { CorrectSourceForm } from "../sources/SourceForms";
 import type { RunFormState } from "./actions";
 import { startSourceExtractionAction } from "./actions";
-import { DismissButton, FailureBox, RetryButton } from "./WorkItemRow";
+import {
+  DismissButton,
+  FailureBox,
+  RetryButton,
+  SuggestionBox,
+} from "./WorkItemRow";
 
 /**
  * One captured source as the workbench shows it. Assembled server-side (the
@@ -63,6 +72,7 @@ export function SourceRow({
   extractingLive,
   corrections,
   correctingLive,
+  suggestion,
 }: {
   projectId: string;
   source: SourceRowVM;
@@ -83,6 +93,9 @@ export function SourceRow({
   /** One of this source's corrections is running right now (item-keyed
    * stream state, shared via the rail). */
   correctingLive: boolean;
+  /** Open repair suggestion targeting this source, if any (automatic
+   * repair). */
+  suggestion?: RepairActionVM;
 }) {
   const [state, formAction, pending] = useActionState(
     startSourceExtractionAction.bind(null, projectId, source.id),
@@ -183,6 +196,10 @@ export function SourceRow({
           </div>
         </FailureBox>
       ))}
+
+      {suggestion !== undefined && !correctionInFlight ? (
+        <SuggestionBox projectId={projectId} suggestion={suggestion} />
+      ) : null}
 
       <CorrectSourceForm
         projectId={projectId}

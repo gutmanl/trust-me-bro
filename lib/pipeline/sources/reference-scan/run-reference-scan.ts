@@ -22,10 +22,8 @@ import { nodeHttpFetcher } from "../node-http-fetcher";
 import { excludeCaptured, mergeCandidates } from "./candidate";
 import type { CandidateSeed } from "./candidate";
 import { dropAlreadyIdentified } from "./dedup-identified";
-import type { CrossrefWork } from "./crossref";
-import { searchCrossref } from "./crossref";
-import { MATCH_FLOOR, scoreMatch } from "./crossref-match";
-import { cleanReferenceTitle } from "./reference-title";
+import { crossCheckIdentifiedSeed } from "./identity-crosscheck";
+import { matchViaCrossrefTitle } from "./title-resolution";
 import {
   footnoteMarkersIn,
   parseFootnoteDefinitions,
@@ -297,10 +295,22 @@ async function runReferenceScanOnce(
   // Pre-filter against already-captured sources BEFORE any Crossref lookup
   // (quota) — both the identified pool and the identifier-less pool headed
   // for Crossref.
-  const preCrossrefPool = excludeCaptured(
+  const identifiedPool = excludeCaptured(
     [...regexSeeds, ...parsedIdentifiedSeeds],
     register.sources,
   );
+  // Identity cross-check (automatic repair): every DOI/arXiv seed that
+  // carries a cited title gets its identifier's resolved metadata compared
+  // against that title BEFORE it can be auto-captured — the preventive
+  // guard against hallucinated identifiers that resolve to a real but
+  // wrong work. Sequential like every other remote loop here; failures
+  // fail open inside the check.
+  const preCrossrefPool: CandidateSeed[] = [];
+  for (const seed of identifiedPool) {
+    preCrossrefPool.push(
+      await crossCheckIdentifiedSeed(seed, context.fetcher, context.sleep),
+    );
+  }
   const remainingWithoutIdentifier = excludeCaptured(
     [...parsedWithoutIdentifier, ...footnoteReferences],
     register.sources,
@@ -308,7 +318,7 @@ async function runReferenceScanOnce(
 
   const crossrefSeeds: CandidateSeed[] = [];
   for (const reference of remainingWithoutIdentifier) {
-    const resolution = await resolveViaCrossref(
+    const resolution = await matchViaCrossrefTitle(
       reference,
       context.fetcher,
       context.sleep,
@@ -408,70 +418,5 @@ async function attachDocumentUrl(
     ...candidate,
     document_url: derived.documentUrl,
     document_url_source: derived.source,
-  };
-}
-
-interface CrossrefResolution {
-  doi?: string;
-  title?: string;
-  authors?: string[];
-  year?: number;
-  venue?: string;
-  match_score?: number;
-  crossref_unavailable?: boolean;
-}
-
-/** Resolves one identifier-less parsed citation via Crossref: Crossref not
- * being reachable/answerable at all (network error, non-200, exhausted 429
- * retry — see crossref.ts's `unavailable` flag) marks the candidate
- * `crossref_unavailable`; a normal response with zero or no confident-enough
- * results leaves it unresolved without that flag (Crossref answered, just
- * found nothing — I3 fix: these two cases used to be conflated because both
- * produced an empty `works` array). */
-async function resolveViaCrossref(
-  reference: ParsedReference,
-  fetcher: HttpFetcher,
-  sleep: ((ms: number) => Promise<void>) | undefined,
-): Promise<CrossrefResolution> {
-  // Clean the title (strip a "| venue" suffix, ellipsis truncation, quotes)
-  // before it hits Crossref: it is both the query and the string the bigram
-  // similarity scores against Crossref's own clean title.
-  const cleanTitle = cleanReferenceTitle(reference.title);
-  const query = [cleanTitle, reference.authors.join(" ")]
-    .filter((part) => part.trim().length > 0)
-    .join(" ");
-  const { works, unavailable } = await searchCrossref(
-    query,
-    fetcher,
-    sleep ? { sleep } : {},
-  );
-  if (unavailable) {
-    return { crossref_unavailable: true };
-  }
-
-  let best: { work: CrossrefWork; score: number } | undefined;
-  for (const work of works) {
-    const score = scoreMatch(
-      {
-        title: cleanTitle,
-        year: reference.year,
-        authors: reference.authors,
-      },
-      work,
-    );
-    if (!best || score > best.score) {
-      best = { work, score };
-    }
-  }
-  if (!best || best.score < MATCH_FLOOR || !best.work.doi) {
-    return {};
-  }
-  return {
-    doi: best.work.doi,
-    title: best.work.title,
-    authors: best.work.authors,
-    year: best.work.year,
-    venue: best.work.venue,
-    match_score: best.score,
   };
 }

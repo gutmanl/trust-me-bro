@@ -30,6 +30,13 @@ export type ClaimTypeRule = z.infer<typeof ClaimTypeRule>;
 
 export const RubricRuleSet = z.strictObject({
   rubric_version: z.string().min(1),
+  /** Which rubric prompt TEMPLATE file this rule set pairs with
+   * (lib/adapters/prompts/rubric/v<version>.md). Coupling the template
+   * version to the per-project `rubric_version` is what lets an existing
+   * project keep its original prompt forever while new projects default to
+   * the newest rule set. Defaults to "1.0.0" so the pre-existing v1 rule
+   * file — which predates this field — parses unchanged. */
+  prompt_template_version: z.string().min(1).default("1.0.0"),
   /** Pins the prose prompt template (lib/adapters/prompts/rubric/…): the
    * consistency test hashes the template and compares — prose and rules
    * describe the SAME rubric and may only change together. */

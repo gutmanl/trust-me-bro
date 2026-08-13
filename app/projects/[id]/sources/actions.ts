@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
+  applySuggestedRepair,
   dismissCaptureFailure,
+  dismissRepairAction,
   enqueueExistenceCheck,
   enqueueManualCapture,
   enqueueSourceCorrection,
@@ -150,6 +152,57 @@ export async function dismissCaptureAction(
 ): Promise<RetryCaptureState> {
   const result = await runPipelineAction(() =>
     dismissCaptureFailure(projectId, workItemId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
+}
+
+/** Serializable repair-suggestion target for the two suggestion actions
+ * (automatic repair): kind + id instead of the discriminated object, so it
+ * binds cleanly into a server action. */
+export type RepairTargetKind = "capture_failure" | "source";
+
+function repairTarget(
+  kind: RepairTargetKind,
+  id: string,
+): Parameters<typeof applySuggestedRepair>[1] {
+  return kind === "capture_failure"
+    ? { kind, workItemId: id }
+    : { kind, sourceId: id };
+}
+
+/** One-click apply of an open repair suggestion (automatic repair): the
+ * derived candidate is enqueued as an auto_repair work item and the
+ * suggestion is consumed. */
+export async function applyRepairSuggestionAction(
+  projectId: string,
+  targetKind: RepairTargetKind,
+  targetId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(() =>
+    applySuggestedRepair(projectId, repairTarget(targetKind, targetId)),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
+}
+
+/** Dismisses an open repair suggestion (automatic repair): durable event,
+ * the chain keeps the derived candidate. */
+export async function dismissRepairSuggestionAction(
+  projectId: string,
+  targetKind: RepairTargetKind,
+  targetId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(() =>
+    dismissRepairAction(projectId, repairTarget(targetKind, targetId)),
   );
   if (result.error !== null) {
     return { error: result.error };

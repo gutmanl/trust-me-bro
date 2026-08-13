@@ -188,6 +188,38 @@ describe("startSourceCaptureItem with a correction item", () => {
     ).toHaveLength(1);
   });
 
+  it("corrects via a frozen upload, rebuilding the bytes from the blob store", async () => {
+    const targetId = await addWrongSource();
+    const store = RegisterStore.forProject(PROJECT_ID);
+    const content = Buffer.from("Der richtige Volltext.");
+    const blob = store.blobs().put(content, "txt");
+    const runner = createJobRunner();
+    const handle = await startSourceCaptureItem(
+      PROJECT_ID,
+      {
+        workItemId: "wi_upload_korrektur",
+        origin: "correction",
+        label: "Richtig",
+        request: {
+          kind: "upload",
+          sourceType: "grey_literature",
+          targetSourceId: targetId,
+          manual: { title: "Richtiges Paper", year: "2026" },
+          uploadBlob: { blob_path: blob.blobPath, filename: "richtig.txt" },
+        },
+      },
+      { runner, fetcher: fakeFetcher({}) },
+    );
+    expect(await handle.done).toEqual({ succeeded: 1, failed: 0 });
+    const register = await store.read();
+    const source = register.sources[0];
+    expect(source.id).toBe(targetId);
+    expect(source.title).toBe("Richtiges Paper");
+    expect(
+      store.blobs().read(source.custom.snapshot?.blob_path as string),
+    ).toEqual(content);
+  });
+
   it("records a correction failure carrying the target source id", async () => {
     const targetId = await addWrongSource();
     const runner = createJobRunner();
@@ -240,6 +272,24 @@ describe("toCaptureSourceInput", () => {
       captureAttemptId: "wi_plain",
       identifier: "2401.12345",
       expectedExt: "pdf",
+    });
+  });
+
+  it("carries a repair attempt's auto-capture provenance through", () => {
+    const input = toCaptureSourceInput(PROJECT_ID, "wi_auto", {
+      kind: "doi",
+      sourceType: "peer_reviewed_publication",
+      identifier: "10.1109/TSE.2025.3489012",
+      autoCapture: {
+        raw_text: "Meyer 2025",
+        method: "crossref_title",
+        score: 0.9,
+      },
+    });
+    expect(input.autoCapture).toEqual({
+      raw_text: "Meyer 2025",
+      method: "crossref_title",
+      score: 0.9,
     });
   });
 });

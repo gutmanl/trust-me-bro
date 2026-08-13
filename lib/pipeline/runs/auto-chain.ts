@@ -15,7 +15,14 @@ type PendingTrigger =
   | { kind: "extraction"; sourceId: string }
   | { kind: "existence_check" }
   | { kind: "reference_scan" }
-  | { kind: "source_capture"; item: SourceCaptureWorkItem };
+  | { kind: "source_capture"; item: SourceCaptureWorkItem }
+  // Automatic repair (automatic repair): evaluation/sweep steps that run
+  // BETWEEN runner runs — they submit no run of their own, so use-cases
+  // guarded by isRunning (the briefing revision) stay callable from them.
+  | { kind: "capture_failure_repair"; workItemId: string }
+  | { kind: "source_repair_evaluation"; sourceId: string }
+  | { kind: "anchor_repair" }
+  | { kind: "briefing_substitution"; sourceId: string };
 
 function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
   if (a.kind === "extraction" && b.kind === "extraction") {
@@ -25,6 +32,24 @@ function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
     // Distinct work items are never duplicates; a same-id pair (a retry
     // enqueued twice in a burst) coalesces like a repeated extraction.
     return a.item.workItemId === b.item.workItemId;
+  }
+  if (
+    a.kind === "capture_failure_repair" &&
+    b.kind === "capture_failure_repair"
+  ) {
+    return a.workItemId === b.workItemId;
+  }
+  if (
+    a.kind === "source_repair_evaluation" &&
+    b.kind === "source_repair_evaluation"
+  ) {
+    return a.sourceId === b.sourceId;
+  }
+  if (
+    a.kind === "briefing_substitution" &&
+    b.kind === "briefing_substitution"
+  ) {
+    return a.sourceId === b.sourceId;
   }
   return a.kind === b.kind;
 }
@@ -39,6 +64,14 @@ function describeTrigger(trigger: PendingTrigger): string {
       return "reference scan";
     case "source_capture":
       return `source capture (work item "${trigger.item.workItemId}")`;
+    case "capture_failure_repair":
+      return `capture-failure repair (work item "${trigger.workItemId}")`;
+    case "source_repair_evaluation":
+      return `source repair evaluation (source "${trigger.sourceId}")`;
+    case "anchor_repair":
+      return "anchor repair sweep";
+    case "briefing_substitution":
+      return `briefing substitution (source "${trigger.sourceId}")`;
   }
 }
 
@@ -60,12 +93,29 @@ export interface AutoChainDependencies {
   startReferenceScan?: typeof startReferenceScan;
   buildAutoCaptureItems?: typeof buildAutoCaptureItems;
   startSourceCaptureItem?: typeof startSourceCaptureItem;
+  // Automatic repair seams, injectable for tests (production resolves them
+  // lazily — see the cycle rationale below).
+  evaluateCaptureFailureRepair?: (
+    projectId: string,
+    workItemId: string,
+  ) => Promise<void>;
+  evaluateSourceRepair?: (projectId: string, sourceId: string) => Promise<void>;
+  listRepairEvaluationSources?: (projectId: string) => Promise<string[]>;
+  runFuzzyReanchorSweep?: (projectId: string) => Promise<unknown>;
+  runBriefingSubstitution?: (
+    projectId: string,
+    sourceId: string,
+  ) => Promise<unknown>;
 }
 
 export interface AutoChain {
   enqueueSourceExtraction(projectId: string, sourceId: string): void;
   enqueueExistenceCheck(projectId: string): void;
   enqueueReferenceScan(projectId: string): void;
+  /** Queues one fuzzy re-anchor sweep (anchor auto-repair) — enqueued by
+   * the briefing-revision publish action; extraction passes chain it
+   * automatically. Coalesces with itself. */
+  enqueueAnchorRepair(projectId: string): void;
   /** Queues one capture work item (source work items): manual capture and
    * reference-import captures both enter here, so they serialize with each
    * other and with every other run of the project. */
@@ -164,6 +214,51 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     return sourceCaptureItem(projectId, item, { runner });
   }
 
+  // The automatic-repair steps, lazily resolved for the same reason: every
+  // one of them enqueues onto this chain (their applied fixes are capture
+  // work items) or is enqueued from modules that do.
+  let captureFailureRepair = deps.evaluateCaptureFailureRepair;
+  async function runCaptureFailureRepair(projectId: string, id: string) {
+    captureFailureRepair ??= (
+      await import("../sources/auto-repair/evaluate-capture-failure")
+    ).evaluateCaptureFailureRepair;
+    return captureFailureRepair(projectId, id);
+  }
+  let sourceRepair = deps.evaluateSourceRepair;
+  async function runSourceRepairEvaluation(projectId: string, id: string) {
+    sourceRepair ??= (await import("../sources/auto-repair/evaluate-source"))
+      .evaluateSourceRepair;
+    return sourceRepair(projectId, id);
+  }
+  let listRepairSources = deps.listRepairEvaluationSources;
+  async function computeRepairEvaluationSources(
+    projectId: string,
+  ): Promise<string[]> {
+    listRepairSources ??= (await import("../sources/auto-repair/candidates"))
+      .sourcesNeedingRepairEvaluationForProject;
+    try {
+      return await listRepairSources(projectId);
+    } catch {
+      // Best-effort fan-out: a failed LISTING must never turn a completed
+      // existence check into a warned failure — anything genuinely broken
+      // resurfaces (and warns) in the evaluation triggers themselves.
+      return [];
+    }
+  }
+  let fuzzyReanchor = deps.runFuzzyReanchorSweep;
+  async function runAnchorRepairSweep(projectId: string) {
+    fuzzyReanchor ??= (await import("../repair/fuzzy-reanchor"))
+      .runFuzzyReanchorSweep;
+    return fuzzyReanchor(projectId);
+  }
+  let briefingSubstitution = deps.runBriefingSubstitution;
+  async function runBriefingSubstitutionStep(projectId: string, id: string) {
+    briefingSubstitution ??= (
+      await import("../sources/auto-repair/briefing-substitution")
+    ).runBriefingSubstitution;
+    return briefingSubstitution(projectId, id);
+  }
+
   const pending = new Map<string, PendingTrigger[]>();
   const draining = new Set<string>();
   /** The capture work item whose trigger is in flight, per project — set
@@ -203,6 +298,9 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       // project — pushed to the FRONT, ahead of whatever is already
       // waiting, exactly as the brief requires.
       queue.unshift({ kind: "existence_check" });
+      // Freshly created claims may carry the p0 sentinel anchor — one
+      // fuzzy sweep behind the pass (anchor auto-repair; coalesces).
+      queue.push({ kind: "anchor_repair" });
     } else if (trigger.kind === "reference_scan") {
       const handle = await runReferenceScan(projectId);
       await handle.done;
@@ -219,15 +317,58 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       );
     } else if (trigger.kind === "source_capture") {
       activeCapture.set(projectId, itemInfo(trigger.item));
+      let summary: { succeeded: number; failed: number } | undefined;
       try {
         const handle = await runSourceCaptureItem(projectId, trigger.item);
-        await handle.done;
+        summary = await handle.done;
       } finally {
         activeCapture.delete(projectId);
       }
+      // Automatic repair fan-out: a failed reference-import capture gets
+      // ONE automatic re-resolution attempt (the loop guard is the origin
+      // — an auto_repair item's own failure never re-triggers); a
+      // successful identity correction chains the mechanical briefing
+      // substitution for its target.
+      if (
+        summary !== undefined &&
+        summary.failed > 0 &&
+        trigger.item.origin === "reference_import"
+      ) {
+        queue.push({
+          kind: "capture_failure_repair",
+          workItemId: trigger.item.workItemId,
+        });
+      }
+      if (
+        summary !== undefined &&
+        summary.succeeded > 0 &&
+        trigger.item.request.targetSourceId !== undefined
+      ) {
+        queue.push({
+          kind: "briefing_substitution",
+          sourceId: trigger.item.request.targetSourceId,
+        });
+      }
+    } else if (trigger.kind === "capture_failure_repair") {
+      await runCaptureFailureRepair(projectId, trigger.workItemId);
+    } else if (trigger.kind === "source_repair_evaluation") {
+      await runSourceRepairEvaluation(projectId, trigger.sourceId);
+    } else if (trigger.kind === "anchor_repair") {
+      await runAnchorRepairSweep(projectId);
+    } else if (trigger.kind === "briefing_substitution") {
+      await runBriefingSubstitutionStep(projectId, trigger.sourceId);
+      // The substitution published a revision (or not) — either way the
+      // sweep is cheap and coalesces; quotes may have shifted paragraphs.
+      queue.push({ kind: "anchor_repair" });
     } else {
       const handle = await runExistenceCheck(projectId, { runner });
       await handle.done;
+      // Sources whose wrong identity just stranded claims in adjudication
+      // get one repair evaluation each (automatic repair; dedup per
+      // source via sameTrigger).
+      for (const sourceId of await computeRepairEvaluationSources(projectId)) {
+        queue.push({ kind: "source_repair_evaluation", sourceId });
+      }
     }
   }
 
@@ -321,6 +462,9 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     enqueueReferenceScan(projectId) {
       push(projectId, { kind: "reference_scan" });
     },
+    enqueueAnchorRepair(projectId) {
+      push(projectId, { kind: "anchor_repair" });
+    },
     enqueueSourceCapture(projectId, item) {
       push(projectId, { kind: "source_capture", item });
     },
@@ -367,6 +511,13 @@ export function enqueueExistenceCheck(projectId: string): void {
  * list. */
 export function enqueueReferenceScan(projectId: string): void {
   getGlobalAutoChain().enqueueReferenceScan(projectId);
+}
+
+/** Queues one fuzzy re-anchor sweep (anchor auto-repair) — the publish
+ * action calls this after a briefing revision, so quotes that shifted
+ * beyond the exact remap's reach get their bounded fuzzy attempt. */
+export function enqueueAnchorRepair(projectId: string): void {
+  getGlobalAutoChain().enqueueAnchorRepair(projectId);
 }
 
 /** Queues one capture work item on the project's chain (source work items).

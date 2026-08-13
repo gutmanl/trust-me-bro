@@ -77,4 +77,12 @@ export {
   normalizeForSearch,
   splitBriefingParagraphs,
 } from "./text/normalize";
+// Anchor auto-repair: the bounded fuzzy second line behind the exact
+// containment check — pure, threshold-gated, shared so the sweep and any
+// display advisory use one notion of "near-verbatim".
+export {
+  FUZZY_REANCHOR_THRESHOLD,
+  findFuzzyParagraph,
+  quoteContainmentScore,
+} from "./text/similarity";
 export * from "./schema";

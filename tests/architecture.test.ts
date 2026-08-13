@@ -180,6 +180,24 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.enqueueSourceCorrection).toBeDefined();
     expect(surface.correctSource).toBeUndefined();
     expect(surface.sweepSourceRecheck).toBeUndefined();
+    // Automatic repair: suggestions (derive/apply/dismiss) and the anchor
+    // sweep's enqueue are app-facing; the evaluators, the quote-fit
+    // disambiguation, the Crossref re-resolution and the briefing
+    // substitution run only off the auto-chain and stay internal.
+    expect(surface.deriveOpenRepairActions).toBeDefined();
+    expect(surface.applySuggestedRepair).toBeDefined();
+    expect(surface.dismissRepairAction).toBeDefined();
+    expect(surface.enqueueAnchorRepair).toBeDefined();
+    expect(surface.evaluateSourceRepair).toBeUndefined();
+    expect(surface.evaluateCaptureFailureRepair).toBeUndefined();
+    expect(surface.evaluateQuoteFit).toBeUndefined();
+    expect(surface.deriveCitationMeta).toBeUndefined();
+    expect(surface.matchViaCrossrefTitle).toBeUndefined();
+    expect(surface.crossCheckIdentifiedSeed).toBeUndefined();
+    expect(surface.sourcesNeedingRepairEvaluation).toBeUndefined();
+    expect(surface.runFuzzyReanchorSweep).toBeUndefined();
+    expect(surface.runBriefingSubstitution).toBeUndefined();
+    expect(surface.substituteIdentifierOccurrences).toBeUndefined();
     expect(surface.startSourceCaptureItem).toBeUndefined();
     expect(surface.recordCaptureFailure).toBeUndefined();
     expect(surface.deriveOpenCaptureFailures).toBeUndefined();
