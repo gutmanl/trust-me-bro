@@ -123,14 +123,19 @@ export function SourcesRail({
       .filter((item) => item.origin === "reference_import")
       .map((item) => [item.workItemId, item]),
   );
-  const correctionBySource = new Map(
-    workItems
-      .filter(
-        (item) =>
-          item.origin === "correction" && item.targetSourceId !== undefined,
-      )
-      .map((item) => [item.targetSourceId, item]),
-  );
+  // ALL correction items per source, not just the latest: a fresh
+  // correction may be running while an earlier attempt's open failure is
+  // still on the books — the row must show both (live progress AND every
+  // failure's retry/dismiss), or the loser of a per-source collision would
+  // render nowhere.
+  const correctionsBySource = new Map<string, SourceWorkItemVM[]>();
+  for (const item of workItems) {
+    if (item.origin === "correction" && item.targetSourceId !== undefined) {
+      const list = correctionsBySource.get(item.targetSourceId) ?? [];
+      list.push(item);
+      correctionsBySource.set(item.targetSourceId, list);
+    }
+  }
   const standaloneWorkItems = workItems.filter((item) =>
     item.origin === "correction"
       ? false
@@ -220,7 +225,7 @@ export function SourcesRail({
               />
             ))}
             {sources.map((source) => {
-              const correction = correctionBySource.get(source.id);
+              const corrections = correctionsBySource.get(source.id) ?? [];
               return (
                 <SourceRow
                   key={source.id}
@@ -228,11 +233,10 @@ export function SourcesRail({
                   source={source}
                   extractionRunning={extractionRunning}
                   extractingLive={extractingSources.has(source.id)}
-                  correction={correction}
-                  correctingLive={
-                    correction !== undefined &&
-                    capturingItems.has(correction.workItemId)
-                  }
+                  corrections={corrections}
+                  correctingLive={corrections.some((item) =>
+                    capturingItems.has(item.workItemId),
+                  )}
                 />
               );
             })}

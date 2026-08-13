@@ -26,6 +26,37 @@ const KIND_TABS = [
 
 type Kind = (typeof KIND_TABS)[number]["kind"];
 
+/** The segmented tab bar both modals use — one renderer, so the kind tabs
+ * and the correction form's mode toggle can never drift apart visually. */
+function SegmentedTabs<Value extends string>({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: readonly { value: Value; label: string }[];
+  value: Value;
+  onChange: (value: Value) => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-md bg-slate-100 p-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          type="button"
+          onClick={() => onChange(tab.value)}
+          className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
+            value === tab.value
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ManualFields({ required }: { required: boolean }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -95,22 +126,11 @@ function IdentityFields({
 }) {
   return (
     <>
-      <div className="flex gap-1 rounded-md bg-slate-100 p-1">
-        {KIND_TABS.map((tab) => (
-          <button
-            key={tab.kind}
-            type="button"
-            onClick={() => onKindChange(tab.kind)}
-            className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
-              kind === tab.kind
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        tabs={KIND_TABS.map((tab) => ({ value: tab.kind, label: tab.label }))}
+        value={kind}
+        onChange={onKindChange}
+      />
 
       {kind === "doi" || kind === "arxiv" ? (
         <div>
@@ -362,30 +382,14 @@ export function CorrectSourceForm({
         <Modal title="Quelle korrigieren" onClose={() => setOpen(false)}>
           <form action={formAction} className="space-y-4">
             <input type="hidden" name="mode" value={mode} />
-            <div className="flex gap-1 rounded-md bg-slate-100 p-1">
-              <button
-                type="button"
-                onClick={() => setMode("document")}
-                className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
-                  mode === "document"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Dokument aktualisieren
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("identity")}
-                className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
-                  mode === "identity"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Kennung korrigieren
-              </button>
-            </div>
+            <SegmentedTabs
+              tabs={[
+                { value: "document", label: "Dokument aktualisieren" },
+                { value: "identity", label: "Kennung korrigieren" },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
 
             {mode === "identity" ? (
               <>

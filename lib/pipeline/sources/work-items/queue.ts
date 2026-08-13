@@ -104,6 +104,52 @@ function displayLabel(input: {
 }
 
 /**
+ * Freezes an uploaded document into the blob store so the queue never
+ * holds bytes, and enforces that an upload-kind input actually carries
+ * one — the shared front half of every enqueue path.
+ */
+function freezeUpload(
+  store: ReturnType<typeof requireProjectStore>,
+  input: Omit<ManualCaptureInput, "sourceType">,
+): { blob_path: string; filename: string } | undefined {
+  let uploadBlob: { blob_path: string; filename: string } | undefined;
+  if (input.upload !== undefined) {
+    const blob = store
+      .blobs()
+      .put(input.upload.content, extFromFilename(input.upload.filename));
+    uploadBlob = { blob_path: blob.blobPath, filename: input.upload.filename };
+  }
+  if (input.kind === "upload" && uploadBlob === undefined) {
+    throw new InvalidSourceInputError(
+      "Für eine Datei-Quelle muss ein Dokument hochgeladen werden.",
+    );
+  }
+  return uploadBlob;
+}
+
+/** Builds the queued request from a validated input and its frozen upload
+ * — shared by the manual and the correction enqueue so the two shapes can
+ * never drift. */
+function buildRequest(
+  input: Omit<ManualCaptureInput, "sourceType">,
+  sourceType: SourceType,
+  uploadBlob: { blob_path: string; filename: string } | undefined,
+  targetSourceId?: string,
+): SourceCaptureRequest {
+  return {
+    kind: input.kind,
+    sourceType,
+    ...(targetSourceId !== undefined ? { targetSourceId } : {}),
+    ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
+    ...(input.documentUrl !== undefined
+      ? { documentUrl: input.documentUrl }
+      : {}),
+    ...(input.manual !== undefined ? { manual: input.manual } : {}),
+    ...(uploadBlob !== undefined ? { uploadBlob } : {}),
+  };
+}
+
+/**
  * Queues one manual capture (source work items): validates the pure input
  * half synchronously, freezes an uploaded document into the blob store so
  * the queue never holds bytes, and pushes the work item onto the project's
@@ -119,29 +165,8 @@ export async function enqueueManualCapture(
   const store = requireProjectStore(projectId);
   validateManualInput(input);
 
-  let uploadBlob: { blob_path: string; filename: string } | undefined;
-  if (input.upload !== undefined) {
-    const blob = store
-      .blobs()
-      .put(input.upload.content, extFromFilename(input.upload.filename));
-    uploadBlob = { blob_path: blob.blobPath, filename: input.upload.filename };
-  }
-  if (input.kind === "upload" && uploadBlob === undefined) {
-    throw new InvalidSourceInputError(
-      "Für eine Datei-Quelle muss ein Dokument hochgeladen werden.",
-    );
-  }
-
-  const request: SourceCaptureRequest = {
-    kind: input.kind,
-    sourceType: input.sourceType,
-    ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
-    ...(input.documentUrl !== undefined
-      ? { documentUrl: input.documentUrl }
-      : {}),
-    ...(input.manual !== undefined ? { manual: input.manual } : {}),
-    ...(uploadBlob !== undefined ? { uploadBlob } : {}),
-  };
+  const uploadBlob = freezeUpload(store, input);
+  const request = buildRequest(input, input.sourceType, uploadBlob);
 
   const item: SourceCaptureWorkItem = {
     workItemId: `wi_${randomUUID()}`,
@@ -213,30 +238,13 @@ export async function enqueueSourceCorrection(
     );
   }
 
-  let uploadBlob: { blob_path: string; filename: string } | undefined;
-  if (input.upload !== undefined) {
-    const blob = store
-      .blobs()
-      .put(input.upload.content, extFromFilename(input.upload.filename));
-    uploadBlob = { blob_path: blob.blobPath, filename: input.upload.filename };
-  }
-  if (input.kind === "upload" && uploadBlob === undefined) {
-    throw new InvalidSourceInputError(
-      "Für eine Datei-Quelle muss ein Dokument hochgeladen werden.",
-    );
-  }
-
-  const request: SourceCaptureRequest = {
-    kind: input.kind,
-    sourceType: input.sourceType ?? source.custom.source_type,
-    targetSourceId: sourceId,
-    ...(input.identifier !== undefined ? { identifier: input.identifier } : {}),
-    ...(input.documentUrl !== undefined
-      ? { documentUrl: input.documentUrl }
-      : {}),
-    ...(input.manual !== undefined ? { manual: input.manual } : {}),
-    ...(uploadBlob !== undefined ? { uploadBlob } : {}),
-  };
+  const uploadBlob = freezeUpload(store, input);
+  const request = buildRequest(
+    input,
+    input.sourceType ?? source.custom.source_type,
+    uploadBlob,
+    sourceId,
+  );
   const item: SourceCaptureWorkItem = {
     workItemId: `wi_${randomUUID()}`,
     origin: "correction",

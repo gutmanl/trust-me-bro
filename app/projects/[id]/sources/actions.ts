@@ -36,6 +36,21 @@ function optional(value: FormDataEntryValue | null): string | undefined {
   return text.length > 0 ? text : undefined;
 }
 
+/** The uploaded document of a form submit, if one was chosen — shared by
+ * every action that accepts a file. */
+async function parseUploadFile(
+  formData: FormData,
+): Promise<{ content: Buffer; filename: string } | undefined> {
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    return {
+      content: Buffer.from(await file.arrayBuffer()),
+      filename: file.name,
+    };
+  }
+  return undefined;
+}
+
 /** The identity half both the capture modal and the correction form submit:
  * identifier, document URL, manual metadata and the uploaded file — one
  * parser, so the two forms can never drift apart. */
@@ -60,12 +75,9 @@ async function parseIdentityFormData(
       container_title: optional(formData.get("container_title")),
     };
   }
-  const file = formData.get("file");
-  if (file instanceof File && file.size > 0) {
-    input.upload = {
-      content: Buffer.from(await file.arrayBuffer()),
-      filename: file.name,
-    };
+  const upload = await parseUploadFile(formData);
+  if (upload !== undefined) {
+    input.upload = upload;
   }
   return input;
 }
@@ -205,15 +217,8 @@ export async function correctSourceAction(
     projectId,
     sourceId,
     documentUrl: optional(formData.get("document_url")),
-    upload: undefined as { content: Buffer; filename: string } | undefined,
+    upload: await parseUploadFile(formData),
   };
-  const file = formData.get("file");
-  if (file instanceof File && file.size > 0) {
-    input.upload = {
-      content: Buffer.from(await file.arrayBuffer()),
-      filename: file.name,
-    };
-  }
   const result = await runPipelineAction(() => reviseSource(input));
   if (result.error !== null) {
     return { error: result.error };

@@ -61,7 +61,7 @@ export function SourceRow({
   source,
   extractionRunning,
   extractingLive,
-  correction,
+  corrections,
   correctingLive,
 }: {
   projectId: string;
@@ -71,15 +71,17 @@ export function SourceRow({
    * because `useStartGate("extraction")` reports null for its own kind. */
   extractionRunning: boolean;
   /** THIS source's extraction pass is live right now (item-keyed stream
-   * state, shared via the rail like `extractionRunning`). */
+   * state, shared via the rail like `extractingLive`). */
   extractingLive: boolean;
-  /** THIS source's pending/failed identity correction, if any (source
+  /** ALL of this source's pending/failed identity corrections (source
    * correction) — joined from the work-item list by the rail, so a
    * correction renders as state ON the source's row, never as a second
-   * row for the same source. */
-  correction?: SourceWorkItemVM;
-  /** THIS source's correction is running right now (item-keyed stream
-   * state, shared via the rail). */
+   * row for the same source. More than one entry is a real state: a fresh
+   * correction can run while an earlier attempt's failure is still open,
+   * and every open failure keeps its own retry/dismiss. */
+  corrections: SourceWorkItemVM[];
+  /** One of this source's corrections is running right now (item-keyed
+   * stream state, shared via the rail). */
   correctingLive: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -87,6 +89,12 @@ export function SourceRow({
     initialState,
   );
   const { blockedBy } = useStartGate("extraction");
+  const correctionInFlight =
+    correctingLive || corrections.some((item) => item.status === "capturing");
+  const correctionQueued = corrections.some((item) => item.status === "queued");
+  const failedCorrections = corrections.filter(
+    (item) => item.status === "failed",
+  );
 
   return (
     <li className="px-4 py-3">
@@ -115,12 +123,12 @@ export function SourceRow({
           <span>{source.previousSnapshots} frühere Revision(en)</span>
         ) : null}
         {source.previousIdentities > 0 ? <span>Kennung korrigiert</span> : null}
-        {correctingLive || correction?.status === "capturing" ? (
+        {correctionInFlight ? (
           <span className="flex items-center gap-1 text-blue-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
             Kennung wird korrigiert …
           </span>
-        ) : correction?.status === "queued" ? (
+        ) : correctionQueued ? (
           <span className="text-slate-600">
             Korrektur wartet in der Warteschlange
           </span>
@@ -152,30 +160,29 @@ export function SourceRow({
         </div>
       ) : null}
 
-      {!correctingLive && correction?.status === "failed" ? (
-        <FailureBox>
+      {failedCorrections.map((failure) => (
+        <FailureBox key={failure.workItemId}>
           <p>
-            ⚠ Korrektur fehlgeschlagen:{" "}
-            {correction.error ?? "Unbekannter Fehler."}
-            {correction.failedAt !== undefined ? (
+            ⚠ Korrektur fehlgeschlagen: {failure.error ?? "Unbekannter Fehler."}
+            {failure.failedAt !== undefined ? (
               <span className="text-amber-700">
                 {" "}
-                ({formatTimestamp(correction.failedAt)})
+                ({formatTimestamp(failure.failedAt)})
               </span>
             ) : null}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <RetryButton
               projectId={projectId}
-              workItemId={correction.workItemId}
+              workItemId={failure.workItemId}
             />
             <DismissButton
               projectId={projectId}
-              workItemId={correction.workItemId}
+              workItemId={failure.workItemId}
             />
           </div>
         </FailureBox>
-      ) : null}
+      ))}
 
       <CorrectSourceForm
         projectId={projectId}
