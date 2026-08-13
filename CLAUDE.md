@@ -66,5 +66,3 @@ enum values there must match `lib/register/schema/**`. An additive format change
 optional field or project event) needs a short dated entry in that appendix's changelog
 comment block, in German, following the existing entries. Implementation planning lives in
 the Jira project `TMB`.
-
-@AGENTS.md
