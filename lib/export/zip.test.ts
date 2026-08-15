@@ -43,7 +43,13 @@ describe("unzipBundle archive limits (S-06)", () => {
     expect(original / bomb.byteLength).toBeGreaterThan(MAX_COMPRESSION_RATIO);
     expect(() => unzipBundle(bomb)).toThrow(BundleFormatError);
     expect(() => unzipBundle(bomb)).toThrow(/compression ratio/);
-  });
+    // The cost is BUILDING the fixture, not the guard being measured:
+    // deflating 16 MB takes about half a second alone but ran to 2.5 s of
+    // the 5 s default under a loaded full-suite run, and intermittently past
+    // it. Generous rather than snug, because the number is protecting
+    // against a machine under load, not against this test hanging — a real
+    // hang here would not finish in thirty seconds either.
+  }, 30_000);
 
   it("refuses an archive with too many entries", () => {
     const files: Record<string, Uint8Array> = {};
@@ -51,7 +57,9 @@ describe("unzipBundle archive limits (S-06)", () => {
       files[`blobs/aa/${i}.txt`] = bundleText.encode("x");
     }
     expect(() => unzipBundle(zipSync(files))).toThrow(/more than .* entries/);
-  });
+    // Same reason as the bomb above: zipping MAX_BUNDLE_ENTRIES + 1 real
+    // entries is the slow part, and it shares the suite's CPU.
+  }, 30_000);
 
   it("still rejects non-ZIP input as a format error", () => {
     expect(() => unzipBundle(bundleText.encode("kein ZIP"))).toThrow(
