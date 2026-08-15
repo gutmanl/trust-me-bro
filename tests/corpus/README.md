@@ -87,8 +87,8 @@ log is ground truth for a _parsing_ failure, which is what
 ## Known gaps this corpus exposed
 
 Pinned as current behaviour rather than fixed, each with a comment at the
-assertion naming the gap. Gaps 1 and 2 have since been closed (15.08.2026)
-and their tests now assert the fix instead; 3 still stands as recorded:
+assertion naming the gap. All three have since been closed (15.08.2026) and
+their tests now assert the fix instead:
 
 1. **`normalizeArxivId` accepted DOIs whose suffix embeds a year-like
    number.** ~~FIXED~~ — two of the 83 real DOIs in the research lists
@@ -109,14 +109,18 @@ and their tests now assert the fix instead; 3 still stands as recorded:
    frozen under a `.pdf` path, whoever supplied the document. Asserted in
    `tests/e2e/corpus-document-integrity.e2e.test.ts`.
 
-3. **The identity cross-check only fires for citations that carry a title.**
-   The regex channel reads identifiers but no titles, so a candidate's title
-   comes from its footnote definition or from the LLM channel. A briefing
-   that cites inline (`(Title, doi:…)`) rather than by footnote produces
-   candidates with no title, and the preventive hallucinated-identifier check
-   returns without comparing anything. This is why `scenarios.ts` uses
-   footnote citations — and why a briefing in the other style exercises
-   strictly less of the scan.
+3. **The identity cross-check only fired for citations that carry a title.**
+   ~~FIXED~~ — the regex channel reads identifiers but no titles, so a
+   candidate's title came from its footnote definition, and prompt v1.0.0
+   told the model not to report a citation the regex channel had already
+   found. A briefing citing inline (`(Title, doi:…)`) produced candidates
+   with no title, and the preventive hallucinated-identifier check returned
+   without comparing anything — it was silently a footnote-only feature.
+   Prompt v1.1.0 reports those citations with their bibliographic detail, the
+   dedup keeps a re-report that echoes a known identifier so it merges rather
+   than duplicating, and the check runs on merged seeds. `scenarios.ts` now
+   carries one misattribution of EACH citation style — the fixture's
+   footnote-only design is what hid this.
 
 ## Adding a scenario
 

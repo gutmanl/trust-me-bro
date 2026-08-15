@@ -18,6 +18,7 @@ import {
   CITATION_WITHOUT_IDENTIFIER,
   QUOTE_ABSENT,
   QUOTE_PRESENT,
+  SOURCE_MISATTRIBUTED_INLINE,
 } from "./scenarios";
 
 /** Source id the extraction seeds attribute their evidence to. Minted by the
@@ -103,15 +104,21 @@ export const HALLUCINATED_SOURCE_EXTRACTION = {
 } satisfies Partial<{ [K in JobKind]: unknown }>;
 
 /**
- * Reference parse over the scenario briefing.
+ * Reference parse over the scenario briefing, as prompt v1.1.0 asks for it.
  *
- * Exactly one reference, and that is the realistic answer rather than a
- * thin one: the scan hands the model the identifier spans the regex channel
- * already found (`already_detected`) and drops any re-report of a paragraph
- * that carries one. The model's job is the citation nobody could pattern-
- * match — prose naming an author and a year and nothing else. That citation
- * is what reaches Crossref's title search, so this seed is what makes the
- * title-resolution branch run at all.
+ * Two kinds of reference, because v1.1.0 wants both. The citation nobody
+ * could pattern-match — prose naming an author and a year and nothing else —
+ * is what reaches Crossref's title search, so it is what makes the
+ * title-resolution branch run at all. Alongside it, the citation the regex
+ * channel DID find, reported with the bibliographic detail the regex channel
+ * cannot read and its identifier echoed back. v1.0.0 told the model to stay
+ * silent about that one, which is why an inline citation reached the
+ * identity cross-check with no title and the guard never ran.
+ *
+ * Only the inline one is reported here, not the footnote citations: their
+ * titles already reach the seed through the footnote-marker path, and a
+ * model that read the briefing would have nothing to add. The point of the
+ * seed is to answer the way the prompt asks, not to pad.
  */
 export const REFERENCE_PARSE_SEED = {
   reference_parse: {
@@ -121,6 +128,23 @@ export const REFERENCE_PARSE_SEED = {
         authors: [...CITATION_WITHOUT_IDENTIFIER.authors],
         year: CITATION_WITHOUT_IDENTIFIER.year,
         title: CITATION_WITHOUT_IDENTIFIER.title,
+      },
+      {
+        // Title and identifier only, because that is all the sentence
+        // states. `authors`/`year` are deliberately absent: v1.1.0 tells the
+        // model never to fill a field it cannot read off the text, and here
+        // the distinction decides the outcome. The cross-check scores title,
+        // year and author together, so authors and a year recalled from the
+        // identifier would agree with what that identifier resolves to and
+        // lift a genuine misattribution back over the threshold — the check
+        // would confirm the hallucination instead of catching it.
+        raw_text:
+          `Zur automatisierten Beschaffung von Belegstellen liegt eine ` +
+          `Übersicht vor (${SOURCE_MISATTRIBUTED_INLINE.citedTitle}, ` +
+          `doi:${SOURCE_MISATTRIBUTED_INLINE.identifier}).`,
+        authors: [],
+        title: SOURCE_MISATTRIBUTED_INLINE.citedTitle,
+        doi: SOURCE_MISATTRIBUTED_INLINE.canonical,
       },
     ],
   },

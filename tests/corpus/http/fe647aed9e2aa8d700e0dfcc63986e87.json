@@ -1,0 +1,12 @@
+{
+  "url": "https://api.unpaywall.org/v2/10.1007%2Fs10664-023-10288-w?email=REDACTED",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"doi\":\"10.1007/s10664-023-10288-w\",\"is_oa\":false,\"best_oa_location\":null,\"oa_locations\":[]}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Unpaywall knows the DOI and reports no open-access copy."
+  },
+  "key": "fe647aed9e2aa8d700e0dfcc63986e87"
+}

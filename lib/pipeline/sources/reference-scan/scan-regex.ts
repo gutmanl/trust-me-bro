@@ -26,8 +26,13 @@ export interface ReferenceRegexHit {
   method: "doi" | "arxiv" | "url";
   /** The line the span was found on — the candidate's `raw_text`. */
   raw_text: string;
-  /** The exact matched (trimmed) span, used as the "already_detected" hint
-   * for the LLM channel so it does not re-report the same citation. */
+  /** The exact matched (trimmed) span, as the briefing wrote it — which for
+   * an arXiv hit still carries the "arXiv:" prefix or the resolver URL that
+   * `arxiv_id` below drops. It is the "already_detected" hint for the LLM
+   * channel: since prompt v1.1.0 that hint asks the model to report those
+   * citations WITH their bibliographic detail rather than to skip them, so
+   * anything comparing an echoed identifier against `doi`/`arxiv_id` must
+   * canonicalize first (see dedup-identified.ts). */
   matchedText: string;
   doi?: string;
   arxiv_id?: string;

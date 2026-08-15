@@ -84,6 +84,33 @@ function CandidateMeta({ candidate }: { candidate: ReviewCandidate }) {
 }
 
 /**
+ * The identity cross-check's verdict, shown where the decision is made. The
+ * check withholds such a candidate from automatic capture on its own; what
+ * this adds is the REASON — without it the row is merely, silently, not
+ * pre-selected, and the competing hypothesis the check paid a Crossref
+ * lookup for never reaches the person deciding between the two works.
+ */
+function IdentityConflictBox({ candidate }: { candidate: ReviewCandidate }) {
+  const alternate = candidate.alternate_title_match;
+  return (
+    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+      <p>⚠ {candidate.identity_conflict_note}</p>
+      {alternate?.title ? (
+        <p className="mt-1">
+          Der zitierte Titel deutet stattdessen auf: „{alternate.title}
+          {"“"}
+          {alternate.doi ? ` (${alternate.doi})` : ""} —{" "}
+          {Math.round(alternate.match_score * 100)} % Übereinstimmung.
+        </p>
+      ) : null}
+      <p className="mt-1 text-amber-700">
+        Nicht automatisch übernommen. Bitte prüfen, welches Werk gemeint ist.
+      </p>
+    </div>
+  );
+}
+
+/**
  * One open reference candidate as a row of the unified sources list (source
  * work items): its own form, its own "Übernehmen", its completion inputs
  * behind a disclosure — the batch checkbox form is gone. Queue state and
@@ -123,6 +150,10 @@ export function CandidateRow({
         {capturing ? <CapturingChip /> : queued ? <QueuedChip /> : null}
       </div>
       <CandidateMeta candidate={candidate} />
+
+      {candidate.identity_conflict === true ? (
+        <IdentityConflictBox candidate={candidate} />
+      ) : null}
 
       {failure !== undefined ? (
         <FailureBox>

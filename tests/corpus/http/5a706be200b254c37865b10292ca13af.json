@@ -1,0 +1,12 @@
+{
+  "url": "https://api.crossref.org/works/10.1007%2Fs10664-023-10288-w",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"status\":\"ok\",\"message\":{\"DOI\":\"10.1007/s10664-023-10288-w\",\"title\":[\"On the Reproducibility of Software Defect Prediction Studies\"],\"author\":[{\"family\":\"Lindholm\",\"given\":\"Petra\"}],\"issued\":{\"date-parts\":[[2023]]},\"container-title\":[\"Empirical Software Engineering\"],\"link\":[]}}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Crossref /works/<doi> with no link[] — a closed-access journal article."
+  },
+  "key": "5a706be200b254c37865b10292ca13af"
+}

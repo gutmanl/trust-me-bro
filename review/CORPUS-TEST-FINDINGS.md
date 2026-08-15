@@ -5,16 +5,69 @@ responses turned up. Each item was **pinned as current behaviour** in a test
 with a comment naming the gap — nothing was fixed as part of writing them, so
 `npm run check` stayed green and the decision on each was the author's.
 
-Findings 2 and 3 have since been fixed (15.08.2026); their tests now assert
-the guard rather than the gap. Findings 1 and 4 still stand as recorded.
+Findings 1, 2 and 3 have since been fixed (15.08.2026); their tests now assert
+the guard rather than the gap. Finding 4 was closed by the suite itself and is
+kept as a note on test design.
 
 Ordered by how much of the product's central claim they touch.
 
 ---
 
-## 1. The identity cross-check is unreachable for parenthetical citations
+## 1. The identity cross-check is unreachable for parenthetical citations — FIXED (15.08.2026)
 
-**Severity: high — it silently disables the thesis's central guard.**
+**Severity was: high — it silently disabled the thesis's central guard.**
+
+**Resolution.** The title now reaches the check, from the channel that can
+actually read one. Prompt `reference_parse` v1.1.0 asks the model to report
+the citations the regex channel already found — v1.0.0 told it to stay silent
+about exactly those — with the bibliographic detail the regex channel cannot
+read and the identifier echoed back, so the report joins its regex seed by
+identity key and the merge puts the cited title on the identifier. The
+cross-check itself is unchanged.
+
+Three supporting changes, because the title alone was not enough:
+
+- `dropAlreadyIdentified` keeps a re-report whose OWN identifier is one the
+  regex channel already found. That one merges rather than duplicating; the
+  duplicate the module exists to stop is the other shape, the same work under
+  a _different_ identifier, which no merge collapses.
+- The cross-check runs on MERGED seeds now (`mergeSeeds`, extracted from
+  `mergeCandidates`). Unmerged, the titleless regex seed and the titled LLM
+  seed would each resolve the identifier over the network while only one
+  could compare anything.
+- The merge carries `identity_conflict` / `identity_conflict_note` /
+  `alternate_title_match` from the losing seed, as the finding's note below
+  warned. Belt-and-braces after the reorder, but a verdict silently lost to a
+  merge would re-admit a hallucinated identifier to auto-capture.
+- An echoed identifier is canonicalized on both sides of the comparison and
+  on its way into a seed. Review caught this: an arXiv id is detected as
+  `arXiv:2601.20727` but stored bare, so a raw string comparison recognized
+  no arXiv echo at all — it was dropped instead of merged, and the fix would
+  have shipped working for DOIs and silently broken for arXiv, which the
+  DOI-only corpus fixture could not have noticed. Pinned in
+  `dedup-identified.test.ts` across all four surface forms.
+
+Two things found while fixing it, both now closed:
+
+- **The verdict was never shown.** `identity_conflict_note` and
+  `alternate_title_match` appeared nowhere in `app/`, so even the footnote
+  path that worked produced only a silently unchecked row — while
+  `review.ts` and `identity-crosscheck.ts` both promise in comments that "the
+  human chooses between the two hypotheses". The candidate row now renders
+  the note and the competing work.
+- **The fixture agreed with the bug.** `scenarios.ts` cited every source by
+  footnote, which is why this survived. It now carries one misattribution of
+  each style, and `corpus-pipeline.e2e.test.ts` asserts both.
+
+The remaining limit is worth stating: the check's reach depends on the LLM
+channel. With the backend down the scan degrades to regex-only and an inline
+citation still has no title, so the guard still cannot run. That is the same
+fail-open the rest of the scan uses, but it is a fail-open on the thesis's
+central guard.
+
+The original finding follows, as recorded.
+
+---
 
 `crossCheckIdentifiedSeed` (`lib/pipeline/sources/reference-scan/identity-crosscheck.ts:30-37`)
 returns immediately unless the candidate seed carries a `title`:

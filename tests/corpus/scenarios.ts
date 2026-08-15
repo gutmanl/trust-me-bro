@@ -103,9 +103,44 @@ export const SOURCE_UNRESOLVABLE: ScenarioSource = {
   note: "exclusion-log-2026-07-26.md — arXiv answers an empty feed.",
 };
 
+/**
+ * The same misattribution as SOURCE_MISATTRIBUTED, cited the OTHER way: title
+ * and identifier in one sentence, no footnote. Real DOI from
+ * `ids_b_chatgpt.txt`.
+ *
+ * It exists because the citation STYLE decided whether the guard ran at all.
+ * The regex channel reads identifiers but no titles, so a candidate's title
+ * came from its footnote — and prompt v1.0.0 told the model not to report a
+ * citation the regex channel had already found, which is every inline one.
+ * A parenthetical citation therefore reached the cross-check with no title
+ * and was waved through, pre-selected for automatic capture. Both styles
+ * occur in real deep-research output. Keeping one of each is the point: the
+ * footnote path above proves the original mechanism still works, this one
+ * proves the guard no longer depends on which style the briefing happens to
+ * use.
+ *
+ * A DOI, deliberately, because that is the shape the fixture can carry end
+ * to end. The identifier KIND matters separately: an arXiv id is detected
+ * with its "arXiv:" prefix but stored bare, so recognizing the model's echo
+ * of one is a canonicalization problem the DOI case never exercises. That
+ * half is pinned in `dedup-identified.test.ts` rather than here.
+ */
+export const SOURCE_MISATTRIBUTED_INLINE: ScenarioSource = {
+  label: "misattributed-inline",
+  kind: "doi",
+  identifier: "10.1007/s10664-023-10288-w",
+  canonical: "10.1007/s10664-023-10288-w",
+  citedTitle: "Automated Evidence Retrieval for Systematic Reviews",
+  resolvedTitle: "On the Reproducibility of Software Defect Prediction Studies",
+  authors: ["Lindholm"],
+  year: 2023,
+  note: "Real DOI, real journal; the cited title is the misattribution. Cited inline, not by footnote.",
+};
+
 export const SCENARIO_SOURCES: readonly ScenarioSource[] = [
   SOURCE_AUDIT_TRAILS,
   SOURCE_MISATTRIBUTED,
+  SOURCE_MISATTRIBUTED_INLINE,
   SOURCE_UNRESOLVABLE,
 ];
 
@@ -139,16 +174,21 @@ export const FOOTNOTES = {
  * display tier and its prompts are; Markdown with one checkable statement
  * per paragraph, because that is the shape extraction expects.
  *
- * Footnote citations rather than parenthetical ones, and that is not
- * cosmetic. Elicit and Perplexity cite each source twice — an inline marker
- * in the prose and a footnote definition carrying the title — and the scan
- * depends on it: the regex channel reads identifiers but no titles, so a
- * candidate's title comes from its footnote. Without a title there is
- * nothing to compare a resolved identifier against, and the identity
- * cross-check that catches a misattributed DOI cannot run at all. A briefing
- * written with parenthetical citations therefore exercises strictly less of
- * this pipeline, which is precisely the sort of thing a hand-written fixture
- * hides.
+ * BOTH citation styles, and that is not cosmetic. Elicit and Perplexity cite
+ * each source twice — an inline marker in the prose and a footnote definition
+ * carrying the title — and the scan leaned on it: the regex channel reads
+ * identifiers but no titles, so a candidate's title came from its footnote,
+ * and prompt v1.0.0 told the model not to report a citation the regex
+ * channel had already found. A parenthetical citation therefore reached the
+ * identity cross-check with no title to compare a resolved identifier
+ * against, and the guard that catches a misattributed DOI did not run at all
+ * — it was silently a footnote-only feature.
+ *
+ * This fixture used footnotes exclusively, which is exactly how that
+ * survived: a hand-written briefing agreed with the code about what a
+ * citation looks like. It now carries one misattribution of each style
+ * (`[^2]` and the inline `SOURCE_MISATTRIBUTED_INLINE`), so a regression in
+ * either path fails a spec.
  *
  * The last paragraph cites nothing — the unevidenced claim that has to reach
  * adjudication rather than quietly disappear.
@@ -162,6 +202,11 @@ export const SCENARIO_BRIEFING = [
     "eine eigene Arbeit vor.[^2]",
   "Evidenzschranken für automatisierte Literaturübersichten werden " +
     "ebenfalls diskutiert.[^3]",
+  // Parenthetical: title and identifier in one sentence, no footnote marker.
+  // The style whose candidates used to reach the cross-check titleless.
+  `Zur automatisierten Beschaffung von Belegstellen liegt eine Übersicht ` +
+    `vor (${SOURCE_MISATTRIBUTED_INLINE.citedTitle}, ` +
+    `doi:${SOURCE_MISATTRIBUTED_INLINE.identifier}).`,
   CITATION_WITHOUT_IDENTIFIER.rawText,
   "Langfristig verbessert sich dadurch die Qualität der Ergebnisse.",
   [FOOTNOTES.auditTrails, FOOTNOTES.misattributed, FOOTNOTES.unresolvable].join(

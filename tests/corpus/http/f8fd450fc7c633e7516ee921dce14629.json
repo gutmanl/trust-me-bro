@@ -1,0 +1,12 @@
+{
+  "url": "https://doi.org/10.1007/s10664-023-10288-w",
+  "accept": "application/vnd.citationstyles.csl+json",
+  "status": 200,
+  "contentType": "application/vnd.citationstyles.csl+json",
+  "bodyText": "{\"id\":\"https://doi.org/10.1007/s10664-023-10288-w\",\"type\":\"article-journal\",\"title\":\"On the Reproducibility of Software Defect Prediction Studies\",\"author\":[{\"family\":\"Lindholm\",\"given\":\"Petra\"}],\"issued\":{\"date-parts\":[[2023]]},\"container-title\":\"Empirical Software Engineering\",\"publisher\":\"Springer\",\"DOI\":\"10.1007/s10664-023-10288-w\"}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "CSL-JSON via doi.org content negotiation; title deliberately differs from the briefing's inline attribution."
+  },
+  "key": "f8fd450fc7c633e7516ee921dce14629"
+}

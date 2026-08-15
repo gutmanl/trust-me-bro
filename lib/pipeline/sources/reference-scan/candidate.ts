@@ -136,6 +136,19 @@ function seedToCandidate(seed: CandidateSeed): ReferenceCandidate {
 export function mergeCandidates(
   seeds: readonly CandidateSeed[],
 ): ReferenceCandidate[] {
+  return mergeSeeds(seeds).map(seedToCandidate);
+}
+
+/**
+ * The merge itself, stopping at seeds. Exposed separately because the
+ * identity cross-check has to run on MERGED seeds: the regex channel finds an
+ * identifier without a title and the LLM channel reports the same citation
+ * with one, and a check on the unmerged pair would resolve the identifier
+ * twice over the network while only the titled half could compare anything.
+ * Merging first gives one check per identifier, against the fullest metadata
+ * the scan has.
+ */
+export function mergeSeeds(seeds: readonly CandidateSeed[]): CandidateSeed[] {
   const merged = new Map<string, CandidateSeed>();
   const unresolved: CandidateSeed[] = [];
 
@@ -154,6 +167,19 @@ export function mergeCandidates(
       !isIdentifiedMethod(existing.method) && isIdentifiedMethod(seed.method);
     const primary = preferSeed ? seed : existing;
     const secondary = preferSeed ? existing : seed;
+    // The identity cross-check's verdict falls back from the loser like the
+    // metadata below, and for the same reason: it is a statement about the
+    // WORK, not about the channel that reported it. A conflict found on one
+    // seed must not vanish because the other one happened to win — that would
+    // silently re-admit a hallucinated identifier to auto-capture, which is
+    // the one thing the check exists to prevent.
+    const conflicted =
+      primary.identity_conflict === true ||
+      secondary.identity_conflict === true;
+    const conflictNote =
+      primary.identity_conflict_note ?? secondary.identity_conflict_note;
+    const alternate =
+      primary.alternate_title_match ?? secondary.alternate_title_match;
     merged.set(key, {
       ...primary,
       title: primary.title ?? secondary.title,
@@ -169,10 +195,17 @@ export function mergeCandidates(
         primary.method === "crossref_title"
           ? (primary.match_score ?? secondary.match_score)
           : undefined,
+      ...(conflicted
+        ? {
+            identity_conflict: true,
+            ...(conflictNote ? { identity_conflict_note: conflictNote } : {}),
+            ...(alternate ? { alternate_title_match: alternate } : {}),
+          }
+        : {}),
     });
   }
 
-  return [...merged.values(), ...unresolved].map(seedToCandidate);
+  return [...merged.values(), ...unresolved];
 }
 
 /** Identifiers a captured source carries, extracted defensively (loose CSL-

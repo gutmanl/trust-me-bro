@@ -38,7 +38,13 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   rubric: "1.0.0",
   repair: "1.0.0",
   relevance: "1.0.0",
-  reference_parse: "1.0.0",
+  // 1.1.0: the already-detected spans are reported too, with their title,
+  // authors and year and the identifier echoed back. 1.0.0 told the model to
+  // skip them, so a citation whose title and identifier share one sentence
+  // reached the scan with no title — and the identity cross-check, which
+  // compares a resolved identifier against the title the briefing claims for
+  // it, cannot run without one. Only footnote-style citations were checked.
+  reference_parse: "1.1.0",
 };
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);

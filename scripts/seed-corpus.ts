@@ -34,6 +34,7 @@ import {
   FOOTNOTES,
   SOURCE_AUDIT_TRAILS,
   SOURCE_MISATTRIBUTED,
+  SOURCE_MISATTRIBUTED_INLINE,
   SOURCE_UNRESOLVABLE,
 } from "../tests/corpus/scenarios";
 
@@ -291,6 +292,71 @@ function main(): void {
     ),
   });
 
+  // --- The inline-cited misattribution -----------------------------------
+  //
+  // Same failure class, cited parenthetically instead of by footnote. It is
+  // here because the citation STYLE used to decide whether the cross-check
+  // ran at all, so the guard needs one of each to stay honest.
+  writeHttpCassette({
+    url: `https://doi.org/${SOURCE_MISATTRIBUTED_INLINE.canonical}`,
+    accept: CSL_ACCEPT,
+    status: 200,
+    contentType: "application/vnd.citationstyles.csl+json",
+    bodyText: JSON.stringify({
+      id: `https://doi.org/${SOURCE_MISATTRIBUTED_INLINE.canonical}`,
+      type: "article-journal",
+      title: SOURCE_MISATTRIBUTED_INLINE.resolvedTitle,
+      author: [{ family: "Lindholm", given: "Petra" }],
+      issued: { "date-parts": [[SOURCE_MISATTRIBUTED_INLINE.year]] },
+      "container-title": "Empirical Software Engineering",
+      publisher: "Springer",
+      DOI: SOURCE_MISATTRIBUTED_INLINE.canonical,
+    }),
+    provenance: synthetic(
+      "CSL-JSON via doi.org content negotiation; title deliberately differs " +
+        "from the briefing's inline attribution.",
+    ),
+  });
+
+  writeHttpCassette({
+    url: `https://api.crossref.org/works/${encodeURIComponent(SOURCE_MISATTRIBUTED_INLINE.canonical)}`,
+    accept: JSON_ACCEPT,
+    status: 200,
+    contentType: "application/json",
+    bodyText: JSON.stringify({
+      status: "ok",
+      message: {
+        DOI: SOURCE_MISATTRIBUTED_INLINE.canonical,
+        title: [SOURCE_MISATTRIBUTED_INLINE.resolvedTitle],
+        author: [{ family: "Lindholm", given: "Petra" }],
+        issued: { "date-parts": [[SOURCE_MISATTRIBUTED_INLINE.year]] },
+        "container-title": ["Empirical Software Engineering"],
+        link: [],
+      },
+    }),
+    provenance: synthetic(
+      "Crossref /works/<doi> with no link[] — a closed-access journal article.",
+    ),
+  });
+
+  writeHttpCassette({
+    url:
+      `https://api.unpaywall.org/v2/${encodeURIComponent(SOURCE_MISATTRIBUTED_INLINE.canonical)}` +
+      "?email=REDACTED",
+    accept: JSON_ACCEPT,
+    status: 200,
+    contentType: "application/json",
+    bodyText: JSON.stringify({
+      doi: SOURCE_MISATTRIBUTED_INLINE.canonical,
+      is_oa: false,
+      best_oa_location: null,
+      oa_locations: [],
+    }),
+    provenance: synthetic(
+      "Unpaywall knows the DOI and reports no open-access copy.",
+    ),
+  });
+
   // --- Crossref: the title searches the scan will actually issue ---------
   //
   // The query strings are built with the SAME helpers the pipeline uses
@@ -315,6 +381,13 @@ function main(): void {
         CITATION_WITHOUT_IDENTIFIER.authors.join(" "),
       ].join(" "),
       note: "Identifier-less citation from the LLM channel.",
+    },
+    // The inline misattribution's follow-up. The cited title alone: the
+    // briefing's sentence names no authors and no year, so the model reports
+    // none and the query has none to carry.
+    {
+      query: cleanReferenceTitle(SOURCE_MISATTRIBUTED_INLINE.citedTitle),
+      note: "Identity-conflict follow-up for the inline-cited misattribution.",
     },
   ];
   for (const { query, note } of titleQueries) {

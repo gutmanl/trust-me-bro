@@ -63,4 +63,70 @@ describe("dropAlreadyIdentified", () => {
     const refs = [ref("A distinct citation"), ref("Another one entirely")];
     expect(dropAlreadyIdentified(refs, [], [])).toEqual(refs);
   });
+
+  it("keeps a re-report that echoes a KNOWN identifier — it enriches", () => {
+    // Prompt v1.1.0 asks the model to report the already-detected citations
+    // too, with the title the regex channel cannot read. Sharing the
+    // identifier, it merges rather than duplicating — and without it an
+    // inline citation reaches the identity cross-check with no title.
+    const enrichment: ParsedReference = {
+      raw_text: "Some paper at https://example.org/~a/VisDoc3.pdf",
+      authors: ["Eitan"],
+      title: "On Visualization and Comprehension of Scenario-Based Programs",
+      url: "https://example.org/~a/VisDoc3.pdf",
+    };
+    const kept = dropAlreadyIdentified([enrichment], COVERED, SPANS, SPANS);
+    expect(kept).toEqual([enrichment]);
+  });
+
+  it("recognizes an arXiv echo in any form the briefing may have used", () => {
+    // The regex channel stores "2601.20727"; the span it detected — and so
+    // the hint the model reads — is "arXiv:2601.20727". A raw string
+    // comparison would miss every arXiv enrichment and drop it on the
+    // containment rule below, reopening the gap for one identifier kind
+    // only. Both surface forms have to resolve to the same known id.
+    const known = ["2601.20727"];
+    for (const echoed of [
+      "2601.20727",
+      "arXiv:2601.20727",
+      "arXiv:2601.20727v2",
+      "https://arxiv.org/abs/2601.20727",
+    ]) {
+      const kept = dropAlreadyIdentified(
+        [
+          {
+            raw_text: `Zur Sache (Ein Titel, arXiv:2601.20727).`,
+            authors: [],
+            title: "Ein Titel",
+            arxiv_id: echoed,
+          },
+        ],
+        ["Zur Sache (Ein Titel, arXiv:2601.20727)."],
+        ["arXiv:2601.20727"],
+        known,
+      );
+      expect(kept, echoed).toHaveLength(1);
+    }
+  });
+
+  it("still drops the same work re-reported under a DIFFERENT identifier", () => {
+    // The duplicate this module exists for: one work, two identifiers, which
+    // no merge collapses. Passing knownIdentifiers must not weaken it.
+    const kept = dropAlreadyIdentified(
+      [
+        {
+          raw_text:
+            "Eitan et al. zur Visualisierung szenariobasierter Programme.",
+          authors: ["Eitan"],
+          title:
+            "On Visualization and Comprehension of Scenario-Based Programs",
+          doi: "10.1234/other",
+        },
+      ],
+      COVERED,
+      SPANS,
+      SPANS,
+    );
+    expect(kept).toHaveLength(0);
+  });
 });

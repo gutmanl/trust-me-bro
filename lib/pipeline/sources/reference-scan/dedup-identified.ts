@@ -1,4 +1,5 @@
 import type { ParsedReference } from "../../../adapters";
+import { normalizeArxivId, normalizeDoi } from "../identifiers";
 
 /**
  * Drops LLM-parsed references that re-report a citation the regex channel
@@ -24,6 +25,18 @@ import type { ParsedReference } from "../../../adapters";
  * copies (typographic vs. straight quotes, em-dashes, dropped parentheticals).
  * A genuinely different citation — sharing only incidental words — keeps its
  * distinctive author/title tokens and survives.
+ *
+ * ONE re-report is wanted and kept: the one whose own identifier is a
+ * KNOWN one (prompt v1.1.0 asks the model to report the already-detected
+ * citations too, with the bibliographic detail the regex channel cannot
+ * read). It carries the title an identified seed otherwise lacks, and it
+ * cannot duplicate anything — sharing an identifier means mergeCandidates
+ * collapses the two by identity key, filling the regex seed's empty
+ * title/authors/year from it. Without a title the identity cross-check has
+ * nothing to compare a resolved identifier against and never runs, which is
+ * what left inline citations unchecked. The duplicate this module exists to
+ * stop is the OTHER shape — the same work re-reported under a DIFFERENT
+ * identifier (a pasted URL vs. the Crossref DOI), which no merge collapses.
  */
 
 function tokenize(text: string): string[] {
@@ -40,15 +53,56 @@ const CONTAINMENT_THRESHOLD = 0.8;
 /** Below this many tokens a containment ratio is too noisy to trust. */
 const MIN_TOKENS = 3;
 
+/**
+ * One identifier reduced to the form both sides can be compared in, through
+ * the same normalizers the capture path uses.
+ *
+ * Raw string equality would not do. The regex channel stores an arXiv id
+ * canonically ("2601.20727") while the span it detected carries the prefix
+ * the briefing wrote ("arXiv:2601.20727"), and the model echoes back
+ * whatever shape it read — bare, prefixed, or a resolver URL. Comparing the
+ * surface forms would therefore miss every arXiv citation and drop the
+ * enrichment, reopening exactly the gap this keep-rule exists to close, for
+ * one identifier kind only and without any test noticing.
+ */
+function canonicalIdentifier(value: string): string {
+  const canonical = normalizeDoi(value) ?? normalizeArxivId(value) ?? value;
+  return canonical.trim().toLowerCase();
+}
+
+/** Whether the reference's OWN identifier is one the regex channel already
+ * found — the enrichment case, which merges rather than duplicates. Compared
+ * on the identifier fields, not on the raw text: the model echoes the
+ * identifier into the field it belongs in, while raw_text is the citation as
+ * written and may quote a neighbouring one. */
+function echoesKnownIdentifier(
+  reference: ParsedReference,
+  knownIdentifiers: ReadonlySet<string>,
+): boolean {
+  return [reference.doi, reference.arxiv_id, reference.url].some(
+    (value) =>
+      value !== undefined &&
+      value.length > 0 &&
+      knownIdentifiers.has(canonicalIdentifier(value)),
+  );
+}
+
 export function dropAlreadyIdentified(
   references: readonly ParsedReference[],
   coveredTexts: readonly string[],
   identifierSpans: readonly string[],
+  knownIdentifiers: readonly string[] = [],
 ): ParsedReference[] {
   const spans = identifierSpans.map((span) => span.toLowerCase());
+  const known = new Set(
+    knownIdentifiers.map((value) => value.trim().toLowerCase()),
+  );
   const coveredTokenSets = coveredTexts.map((text) => new Set(tokenize(text)));
 
   return references.filter((reference) => {
+    if (echoesKnownIdentifier(reference, known)) {
+      return true; // enrichment, not duplication — see the module comment
+    }
     const lower = reference.raw_text.toLowerCase();
     if (spans.some((span) => span.length > 0 && lower.includes(span))) {
       return false; // the reference text carries the identifier itself

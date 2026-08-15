@@ -48,6 +48,7 @@ import {
   SCENARIO_BRIEFING,
   SOURCE_AUDIT_TRAILS,
   SOURCE_MISATTRIBUTED,
+  SOURCE_MISATTRIBUTED_INLINE,
   SOURCE_UNRESOLVABLE,
 } from "../corpus/scenarios";
 
@@ -108,13 +109,16 @@ describe("reference scan over a real briefing", () => {
       ]),
     );
 
-    // Three identifiers from the regex channel plus the prose-only citation
-    // the LLM channel reported — all four survive to the review list.
-    expect(candidates).toHaveLength(4);
+    // Four identifiers from the regex channel — three cited by footnote, one
+    // inline — plus the prose-only citation the LLM channel reported. The
+    // inline one is reported by BOTH channels and must collapse to a single
+    // candidate: same identifier, one identity key.
+    expect(candidates).toHaveLength(5);
     expect([...byIdentifier.keys()]).toEqual(
       expect.arrayContaining([
         SOURCE_AUDIT_TRAILS.canonical,
         SOURCE_MISATTRIBUTED.canonical,
+        SOURCE_MISATTRIBUTED_INLINE.canonical,
         SOURCE_UNRESOLVABLE.canonical,
       ]),
     );
@@ -190,6 +194,49 @@ describe("failure class: the identifier resolves to a different work", () => {
     );
     expect(clean?.identity_conflict).toBeUndefined();
     expect(clean?.selected).toBe(true);
+  });
+
+  /**
+   * The same guard on a citation written inline — title and identifier in one
+   * sentence, no footnote. This is the case the check used to miss entirely,
+   * and missing it was invisible: the candidate looked clean and was
+   * pre-selected for automatic capture.
+   *
+   * What makes it work is not the cross-check, which is unchanged, but the
+   * title reaching it: prompt v1.1.0 asks the model to report the citations
+   * the regex channel already found, so the inline citation arrives with the
+   * title the briefing claims for it, and the merge puts that title on the
+   * identifier the regex channel read.
+   */
+  it("flags it for an inline citation too, not just a footnote", async () => {
+    const project = await createCorpusProject({
+      briefing: SCENARIO_BRIEFING,
+      backend: createReplayBackend({ seed: REFERENCE_PARSE_SEED }),
+    });
+    const fetcher = cassetteFetcher();
+
+    const handle = await startReferenceScan(project.projectId, {
+      orchestrator: project.orchestrator,
+      fetcher,
+      sleep: async () => {},
+    });
+    await handle.done;
+    expect(fetcher.misses()).toEqual([]);
+
+    const candidates = await getReferenceCandidates(project.projectId);
+    const inline = candidates.find(
+      (candidate) => candidate.doi === SOURCE_MISATTRIBUTED_INLINE.canonical,
+    );
+    expect(inline).toBeDefined();
+
+    // The title the LLM channel supplied for an already-detected identifier —
+    // without it the cross-check has nothing to compare and returns silently.
+    expect(inline?.title).toBe(SOURCE_MISATTRIBUTED_INLINE.citedTitle);
+    expect(inline?.identity_conflict).toBe(true);
+    expect(inline?.identity_conflict_note).toContain(
+      SOURCE_MISATTRIBUTED_INLINE.resolvedTitle,
+    );
+    expect(inline?.selected).toBe(false);
   });
 });
 

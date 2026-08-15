@@ -18,8 +18,9 @@ import { getGlobalJobRunner } from "../../runs/job-runner";
 import type { JobRunner } from "../../runs/job-runner";
 import type { RunHandle } from "../../runs/types";
 import type { HttpFetcher } from "../fetch-port";
+import { normalizeArxivId, normalizeDoi } from "../identifiers";
 import { nodeHttpFetcher } from "../node-http-fetcher";
-import { excludeCaptured, mergeCandidates } from "./candidate";
+import { excludeCaptured, mergeCandidates, mergeSeeds } from "./candidate";
 import type { CandidateSeed } from "./candidate";
 import { dropAlreadyIdentified } from "./dedup-identified";
 import { crossCheckIdentifiedSeed } from "./identity-crosscheck";
@@ -251,10 +252,17 @@ async function runReferenceScanOnce(
   const claimedFootnoteTexts = footnotes
     .filter((def) => claimedMarkers.has(def.marker))
     .map((def) => def.rawText);
+  // The identifiers themselves, as the regex channel canonicalized them —
+  // the join for prompt v1.1.0's re-report of an already-detected citation,
+  // which is kept precisely because it merges (see dedup-identified.ts).
+  const knownIdentifiers = regexHits
+    .map((hit) => hit.doi ?? hit.arxiv_id ?? hit.url)
+    .filter((value): value is string => value !== undefined);
   const parsedNew = dropAlreadyIdentified(
     parsed,
     [...identifiedParagraphs, ...claimedFootnoteTexts],
     identifierSpans,
+    knownIdentifiers,
   );
   const parsedWithIdentifier = parsedNew.filter(
     (reference) => reference.doi || reference.arxiv_id || reference.url,
@@ -263,17 +271,33 @@ async function runReferenceScanOnce(
     (reference) => !reference.doi && !reference.arxiv_id && !reference.url,
   );
   const parsedIdentifiedSeeds: CandidateSeed[] = parsedWithIdentifier.map(
-    (reference) => ({
-      raw_text: reference.raw_text,
-      method: reference.doi ? "doi" : reference.arxiv_id ? "arxiv" : "url",
-      ...(reference.doi ? { doi: reference.doi } : {}),
-      ...(reference.arxiv_id ? { arxiv_id: reference.arxiv_id } : {}),
-      ...(reference.url ? { url: reference.url } : {}),
-      authors: reference.authors,
-      ...(reference.year !== undefined ? { year: reference.year } : {}),
-      title: reference.title,
-      ...(reference.venue ? { venue: reference.venue } : {}),
-    }),
+    (reference) => {
+      // Canonicalized on the way in, through the same normalizers the capture
+      // path uses. The model writes an identifier the way the briefing did —
+      // "arXiv:2401.12345", or an arxiv.org URL — while the regex channel
+      // stores the bare id, and `identityKey` is a string comparison: an
+      // uncanonicalized echo would mint its own key and stand as a SECOND
+      // candidate for the same paper instead of merging into the first,
+      // taking its title with it. A value that normalizes to nothing is kept
+      // as written; it is then simply an identifier the merge does not know.
+      const doi = reference.doi
+        ? (normalizeDoi(reference.doi) ?? reference.doi)
+        : undefined;
+      const arxivId = reference.arxiv_id
+        ? (normalizeArxivId(reference.arxiv_id) ?? reference.arxiv_id)
+        : undefined;
+      return {
+        raw_text: reference.raw_text,
+        method: doi ? "doi" : arxivId ? "arxiv" : "url",
+        ...(doi ? { doi } : {}),
+        ...(arxivId ? { arxiv_id: arxivId } : {}),
+        ...(reference.url ? { url: reference.url } : {}),
+        authors: reference.authors,
+        ...(reference.year !== undefined ? { year: reference.year } : {}),
+        title: reference.title,
+        ...(reference.venue ? { venue: reference.venue } : {}),
+      };
+    },
   );
 
   // Footnote definitions WITHOUT an inline identifier are references with no
@@ -299,6 +323,15 @@ async function runReferenceScanOnce(
     [...regexSeeds, ...parsedIdentifiedSeeds],
     register.sources,
   );
+  // Merged BEFORE the cross-check, not after. The two channels report one
+  // citation as two seeds — the regex hit carries the identifier and (unless
+  // a footnote supplied one) no title, the LLM's report of the same citation
+  // carries the title. Checking them unmerged would resolve the identifier
+  // twice over the network and let only the titled half compare anything,
+  // and the verdict would then have to survive the merge that follows. One
+  // merged seed per identifier, checked once, against everything the scan
+  // knows about it.
+  const mergedIdentified = mergeSeeds(identifiedPool);
   // Identity cross-check (automatic repair): every DOI/arXiv seed that
   // carries a cited title gets its identifier's resolved metadata compared
   // against that title BEFORE it can be auto-captured — the preventive
@@ -306,7 +339,7 @@ async function runReferenceScanOnce(
   // wrong work. Sequential like every other remote loop here; failures
   // fail open inside the check.
   const preCrossrefPool: CandidateSeed[] = [];
-  for (const seed of identifiedPool) {
+  for (const seed of mergedIdentified) {
     preCrossrefPool.push(
       await crossCheckIdentifiedSeed(seed, context.fetcher, context.sleep),
     );

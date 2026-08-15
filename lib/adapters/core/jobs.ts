@@ -127,10 +127,14 @@ export interface RelevanceInput {
   readonly claim: ClaimContext;
 }
 
-/** Textual-citation extraction of a briefing (TMB-52 reference auto-import):
- * finds citations the regex channel (DOI/arXiv/URL pattern matching) could
- * NOT find. `already_detected` carries the regex channel's spans so the LLM
- * hunts only for OTHER citations instead of re-reporting them. */
+/** Citation extraction of a briefing (TMB-52 reference auto-import).
+ * `already_detected` carries the regex channel's spans. Since prompt v1.1.0
+ * that is not a "skip these" list: the model reports those citations too,
+ * with the bibliographic detail pattern matching cannot read, because a
+ * candidate needs the title the briefing claims for an identifier before the
+ * identity cross-check can compare it against what the identifier resolves
+ * to. Its other job is unchanged — finding the citations the regex channel
+ * could not see at all. */
 export interface ReferenceParseInput {
   readonly briefing_text: string;
   readonly already_detected: readonly string[];

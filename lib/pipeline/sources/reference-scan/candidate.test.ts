@@ -118,6 +118,43 @@ describe("mergeCandidates", () => {
     });
   });
 
+  it("carries an identity conflict across a merge the flagged seed loses", () => {
+    // The verdict is a statement about the WORK, not about the channel that
+    // reported it. Losing it here would silently re-admit a hallucinated
+    // identifier to auto-capture — the one thing the check exists to stop.
+    const result = mergeCandidates([
+      {
+        raw_text: "Siehe 10.1109/TSE.2025.3489012.",
+        method: "doi",
+        doi: "10.1109/TSE.2025.3489012",
+      },
+      {
+        raw_text: "Meyer et al. (2025) zeigen …",
+        method: "doi",
+        doi: "10.1109/TSE.2025.3489012",
+        title: "Effects of AI Assistants on Code Review Duration",
+        identity_conflict: true,
+        identity_conflict_note: "Die Kennung löst zu einem anderen Werk auf.",
+        alternate_title_match: { doi: "10.1000/real", match_score: 0.91 },
+      },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      identity_conflict: true,
+      identity_conflict_note: "Die Kennung löst zu einem anderen Werk auf.",
+      alternate_title_match: { doi: "10.1000/real", match_score: 0.91 },
+    });
+  });
+
+  it("leaves an unconflicted merge free of the identity fields", () => {
+    const result = mergeCandidates([
+      { raw_text: "a", method: "doi", doi: "10.1000/aaa" },
+      { raw_text: "b", method: "doi", doi: "10.1000/aaa", title: "T" },
+    ]);
+    expect(result[0].identity_conflict).toBeUndefined();
+    expect(result[0].alternate_title_match).toBeUndefined();
+  });
+
   it("prefers an identified method (doi/arxiv/url) over crossref_title sharing the same DOI", () => {
     const result = mergeCandidates([
       {

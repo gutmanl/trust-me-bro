@@ -1,0 +1,12 @@
+{
+  "url": "https://api.crossref.org/works?query.bibliographic=Automated%20Evidence%20Retrieval%20for%20Systematic%20Reviews&rows=5",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"status\":\"ok\",\"message\":{\"items\":[]}}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Healthy 200 with zero items — distinct from a Crossref outage. Identity-conflict follow-up for the inline-cited misattribution."
+  },
+  "key": "45ef3734ac99cb5462311f2b72ebf6fa"
+}
