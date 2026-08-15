@@ -17,8 +17,11 @@ describe("quoteContainmentScore", () => {
   });
 
   it("scores a lightly reworded quote high but below 1", () => {
+    // "mittlere" vs "mediane" is what keeps this below 1: the score is
+    // bigram RECALL of the quote, so a rewording that only reorders words
+    // already present reaches 1.0 without being a substring at all.
     const score = quoteContainmentScore(
-      "die mediane Reviewzeit sank von 42 auf 19 Minuten",
+      "die mittlere Reviewzeit sank von 42 auf 19 Minuten",
       "Im Ergebnis sank die mediane Review-Zeit von 42 auf etwa 19 Minuten.",
     );
     expect(score).toBeGreaterThan(FUZZY_REANCHOR_THRESHOLD);

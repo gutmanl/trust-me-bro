@@ -7,6 +7,7 @@ import { vi } from "vitest";
 
 import {
   CROSSREF_WORK_NO_LINK_RESPONSE,
+  CROSSREF_WORK_UNSPECIFIED_PDF_LINK_RESPONSE,
   CROSSREF_WORK_WITH_PDF_LINK_RESPONSE,
   fakeFetcher,
   UNPAYWALL_NO_OA_RESPONSE,
@@ -72,6 +73,48 @@ describe("deriveDocumentUrl", () => {
       [CROSSREF_WORK_URL]: {
         contentType: "application/json",
         body: Buffer.from(CROSSREF_WORK_NO_LINK_RESPONSE),
+      },
+      [UNPAYWALL_URL]: {
+        contentType: "application/json",
+        body: Buffer.from(UNPAYWALL_OA_RESPONSE),
+      },
+    });
+    const result = await deriveDocumentUrl({ doi: DOI }, { fetcher });
+    expect(result).toEqual({
+      documentUrl: "https://oa.example.org/best.pdf",
+      source: "unpaywall",
+    });
+  });
+
+  it("uses a PDF-shaped link with unspecified content-type as the last resort", async () => {
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", "lg@example.org");
+    const fetcher = fakeFetcher({
+      [CROSSREF_WORK_URL]: {
+        contentType: "application/json",
+        body: Buffer.from(CROSSREF_WORK_UNSPECIFIED_PDF_LINK_RESPONSE),
+      },
+      [UNPAYWALL_URL]: {
+        contentType: "application/json",
+        body: Buffer.from(UNPAYWALL_NO_OA_RESPONSE),
+      },
+    });
+    const result = await deriveDocumentUrl({ doi: DOI }, { fetcher });
+    // The /pdf/ entry, not the landing page listed before it — and flagged
+    // as a guess, so callers holding a better document outrank it.
+    expect(result).toEqual({
+      documentUrl:
+        "https://publisher.example.org/doi/pdf/10.1109/TSE.2025.3489012",
+      source: "crossref_pdf",
+      guessed: true,
+    });
+  });
+
+  it("still prefers a real open-access PDF over a merely PDF-shaped link", async () => {
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", "lg@example.org");
+    const fetcher = fakeFetcher({
+      [CROSSREF_WORK_URL]: {
+        contentType: "application/json",
+        body: Buffer.from(CROSSREF_WORK_UNSPECIFIED_PDF_LINK_RESPONSE),
       },
       [UNPAYWALL_URL]: {
         contentType: "application/json",

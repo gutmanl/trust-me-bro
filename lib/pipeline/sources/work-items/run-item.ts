@@ -122,6 +122,12 @@ async function captureWorkItem(
           ...(input.documentUrl !== undefined
             ? { documentUrl: input.documentUrl }
             : {}),
+          // Same corpus-integrity guard as a capture: a correction freezes
+          // a document too, and an auto-derived URL that turns out to serve
+          // a landing page must fail the attempt, not enter the corpus.
+          ...(input.expectedExt !== undefined
+            ? { expectedExt: input.expectedExt }
+            : {}),
           ...(input.manual !== undefined ? { manual: input.manual } : {}),
           ...(input.upload !== undefined ? { upload: input.upload } : {}),
           sourceType: input.sourceType,

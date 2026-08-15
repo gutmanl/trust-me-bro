@@ -180,6 +180,10 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.enqueueSourceCorrection).toBeDefined();
     expect(surface.correctSource).toBeUndefined();
     expect(surface.sweepSourceRecheck).toBeUndefined();
+    // The undo is app-facing where the correction itself is not: it queues
+    // no work item and touches no network, restoring only what the register
+    // already archived.
+    expect(surface.revertSourceIdentity).toBeDefined();
     // Automatic repair: suggestions (derive/apply/dismiss) and the anchor
     // sweep's enqueue are app-facing; the evaluators, the quote-fit
     // disambiguation, the Crossref re-resolution and the briefing

@@ -103,6 +103,34 @@ export const CROSSREF_EMPTY_RESULTS_RESPONSE = JSON.stringify({
 /** A single-work Crossref /works/<doi> response (reference auto-import,
  * Task 3b document-url derivation) whose link[] carries a PDF entry —
  * `fetchCrossrefWorkByDoi` should extract its URL as `pdfUrl`. */
+/**
+ * A Crossref work whose link[] entries are shaped like a PDF but carry
+ * content-type "unspecified" — the real ACM/IEEE shape that made a
+ * perfectly good PDF link invisible to the strict step 2 of the derivation
+ * chain (the landing page is deliberately listed first, so a test that
+ * passes cannot be picking the first entry by accident).
+ */
+export const CROSSREF_WORK_UNSPECIFIED_PDF_LINK_RESPONSE = JSON.stringify({
+  status: "ok",
+  message: {
+    DOI: "10.1109/TSE.2025.3489012",
+    title: ["Effects of AI Assistants on Code Review Duration"],
+    author: [{ family: "Meyer", given: "Anna" }],
+    issued: { "date-parts": [[2025]] },
+    "container-title": ["IEEE Transactions on Software Engineering"],
+    link: [
+      {
+        URL: "https://publisher.example.org/doi/10.1109/TSE.2025.3489012",
+        "content-type": "unspecified",
+      },
+      {
+        URL: "https://publisher.example.org/doi/pdf/10.1109/TSE.2025.3489012",
+        "content-type": "unspecified",
+      },
+    ],
+  },
+});
+
 export const CROSSREF_WORK_WITH_PDF_LINK_RESPONSE = JSON.stringify({
   status: "ok",
   message: {

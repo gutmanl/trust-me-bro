@@ -11,6 +11,7 @@ import {
   enqueueManualCapture,
   enqueueSourceCorrection,
   retryManualCapture,
+  revertSourceIdentity,
   reviseSource,
 } from "@/lib/pipeline";
 import type {
@@ -286,4 +287,26 @@ export async function correctSourceAction(
     newRevision: result.value.newRevision,
     recheckedCount: result.value.recheckedClaimIds.length,
   };
+}
+
+/**
+ * Takes back the last identity correction of a source (source correction):
+ * restores the archived bibliographic core AND its archived document. The
+ * case it exists for is an accepted repair suggestion that turned out to
+ * name a different work — the source then carries both wrong metadata and a
+ * wrong frozen document, and every claim citing it fails stage 1.
+ */
+export async function revertSourceIdentityAction(
+  projectId: string,
+  sourceId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(() =>
+    revertSourceIdentity(projectId, sourceId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
 }

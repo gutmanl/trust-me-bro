@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
 import type {
@@ -11,6 +11,8 @@ import type {
 import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
 import { useStartGate } from "../RunStatusProvider";
+import type { RetryCaptureState } from "../sources/actions";
+import { revertSourceIdentityAction } from "../sources/actions";
 import { CorrectSourceForm } from "../sources/SourceForms";
 import type { RunFormState } from "./actions";
 import { startSourceExtractionAction } from "./actions";
@@ -135,7 +137,17 @@ export function SourceRow({
         {source.previousSnapshots > 0 ? (
           <span>{source.previousSnapshots} frühere Revision(en)</span>
         ) : null}
-        {source.previousIdentities > 0 ? <span>Kennung korrigiert</span> : null}
+        {source.previousIdentities > 0 ? (
+          <span className="flex items-center gap-1.5">
+            Kennung korrigiert
+            {source.previousSnapshots > 0 && !correctionInFlight ? (
+              <RevertIdentityButton
+                projectId={projectId}
+                sourceId={source.id}
+              />
+            ) : null}
+          </span>
+        ) : null}
         {correctionInFlight ? (
           <span className="flex items-center gap-1 text-blue-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
@@ -223,5 +235,66 @@ export function SourceRow({
       )}
       <ErrorBanner message={state.error} />
     </li>
+  );
+}
+
+/**
+ * "Korrektur zurücknehmen" on a source that carries an archived identity
+ * (source correction): restores the previous bibliographic core and its
+ * previous document in one audited step.
+ *
+ * Behind a confirmation because it moves the frozen corpus — the same
+ * reason applying a weak suggestion is. Only rendered when BOTH an archived
+ * identity and an archived document exist; restoring metadata without its
+ * document would leave the source describing one work and quoting another.
+ */
+function RevertIdentityButton({
+  projectId,
+  sourceId,
+}: {
+  projectId: string;
+  sourceId: string;
+}) {
+  const [state, action, pending] = useActionState(
+    revertSourceIdentityAction.bind(null, projectId, sourceId),
+    { error: null } as RetryCaptureState,
+  );
+  const [armed, setArmed] = useState(false);
+  if (!armed) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setArmed(true);
+        }}
+        className="text-xs font-medium text-slate-600 underline decoration-slate-300 hover:text-slate-900"
+      >
+        zurücknehmen
+      </button>
+    );
+  }
+  return (
+    <form action={action} className="flex items-center gap-1.5">
+      <span className="text-xs text-amber-800">
+        Frühere Kennung und deren Dokument wiederherstellen?
+      </span>
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+      >
+        {pending ? "Wird zurückgenommen …" : "Ja, zurücknehmen"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setArmed(false);
+        }}
+        className="text-xs text-slate-600 underline decoration-slate-300"
+      >
+        Abbrechen
+      </button>
+      <ErrorBanner message={state.error} />
+    </form>
   );
 }

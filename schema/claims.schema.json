@@ -511,6 +511,14 @@
                     "at": {
                       "$ref": "#/$defs/__schema1"
                     },
+                    "match": {
+                      "enum": [
+                        "exact",
+                        "interrupted",
+                        "none"
+                      ],
+                      "type": "string"
+                    },
                     "status": {
                       "enum": [
                         "passed",

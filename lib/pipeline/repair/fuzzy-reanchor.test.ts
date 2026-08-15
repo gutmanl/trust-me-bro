@@ -64,10 +64,14 @@ async function addClaim(
 
 describe("runFuzzyReanchorSweep", () => {
   it("re-anchors a near-verbatim quote as an audited system event", async () => {
-    // Lightly reworded vs the briefing's "Review-Zeit … (n = 120)".
+    // Lightly reworded vs the briefing's "Die mediane Review-Zeit sank von
+    // 42 auf 19 Minuten (n = 120)". "mittlere" is what makes it inexact:
+    // the normal form is hyphen-insensitive, so a quote differing only in
+    // "Reviewzeit" vs "Review-Zeit" resolves exactly and never reaches the
+    // fuzzy sweep at all.
     await addClaim(
       "clm_0001",
-      "die mediane Reviewzeit sank von 42 auf 19 Minuten",
+      "die mittlere Reviewzeit sank von 42 auf 19 Minuten",
     );
     const summary = await runFuzzyReanchorSweep(PROJECT);
     expect(summary).toEqual({ repaired: 1, stillUnresolved: 0 });

@@ -358,6 +358,13 @@ export async function retryManualCapture(
           },
         }
       : {}),
+    // Auto-import provenance rides along (automatic repair): the retry is
+    // a fresh attempt whose OWN failure is recorded from this request, so
+    // dropping the raw citation line here would quietly cost the repair
+    // evaluator the context it re-resolves from.
+    ...(input.auto_capture !== undefined
+      ? { autoCapture: { ...input.auto_capture } }
+      : {}),
   };
   const item: SourceCaptureWorkItem = {
     workItemId,

@@ -66,6 +66,7 @@ export async function runStage1ForClaim(
       tx.setExistenceCheck(claimId, result.evidenceId, {
         status: result.status,
         at: now,
+        match: result.match,
       });
     }
     tx.transitionClaim(claimId, {

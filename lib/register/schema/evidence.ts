@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { ExistenceCheckStatus, RelationType } from "./enums";
+import {
+  ExistenceCheckMatch,
+  ExistenceCheckStatus,
+  RelationType,
+} from "./enums";
 import { EvidenceId, IsoDateTime, SourceId } from "./primitives";
 
 /**
@@ -27,10 +31,25 @@ export const Locator = z.looseObject({
   section: z.string().optional(),
 });
 
-/** Result of the deterministic verbatim-existence check (stage 1). */
+/**
+ * Result of the deterministic verbatim-existence check (stage 1).
+ *
+ * `match` records HOW the wording was established, on every outcome:
+ * `exact` — the frozen text contains the quotation contiguously;
+ * `interrupted` — it contains every part of it verbatim and in order, but
+ * separated by bounded interpolated material (a copyright block, a figure
+ * caption, a running head — the extraction of a two-column PDF is not
+ * always in reading order); `none` — not established at all.
+ *
+ * Optional because it postdates the field: its ABSENCE means the check ran
+ * before the distinction existed, which is precisely what lets the one-off
+ * re-check sweep tell an old verdict from a current one (documented
+ * extension, additive).
+ */
 export const ExistenceCheck = z.strictObject({
   status: ExistenceCheckStatus,
   at: IsoDateTime,
+  match: ExistenceCheckMatch.optional(),
 });
 
 /**

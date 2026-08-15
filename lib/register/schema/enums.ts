@@ -72,6 +72,16 @@ export const ExistenceCheckStatus = z.enum(["passed", "failed"]);
 export type ExistenceCheckStatus = z.infer<typeof ExistenceCheckStatus>;
 
 /**
+ * How the existence check established the wording: contiguously
+ * (`exact`), across bounded interpolated material such as a copyright
+ * block or figure caption the PDF extraction emitted mid-sentence
+ * (`interrupted`), or not at all (`none`). See the ExistenceCheck
+ * sub-schema for why this is recorded on every outcome.
+ */
+export const ExistenceCheckMatch = z.enum(["exact", "interrupted", "none"]);
+export type ExistenceCheckMatch = z.infer<typeof ExistenceCheckMatch>;
+
+/**
  * Complaint categories of the adjudication dialog, translating the error
  * taxonomy into reviewer language (concept chapter, Adjudikations-Interface).
  * The mandatory free-text justification for "other" is enforced by the

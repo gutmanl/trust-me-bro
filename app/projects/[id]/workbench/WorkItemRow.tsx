@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
 import type { RepairActionVM, SourceWorkItemVM } from "@/lib/pipeline";
@@ -77,6 +77,12 @@ export function SuggestionBox({
     initialRetryState,
   );
   const candidate = suggestion.candidate;
+  // Only a SOURCE target gets the extra gate: there the apply overwrites an
+  // existing identity and its frozen document. A capture-failure target has
+  // nothing to lose — the import already failed.
+  const needsConfirmation =
+    suggestion.weak && suggestion.target.kind === "source";
+  const [confirmed, setConfirmed] = useState(false);
   return (
     <div className="mt-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-xs text-indigo-900">
       <p>
@@ -99,11 +105,29 @@ export function SuggestionBox({
           Bestand.
         </p>
       ) : null}
+      {needsConfirmation ? (
+        <label className="mt-1.5 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-900">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => {
+              setConfirmed(event.target.checked);
+            }}
+            className="mt-0.5"
+          />
+          <span>
+            Diese Übereinstimmung liegt unter der Schwelle, ab der das System
+            selbst korrigieren würde. Die Übernahme ersetzt die bisherige
+            Kennung <em>und</em> das eingefrorene Dokument dieser Quelle.
+            Verstanden.
+          </span>
+        </label>
+      ) : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <form action={applyAction}>
           <button
             type="submit"
-            disabled={applyPending}
+            disabled={applyPending || (needsConfirmation && !confirmed)}
             className="rounded-md border border-indigo-300 bg-white px-2 py-1 text-xs font-medium text-indigo-900 hover:bg-indigo-100 disabled:opacity-50"
           >
             {applyPending ? "Wird eingereiht …" : "Vorschlag übernehmen"}

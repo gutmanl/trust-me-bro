@@ -41,6 +41,59 @@ describe("buildCandidateReview", () => {
     });
   });
 
+  it("links a repaired capture back to its candidate via capture_attempt_id", () => {
+    // The automatic repair replaces the identifier and restamps
+    // auto_capture.method, and a rescan can pick a different citing
+    // paragraph as raw_text — so all three of the older signals miss. The
+    // attempt id is what still ties the two together.
+    const [review] = buildCandidateReview(
+      scanResult([
+        candidate({
+          candidate_id: "cnd_32559b52fde52aab",
+          method: "doi",
+          doi: "10.1109/TSE.2017.2727038",
+          raw_text: "**Beacons** wirken demnach als auffällige Marker.",
+        }),
+      ]),
+      [
+        source({
+          id: "src_siegmund2017",
+          DOI: "10.1145/3106237.3106268",
+          custom: {
+            source_type: "peer_reviewed_publication",
+            capture_attempt_id: "cnd_32559b52fde52aab",
+            auto_capture: {
+              raw_text: "**Semantisches Chunking** … ein anderer Absatz.",
+              method: "crossref_title",
+              score: 1,
+            },
+          },
+        }),
+      ],
+    );
+    expect(review).toMatchObject({
+      alreadyCaptured: true,
+      capturedAsSourceId: "src_siegmund2017",
+    });
+  });
+
+  it("does not link a candidate to an unrelated attempt id", () => {
+    const [review] = buildCandidateReview(
+      scanResult([candidate({ candidate_id: "cnd_aaa", doi: "10.1000/xyz" })]),
+      [
+        source({
+          id: "src_other",
+          DOI: "10.1000/other",
+          custom: {
+            source_type: "peer_reviewed_publication",
+            capture_attempt_id: "wi_manual-something-else",
+          },
+        }),
+      ],
+    );
+    expect(review).toMatchObject({ alreadyCaptured: false });
+  });
+
   it("a doi candidate whose DOI matches a captured source: alreadyCaptured with the source id", () => {
     const [review] = buildCandidateReview(
       scanResult([candidate({ method: "doi", doi: "10.1000/xyz" })]),

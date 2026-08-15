@@ -1,10 +1,11 @@
 import type {
   BlobStore,
   Claim,
+  ExistenceCheckMatch,
   ExistenceCheckStatus,
   Source,
 } from "../../../register";
-import { containsNormalized } from "../../../register";
+import { containsNormalized, findInterrupted } from "../../../register";
 import type { HttpFetcher } from "../../sources/fetch-port";
 import type { SourceCheckCache } from "./source-check";
 import { checkSourceCached } from "./source-check";
@@ -22,6 +23,10 @@ import { checkSourceCached } from "./source-check";
 export interface EvidenceExistenceResult {
   evidenceId: string;
   status: ExistenceCheckStatus;
+  /** How the wording was established — recorded on every outcome, so a
+   * verdict from before this distinction existed is recognizable by its
+   * absence. */
+  match: ExistenceCheckMatch;
   detail: string;
 }
 
@@ -38,6 +43,7 @@ export async function checkClaimExistence(
       results.push({
         evidenceId: evidence.id,
         status: "failed",
+        match: "none",
         detail: `Quelle ${evidence.source_id} nicht im Register.`,
       });
       continue;
@@ -47,6 +53,7 @@ export async function checkClaimExistence(
       results.push({
         evidenceId: evidence.id,
         status: "failed",
+        match: "none",
         detail: live.detail,
       });
       continue;
@@ -69,6 +76,7 @@ function verbatimProof(
     return {
       evidenceId,
       status: "failed",
+      match: "none",
       detail: `Quelle ${source.id} hat keinen eingefrorenen Schnappschuss.`,
     };
   }
@@ -76,6 +84,7 @@ function verbatimProof(
     return {
       evidenceId,
       status: "failed",
+      match: "none",
       detail:
         `Kein Text-Blob für Quelle ${source.id} ` +
         `(Extraktion gescheitert: ${snapshot.text_extraction_error ?? "unbekannt"}) – ` +
@@ -83,16 +92,36 @@ function verbatimProof(
     };
   }
   const text = blobs.readText(snapshot.text_blob_path);
-  if (!containsNormalized(text, excerpt)) {
+  if (containsNormalized(text, excerpt)) {
     return {
       evidenceId,
-      status: "failed",
-      detail: `Wortlaut nicht im eingefrorenen Text von ${source.id} gefunden.`,
+      status: "passed",
+      match: "exact",
+      detail: `Wortlaut in ${source.id} nachgewiesen.`,
+    };
+  }
+  // Second line: the extraction of a two-column PDF is not always in
+  // reading order, so a quotation genuinely present in the paper can arrive
+  // split around a copyright block, figure caption or running head. Every
+  // character must still be found verbatim; only contiguity is relaxed.
+  const interrupted = findInterrupted(text, excerpt);
+  if (interrupted) {
+    return {
+      evidenceId,
+      status: "passed",
+      match: "interrupted",
+      detail:
+        `Wortlaut in ${source.id} nachgewiesen – vollständig und in ` +
+        `Reihenfolge, aber im extrahierten Text durch ` +
+        `${interrupted.skipped} Zeichen Fremdtext unterbrochen ` +
+        `(${interrupted.interruptions}×, typisch: Rechtekasten, ` +
+        `Abbildungsunterschrift oder Kolumnentitel).`,
     };
   }
   return {
     evidenceId,
-    status: "passed",
-    detail: `Wortlaut in ${source.id} nachgewiesen.`,
+    status: "failed",
+    match: "none",
+    detail: `Wortlaut nicht im eingefrorenen Text von ${source.id} gefunden.`,
   };
 }

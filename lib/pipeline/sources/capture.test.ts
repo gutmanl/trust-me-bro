@@ -136,6 +136,59 @@ describe("captureSource via DOI", () => {
     expect((await store.verify()).ok).toBe(true);
   });
 
+  it("refuses a second capture of an identifier already in the corpus", async () => {
+    // Whichever path leads here — a candidate row, the manual modal, an
+    // automatic repair's corrected attempt — a duplicate would split one
+    // work's claims and audit trail across two sources.
+    const capture = () =>
+      captureSource(
+        {
+          projectId: "proj_quellen",
+          kind: "doi",
+          identifier: "https://doi.org/10.1109/TSE.2025.3489012",
+          sourceType: "peer_reviewed_publication",
+          documentUrl: "https://publisher.example.org/paper.pdf",
+        },
+        { fetcher: defaultFetcher() },
+      );
+    const first = await capture();
+
+    await expect(capture()).rejects.toThrow(
+      new RegExp(`bereits als Quelle "${first.id}" erfasst`),
+    );
+    const register = await RegisterStore.forProject("proj_quellen").read();
+    expect(register.sources).toHaveLength(1);
+    expect((await RegisterStore.forProject("proj_quellen").verify()).ok).toBe(
+      true,
+    );
+  });
+
+  it("still captures an unrelated identifier alongside an existing source", async () => {
+    await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "doi",
+        identifier: "https://doi.org/10.1109/TSE.2025.3489012",
+        sourceType: "peer_reviewed_publication",
+        documentUrl: "https://publisher.example.org/paper.pdf",
+      },
+      { fetcher: defaultFetcher() },
+    );
+    const second = await captureSource(
+      {
+        projectId: "proj_quellen",
+        kind: "arxiv",
+        identifier: "2401.12345",
+        sourceType: "preprint",
+      },
+      { fetcher: defaultFetcher() },
+    );
+
+    expect(second.id).not.toBe("src_meyer2025");
+    const register = await RegisterStore.forProject("proj_quellen").read();
+    expect(register.sources).toHaveLength(2);
+  });
+
   it("requires a document URL or upload for DOIs", async () => {
     await expect(
       captureSource(

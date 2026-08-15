@@ -13,6 +13,7 @@ export {
   ClaimStatus,
   ClaimType,
   ComplaintCategory,
+  ExistenceCheckMatch,
   ExistenceCheckStatus,
   ProjectEventType,
   RelationType,

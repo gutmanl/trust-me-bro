@@ -1,5 +1,5 @@
 import type { Source, SourceType } from "../../register";
-import { InvalidSourceInputError } from "../errors";
+import { InvalidSourceInputError, PipelineError } from "../errors";
 import { mintSourceId } from "../ids";
 import { requireProjectStore } from "../projects";
 import {
@@ -12,6 +12,12 @@ import { acquireDocument, buildSnapshot, extractTextOrError } from "./document";
 import type { HttpFetcher } from "./fetch-port";
 import { isHttpUrl, normalizeArxivId, normalizeDoi } from "./identifiers";
 import { nodeHttpFetcher } from "./node-http-fetcher";
+// Leaf module: pure identifier helpers, no import back into the capture
+// path, so sharing them here closes no cycle.
+import {
+  identifierMatches,
+  sourceIdentifiers,
+} from "./reference-scan/candidate";
 import { resolveArxiv, resolveDoi, type ResolvedMetadata } from "./resolve";
 
 export type CaptureKind = "doi" | "arxiv" | "url" | "upload";
@@ -110,6 +116,21 @@ export async function resolveMetadata(
   }
 }
 
+/** The identifiers of a freshly resolved CSL item, in the shape
+ * `identifierMatches` compares against a source's own. */
+function identifiersOf(item: Record<string, unknown>): {
+  doi?: string;
+  arxiv_id?: string;
+  url?: string;
+} {
+  const ids = sourceIdentifiers(item as unknown as Source);
+  return {
+    ...(ids.doi ? { doi: ids.doi } : {}),
+    ...(ids.arxivId ? { arxiv_id: ids.arxivId } : {}),
+    ...(ids.url ? { url: ids.url } : {}),
+  };
+}
+
 /**
  * Captures one source (TMB-23): resolves DOI/arXiv identifiers to CSL-JSON
  * metadata (URL/upload sources carry manual metadata), downloads or accepts
@@ -139,6 +160,25 @@ export async function captureSource(
   const now = new Date().toISOString();
 
   return store.transaction((tx) => {
+    // Identity-level duplicate guard: whatever path led here — a candidate
+    // row, the manual modal, an automatic repair's corrected attempt — a
+    // resolved identifier that already belongs to a source means this work
+    // is in the corpus, and a second entry would split its claims and its
+    // audit trail across two sources. Checked INSIDE the transaction, so
+    // two captures racing for the same identifier cannot both pass.
+    const duplicate = tx
+      .listSources()
+      .find((source) =>
+        identifierMatches(
+          identifiersOf(resolved.item),
+          sourceIdentifiers(source),
+        ),
+      );
+    if (duplicate) {
+      throw new PipelineError(
+        `Diese Kennung ist bereits als Quelle "${duplicate.id}" erfasst.`,
+      );
+    }
     const existing = new Set(tx.listSources().map((source) => source.id));
     const id = mintSourceId(
       {

@@ -10,7 +10,7 @@ import type { ChainVerificationResult } from "../chain/verify";
 import { createBlobStore } from "../blobs/store";
 import type { BlobStore } from "../blobs/store";
 import type { Claim } from "../schema/claim";
-import type { ProjectEventType } from "../schema/enums";
+import type { ExistenceCheckMatch, ProjectEventType } from "../schema/enums";
 import type { ProjectEvent } from "../schema/history";
 import type { ProjectConfig } from "../schema/project";
 import { ClaimsRegister, SCHEMA_VERSION } from "../schema/register";
@@ -293,7 +293,11 @@ export interface RegisterTransaction {
   setExistenceCheck(
     claimId: string,
     evidenceId: string,
-    result: { status: "passed" | "failed"; at: string },
+    result: {
+      status: "passed" | "failed";
+      at: string;
+      match?: ExistenceCheckMatch;
+    },
   ): void;
   /** Appends a backend judgment; existing judgments are never overwritten. */
   appendJudgment(claimId: string, evidenceId: string, judgment: Judgment): void;

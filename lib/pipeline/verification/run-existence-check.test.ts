@@ -338,3 +338,99 @@ describe("getOpenExistenceCheckCount", () => {
     expect(getOpenExistenceCheckCount(await readRegister())).toBe(1);
   });
 });
+
+describe("readmission of stale existence checks", () => {
+  /** Strands a claim exactly as the OLD stage 1 did: an existence check
+   * with no `match` marker, routed into adjudication. */
+  async function strandWithoutMarker(sourceId: string): Promise<string> {
+    const claimId = await addClaim(sourceId, "captured");
+    const store = RegisterStore.forProject(PROJECT);
+    await store.transaction((tx) => {
+      const claim = tx.getClaim(claimId);
+      tx.setExistenceCheck(claimId, claim.evidence[0].id, {
+        status: "failed",
+        at: new Date().toISOString(),
+      });
+      tx.transitionClaim(claimId, {
+        to: "pending_adjudication",
+        actor: "system:existence_check",
+        reason: "Wortlaut nicht gefunden.",
+        routing: "existence_check_failed",
+      });
+    });
+    return claimId;
+  }
+
+  it("re-examines a claim stranded before the match marker existed", async () => {
+    // The wording IS in the frozen text; only the old comparison missed it.
+    const sourceId = await captureMatchingSource();
+    const claimId = await strandWithoutMarker(sourceId);
+
+    const handle = await startExistenceCheck(PROJECT, {
+      runner,
+      fetcher: fakeFetcher({}),
+    });
+    await handle.done;
+
+    const register = await readRegister();
+    expect(claimStatusOf(register, claimId)).toBe("existence_checked");
+    const claim = register.claims.find((entry) => entry.id === claimId);
+    expect(claim?.evidence[0].existence_check).toMatchObject({
+      status: "passed",
+      match: "exact",
+    });
+  });
+
+  it("leaves a claim whose verdict already carries a marker alone", async () => {
+    const sourceId = await captureNonMatchingSource();
+    const claimId = await strandWithoutMarker(sourceId);
+
+    // First run: readmitted, re-checked, fails again — now WITH a marker.
+    await (
+      await startExistenceCheck(PROJECT, { runner, fetcher: fakeFetcher({}) })
+    ).done;
+    const afterFirst = await readRegister();
+    expect(claimStatusOf(afterFirst, claimId)).toBe("pending_adjudication");
+    expect(
+      afterFirst.claims.find((entry) => entry.id === claimId)?.evidence[0]
+        .existence_check?.match,
+    ).toBe("none");
+    const historyAfterFirst = afterFirst.claims.find(
+      (entry) => entry.id === claimId,
+    )?.history.length;
+
+    // Second run: the marker is present, so nothing is readmitted and the
+    // append-only chain gains no further transitions for this claim.
+    await (
+      await startExistenceCheck(PROJECT, { runner, fetcher: fakeFetcher({}) })
+    ).done;
+    const afterSecond = await readRegister();
+    expect(
+      afterSecond.claims.find((entry) => entry.id === claimId)?.history.length,
+    ).toBe(historyAfterFirst);
+  });
+
+  it("never disturbs a claim a human has acted on since the failed check", async () => {
+    const sourceId = await captureMatchingSource();
+    const claimId = await strandWithoutMarker(sourceId);
+    // A reviewer touches it: the failed routing is no longer the last word.
+    await RegisterStore.forProject(PROJECT).transaction((tx) => {
+      tx.transitionClaim(claimId, {
+        to: "contested",
+        actor: "human:lg",
+        reason: "Reviewer widerspricht der Fundstelle.",
+        decision: {
+          categories: ["wording_not_in_source"],
+          reviewed_evidence_ids: [],
+          duration_s: 12,
+        },
+      });
+    });
+
+    await (
+      await startExistenceCheck(PROJECT, { runner, fetcher: fakeFetcher({}) })
+    ).done;
+
+    expect(claimStatusOf(await readRegister(), claimId)).toBe("contested");
+  });
+});

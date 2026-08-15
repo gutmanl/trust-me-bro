@@ -857,7 +857,36 @@ describe("createAutoChain: automatic repair fan-out", () => {
     });
   });
 
-  it("never evaluates a failed manual or auto_repair capture (loop guard)", async () => {
+  it.each([
+    ["manual", "wi_manual"],
+    ["correction", "wi_correction"],
+  ] as const)(
+    "evaluates a failed %s capture too — every entry path is one failing run",
+    async (origin, workItemId) => {
+      const runner = createJobRunner();
+      const deps = repairDeps();
+      const chain = createAutoChain({
+        runner,
+        startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
+        startExistenceCheck: fakeExistenceCheck(runner),
+        ...deps,
+      });
+      chain.enqueueSourceCapture("proj_a", {
+        workItemId,
+        origin,
+        label: "Handgriff",
+        request: { kind: "doi", sourceType: "preprint", identifier: "10.1/y" },
+      });
+      await vi.waitFor(() => {
+        expect(deps.evaluateCaptureFailureRepair).toHaveBeenCalledWith(
+          "proj_a",
+          workItemId,
+        );
+      });
+    },
+  );
+
+  it("never evaluates a failed auto_repair capture (loop guard)", async () => {
     const runner = createJobRunner();
     const deps = repairDeps();
     const chain = createAutoChain({
@@ -865,12 +894,6 @@ describe("createAutoChain: automatic repair fan-out", () => {
       startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       ...deps,
-    });
-    chain.enqueueSourceCapture("proj_a", {
-      workItemId: "wi_manual",
-      origin: "manual",
-      label: "Manuell",
-      request: { kind: "doi", sourceType: "preprint", identifier: "10.1/y" },
     });
     chain.enqueueSourceCapture("proj_a", {
       workItemId: "wi_auto",

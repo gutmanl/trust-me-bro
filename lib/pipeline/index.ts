@@ -86,6 +86,11 @@ export {
   retryManualCapture,
 } from "./sources/work-items/queue";
 export { dismissCaptureFailure } from "./sources/work-items/failures";
+// Undo of an identity correction (source correction): app-facing on its
+// own, unlike correctSource — it queues nothing and does no network work,
+// it only restores what the register already archived.
+export { revertSourceIdentity } from "./sources/revert-identity";
+export type { RevertSourceIdentityResult } from "./sources/revert-identity";
 export type {
   ManualCaptureInput,
   SourceCorrectionInput,

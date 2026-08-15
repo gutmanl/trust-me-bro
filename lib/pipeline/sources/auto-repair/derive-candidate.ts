@@ -86,6 +86,21 @@ export interface RematchDependencies {
 }
 
 /**
+ * The Crossref half of the re-resolution, for provenances that ALREADY hold
+ * structured citation fields — a manual capture's form metadata, a source's
+ * own CSL core. Nothing to parse, so no backend is involved at all; the
+ * evaluators reach for this instead of `rematchCitation` when there is no
+ * raw citation line to work from.
+ */
+export async function rematchMeta(
+  meta: DerivedCitationMeta,
+  fetcher: HttpFetcher,
+  sleep?: (ms: number) => Promise<void>,
+): Promise<TitleMatch> {
+  return matchViaCrossrefTitle(meta, fetcher, sleep);
+}
+
+/**
  * The shared re-resolution core of both automatic-repair evaluators:
  * preflight the primary backend, derive the citation's metadata from its
  * raw text (LLM with deterministic floor), and ask Crossref which work the
@@ -112,7 +127,7 @@ export async function rematchCitation(
     timeoutMs: loadAdapterConfig().timeoutMs,
     projectDir,
   });
-  return matchViaCrossrefTitle(meta, fetcher, deps.sleep);
+  return rematchMeta(meta, fetcher, deps.sleep);
 }
 
 /** The repair-action candidate a title rematch yields — one builder so the

@@ -5,6 +5,7 @@ import type { JobRunner } from "../runs/job-runner";
 import type { RunHandle } from "../runs/types";
 import type { HttpFetcher } from "../sources/fetch-port";
 import { nodeHttpFetcher } from "../sources/node-http-fetcher";
+import { readmitStaleExistenceChecks } from "./stage1/readmit-stale";
 import { runStage1ForClaim } from "./stage1/run-stage1-claim";
 import type { Stage1Context } from "./stage1/run-stage1-claim";
 import type { SourceCheckCache } from "./stage1/source-check";
@@ -62,6 +63,12 @@ export async function startExistenceCheck(
   deps: ExistenceCheckDependencies = {},
 ): Promise<RunHandle<ExistenceCheckItemResult>> {
   const store = requireProjectStore(projectId);
+  // Claims stranded by a check that predates the `match` marker are pulled
+  // back first, so this run re-examines them under the corrected wording
+  // comparison. Self-terminating: the run stamps the marker, so they are
+  // never selected again. See readmit-stale.ts for why it cannot disturb a
+  // claim a reviewer has since touched.
+  await readmitStaleExistenceChecks(store, await store.read());
   const register = await store.read();
   const eligible = openExistenceCheckClaims(register);
   const runner = deps.runner ?? getGlobalJobRunner();

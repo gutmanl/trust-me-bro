@@ -32,6 +32,11 @@ export interface CorrectSourceInput {
   manual?: ManualMetadata;
   /** Document URL when the identifier does not determine one (DOI). */
   documentUrl?: string;
+  /** Corpus-integrity guard for auto-derived document URLs, exactly as on
+   * capture. A correction freezes a document like any capture does, so it
+   * needs the same protection: without it a publisher landing page answers
+   * a PDF-shaped URL and is frozen as the paper. */
+  expectedExt?: string;
   /** Corrected document; takes precedence over any URL. */
   upload?: { content: Buffer; filename: string };
   /** Work-item id of the correction attempt: written to
@@ -95,6 +100,7 @@ export async function correctSource(
     {
       upload: input.upload,
       documentUrl: input.documentUrl?.trim() || resolved.documentUrl,
+      expectedExt: input.expectedExt,
     },
     fetcher,
   );

@@ -1,5 +1,10 @@
 import { processGlobal } from "../../process-global";
 import { startSourceExtraction } from "../extraction/run-source-extraction";
+// Statically imported where every other automatic-repair module is resolved
+// lazily: this one neither enqueues onto the chain nor pulls the adapter
+// graph behind it, so it closes none of the cycles documented in
+// createAutoChain and costs nothing at load time.
+import { repairableOrigin } from "../sources/auto-repair/repair-input";
 import type { buildAutoCaptureItems } from "../sources/reference-scan/enqueue-candidate-capture";
 import type { startReferenceScan } from "../sources/reference-scan/run-reference-scan";
 import type { startSourceCaptureItem } from "../sources/work-items/run-item";
@@ -324,15 +329,17 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       } finally {
         activeCapture.delete(projectId);
       }
-      // Automatic repair fan-out: a failed reference-import capture gets
-      // ONE automatic re-resolution attempt (the loop guard is the origin
-      // — an auto_repair item's own failure never re-triggers); a
-      // successful identity correction chains the mechanical briefing
-      // substitution for its target.
+      // Automatic repair fan-out: a failed capture gets ONE automatic
+      // re-resolution attempt (the loop guard is the origin — an
+      // auto_repair item's own failure never re-triggers); a successful
+      // identity correction chains the mechanical briefing substitution
+      // for its target. Every entry path lands here, the post-scan run and
+      // a hand-clicked capture or retry alike — they are all the same
+      // failing `source_capture` run.
       if (
         summary !== undefined &&
         summary.failed > 0 &&
-        trigger.item.origin === "reference_import"
+        repairableOrigin(trigger.item.origin)
       ) {
         queue.push({
           kind: "capture_failure_repair",

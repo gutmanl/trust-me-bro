@@ -15,7 +15,13 @@ import { deriveDocumentUrl } from "../reference-scan/derive-document-url";
 import { deriveOpenCaptureFailures } from "../work-items/failures";
 import type { SourceCaptureWorkItem } from "../work-items/types";
 import { failingExcerptsForSource } from "./candidates";
-import { rematchCitation, repairCandidateOf } from "./derive-candidate";
+import type { DerivedCitationMeta } from "./derive-candidate";
+import {
+  rematchCitation,
+  rematchMeta,
+  repairCandidateOf,
+} from "./derive-candidate";
+import { citationMetaFromSource } from "./repair-input";
 import {
   AUTO_REPAIR_ACTOR,
   type AutoRepairDependencies,
@@ -44,9 +50,15 @@ function repairStillUnattempted(
   );
 }
 
+/** What the source-level rematch reads: the raw citation line an auto-import
+ * kept, or the CSL core of a manually captured source. */
+type SourceRematchInput =
+  | { kind: "raw_text"; rawText: string }
+  | { kind: "meta"; meta: DerivedCitationMeta };
+
 /**
- * Cases (b) and (c) of the automatic repair: an already-captured,
- * auto-imported source whose identity is suspect.
+ * Cases (b) and (c) of the automatic repair: an already-captured source
+ * whose identity is suspect.
  *
  * (b) UNAMBIGUOUS — the live identity check itself fails (dead DOI,
  *     snapshot hash mismatch): a confident Crossref rematch of the
@@ -59,10 +71,14 @@ function repairStillUnattempted(
  *     that verifiably contains what the current text lacks is applied;
  *     everything weaker becomes a suggestion.
  *
- * Loop guards, structural: no `auto_capture` provenance (manual sources)
- * → out of scope; an open auto_repair-origin failure targeting the source
- * → the one automatic attempt already happened; an open suggestion → no
- * re-recording spam; a queued/active correction → a human is on it.
+ * A MANUALLY captured source takes the same two paths from its own CSL
+ * core, with one difference that is the whole point: it is never applied
+ * automatically, only ever suggested. The identity came from a human, so
+ * replacing it stays a human's click.
+ *
+ * Loop guards, structural: an open auto_repair-origin failure targeting the
+ * source → the one automatic attempt already happened; an open suggestion →
+ * no re-recording spam; a queued/active correction → a human is on it.
  */
 export async function evaluateSourceRepair(
   projectId: string,
@@ -72,8 +88,22 @@ export async function evaluateSourceRepair(
   const store = requireProjectStore(projectId);
   const register = await store.read();
   const source = register.sources.find((entry) => entry.id === sourceId);
-  const rawText = source?.custom.auto_capture?.raw_text;
-  if (!source || !rawText || !source.custom.snapshot) {
+  if (!source || !source.custom.snapshot) {
+    return;
+  }
+  // What the rematch reads, settled before any network work: an auto-import
+  // re-parses its raw citation line; a manually captured source has none, so
+  // its own CSL core stands in. Neither usable → nothing to re-resolve from.
+  const rawText = source.custom.auto_capture?.raw_text;
+  const sourceMeta =
+    rawText === undefined ? citationMetaFromSource(source) : undefined;
+  const rematchInput: SourceRematchInput | undefined =
+    rawText !== undefined
+      ? { kind: "raw_text", rawText }
+      : sourceMeta !== undefined
+        ? { kind: "meta", meta: sourceMeta }
+        : undefined;
+  if (rematchInput === undefined) {
     return;
   }
   if (!repairStillUnattempted(register, sourceId)) {
@@ -108,32 +138,47 @@ export async function evaluateSourceRepair(
     return;
   }
 
-  const match = await rematchCitation(
-    rawText,
-    register,
-    store.projectDir,
-    fetcher,
-    deps,
-  );
+  const match =
+    rematchInput.kind === "raw_text"
+      ? await rematchCitation(
+          rematchInput.rawText,
+          register,
+          store.projectDir,
+          fetcher,
+          deps,
+        )
+      : await rematchMeta(rematchInput.meta, fetcher, deps.sleep);
   const currentDoi =
     typeof source.DOI === "string" ? source.DOI.toLowerCase() : "";
   if (!match.doi || match.doi.toLowerCase() === currentDoi) {
     return;
   }
 
-  const derived = await deriveDocumentUrl(
+  const rawDerived = await deriveDocumentUrl(
     { doi: match.doi },
     { fetcher, ...(deps.sleep ? { sleep: deps.sleep } : {}) },
   );
+  // A merely PDF-SHAPED link is never offered as a CORRECTION's document.
+  // A correction replaces the identity of a source that already exists, so
+  // a wrong guess does not just fail an import — it overwrites a frozen
+  // document with a publisher landing page. Only an asserted document
+  // (arXiv, a Crossref link typed application/pdf, an Unpaywall copy) is
+  // good enough here; without one the reviewer supplies the document.
+  const derived = rawDerived.guessed === true ? {} : rawDerived;
 
   // A returned doi always comes with its match_score (title-resolution
   // sets them together).
   const score = match.match_score ?? 0;
+  // A manually captured source is only ever SUGGESTED a new identity: a
+  // human typed that identity deliberately, so silently re-resolving it to
+  // a different work is the one outcome that must stay a click away.
+  const autoApplicable = rematchInput.kind === "raw_text";
   let mode: "applied" | "suggested";
   let quoteFit: QuoteFitResult | undefined;
   if (identityBroken) {
     // Case (b): the identity is provably dead — the metadata match decides.
-    mode = score >= CONFIDENT_THRESHOLD ? "applied" : "suggested";
+    mode =
+      autoApplicable && score >= CONFIDENT_THRESHOLD ? "applied" : "suggested";
   } else {
     // Case (c): quote-fit disambiguation — fetch the candidate document
     // and test the failing excerpts. Any failure to obtain/extract the
@@ -155,7 +200,7 @@ export async function evaluateSourceRepair(
             failingExcerpts,
             currentText,
           );
-          if (quoteFit.confident) {
+          if (autoApplicable && quoteFit.confident) {
             mode = "applied";
           }
         }
@@ -236,7 +281,9 @@ export async function evaluateSourceRepair(
         sourceType: source.custom.source_type,
         targetSourceId: sourceId,
         identifier: match.doi,
-        ...(derived.documentUrl ? { documentUrl: derived.documentUrl } : {}),
+        ...(derived.documentUrl
+          ? { documentUrl: derived.documentUrl, expectedExt: "pdf" }
+          : {}),
       },
     };
     (deps.chain?.enqueueSourceCapture ?? enqueueSourceCapture)(projectId, item);

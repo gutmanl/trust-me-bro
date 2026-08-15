@@ -367,7 +367,62 @@ describe("evaluateSourceRepair", () => {
     expect(chain.enqueued).toHaveLength(0);
   });
 
-  it("skips sources without auto-capture provenance or without suspicion", async () => {
+  it("only ever SUGGESTS for a manually captured source, never applies", async () => {
+    // A human typed this identity, so replacing it stays a human's click —
+    // even though the rematch below scores well past the auto-apply bar.
+    const manual = await captureSource(
+      {
+        projectId: PROJECT,
+        kind: "upload",
+        sourceType: "grey_literature",
+        manual: {
+          title: "Effects of AI Assistants on Code Review Duration",
+          authors: "Meyer, Anna",
+          year: "2025",
+        },
+        upload: { content: WRONG_DOC, filename: "manuell.txt" },
+      },
+      { fetcher: fakeFetcher({}) },
+    );
+    sourceId = manual.id;
+    // A dead DOI on an otherwise well-described source: case (b) signal,
+    // with the CSL core still carrying what the rematch reads.
+    await RegisterStore.forProject(PROJECT).transaction((tx) => {
+      tx.correctSourceIdentity(sourceId, {
+        item: {
+          type: "article-journal",
+          title: "Effects of AI Assistants on Code Review Duration",
+          author: [{ family: "Meyer", given: "Anna" }],
+          issued: { "date-parts": [[2025]] },
+          DOI: "10.9999/tot.456",
+        },
+        replacedAt: new Date().toISOString(),
+        correctionAttemptId: "wi_setup_manual",
+      });
+    });
+    await strandClaim(1);
+
+    const chain = chainFake();
+    // No orchestrator, no preflight: a manual source's own CSL core is the
+    // rematch input, so no backend may be involved.
+    await evaluateSourceRepair(PROJECT, sourceId, {
+      fetcher: fakeFetcher(crossrefRoutes()),
+      chain,
+    });
+
+    const register = await RegisterStore.forProject(PROJECT).read();
+    const event = register.project_events.find(
+      (candidate) => candidate.event === "source_repair_action",
+    );
+    expect(event?.repair_action).toMatchObject({
+      mode: "suggested",
+      basis: "identity_unambiguous_rematch",
+      target: { kind: "source", source_id: sourceId },
+    });
+    expect(chain.enqueued).toHaveLength(0);
+  });
+
+  it("skips a source without suspicion", async () => {
     // No stranded claim, identity fine → no signal, nothing recorded.
     const chain = chainFake();
     await evaluateSourceRepair(PROJECT, sourceId, {

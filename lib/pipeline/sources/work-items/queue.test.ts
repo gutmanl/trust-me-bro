@@ -334,6 +334,38 @@ describe("retryManualCapture", () => {
     });
   });
 
+  it("carries the auto-import provenance into the retry", async () => {
+    // The retry's OWN failure is recorded from this request: dropping the
+    // raw citation line here would cost the repair evaluator the very
+    // context it re-resolves from.
+    await recordCaptureFailure(
+      PROJECT_ID,
+      {
+        workItemId: "wi_auto_prov",
+        origin: "auto_repair",
+        label: "Automatisch korrigiert",
+        request: {
+          kind: "doi",
+          sourceType: "peer_reviewed_publication",
+          identifier: "10.1109/TSE.2025.3489012",
+          autoCapture: {
+            raw_text: "Meyer et al. (2025).",
+            method: "crossref_title",
+            score: 0.9,
+          },
+        },
+      },
+      new DocumentFetchError("Kein PDF gefunden."),
+    );
+    const chain = fakeChain();
+    await retryManualCapture(PROJECT_ID, "wi_auto_prov", { chain });
+    expect(chain.enqueued[0]?.request.autoCapture).toEqual({
+      raw_text: "Meyer et al. (2025).",
+      method: "crossref_title",
+      score: 0.9,
+    });
+  });
+
   it("re-queues a frozen upload by blob reference, nothing re-uploaded", async () => {
     const blob = RegisterStore.forProject(PROJECT_ID)
       .blobs()

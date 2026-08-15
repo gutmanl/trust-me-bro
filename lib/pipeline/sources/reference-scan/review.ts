@@ -37,6 +37,13 @@ export function buildCandidateReview(
   return scanResult.candidates.map((candidate) => {
     const captured = bySource.find(
       ({ source, identifiers }) =>
+        // Strongest link first: the attempt that produced the source IS
+        // this candidate (for a reference import the work-item id is the
+        // candidate id). It is the only one of the three that survives an
+        // automatic identity repair — which by design replaces the
+        // identifier and restamps `auto_capture.method` — and a rescan that
+        // picks a different citing paragraph as the candidate's raw_text.
+        source.custom.capture_attempt_id === candidate.candidate_id ||
         identifierMatches(candidate, identifiers) ||
         (source.custom.auto_capture?.raw_text === candidate.raw_text &&
           source.custom.auto_capture?.method === candidate.method),

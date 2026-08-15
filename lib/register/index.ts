@@ -85,4 +85,14 @@ export {
   findFuzzyParagraph,
   quoteContainmentScore,
 } from "./text/similarity";
+// Stage 1's second line: containment across bounded interpolated material
+// (a copyright block or figure caption the PDF extraction emitted
+// mid-sentence). Still verbatim — only contiguity is relaxed.
+export {
+  MAX_INTERRUPTIONS,
+  MAX_INTERRUPTION_CHARS,
+  MIN_FRAGMENT_CHARS,
+  findInterrupted,
+} from "./text/interrupted";
+export type { InterruptedMatch } from "./text/interrupted";
 export * from "./schema";

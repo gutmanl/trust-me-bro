@@ -13,6 +13,7 @@ import {
   hasCaptureInFlight,
 } from "../../runs/auto-chain";
 import type { CaptureChainAccess } from "../../runs/auto-chain";
+import { CONFIDENT_THRESHOLD } from "../reference-scan/crossref-match";
 import { deriveOpenCaptureFailures } from "../work-items/failures";
 import type { SourceCaptureWorkItem } from "../work-items/types";
 
@@ -30,6 +31,12 @@ export interface RepairActionVM {
     title?: string;
   };
   confidence?: number;
+  /** Below the automatic-application bar: the evaluator would NOT have
+   * applied this itself. Computed here so the policy lives with the
+   * threshold rather than being re-derived in the UI — applying a weak
+   * candidate to a SOURCE replaces an identity and its frozen document,
+   * which is not something to do on one unguarded click. */
+  weak: boolean;
   quoteFit?: {
     candidateMatches: number;
     currentMatches: number;
@@ -127,6 +134,9 @@ export function deriveOpenRepairActions(
       ...(action.confidence !== undefined
         ? { confidence: action.confidence }
         : {}),
+      weak:
+        action.confidence !== undefined &&
+        action.confidence < CONFIDENT_THRESHOLD,
       ...(action.quote_fit !== undefined
         ? {
             quoteFit: {
@@ -237,8 +247,14 @@ export async function applySuggestedRepair(
         ...(candidate.identifier !== undefined
           ? { identifier: candidate.identifier }
           : {}),
+        // Derived by the evaluator, not typed by a human — same guard as
+        // everywhere else. Not for a `url` candidate: there the link IS
+        // the identity and may legitimately serve a web page.
         ...(candidate.documentUrl !== undefined
-          ? { documentUrl: candidate.documentUrl }
+          ? {
+              documentUrl: candidate.documentUrl,
+              ...(candidate.kind === "url" ? {} : { expectedExt: "pdf" }),
+            }
           : {}),
         ...(failure.input.auto_capture !== undefined
           ? {
@@ -285,8 +301,18 @@ export async function applySuggestedRepair(
         ...(candidate.identifier !== undefined
           ? { identifier: candidate.identifier }
           : {}),
+        // The candidate's document URL was derived by the evaluator, never
+        // typed by a human, so it carries the same guard a reference
+        // import's derived URL does. Applying a suggestion OVERWRITES a
+        // frozen document; a URL that turns out to serve a landing page
+        // must fail the attempt visibly rather than enter the corpus. A
+        // `url` candidate is exempt: there the link is the identity and a
+        // web page is the legitimate document.
         ...(candidate.documentUrl !== undefined
-          ? { documentUrl: candidate.documentUrl }
+          ? {
+              documentUrl: candidate.documentUrl,
+              ...(candidate.kind === "url" ? {} : { expectedExt: "pdf" }),
+            }
           : {}),
       },
     };

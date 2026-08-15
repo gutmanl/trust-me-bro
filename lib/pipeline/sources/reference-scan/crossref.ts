@@ -39,6 +39,17 @@ export interface CrossrefWork {
    * or abstracts and would poison the frozen corpus if captured as if they
    * were the paper. Absent when no such link exists. */
   pdfUrl?: string;
+  /**
+   * URL of a link entry whose content-type Crossref left "unspecified" (or
+   * omitted) but whose URL is shaped like a PDF. Weaker evidence than
+   * `pdfUrl` on purpose: Crossref metadata is frequently sloppy about
+   * content-type for works that ARE openly available, and this recovers
+   * them — but for a closed work the same shape is usually a publisher
+   * paywall page. Only ever used as the LAST resort in the derivation
+   * chain, and only behind document.ts's `expectedExt` guard, which fails
+   * the capture visibly when the response is not really a PDF.
+   */
+  probablePdfUrl?: string;
 }
 
 export interface CrossrefDependencies {
@@ -100,10 +111,23 @@ function extractWork(raw: unknown): CrossrefWork | null {
             "application/pdf",
       )
     : undefined;
-  const pdfUrl =
-    typeof (pdfLink as Record<string, unknown> | undefined)?.URL === "string"
-      ? ((pdfLink as Record<string, unknown>).URL as string)
-      : undefined;
+  const pdfUrl = linkUrlOf(pdfLink);
+  // Second tier: content-type says nothing, but the URL is shaped like a
+  // PDF. See CrossrefWork.probablePdfUrl for why this is kept separate.
+  const probableLink = Array.isArray(linkArray)
+    ? linkArray.find((entry) => {
+        if (typeof entry !== "object" || entry === null) {
+          return false;
+        }
+        const contentType = (entry as Record<string, unknown>)["content-type"];
+        const unspecified =
+          contentType === undefined ||
+          contentType === null ||
+          contentType === "unspecified";
+        return unspecified && looksLikePdfUrl(linkUrlOf(entry));
+      })
+    : undefined;
+  const probablePdfUrl = linkUrlOf(probableLink);
   if (!doi && !title) {
     return null;
   }
@@ -114,7 +138,28 @@ function extractWork(raw: unknown): CrossrefWork | null {
     ...(year !== undefined ? { year } : {}),
     ...(venue ? { venue } : {}),
     ...(pdfUrl ? { pdfUrl } : {}),
+    ...(probablePdfUrl ? { probablePdfUrl } : {}),
   };
+}
+
+/** The `URL` field of a Crossref `link[]` entry, when it is a string. */
+function linkUrlOf(entry: unknown): string | undefined {
+  const url = (entry as Record<string, unknown> | undefined)?.URL;
+  return typeof url === "string" ? url : undefined;
+}
+
+/** Whether a URL is shaped like a direct PDF link (`….pdf` or `…/pdf/…`). */
+function looksLikePdfUrl(url: string | undefined): boolean {
+  if (url === undefined) {
+    return false;
+  }
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return pathname.endsWith(".pdf") || pathname.includes("/pdf/");
 }
 
 async function tryFetch(
