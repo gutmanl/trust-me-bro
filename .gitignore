@@ -52,3 +52,13 @@ next-env.d.ts
 
 # compiled tmb CLI (built at pack time)
 /dist/
+
+# Corpus documents: hash-pinned in tests/corpus/documents.json, fetched
+# with `npm run corpus:fetch`. Third-party PDFs are not redistributed here.
+tests/corpus/documents/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/

@@ -1,0 +1,12 @@
+{
+  "url": "https://api.crossref.org/works/10.18653%2Fv1%2F2024.inlg-main.35",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"status\":\"ok\",\"message\":{\"DOI\":\"10.18653/v1/2024.inlg-main.35\",\"title\":[\"Referring Expression Generation in Visually Grounded Dialogue\"],\"author\":[{\"family\":\"Willemsen\",\"given\":\"Bram\"}],\"issued\":{\"date-parts\":[[2024]]},\"container-title\":[\"Proceedings of INLG 2024\"],\"link\":[{\"URL\":\"https://aclanthology.org/2024.inlg-main.35/\",\"content-type\":\"text/html\",\"intended-application\":\"similarity-checking\"},{\"URL\":\"https://aclanthology.org/2024.inlg-main.35.pdf\",\"content-type\":\"application/pdf\",\"intended-application\":\"text-mining\"}]}}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Crossref /works/<doi> with a text/html and an application/pdf link[]."
+  },
+  "key": "618f63ba45757902900f1c07edc9e8a0"
+}

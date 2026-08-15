@@ -1,0 +1,12 @@
+{
+  "url": "https://api.crossref.org/works?query.bibliographic=Claim-Level%20Verification%20of%20Generated%20Scientific%20Summaries.%2010.18653%2Fv1%2F2024.inlg-main.35&rows=5",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"status\":\"ok\",\"message\":{\"items\":[]}}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Healthy 200 with zero items — distinct from a Crossref outage. Identity-conflict follow-up: what does the cited title point at?"
+  },
+  "key": "9bcb2bd2d5a82b8bb5cf41b0d6cf173c"
+}

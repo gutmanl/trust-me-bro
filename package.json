@@ -29,6 +29,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:schema": "tsx scripts/generate-schema.ts",
+    "corpus:seed": "tsx scripts/seed-corpus.ts",
+    "corpus:record": "tsx scripts/record-corpus.ts",
+    "corpus:fetch": "tsx scripts/fetch-corpus.ts",
+    "test:browser": "playwright test",
     "build:cli": "node scripts/build-cli.mjs",
     "package:build": "node scripts/package-build.mjs",
     "prepack": "npm run package:build",
@@ -47,6 +51,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",
     "@types/proper-lockfile": "^4.1.4",

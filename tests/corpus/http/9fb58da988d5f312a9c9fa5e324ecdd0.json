@@ -1,0 +1,11 @@
+{
+  "url": "https://arxiv.org/pdf/2601.20727",
+  "status": 200,
+  "contentType": "application/pdf",
+  "bodyDocument": "arxiv-2601.20727.pdf",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "PDF body served from documents.json."
+  },
+  "key": "9fb58da988d5f312a9c9fa5e324ecdd0"
+}
