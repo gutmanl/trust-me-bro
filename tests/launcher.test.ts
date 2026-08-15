@@ -3,7 +3,12 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { findFreePort, isNodeVersionSupported } from "../bin/launcher-lib.mjs";
+import {
+  DEFAULT_START_PORT,
+  findFreePort,
+  isNodeVersionSupported,
+  parseStartPort,
+} from "../bin/launcher-lib.mjs";
 
 /**
  * The launcher's port and version logic is release-critical and
@@ -34,6 +39,33 @@ describe("isNodeVersionSupported", () => {
   it("honours a custom minimum", () => {
     expect(isNodeVersionSupported("22.5.0", [22, 6])).toBe(false);
     expect(isNodeVersionSupported("22.6.0", [22, 6])).toBe(true);
+  });
+});
+
+describe("parseStartPort", () => {
+  it("falls back to the default when the variable is unset or blank", () => {
+    expect(parseStartPort(undefined)).toBe(DEFAULT_START_PORT);
+    expect(parseStartPort("")).toBe(DEFAULT_START_PORT);
+    expect(parseStartPort("   ")).toBe(DEFAULT_START_PORT);
+  });
+
+  it("accepts a plain port number, tolerating surrounding whitespace", () => {
+    expect(parseStartPort("8080")).toBe(8080);
+    expect(parseStartPort(" 4173 ")).toBe(4173);
+  });
+
+  it.each(["abc", "70000", "0", "-1", "4173.5", "8080abc"])(
+    "rejects %j with a message that names the variable",
+    (raw) => {
+      // The raw Node error ("options.port should be >= 0 and < 65536")
+      // never mentions TMB_PORT — the launcher's own message must.
+      expect(() => parseStartPort(raw)).toThrow(/TMB_PORT/);
+      expect(() => parseStartPort(raw)).toThrow(/1 und 65535/);
+    },
+  );
+
+  it("names an alternate variable when the value came from PORT", () => {
+    expect(() => parseStartPort("nope", "PORT")).toThrow(/^PORT=/);
   });
 });
 
@@ -71,6 +103,23 @@ describe("findFreePort", () => {
 
     const chosen = await findFreePort(port);
     expect(chosen).toBeGreaterThan(port);
+  });
+
+  it("rejects in German instead of walking past the end of the port range", async () => {
+    occupied = net.createServer();
+    await new Promise<void>((resolve) => {
+      occupied?.listen(65535, "127.0.0.1", () => resolve());
+      occupied?.once("error", () => resolve()); // already taken elsewhere: fine
+    });
+    // 65535 is occupied (by us or by someone else — either way), so the
+    // walk reaches the end of the port range. It must reject with the
+    // launcher's own message, not a raw English Node range error.
+    await expect(findFreePort(65535)).rejects.toThrow(/Kein freier Port/);
+  });
+
+  it("rejects an invalid start port instead of crashing the probe", async () => {
+    await expect(findFreePort(Number.NaN)).rejects.toThrow(/ungültig/);
+    await expect(findFreePort(0)).rejects.toThrow(/ungültig/);
   });
 
   it("rejects when no port is free within the attempt budget", async () => {

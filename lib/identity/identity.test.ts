@@ -17,6 +17,7 @@ import {
   loadFeatureFlags,
   loadIdentityConfig,
   resolveProjectDir,
+  resolveWorkspaceRootCandidate,
   writeIdentityConfig,
   writeUnpaywallEmail,
 } from "./index";
@@ -94,11 +95,65 @@ describe("loadIdentityConfig", () => {
     vi.stubEnv("TMB_ACTOR_HANDLE", "Löwe!");
     expect(() => loadIdentityConfig()).toThrow(/TMB_ACTOR_HANDLE/);
   });
+
+  it("treats a blank TMB_ACTOR_HANDLE as unset (an emptied .env line)", () => {
+    // TMB_ACTOR_HANDLE= with no value used to pass "" into the pattern
+    // check and crash every request in English instead of re-engaging the
+    // setup gate.
+    vi.stubEnv("TMB_ACTOR_HANDLE", "");
+    vi.stubEnv("TMB_CONFIG_PATH", scratchConfigPath());
+    expect(() => loadIdentityConfig()).toThrow(IdentityNotConfiguredError);
+  });
+
+  it("falls through a blank env handle to the stored config file", () => {
+    const filePath = scratchConfigPath();
+    writeConfigFile(filePath, { actorHandle: "aus_datei" });
+    vi.stubEnv("TMB_ACTOR_HANDLE", "   ");
+    vi.stubEnv("TMB_CONFIG_PATH", filePath);
+    expect(loadIdentityConfig().actorHandle).toBe("aus_datei");
+  });
+
+  it("trims surrounding whitespace off an env-provided handle", () => {
+    // getActorHandleSetting always trimmed; the load path has to agree, or
+    // the settings page shows a working handle while every write throws.
+    vi.stubEnv("TMB_ACTOR_HANDLE", " lg ");
+    expect(loadIdentityConfig().actorHandle).toBe("lg");
+    expect(getCurrentActor()).toBe("human:lg");
+  });
+
+  it("treats a blank TMB_WORKSPACE as unset instead of using the cwd", () => {
+    // TMB_WORKSPACE= with no value resolved "" to the server's working
+    // directory, silently turning the installation dir into the workspace.
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_WORKSPACE", "");
+    vi.stubEnv("TMB_CONFIG_PATH", scratchConfigPath());
+    expect(loadIdentityConfig().workspaceRoot).toBe(
+      path.resolve("./workspace"),
+    );
+  });
+
+  it("expands a leading ~ in TMB_WORKSPACE to the home directory", () => {
+    // .env files go through no shell, so "~/..." used to become a literal
+    // directory named "~" under the server's working directory.
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_WORKSPACE", "~/tmb-eval-workspace");
+    expect(loadIdentityConfig().workspaceRoot).toBe(
+      path.join(os.homedir(), "tmb-eval-workspace"),
+    );
+  });
 });
 
 describe("isIdentityConfigured", () => {
   it("is false when neither environment nor config file exists", () => {
     vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    expect(isIdentityConfigured()).toBe(false);
+  });
+
+  it("is false for a blank env handle, matching loadIdentityConfig", () => {
+    // Otherwise the setup gate waves requests through to an identity load
+    // that can only throw.
+    vi.stubEnv("TMB_ACTOR_HANDLE", "");
+    vi.stubEnv("TMB_CONFIG_PATH", scratchConfigPath());
     expect(isIdentityConfigured()).toBe(false);
   });
 
@@ -312,6 +367,24 @@ describe("writeUnpaywallEmail", () => {
     expect(fs.existsSync(filePath)).toBe(true);
     expect(JSON.parse(fs.readFileSync(filePath, "utf8")).actor_handle).toBe(
       "env-lg",
+    );
+  });
+});
+
+describe("resolveWorkspaceRootCandidate", () => {
+  it("expands ~ and ~/… to the home directory", () => {
+    expect(resolveWorkspaceRootCandidate("~")).toBe(os.homedir());
+    expect(resolveWorkspaceRootCandidate("~/tmb-daten")).toBe(
+      path.join(os.homedir(), "tmb-daten"),
+    );
+  });
+
+  it("leaves an interior tilde alone and absolutizes relative paths", () => {
+    expect(resolveWorkspaceRootCandidate("./a/~b")).toBe(
+      path.resolve("./a/~b"),
+    );
+    expect(path.isAbsolute(resolveWorkspaceRootCandidate("relativ"))).toBe(
+      true,
     );
   });
 });

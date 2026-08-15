@@ -8,6 +8,7 @@ import {
   getWorkspaceRootSetting as identityGetWorkspaceRootSetting,
   isIdentityConfigured,
   isValidActorHandle,
+  resolveWorkspaceRootCandidate,
   writeIdentityConfig,
   writeUnpaywallEmail,
   writeWorkspaceRoot,
@@ -45,7 +46,31 @@ export function completeFirstRunSetup(input: { actorHandle: string }): void {
     );
   }
   writeIdentityConfig({ actorHandle: handle });
-  fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
+  createWorkspaceDirectory(getWorkspaceRoot());
+}
+
+/**
+ * Creates a workspace directory, translating a filesystem refusal (the path
+ * is an existing file, its parent is a file, missing permissions) into the
+ * German outcome vocabulary — a raw ENOTDIR/EEXIST/EACCES would otherwise
+ * escape runPipelineAction and crash the wizard with a framework error page.
+ */
+function createWorkspaceDirectory(resolvedRoot: string): void {
+  if (fs.existsSync(resolvedRoot) && !fs.statSync(resolvedRoot).isDirectory()) {
+    throw new InvalidIdentityInputError(
+      `"${resolvedRoot}" existiert bereits, ist aber kein Verzeichnis. ` +
+        "Bitte einen Verzeichnispfad als Arbeitsverzeichnis angeben.",
+    );
+  }
+  try {
+    fs.mkdirSync(resolvedRoot, { recursive: true });
+  } catch (error) {
+    throw new InvalidIdentityInputError(
+      `Das Arbeitsverzeichnis "${resolvedRoot}" kann nicht angelegt werden. ` +
+        "Bitte Pfad und Berechtigungen prüfen.",
+      { cause: error },
+    );
+  }
 }
 
 /**
@@ -115,6 +140,10 @@ export function setWorkspaceRoot(root: string): void {
       "Das Arbeitsverzeichnis darf nicht leer sein.",
     );
   }
+  // Canonicalized before any check or write: "~/..." from the wizard means
+  // the home directory (nothing here goes through a shell), and the stored
+  // value is the resolved absolute path the user can recognize.
+  const resolved = resolveWorkspaceRootCandidate(trimmed);
   const current = getWorkspaceRoot();
   if (fs.existsSync(current)) {
     const hasProjects = fs
@@ -133,8 +162,11 @@ export function setWorkspaceRoot(root: string): void {
       );
     }
   }
-  writeWorkspaceRoot(trimmed);
-  fs.mkdirSync(getWorkspaceRoot(), { recursive: true });
+  // Prove the directory usable BEFORE persisting: the old order stored the
+  // root first, so a path that turned out to be an existing file left the
+  // installation wedged on a workspace it could never use.
+  createWorkspaceDirectory(resolved);
+  writeWorkspaceRoot(resolved);
 }
 
 /**

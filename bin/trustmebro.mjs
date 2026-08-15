@@ -19,6 +19,7 @@ import {
   findFreePort,
   isNodeVersionSupported,
   openBrowser,
+  parseStartPort,
   waitUntilReady,
 } from "./launcher-lib.mjs";
 
@@ -70,7 +71,12 @@ if (process.env.TMB_WORKSPACE === undefined) {
 }
 
 async function main() {
-  const startPort = Number(process.env.TMB_PORT ?? process.env.PORT ?? 4173);
+  // Validated here rather than passed raw: an unusable TMB_PORT must name
+  // itself instead of surfacing as a Node internals message.
+  const startPort =
+    process.env.TMB_PORT !== undefined
+      ? parseStartPort(process.env.TMB_PORT, "TMB_PORT")
+      : parseStartPort(process.env.PORT, "PORT");
   const port = await findFreePort(startPort);
   const url = `http://127.0.0.1:${port}/`;
 

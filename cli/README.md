@@ -12,7 +12,11 @@ head — entirely in memory, without unpacking to disk first.
 This is what makes the file format verifiable without Git and without this
 application: a recipient can check a bundle without trusting, or even
 installing, whatever produced it. The command exits `0` when everything
-holds and `1` when it does not, so it fits into a script or a CI step.
+holds, `1` when it does not, and `2` on a usage error, so it fits into a
+script or a CI step. `tmb --help` prints the usage, `tmb --version` the
+package version. A target that is a `claims.json` file rather than a
+directory verifies the containing project directory — the register file
+alone would leave the blobs unchecked.
 
 Depends only on `lib/register` and `lib/export`, which is
 architecture-guarded — that narrow closure is why it can be compiled to

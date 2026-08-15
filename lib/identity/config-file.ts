@@ -75,12 +75,31 @@ function migrateConfigFile(parsed: unknown): unknown {
   return parsed;
 }
 
+/**
+ * Expands a leading `~` to the home directory. Paths come from the setup
+ * wizard and from .env files, and neither goes through a shell — a literal
+ * "~/..." would otherwise become a directory named "~" under the server's
+ * working directory, which is never what the person typing it meant.
+ */
+export function expandTilde(rawPath: string): string {
+  if (rawPath === "~") {
+    return os.homedir();
+  }
+  if (rawPath.startsWith("~/") || rawPath.startsWith("~\\")) {
+    return path.join(os.homedir(), rawPath.slice(2));
+  }
+  return rawPath;
+}
+
 export function defaultConfigFilePath(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return (
-    env.TMB_CONFIG_PATH ?? path.join(os.homedir(), ".trustmebro", "config.json")
-  );
+  // Blank counts as unset: an emptied-out line in .env must fall back to
+  // the default instead of pointing the config file at "".
+  const fromEnv = env.TMB_CONFIG_PATH?.trim();
+  return fromEnv
+    ? expandTilde(fromEnv)
+    : path.join(os.homedir(), ".trustmebro", "config.json");
 }
 
 /**

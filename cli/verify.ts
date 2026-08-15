@@ -32,9 +32,25 @@ export function runVerify(target: string): VerifyReport {
   } catch {
     return { ok: false, messages: [`${target} does not exist`] };
   }
-  return stat.isDirectory()
-    ? runVerifyDirectory(target)
-    : runVerifyBundle(target);
+  if (stat.isDirectory()) {
+    return runVerifyDirectory(target);
+  }
+  // The likeliest first-use mistake: pointing at the register file itself
+  // instead of its project directory. The intent is unambiguous, so verify
+  // the directory (which also covers the blobs) and say so, rather than
+  // reporting the JSON file as a malformed ZIP bundle.
+  if (path.basename(target) === "claims.json") {
+    const projectDir = path.dirname(target);
+    const report = runVerifyDirectory(projectDir);
+    return {
+      ok: report.ok,
+      messages: [
+        `${target} is the register file - verifying its project directory ${projectDir}`,
+        ...report.messages,
+      ],
+    };
+  }
+  return runVerifyBundle(target);
 }
 
 function runVerifyDirectory(projectDir: string): VerifyReport {
@@ -137,7 +153,10 @@ function runVerifyBundle(bundlePath: string): VerifyReport {
   } catch (error) {
     return {
       ok: false,
-      messages: [`bundle is malformed: ${String(error)}`],
+      messages: [
+        `bundle is malformed: ${error instanceof Error ? error.message : String(error)}`,
+        "hint: to verify a project, pass its directory (the folder containing claims.json)",
+      ],
     };
   }
 

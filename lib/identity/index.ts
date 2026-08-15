@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadIdentityConfig } from "./config";
 import {
   defaultConfigFilePath,
+  expandTilde,
   readConfigFile,
   writeConfigFile,
 } from "./config-file";
@@ -69,10 +70,23 @@ export function resolveProjectDir(projectId: string): string {
 export function isIdentityConfigured(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
+  // A blank TMB_ACTOR_HANDLE (an emptied line in .env) counts as unset,
+  // matching loadIdentityConfig — otherwise the gate would wave requests
+  // through to an identity load that can only throw.
   return (
-    env.TMB_ACTOR_HANDLE !== undefined ||
+    Boolean(env.TMB_ACTOR_HANDLE?.trim()) ||
     readConfigFile(defaultConfigFilePath(env)) !== undefined
   );
+}
+
+/**
+ * Canonicalizes a workspace-root path as the user typed it — `~` expanded,
+ * made absolute — WITHOUT touching the stored configuration. The setup
+ * use-case validates this resolved path (creatable, a directory) before
+ * anything is persisted, so a rejected path leaves no broken config behind.
+ */
+export function resolveWorkspaceRootCandidate(rawPath: string): string {
+  return path.resolve(expandTilde(rawPath));
 }
 
 /**

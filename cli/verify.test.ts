@@ -186,6 +186,30 @@ describe("tmb verify on a project directory", () => {
     expect(report.ok).toBe(false);
     expect(report.messages.join("\n")).toContain("does not exist");
   });
+
+  it("verifies the project directory when pointed at claims.json itself", () => {
+    // The likeliest first-use mistake: the register file instead of its
+    // directory. This used to be read as a ZIP bundle and reported as
+    // "bundle is malformed" — misleading for a file the tool itself wrote.
+    const register = chainedFixture();
+    writeClaims(register);
+    writeBlobs(register);
+    const report = runVerify(path.join(projectDir, "claims.json"));
+    expect(report.ok).toBe(true);
+    expect(report.messages[0]).toContain("verifying its project directory");
+    expect(report.messages.join("\n")).toContain("gapless");
+    expect(report.messages.join("\n")).toContain("blob integrity ok");
+  });
+
+  it("still reports a tampered register when pointed at claims.json itself", () => {
+    const register = chainedFixture();
+    register.claims[0].history[0].reason = "manipuliert";
+    writeClaims(register);
+    writeBlobs(register);
+    const report = runVerify(path.join(projectDir, "claims.json"));
+    expect(report.ok).toBe(false);
+    expect(report.messages.join("\n")).toContain("hash_mismatch");
+  });
 });
 
 describe("tmb verify on a .tmb bundle", () => {
@@ -248,11 +272,16 @@ describe("tmb verify on a .tmb bundle", () => {
     expect(report.messages.join("\n")).toContain("Prüfsumme");
   });
 
-  it("fails cleanly on a file that is no ZIP", () => {
+  it("fails cleanly on a file that is no ZIP, pointing at the directory alternative", () => {
     const bogus = path.join(projectDir, "kein-bundle.tmb");
     fs.writeFileSync(bogus, "kein zip");
     const report = runVerify(bogus);
     expect(report.ok).toBe(false);
     expect(report.messages.join("\n")).toContain("malformed");
+    // A stray non-bundle file is usually a mistaken target — the hint names
+    // the correct one instead of leaving "malformed" as the whole answer.
+    expect(report.messages.join("\n")).toContain(
+      "pass its directory (the folder containing claims.json)",
+    );
   });
 });

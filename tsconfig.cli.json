@@ -15,6 +15,7 @@
   },
   "include": [
     "cli/tmb.ts",
+    "cli/main.ts",
     "cli/verify.ts",
     "lib/register/**/*.ts",
     "lib/export/**/*.ts",

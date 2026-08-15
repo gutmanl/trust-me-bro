@@ -12,6 +12,30 @@ import { spawn } from "node:child_process";
 /** Minimum supported Node.js, as [major, minor]. */
 export const REQUIRED_NODE = [20, 9];
 
+/** Start port when neither TMB_PORT nor PORT is set. */
+export const DEFAULT_START_PORT = 4173;
+
+/**
+ * Parses a TMB_PORT/PORT value into a usable start port. Unset or blank
+ * falls back to the default; anything that is not a whole port number is
+ * rejected with a message that names the variable — the raw Node error
+ * ("options.port should be >= 0 and < 65536") never mentions it and left
+ * a misconfigured .env unexplained.
+ */
+export function parseStartPort(raw, variableName = "TMB_PORT") {
+  if (raw === undefined || String(raw).trim() === "") {
+    return DEFAULT_START_PORT;
+  }
+  const port = Number(String(raw).trim());
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(
+      `${variableName}="${raw}" ist ungültig: erwartet wird eine ganze ` +
+        "Portnummer zwischen 1 und 65535.",
+    );
+  }
+  return port;
+}
+
 /** Whether a `process.versions.node`-style string meets the minimum. */
 export function isNodeVersionSupported(
   versionString,
@@ -31,6 +55,20 @@ export function isNodeVersionSupported(
 export function findFreePort(start, maxAttempts = 20) {
   return new Promise((resolve, reject) => {
     const probe = (port, attemptsLeft) => {
+      if (!Number.isInteger(port) || port < 1) {
+        reject(new Error(`Startport ${String(start)} ist ungültig.`));
+        return;
+      }
+      if (port > 65535) {
+        // The walk from an occupied high port must not run off the end of
+        // the port range into a raw Node range error.
+        reject(
+          new Error(
+            `Kein freier Port ab ${start} gefunden (Portbereich endet bei 65535).`,
+          ),
+        );
+        return;
+      }
       const server = net.createServer();
       server.once("error", () => {
         server.close();
