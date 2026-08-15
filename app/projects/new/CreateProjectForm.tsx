@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 
 import { QuestionGuidance } from "@/app/components/ResearchHub";
@@ -31,10 +32,32 @@ const HINT_DEBOUNCE_MS = 400;
  */
 export function CreateProjectForm({
   apiBackendEnabled = false,
+  usableRealCliIds = [],
 }: {
   /** TMB-51: shows the API spike backend option while its flag is on. */
   apiBackendEnabled?: boolean;
+  /**
+   * Agent CLIs the installation diagnosis found ready, `claude`/`codex`.
+   * Empty means none is usable — the state a first-time evaluator is in
+   * before installing anything.
+   *
+   * This form used to be the one action surface with no live backend signal
+   * at all, while the setup wizard, the dashboard, the research panel and
+   * the relevance panel all render one. The gap had a concrete cost: the
+   * wizard tells a user without a CLI that the demo backend needs neither
+   * installation nor account, and the very next screen then defaulted them
+   * to Claude Code and created a project whose every model-backed step is
+   * locked. Nothing was broken by it — the workbench surfaces the problem
+   * as soon as a run is attempted — but the fix belongs at the point of
+   * choice, not one screen later.
+   */
+  usableRealCliIds?: readonly string[];
 }) {
+  const noRealBackend = usableRealCliIds.length === 0;
+  /** Marks an agent CLI the diagnosis could not use, so the consequence of
+   * picking it is visible in the option itself rather than one screen on. */
+  const cliSuffix = (cli: string): string =>
+    usableRealCliIds.includes(cli) ? "" : " – nicht einsatzbereit";
   const [state, formAction, pending] = useActionState(
     createProjectAction,
     initialState,
@@ -48,8 +71,18 @@ export function CreateProjectForm({
   const [question, setQuestion] = useState("");
   // Controlled like the question field, so React's automatic form reset
   // after a failed server action doesn't revert them to their defaults.
-  const [primaryCli, setPrimaryCli] = useState("claude");
-  const [secondaryCli, setSecondaryCli] = useState("codex");
+  // Defaulted from the diagnosis rather than hardcoded: offering a CLI that
+  // is not installed as the pre-selected answer is the one choice here that
+  // cannot work. With no real backend ready the demo backend is the only
+  // selection that produces a usable project, so it is the default — and the
+  // notice below says why, because a silently changed default is its own
+  // kind of confusing.
+  const [primaryCli, setPrimaryCli] = useState(
+    noRealBackend ? "mock" : (usableRealCliIds[0] ?? "claude"),
+  );
+  const [secondaryCli, setSecondaryCli] = useState(
+    noRealBackend ? "" : "codex",
+  );
   const [hints, setHints] = useState<ReturnType<typeof assessResearchQuestion>>(
     [],
   );
@@ -144,6 +177,22 @@ export function CreateProjectForm({
         </p>
       </div>
 
+      {noRealBackend ? (
+        <p
+          role="status"
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+        >
+          Zurzeit ist keine Agenten-CLI einsatzbereit. Voreingestellt ist
+          deshalb das Demo-Backend – damit läuft der Ablauf vollständig durch,
+          seine Urteile sind aber keine Verifikation. Für eine echte Prüfung
+          hilft die{" "}
+          <Link href="/settings" className="underline">
+            Einrichtungsdiagnose
+          </Link>{" "}
+          weiter; die Wahl lässt sich später in den Projekteinstellungen ändern.
+        </p>
+      ) : null}
+
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <div>
           <label
@@ -159,8 +208,12 @@ export function CreateProjectForm({
             onChange={(event) => setPrimaryCli(event.target.value)}
             className={inputClass}
           >
-            <option value="claude">Claude Code (Anthropic)</option>
-            <option value="codex">Codex CLI (OpenAI)</option>
+            <option value="claude">
+              Claude Code (Anthropic){cliSuffix("claude")}
+            </option>
+            <option value="codex">
+              Codex CLI (OpenAI){cliSuffix("codex")}
+            </option>
             <option value="mock">Demo-Backend (ohne echte Prüfung)</option>
           </select>
           <p className="mt-1 text-xs text-slate-500">
@@ -184,8 +237,12 @@ export function CreateProjectForm({
             className={inputClass}
           >
             <option value="">Keine – Divergenzregel deaktiviert</option>
-            <option value="claude">Claude Code (Anthropic)</option>
-            <option value="codex">Codex CLI (OpenAI)</option>
+            <option value="claude">
+              Claude Code (Anthropic){cliSuffix("claude")}
+            </option>
+            <option value="codex">
+              Codex CLI (OpenAI){cliSuffix("codex")}
+            </option>
             {apiBackendEnabled ? (
               <option value="anthropic-api">
                 Anthropic API (Spike, Familie anthropic)

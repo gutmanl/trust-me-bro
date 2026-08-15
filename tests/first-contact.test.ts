@@ -11,19 +11,32 @@ import { GET as getMetrics } from "../app/api/projects/[id]/metrics/route";
 import { runVerify } from "../cli/verify";
 import {
   BriefingAlreadyImportedError,
+  buildAdjudicationQueue,
   completeFirstRunSetup,
+  createDemoProject,
   createProject,
+  DEMO_PROJECT_ID,
   exportProjectBundle,
+  getBriefing,
+  getInstallationBackendsHealth,
+  getProjectMetrics,
   importBriefing,
   importProjectBundle,
   InvalidBriefingInputError,
   InvalidBundleError,
   InvalidIdentityInputError,
   InvalidProjectInputError,
+  isDemoProject,
   isSetupComplete,
   ProjectAlreadyExistsError,
   readProject,
+  startExistenceCheck,
+  startReferenceScan,
+  startSourceExtraction,
+  startVerification,
+  usableRealBackends,
 } from "../lib/pipeline";
+import type { BackendHealth } from "../lib/adapters";
 import type { BackendCli } from "../lib/pipeline/projects";
 
 /**
@@ -363,5 +376,210 @@ describe("probing the HTTP API by hand", () => {
     );
     expect(csv.status).toBe(200);
     expect(csv.headers.get("content-type")).toContain("text/csv");
+  });
+});
+
+/**
+ * A machine with no agent CLI installed — the state every evaluator is in
+ * before they decide the tool is worth installing one for.
+ *
+ * `check` is injected rather than the PATH stubbed: the suite runs on
+ * Windows as well, where emptying PATH breaks the `cmd.exe` lookup the
+ * process runner needs, and the question here is what the application does
+ * with a "not found" answer, not whether the probe can produce one.
+ */
+function backendMissing(cli: string): BackendHealth {
+  const failed = {
+    stage: "on_path",
+    status: "failed",
+    detail: `${cli} nicht im Suchpfad gefunden.`,
+    hint: `${cli} nicht gefunden – CLI installieren.`,
+  } as const;
+  const unknown = {
+    stage: "version_ok",
+    status: "unknown",
+    detail: "Nicht prüfbar, solange die CLI nicht startet.",
+  } as const;
+  return {
+    cli,
+    stages: [failed, unknown, { ...unknown, stage: "login_ok" }],
+    usable: false,
+  } as BackendHealth;
+}
+
+function demoBackendReady(): BackendHealth {
+  const ok = (stage: string) =>
+    ({
+      stage,
+      status: "ok",
+      detail: "Das Demo-Backend läuft im Prozess der Anwendung.",
+    }) as const;
+  return {
+    cli: "mock",
+    stages: [ok("on_path"), ok("version_ok"), ok("login_ok")],
+    usable: true,
+  } as BackendHealth;
+}
+
+const noCliInstalled = {
+  check: async (cli: string) =>
+    cli === "mock" ? demoBackendReady() : backendMissing(cli),
+};
+
+describe("nothing installed: what the README promises still works", () => {
+  it("diagnoses every agent CLI as unusable and the demo backend as ready", async () => {
+    const health = await getInstallationBackendsHealth(noCliInstalled);
+    expect(health.map((backend) => [backend.cli, backend.usable])).toEqual([
+      ["claude", false],
+      ["codex", false],
+      ["mock", true],
+    ]);
+    // The predicate the onboarding copy keys on: the demo backend must not
+    // count, or "no backend ready" would never be true and the one warning
+    // that matters to a new evaluator would never appear.
+    expect(usableRealBackends(health)).toEqual([]);
+  });
+
+  it("names the missing CLI and what to do about it, in German", async () => {
+    const [claude] = await getInstallationBackendsHealth(noCliInstalled);
+    expect(claude.stages[0].detail).toContain("nicht im Suchpfad gefunden");
+    expect(claude.stages[0].hint).toBeDefined();
+    // Stage 2 must not claim a verdict it cannot have.
+    expect(claude.stages[1].status).toBe("unknown");
+  });
+
+  it("walks a whole project on the demo backend alone: import, freeze, export, verify", async () => {
+    // The README's central promise to someone who has installed nothing:
+    // "If you want to see the whole workflow before installing anything,
+    // choose the demonstration backend during setup."
+    await createMockProject("proj_ohne_cli");
+    await importBriefing({
+      projectId: "proj_ohne_cli",
+      content: "# Briefing\n\nEine prüfbare Behauptung.\n",
+      tool: "deep-research-tool",
+    });
+
+    const bundle = await exportProjectBundle("proj_ohne_cli", {
+      includeBlobs: true,
+    });
+    const bundlePath = path.join(scratch(), bundle.filename);
+    fs.writeFileSync(bundlePath, Buffer.from(bundle.bytes));
+    expect(runVerify(bundlePath).ok).toBe(true);
+  });
+
+  it("marks a demo-backed project as one, so no result can be mistaken for verification", async () => {
+    await createMockProject("proj_kennzeichen");
+    const register = await readProject("proj_kennzeichen");
+    expect(isDemoProject(register.config)).toBe(true);
+  });
+});
+
+describe("the example project: the first thing an evaluator clicks", () => {
+  it("builds a walkable register with a non-empty adjudication queue", async () => {
+    const register = await createDemoProject();
+    expect(register.claims.length).toBeGreaterThan(0);
+    expect(register.sources.length).toBeGreaterThan(0);
+    // The queue must not be empty, or the screen the demo exists to show
+    // would have nothing on it.
+    expect(buildAdjudicationQueue(register).length).toBeGreaterThan(0);
+    // Several different terminal states, so the status display is not
+    // uniform — the demo is meant to show the shape of a finished review.
+    expect(
+      new Set(register.claims.map((claim) => claim.status)).size,
+    ).toBeGreaterThan(1);
+  });
+
+  it("refuses a second creation in German rather than piling up demos", async () => {
+    // Two clicks on "Beispielprojekt anlegen" is an ordinary thing to do
+    // when the first one felt slow.
+    await createDemoProject();
+    await expect(createDemoProject()).rejects.toThrow(
+      ProjectAlreadyExistsError,
+    );
+    await expect(createDemoProject()).rejects.toThrow(/existiert bereits/);
+  });
+
+  it("exports and verifies like any other project", async () => {
+    await createDemoProject();
+    const bundle = await exportProjectBundle(DEMO_PROJECT_ID, {
+      includeBlobs: true,
+    });
+    const bundlePath = path.join(scratch(), bundle.filename);
+    fs.writeFileSync(bundlePath, Buffer.from(bundle.bytes));
+    const report = runVerify(bundlePath);
+    expect(report.messages.join("\n")).toContain("manifest ok");
+    expect(report.ok).toBe(true);
+  });
+});
+
+describe("doing things in the wrong order", () => {
+  beforeEach(async () => {
+    await createMockProject("proj_reihenfolge");
+  });
+
+  it("refuses a reference scan before a briefing exists", async () => {
+    await expect(startReferenceScan("proj_reihenfolge")).rejects.toThrow(
+      /Vor dem Referenz-Scan muss ein Briefing importiert sein/,
+    );
+  });
+
+  it("refuses extraction before a briefing exists", async () => {
+    await expect(
+      startSourceExtraction("proj_reihenfolge", "src_egal"),
+    ).rejects.toThrow(/Vor der Extraktion muss das Briefing importiert sein/);
+  });
+
+  it("refuses verification when nothing has been extracted", async () => {
+    // Two distinct refusals, and the distinction is the useful part: with no
+    // briefing at all the answer names the step that is actually missing
+    // rather than reporting an empty worklist.
+    await expect(startVerification("proj_reihenfolge")).rejects.toThrow(
+      /Vor der Prüfung müssen Claims extrahiert sein/,
+    );
+  });
+
+  it("runs the existence check over nothing without complaining", async () => {
+    // Stage 1 has no precondition beyond the project: an empty worklist is
+    // a legitimate answer, not an error, and the difference matters because
+    // this is the one check that runs unattended off the auto-chain.
+    const handle = await startExistenceCheck("proj_reihenfolge");
+    await expect(handle.done).resolves.toMatchObject({
+      succeeded: 0,
+      failed: 0,
+    });
+  });
+});
+
+describe("a project with nothing in it yet", () => {
+  beforeEach(async () => {
+    await createMockProject("proj_leerzustand");
+  });
+
+  it("reports metrics without dividing by zero", async () => {
+    const metrics = await getProjectMetrics("proj_leerzustand");
+    expect(metrics.evidence_completeness.total_claims).toBe(0);
+    expect(metrics.evidence_completeness.ratio).toBe(0);
+    expect(Number.isNaN(metrics.evidence_completeness.ratio)).toBe(false);
+  });
+
+  it("answers null for the briefing rather than throwing", async () => {
+    await expect(getBriefing("proj_leerzustand")).resolves.toBeNull();
+  });
+
+  it("has an empty adjudication queue", async () => {
+    expect(
+      buildAdjudicationQueue(await readProject("proj_leerzustand")),
+    ).toEqual([]);
+  });
+
+  it("exports a bundle that verifies, briefing or no briefing", async () => {
+    // The chain is never actually empty — project creation is its genesis
+    // entry — so an export this early is still a meaningful artifact.
+    const bundle = await exportProjectBundle("proj_leerzustand", {
+      includeBlobs: true,
+    });
+    const bundlePath = path.join(scratch(), bundle.filename);
+    fs.writeFileSync(bundlePath, Buffer.from(bundle.bytes));
+    expect(runVerify(bundlePath).ok).toBe(true);
   });
 });

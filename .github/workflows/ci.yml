@@ -57,3 +57,27 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Its own job, with its own server: this suite needs an installation that
+  # is genuinely unconfigured — no actor handle, no workspace, no config file
+  # — and an empty PATH so no agent CLI is discoverable. Those are webServer
+  # properties, so they cannot be another project inside the browser job
+  # above without changing what that one tests.
+  first-contact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: First contact (cold start, no agent CLI)
+        run: npm run test:browser:cold-start
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-first-contact
+          path: playwright-report/
+          retention-days: 7

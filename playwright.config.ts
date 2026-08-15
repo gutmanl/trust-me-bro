@@ -36,6 +36,10 @@ const executablePath = process.env.TMB_E2E_CHROMIUM;
 export default defineConfig({
   testDir: "./tests/browser",
   testMatch: /.*\.spec\.ts/,
+  // The cold-start suite has its own config: it needs an unconfigured server
+  // (no actor handle, empty workspace), which is a webServer-level
+  // difference and cannot be expressed as another project here.
+  testIgnore: "**/cold-start/**",
   globalSetup: "./tests/browser/global-setup.ts",
   // The register serializes writes per project with a real file lock, and
   // several specs adjudicate the same project. Running them in parallel would

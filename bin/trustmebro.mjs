@@ -16,11 +16,14 @@ import { fileURLToPath } from "node:url";
 
 import {
   REQUIRED_NODE,
+  clearInstanceLock,
   findFreePort,
   isNodeVersionSupported,
   openBrowser,
   parseStartPort,
+  readInstanceLock,
   waitUntilReady,
+  writeInstanceLock,
 } from "./launcher-lib.mjs";
 
 /**
@@ -71,6 +74,30 @@ if (process.env.TMB_WORKSPACE === undefined) {
 }
 
 async function main() {
+  const workspace = process.env.TMB_WORKSPACE;
+
+  // One server per workspace. Starting a second one was silent — an occupied
+  // port is skipped by design, so a double-clicked shortcut simply got the
+  // next port — and the two processes then each believed they were the only
+  // writer, because the run gate is an in-memory registry. Pointing the
+  // browser at the instance that is already serving is both the safe answer
+  // and the one the user wanted anyway.
+  const running = readInstanceLock(workspace, fs);
+  if (running) {
+    const runningUrl = `http://127.0.0.1:${running.port}/`;
+    console.log(
+      `TrustMeBro läuft für dieses Arbeitsverzeichnis bereits ` +
+        `(Prozess ${running.pid}, Port ${running.port}).\n` +
+        `Es wird kein zweiter Server gestartet – ein zweiter würde ` +
+        `dieselben Projekte bearbeiten und dabei doppelt Kontingent ` +
+        `verbrauchen.\nGeöffnet wird stattdessen: ${runningUrl}`,
+    );
+    if (process.env.TMB_NO_BROWSER !== "1") {
+      openBrowser(runningUrl);
+    }
+    return;
+  }
+
   // Validated here rather than passed raw: an unusable TMB_PORT must name
   // itself instead of surfacing as a Node internals message.
   const startPort =
@@ -92,6 +119,10 @@ async function main() {
     },
   });
 
+  writeInstanceLock(workspace, port, fs);
+  const releaseLock = () => clearInstanceLock(workspace, fs);
+  process.on("exit", releaseLock);
+
   const forward = (signal) => {
     process.on(signal, () => {
       child.kill(signal);
@@ -100,6 +131,7 @@ async function main() {
   forward("SIGINT");
   forward("SIGTERM");
   child.on("exit", (code) => {
+    releaseLock();
     process.exit(code ?? 0);
   });
 
