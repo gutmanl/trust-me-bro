@@ -1,0 +1,12 @@
+{
+  "url": "https://export.arxiv.org/api/query?id_list=2601.20727&max_results=1",
+  "accept": "application/atom+xml",
+  "status": 200,
+  "contentType": "application/atom+xml",
+  "bodyText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <entry>\n    <id>http://arxiv.org/abs/2601.20727v1</id>\n    <title>Audit Trails for Accountability in\n      Large Language Models</title>\n    <published>2026-01-28T09:14:00Z</published>\n    <author><name>Elena Rivera</name></author>\n    <author><name>Kenji Nakamura</name></author>\n  </entry>\n</feed>",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Atom feed shaped for resolveArxiv (entry/title/published/author)."
+  },
+  "key": "508a0252bd657080c99bd1e321b43ae2"
+}

@@ -1,0 +1,12 @@
+{
+  "url": "https://api.unpaywall.org/v2/10.18653%2Fv1%2F2024.inlg-main.35?email=REDACTED",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"doi\":\"10.18653/v1/2024.inlg-main.35\",\"is_oa\":true,\"best_oa_location\":{\"url_for_pdf\":\"https://aclanthology.org/2024.inlg-main.35.pdf\"},\"oa_locations\":[{\"url_for_pdf\":\"https://aclanthology.org/2024.inlg-main.35.pdf\"}]}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Unpaywall best_oa_location; the recorder redacts the contact address."
+  },
+  "key": "a2b85354a0e6f48a7d6a4261f5e1509e"
+}

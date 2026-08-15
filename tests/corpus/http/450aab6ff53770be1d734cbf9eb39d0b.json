@@ -1,0 +1,12 @@
+{
+  "url": "https://doi.org/10.18653/v1/2024.inlg-main.35",
+  "accept": "application/vnd.citationstyles.csl+json",
+  "status": 200,
+  "contentType": "application/vnd.citationstyles.csl+json",
+  "bodyText": "{\"id\":\"https://doi.org/10.18653/v1/2024.inlg-main.35\",\"type\":\"paper-conference\",\"title\":\"Referring Expression Generation in Visually Grounded Dialogue\",\"author\":[{\"family\":\"Willemsen\",\"given\":\"Bram\"},{\"family\":\"Skantze\",\"given\":\"Gabriel\"}],\"issued\":{\"date-parts\":[[2024,9]]},\"container-title\":\"Proceedings of the 17th International Natural Language Generation Conference\",\"publisher\":\"Association for Computational Linguistics\",\"DOI\":\"10.18653/v1/2024.inlg-main.35\"}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "CSL-JSON via doi.org content negotiation; title deliberately differs from the briefing's attribution."
+  },
+  "key": "450aab6ff53770be1d734cbf9eb39d0b"
+}

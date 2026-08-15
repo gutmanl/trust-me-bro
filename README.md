@@ -162,11 +162,16 @@ npm run dev
 | `npm run package:build`                   | Standalone build and asset staging                |
 | `npm pack`                                | Distribution tarball (runs package:build)         |
 | `npm run tmb -- verify <dir\|bundle.tmb>` | Run the integrity check from a checkout           |
+| `npm run test:browser`                    | Playwright browser end-to-end suite               |
+| `npm run corpus:seed`                     | Regenerate the synthetic corpus cassettes         |
+| `npm run corpus:record`                   | Record the corpus from the live services          |
+| `npm run corpus:fetch`                    | Download the hash-pinned corpus documents         |
 
 ### Testing
 
-Four layers, all of them run in CI on Ubuntu **and** Windows, because the
-register's rename and locking semantics are OS-sensitive:
+Six layers. The first four run in CI on Ubuntu **and** Windows, because the
+register's rename and locking semantics are OS-sensitive; the browser layer
+runs on Ubuntu only, as a separate job:
 
 1. **Unit tests** beside each module (`lib/**/*.test.ts`) — schema
    validation, RFC 8785 vectors, chain tampering, gates, the projection
@@ -186,6 +191,24 @@ register's rename and locking semantics are OS-sensitive:
 4. **Cross-process concurrency** (`tests/e2e/multiprocess.e2e.test.ts`) —
    three OS processes write the same project at once; the chain has to come
    out gapless.
+5. **Corpus-driven end-to-end** (`tests/e2e/corpus-*.e2e.test.ts`) — the real
+   pipeline use-cases, one spec per failure class, driven by recorded
+   responses from doi.org, arXiv, Crossref and Unpaywall and by recorded LLM
+   answers. The record-and-replay corpus lives in `tests/corpus/`; see its
+   README for how to record it and what it exposed. A cassette miss fails
+   loudly rather than falling through to the network.
+6. **Browser** (`tests/browser/*.spec.ts`, `npm run test:browser`) — Playwright
+   over the real app on desktop and mobile viewports: the workbench, the
+   adjudication decision landing in the append-only register, the complaint
+   dialog, bundle download, and a hydration check that catches a page which
+   server-renders but never becomes interactive. The workspace is seeded out
+   of band from the same corpus, so the claims under review are open for real
+   reasons.
+
+The corpus also carries the thesis's own literature-search output — 675 real
+identifiers from two agentic research systems, the frozen corpus manifest and
+the archived exclusion log — which `tests/corpus/identifier-corpus.test.ts`
+runs the identifier parsing against.
 
 Coverage thresholds in `vitest.config.ts` are a ratchet: raise them as
 coverage grows, never lower them to make a change pass.

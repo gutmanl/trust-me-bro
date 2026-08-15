@@ -1,0 +1,14 @@
+{
+  "documents": [
+    {
+      "name": "arxiv-2601.20727.pdf",
+      "url": "https://arxiv.org/pdf/2601.20727",
+      "sha256": "4e2243656bb0bb7529e46de41603d651622c7e3bd04cc9b001d8eb29ccf0f149",
+      "sha256_source": "thesis-corpus",
+      "bytes": null,
+      "file": "documents/arxiv-2601.20727.pdf",
+      "seedFile": "documents-seed/arxiv-2601.20727.pdf",
+      "note": "arXiv preprint, redistributable under the submitter's licence but kept out of git for size; the committed seed stand-in is a generated PDF carrying the quoted sentence."
+    }
+  ]
+}

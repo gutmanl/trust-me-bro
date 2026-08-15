@@ -1,0 +1,12 @@
+{
+  "url": "https://export.arxiv.org/api/query?id_list=6598.37140&max_results=1",
+  "accept": "application/atom+xml",
+  "status": 200,
+  "contentType": "application/atom+xml",
+  "bodyText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\"></feed>",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Empty Atom feed — arXiv answers 200 for an unknown id, not 404."
+  },
+  "key": "aff7ad85a877bfe9cafc68aef7c0c0ce"
+}

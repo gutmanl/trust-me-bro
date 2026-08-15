@@ -1,0 +1,12 @@
+{
+  "url": "https://api.crossref.org/works?query.bibliographic=Interaktive%20Pr%C3%BCfoberfl%C3%A4chen%20f%C3%BCr%20generierte%20Zusammenfassungen%20Braun%20Kohl&rows=5",
+  "accept": "application/json",
+  "status": 200,
+  "contentType": "application/json",
+  "bodyText": "{\"status\":\"ok\",\"message\":{\"items\":[]}}",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Healthy 200 with zero items — distinct from a Crossref outage. Identifier-less citation from the LLM channel."
+  },
+  "key": "b48cf76b86f1087e9a9e553bdf12f081"
+}

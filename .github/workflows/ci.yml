@@ -29,3 +29,31 @@ jobs:
       - name: Build web app
         if: matrix.os == 'ubuntu-latest'
         run: npm run build
+
+  # Separate job on purpose: a browser suite that gates the unit suite makes
+  # the fast feedback loop as slow as the slow one. Ubuntu only — the browser
+  # layer exercises UI wiring, not the OS-sensitive file-locking semantics
+  # that justify the Windows matrix above.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # Drives the built app rather than `next dev`, so what CI checks is
+      # what `npx trustmebro` actually serves.
+      - name: Browser end-to-end
+        run: npm run test:browser
+        env:
+          TMB_E2E_SERVER_CMD: npx next start --port 3123
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
