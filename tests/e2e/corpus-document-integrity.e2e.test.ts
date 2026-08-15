@@ -6,7 +6,10 @@
  * a document it has proven is a real PDF. Never add a fallback to landing
  * pages or abstracts — the frozen document is what stage-1 verification
  * checks quoted wording against." The interesting question is what "proven"
- * currently means, and the answer is narrower than the sentence suggests.
+ * means, and these two blocks are the answer: the declared content type must
+ * say PDF, and the bytes must bear it out. The second half postdates the
+ * first — this file originally pinned its absence — so the pair is kept
+ * together, an honest server and a lying one, to document what each catches.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -83,28 +86,27 @@ describe("a derived url that serves a landing page", () => {
 
 describe("a derived url that LIES about its content type", () => {
   /**
-   * KNOWN GAP — pinned, not fixed.
+   * The harder half of the same rule. `expectedExt` compares CLAIMS — the
+   * declared `Content-Type`, falling back to the URL's filename — so a host
+   * that labels an HTML paywall `application/pdf` satisfies it completely.
+   * It used to walk straight past the guard on exactly that basis, and this
+   * block pinned that as known behaviour.
    *
-   * `expectedExt` is the whole of the "proof". It compares the server's
-   * declared `Content-Type` (falling back to the URL's filename extension)
-   * against "pdf" — it never looks at the bytes, so there is no `%PDF-`
-   * magic-number check and no requirement that `unpdf` parse the document
-   * before it is frozen. A server that labels an HTML paywall
-   * `application/pdf` therefore walks straight past the guard.
+   * `acquireDocument` now reads the document as well as its label: anything
+   * about to be frozen under a `.pdf` blob path must carry the `%PDF-`
+   * signature. Only the signature, never "did unpdf parse it" — a scanned
+   * paper without a text layer is a real PDF and must stay capturable
+   * (TMB-24), its missing text recorded at the source entry.
    *
-   * What saves the corpus is the layer behind it, and only partly: text
-   * extraction fails, so the source is stored with a `text_extraction_error`
-   * and NO text blob, which means stage 1's wording proof can never pass
-   * against it. The claim ends up in front of a human rather than
-   * auto-confirmed against a paywall — the right outcome, reached by
-   * accident rather than by the check that was supposed to reach it.
-   *
-   * The cost of the gap is a corpus entry that looks captured and is not:
-   * `briefing.md` and the export bundle both carry a frozen "document" that
-   * is a sales page. This test asserts today's behaviour so a future
-   * magic-byte check has to come here and change it deliberately.
+   * What makes the difference visible is WHERE the failure lands. Before, the
+   * paywall became a captured source whose text extraction had failed: a
+   * corpus entry that looked captured and was not, travelling into
+   * `briefing.md` and the export bundle, stopped from doing damage only
+   * because stage 1 could never prove a quote against a missing text blob —
+   * the right outcome reached by accident. Now the capture fails outright, in
+   * front of the reviewer, by the check meant to reach it.
    */
-  it("stores the file anyway, and only text extraction stops it", async () => {
+  it("fails the capture rather than freezing a sales page as the paper", async () => {
     const project = await createCorpusProject({ briefing: SCENARIO_BRIEFING });
     const fetcher = cassetteFetcher({
       adversarial: {
@@ -117,42 +119,67 @@ describe("a derived url that LIES about its content type", () => {
       },
     });
 
-    const source = await captureSource(
-      {
-        projectId: project.projectId,
-        kind: "url",
-        identifier: PAYWALL_URL,
-        sourceType: "peer_reviewed_publication",
-        manual: {
-          title: "Claim-Level Verification of Generated Scientific Summaries",
+    await expect(
+      captureSource(
+        {
+          projectId: project.projectId,
+          kind: "url",
+          identifier: PAYWALL_URL,
+          sourceType: "peer_reviewed_publication",
+          manual: {
+            title: "Claim-Level Verification of Generated Scientific Summaries",
+          },
+          documentUrl: PAYWALL_URL,
+          expectedExt: "pdf",
         },
-        documentUrl: PAYWALL_URL,
-        expectedExt: "pdf",
-      },
-      { fetcher },
-    );
+        { fetcher },
+      ),
+    ).rejects.toThrow(/keine PDF-Signatur/);
 
-    // It got in.
-    const snapshot = (
-      source as unknown as {
-        custom: {
-          snapshot: {
-            blob_path: string;
-            text_blob_path?: string;
-            text_extraction_error?: string;
-          };
-        };
-      }
-    ).custom.snapshot;
-    expect(snapshot.blob_path).toMatch(/\.pdf$/);
+    // Nothing entered the corpus — neither the source nor a blob claiming to
+    // be its document.
+    const register = await project.read();
+    expect(register.sources).toHaveLength(0);
 
-    // And this is the only reason it cannot do damage: no text layer, so
-    // nothing to prove a quote against.
-    expect(snapshot.text_blob_path).toBeUndefined();
-    expect(snapshot.text_extraction_error).toBeDefined();
-
-    // The bytes really are HTML — confirming the guard was bypassed rather
+    // The bytes really are HTML, so the guard rejected the document rather
     // than the fixture being wrong.
     await expect(extractFullText(PAYWALL_HTML, "pdf")).rejects.toThrow();
+  });
+
+  /**
+   * The guard is keyed on the resolved extension, not on `expectedExt`, so
+   * it holds for a document the USER chose too — a manual capture sets no
+   * `expectedExt` at all and used to reach the blob store unexamined.
+   */
+  it("holds for a manual capture, which sets no expectedExt", async () => {
+    const project = await createCorpusProject({ briefing: SCENARIO_BRIEFING });
+    const fetcher = cassetteFetcher({
+      adversarial: {
+        [PAYWALL_URL]: {
+          status: 200,
+          contentType: "application/pdf",
+          body: PAYWALL_HTML,
+        },
+      },
+    });
+
+    await expect(
+      captureSource(
+        {
+          projectId: project.projectId,
+          kind: "url",
+          identifier: PAYWALL_URL,
+          sourceType: "peer_reviewed_publication",
+          manual: {
+            title: "Claim-Level Verification of Generated Scientific Summaries",
+          },
+          documentUrl: PAYWALL_URL,
+        },
+        { fetcher },
+      ),
+    ).rejects.toThrow(/keine PDF-Signatur/);
+
+    const register = await project.read();
+    expect(register.sources).toHaveLength(0);
   });
 });

@@ -1,9 +1,12 @@
 # Findings from the corpus-driven end-to-end suite
 
 What running the pipeline against real identifiers and realistic service
-responses turned up. Each item is **pinned as current behaviour** in a test
-with a comment naming the gap — nothing here was fixed, so `npm run check`
-stays green and the decision on each is yours.
+responses turned up. Each item was **pinned as current behaviour** in a test
+with a comment naming the gap — nothing was fixed as part of writing them, so
+`npm run check` stayed green and the decision on each was the author's.
+
+Findings 2 and 3 have since been fixed (15.08.2026); their tests now assert
+the guard rather than the gap. Findings 1 and 4 still stand as recorded.
 
 Ordered by how much of the product's central claim they touch.
 
@@ -73,9 +76,27 @@ reason in the doc comment) and asserted in
 
 ---
 
-## 2. "Proven PDF" never looks at the bytes
+## 2. "Proven PDF" never looks at the bytes — FIXED (15.08.2026)
 
-**Severity: medium — bounded by a second layer, but the corpus can still be poisoned.**
+**Severity was: medium — bounded by a second layer, but the corpus could still
+be poisoned.**
+
+**Resolution.** `acquireDocument` now requires the `%PDF-` signature within the
+first 1024 bytes of any document about to be frozen under a `.pdf` blob path.
+The check is keyed on the RESOLVED extension rather than on `expectedExt`, so
+it covers every path into the store — the auto-import URL the app derived
+itself, a URL or upload a user vouched for, a correction, and a revision,
+which sets no `expectedExt` at all. The window matches the tolerance pdf.js
+applies, so the guard rejects exactly what the extraction could never parse
+and no genuine paper beyond it; it deliberately stops at the signature rather
+than demanding a successful `unpdf` parse, because a scanned paper without a
+text layer is a real PDF and must stay capturable (TMB-24). The failure now
+lands in front of the reviewer as a capture failure instead of as a source
+whose text extraction happens to have failed.
+
+The original finding follows, as recorded.
+
+---
 
 `CLAUDE.md` says auto-import "may only store a document it has proven is a
 real PDF". The proof is `expectedExt` (`lib/pipeline/sources/document.ts:103-108`),
@@ -103,9 +124,25 @@ Pinned in `tests/e2e/corpus-document-integrity.e2e.test.ts`.
 
 ---
 
-## 3. `normalizeArxivId` accepts DOIs whose suffix embeds a year-like number
+## 3. `normalizeArxivId` accepts DOIs whose suffix embeds a year-like number — FIXED (15.08.2026)
 
-**Severity: low — not reachable unattended, but it is the thesis's own bug.**
+**Severity was: low — not reachable unattended, but it is the thesis's own bug.**
+
+**Resolution.** The pattern is anchored (`/^(\d{4}\.\d{4,5})(v\d+)?$/`) and
+`normalizeArxivId` now recognizes its three documented forms structurally —
+bare id, `arXiv:`-prefixed id, arxiv.org URL — instead of scanning the input
+for a number of that shape. Note the anchor ALONE would have been wrong: the
+suggestion below assumes every caller passes a bare or already-extracted id,
+but stage 1's live source check (`verification/stage1/source-check.ts`) hands
+in a source's stored URL whole, and `capture.ts` accepts a pasted resolver
+URL. Both are read explicitly now, the id taken from the last path segment of
+an arxiv.org host and nowhere else. `identifier-corpus.test.ts` asserts that
+none of the real DOIs yields an id, rather than pinning the two known ones, so
+a third would be caught.
+
+The original finding follows, as recorded.
+
+---
 
 `ARXIV_ID_PATTERN = /\b(\d{4}\.\d{4,5})(v\d+)?\b/` (`lib/pipeline/sources/identifiers.ts:8`)
 matches anywhere in the input. Run against the 675 real identifiers two

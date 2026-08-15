@@ -34,9 +34,32 @@ describe("normalizeArxivId", () => {
     );
   });
 
+  it("reads the pdf form and arxiv.org subdomains", () => {
+    expect(normalizeArxivId("https://arxiv.org/pdf/2401.12345v1.pdf")).toBe(
+      "2401.12345",
+    );
+    expect(normalizeArxivId("http://export.arxiv.org/abs/2401.12345")).toBe(
+      "2401.12345",
+    );
+  });
+
   it("rejects non-arXiv input", () => {
     expect(normalizeArxivId("10.1000/xyz123")).toBeNull();
     expect(normalizeArxivId("kein-identifier")).toBeNull();
+  });
+
+  it("rejects a DOI whose suffix embeds a year-like number", () => {
+    // Both are real identifiers from the thesis's research corpus. The
+    // unanchored pattern read them as the arXiv ids "2025.00093" and
+    // "2025.00053" — a number arXiv has never issued — and the capture then
+    // failed as if the citation had been fabricated.
+    expect(normalizeArxivId("10.1109/eScience65000.2025.00093")).toBeNull();
+    expect(normalizeArxivId("10.1109/ESEM64174.2025.00053")).toBeNull();
+  });
+
+  it("does not mine an id out of surrounding prose or a foreign url", () => {
+    expect(normalizeArxivId("siehe Seiten 2401.12345 im Anhang")).toBeNull();
+    expect(normalizeArxivId("https://example.org/abs/2401.12345")).toBeNull();
   });
 });
 

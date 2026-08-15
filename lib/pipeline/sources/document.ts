@@ -46,6 +46,31 @@ export function extFromFilename(filename: string): string {
   return ext === "htm" ? "html" : ext;
 }
 
+const PDF_SIGNATURE = Buffer.from("%PDF-", "latin1");
+
+/**
+ * How far into the file the header may start. The format wants it at byte 0,
+ * but real-world PDFs carry leading bytes often enough that every reader —
+ * including the pdf.js build behind `extractFullText` — searches a leading
+ * window instead of insisting on offset 0. Matching that tolerance is the
+ * point: this guard must reject exactly what the extraction could never
+ * parse, and nothing beyond it, or it starts refusing genuine papers the
+ * pipeline reads today.
+ */
+const PDF_SIGNATURE_SEARCH_BYTES = 1024;
+
+/**
+ * Whether the bytes actually are a PDF, as opposed to merely being announced
+ * as one. A `Content-Type` header and a `.pdf` filename are both claims made
+ * by the party that supplied the document; this is the only thing that reads
+ * the document itself.
+ */
+export function hasPdfSignature(content: Buffer): boolean {
+  return content
+    .subarray(0, PDF_SIGNATURE_SEARCH_BYTES + PDF_SIGNATURE.length)
+    .includes(PDF_SIGNATURE);
+}
+
 export async function acquireDocument(
   request: DocumentRequest,
   fetcher: HttpFetcher,
@@ -104,6 +129,28 @@ export async function acquireDocument(
     throw new DocumentFetchError(
       `Quellendokument ist kein ${request.expectedExt.toUpperCase()} ` +
         `(erkannt: "${ext}"): Dokument-URL prüfen oder Datei manuell hochladen.`,
+    );
+  }
+
+  // The second half of the same guard, and the one that reads the document
+  // rather than its label. The check above compares CLAIMS — the declared
+  // content type, the filename — so a host that serves an HTML paywall as
+  // "application/pdf" satisfies it completely; in practice that is what a
+  // rejection here almost always turns out to be. Keyed on the RESOLVED ext,
+  // not on expectedExt: whatever is about to be frozen under a .pdf blob path
+  // must be a PDF, whoever chose the document. That covers all four callers —
+  // the derived auto-import URL the app picked itself, a URL or upload a user
+  // vouched for, a correction, and a revision, which sets no expectedExt at
+  // all. The message stays neutral about which, because it serves them all.
+  //
+  // Deliberately only the signature, never "did unpdf parse it": a scanned
+  // paper without a text layer is a real PDF and stays capturable, its
+  // missing text recorded at the source entry rather than rejected (TMB-24).
+  if (ext === "pdf" && !hasPdfSignature(content)) {
+    throw new DocumentFetchError(
+      "Quellendokument ist kein PDF (keine PDF-Signatur %PDF- in den " +
+        `ersten ${PDF_SIGNATURE_SEARCH_BYTES} Bytes): Dokument-URL oder ` +
+        "hochgeladene Datei prüfen.",
     );
   }
 

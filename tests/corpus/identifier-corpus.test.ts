@@ -106,39 +106,36 @@ describe("real research-system identifier lists", () => {
   });
 
   /**
-   * KNOWN GAP — pinned, not fixed (deliberate: see the findings note in
-   * `tests/corpus/README.md`).
-   *
-   * `normalizeArxivId` looks for `\b\d{4}\.\d{4,5}\b` anywhere in the input,
-   * so a DOI whose suffix embeds a year-like number satisfies it. Two of the
-   * 83 real DOIs in the research lists do:
+   * This block pinned a real defect until 15.08.2026, and the real corpus is
+   * what exposed it. `normalizeArxivId` looked for `\b\d{4}\.\d{4,5}\b`
+   * ANYWHERE in the input, so a DOI whose suffix embeds a year-like number
+   * satisfied it. Two of the 83 real DOIs in the research lists did:
    *
    *   10.1109/eScience65000.2025.00093  →  "2025.00093"
    *   10.1109/ESEM64174.2025.00053      →  "2025.00053"
    *
-   * This is the same shape of defect the thesis's own ingest tool had, and
+   * That is the same shape of defect the thesis's own ingest tool had, and
    * the reason its exclusion log filled up with identifiers that were never
-   * fabricated in the first place.
+   * fabricated in the first place — which is precisely why it could not be
+   * left standing in the tool the thesis is about.
    *
-   * It is not currently reachable from the reference scan (the assertion
-   * above proves that) and not from a DOI capture (`capture.ts` selects the
-   * normalizer by the caller's `kind`). It IS reachable from a manual
+   * It was never reachable from the reference scan (the assertion above
+   * proves that) nor from a DOI capture, but it WAS reachable from a manual
    * capture where a human picks "arXiv" in the form and pastes a DOI: the
-   * work-item guard at `sources/work-items/queue.ts` accepts it, and the
-   * capture then resolves a number arXiv has never heard of.
+   * work-item guard at `sources/work-items/queue.ts` accepted it and the
+   * capture then resolved a number arXiv has never issued.
    *
-   * This test asserts the CURRENT behaviour, so the count cannot grow
-   * unnoticed and a future fix has to come here and say so.
+   * The pattern is anchored now and each accepted form is recognized
+   * structurally, so nothing is mined out of a longer string. The assertion
+   * stays keyed on the whole research corpus rather than on the two known
+   * strings: it is what would notice a third.
    */
-  it("pins the DOIs that the bare arXiv normalizer still misreads", () => {
+  it("reads no arXiv id out of any of the real DOIs", () => {
     const misread = RESEARCH_IDENTIFIERS.filter(
       (id) => id.looksLikeDoi && normalizeArxivId(id.raw) !== null,
     ).map((id) => `${id.raw} -> ${normalizeArxivId(id.raw)}`);
 
-    expect(misread.sort()).toEqual([
-      "10.1109/ESEM64174.2025.00053 -> 2025.00053",
-      "10.1109/eScience65000.2025.00093 -> 2025.00093",
-    ]);
+    expect(misread.sort()).toEqual([]);
   });
 });
 

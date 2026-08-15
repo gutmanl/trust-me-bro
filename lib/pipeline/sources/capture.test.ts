@@ -387,7 +387,9 @@ describe("captureSource via URL and upload", () => {
     const second = await captureSource(
       {
         ...input,
-        upload: { content: Buffer.from("anders"), filename: "b.pdf" },
+        // Different bytes, still a PDF: what this asserts is the id suffix,
+        // and a ".pdf" upload has to bear the signature out like any other.
+        upload: { content: Buffer.from("%PDF-1.7 anders"), filename: "b.pdf" },
       },
       { fetcher: defaultFetcher() },
     );

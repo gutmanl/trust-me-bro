@@ -87,23 +87,27 @@ log is ground truth for a _parsing_ failure, which is what
 ## Known gaps this corpus exposed
 
 Pinned as current behaviour rather than fixed, each with a comment at the
-assertion naming the gap:
+assertion naming the gap. Gaps 1 and 2 have since been closed (15.08.2026)
+and their tests now assert the fix instead; 3 still stands as recorded:
 
-1. **`normalizeArxivId` accepts DOIs whose suffix embeds a year-like
-   number.** Two of the 83 real DOIs in the research lists match:
-   `10.1109/eScience65000.2025.00093` → `2025.00093`. Not reachable from the
-   reference scan (which requires an explicit `arXiv:` prefix) but reachable
-   from a manual capture where a human picks "arXiv" and pastes a DOI.
-   Pinned in `identifier-corpus.test.ts`.
+1. **`normalizeArxivId` accepted DOIs whose suffix embeds a year-like
+   number.** ~~FIXED~~ — two of the 83 real DOIs in the research lists
+   matched: `10.1109/eScience65000.2025.00093` → `2025.00093`. Never
+   reachable from the reference scan (which requires an explicit `arXiv:`
+   prefix) but reachable from a manual capture where a human picks "arXiv"
+   and pastes a DOI. The pattern is anchored now and the three accepted forms
+   (bare, `arXiv:`-prefixed, arxiv.org URL) are recognized structurally, so
+   nothing is mined out of a longer string. `identifier-corpus.test.ts` now
+   asserts that NO real DOI yields an id, so a third would be noticed.
 
-2. **The "proven PDF" guard never looks at the bytes.** `expectedExt`
-   compares the server's declared `Content-Type` against `pdf`; there is no
-   `%PDF-` magic-number check and no requirement that `unpdf` parse the file
-   before it is frozen. A host that mislabels an HTML paywall as
-   `application/pdf` gets it stored as a `.pdf` blob. What limits the damage
-   is the layer behind it — text extraction fails, so stage 1 can never prove
-   a quote against it — which is the right outcome reached by accident.
-   Pinned in `tests/e2e/corpus-document-integrity.e2e.test.ts`.
+2. **The "proven PDF" guard never looked at the bytes.** ~~FIXED~~ —
+   `expectedExt` compared only the server's declared `Content-Type`, so a host
+   that mislabelled an HTML paywall as `application/pdf` got it stored as a
+   `.pdf` blob; the damage was limited only by text extraction failing behind
+   it, which is the right outcome reached by accident. `acquireDocument` now
+   also requires the `%PDF-` signature within the first 1024 bytes of anything
+   frozen under a `.pdf` path, whoever supplied the document. Asserted in
+   `tests/e2e/corpus-document-integrity.e2e.test.ts`.
 
 3. **The identity cross-check only fires for citations that carry a title.**
    The regex channel reads identifiers but no titles, so a candidate's title
