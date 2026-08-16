@@ -96,7 +96,7 @@ async function projectWithComplainedClaim(
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Existenzprüfung bestanden (Test-Setup).",
+        reason: "Zitatprüfung bestanden (Test-Setup).",
       });
       tx.transitionClaim("clm_0001", {
         to: "pending_adjudication",
@@ -108,7 +108,7 @@ async function projectWithComplainedClaim(
       tx.transitionClaim("clm_0001", {
         to: "pending_adjudication",
         actor: "system:existence_check",
-        reason: "Existenzprüfung nicht bestanden (Test-Setup).",
+        reason: "Zitatprüfung nicht bestanden (Test-Setup).",
         routing: "existence_check_failed",
       });
     }
