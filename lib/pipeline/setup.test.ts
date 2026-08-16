@@ -84,6 +84,26 @@ describe("completeFirstRunSetup", () => {
   });
 });
 
+describe("completeFirstRunSetup: unusable workspace path", () => {
+  it("surfaces an env-provided workspace that is a file as German form state", () => {
+    // TMB_WORKSPACE in .env pointing at an existing file used to crash the
+    // wizard with a raw English EEXIST after the handle was stored.
+    const dir = scratch();
+    const filePath = path.join(dir, "eine-datei");
+    fs.writeFileSync(filePath, "kein verzeichnis");
+    vi.stubEnv("TMB_ACTOR_HANDLE", undefined);
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", filePath);
+
+    expect(() => completeFirstRunSetup({ actorHandle: "lg" })).toThrow(
+      InvalidIdentityInputError,
+    );
+    expect(() => completeFirstRunSetup({ actorHandle: "lg" })).toThrow(
+      /kein Verzeichnis/,
+    );
+  });
+});
+
 describe("getUnpaywallSetting / setUnpaywallEmail", () => {
   it("is unset by default", () => {
     const dir = scratch();
@@ -200,6 +220,62 @@ describe("getWorkspaceRootSetting / setWorkspaceRoot (TMB-54, D5)", () => {
     vi.stubEnv("TMB_WORKSPACE", undefined);
 
     expect(() => setWorkspaceRoot("   ")).toThrow(InvalidIdentityInputError);
+  });
+
+  it("expands a leading ~ instead of creating a literal '~' directory", () => {
+    // The wizard input goes through no shell: "~/..." used to be stored
+    // verbatim and materialize as a directory named "~" under the cwd.
+    const dir = scratch();
+    isolateDefaultWorkspace();
+    const home = scratch();
+    vi.spyOn(os, "homedir").mockReturnValue(home);
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+
+    setWorkspaceRoot("~/tmb-daten");
+
+    const expected = path.join(home, "tmb-daten");
+    expect(getWorkspaceRootSetting()).toEqual({
+      root: expected,
+      source: "config",
+    });
+    expect(fs.existsSync(expected)).toBe(true);
+    expect(fs.existsSync(path.resolve("~"))).toBe(false);
+  });
+
+  it("rejects a root that is an existing file, leaving the config untouched", () => {
+    // The old order persisted first and crashed on mkdir afterwards — an
+    // English EEXIST for the user, and a wedged workspace config on disk.
+    const dir = scratch();
+    isolateDefaultWorkspace();
+    const configPath = path.join(dir, "config.json");
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", configPath);
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+    const filePath = path.join(dir, "eine-datei");
+    fs.writeFileSync(filePath, "kein verzeichnis");
+
+    expect(() => setWorkspaceRoot(filePath)).toThrow(InvalidIdentityInputError);
+    expect(() => setWorkspaceRoot(filePath)).toThrow(/kein Verzeichnis/);
+    // Nothing persisted: the installation still answers with the default.
+    expect(getWorkspaceRootSetting().source).toBe("default");
+  });
+
+  it("rejects an un-creatable root as German form state, not a raw errno", () => {
+    const dir = scratch();
+    isolateDefaultWorkspace();
+    vi.stubEnv("TMB_ACTOR_HANDLE", "lg");
+    vi.stubEnv("TMB_CONFIG_PATH", path.join(dir, "config.json"));
+    vi.stubEnv("TMB_WORKSPACE", undefined);
+    const blocker = path.join(dir, "blocker");
+    fs.writeFileSync(blocker, "datei, kein verzeichnis");
+
+    // Parent is a file — mkdir can only fail.
+    expect(() => setWorkspaceRoot(path.join(blocker, "darunter"))).toThrow(
+      /kann nicht angelegt werden/,
+    );
+    expect(getWorkspaceRootSetting().source).toBe("default");
   });
 
   it("refuses to move the root once projects exist (D5: no orphaning)", () => {

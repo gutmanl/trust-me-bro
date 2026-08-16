@@ -2,6 +2,7 @@ import path from "node:path";
 
 import {
   defaultConfigFilePath,
+  expandTilde,
   HANDLE_PATTERN,
   readConfigFile,
 } from "./config-file";
@@ -29,7 +30,11 @@ export function loadIdentityConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): IdentityConfig {
   const stored = readConfigFile(defaultConfigFilePath(env));
-  const handle = env.TMB_ACTOR_HANDLE ?? stored?.actorHandle;
+  // Blank env values count as unset (an emptied line in .env), and
+  // surrounding whitespace is stripped — matching getActorHandleSetting, so
+  // the settings page and the actual writes can never disagree.
+  const envHandle = env.TMB_ACTOR_HANDLE?.trim();
+  const handle = envHandle || stored?.actorHandle;
   if (handle === undefined) {
     throw new IdentityNotConfiguredError();
   }
@@ -43,7 +48,9 @@ export function loadIdentityConfig(
   return {
     actorHandle: handle,
     workspaceRoot: path.resolve(
-      env.TMB_WORKSPACE ?? stored?.workspaceRoot ?? DEFAULT_WORKSPACE,
+      expandTilde(
+        env.TMB_WORKSPACE?.trim() || stored?.workspaceRoot || DEFAULT_WORKSPACE,
+      ),
     ),
   };
 }
@@ -127,11 +134,11 @@ export function getWorkspaceRootSetting(env: NodeJS.ProcessEnv = process.env): {
 } {
   const fromEnv = env.TMB_WORKSPACE?.trim();
   if (fromEnv) {
-    return { root: path.resolve(fromEnv), source: "env" };
+    return { root: path.resolve(expandTilde(fromEnv)), source: "env" };
   }
   const fromFile = readConfigFile(defaultConfigFilePath(env))?.workspaceRoot;
   if (fromFile) {
-    return { root: path.resolve(fromFile), source: "config" };
+    return { root: path.resolve(expandTilde(fromFile)), source: "config" };
   }
   return { root: path.resolve(DEFAULT_WORKSPACE), source: "default" };
 }

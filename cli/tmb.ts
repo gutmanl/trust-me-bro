@@ -4,21 +4,9 @@
  * — re-runs the hash-chain, manifest and blob-integrity verification without
  * the web application, for a project directory or a .tmb export bundle.
  * Installed packages expose it as the `tmb` bin; inside the repo it also runs
- * via `npm run tmb -- verify <target>`.
+ * via `npm run tmb -- verify <target>`. All argument handling lives in
+ * main.ts so tests can drive it in-process.
  */
-import { runVerify } from "./verify";
+import { runCli } from "./main";
 
-function main(argv: string[]): number {
-  const [command, ...args] = argv;
-  if (command !== "verify" || args.length !== 1) {
-    console.error("usage: tmb verify <project-dir|bundle.tmb>");
-    return 2;
-  }
-  const report = runVerify(args[0]);
-  for (const message of report.messages) {
-    console.log(message);
-  }
-  return report.ok ? 0 : 1;
-}
-
-process.exitCode = main(process.argv.slice(2));
+process.exitCode = runCli(process.argv.slice(2));
