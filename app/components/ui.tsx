@@ -231,9 +231,8 @@ export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
         dadurch nicht unabhängig vom Modell, das den Text geschrieben hat.
       </p>
       <p className="mt-1">
-        Stufe 1, die Zitatprüfung des zitierten Wortlauts gegen das eingefrorene
-        Dokument, ist davon nicht betroffen: sie ist deterministisch und
-        modellunabhängig.
+        Stufe 1, die Zitatprüfung des Wortlauts gegen das eingefrorene Dokument,
+        ist davon nicht betroffen: sie ist deterministisch und modellunabhängig.
       </p>
     </div>
   );

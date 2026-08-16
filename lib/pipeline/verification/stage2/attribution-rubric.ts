@@ -180,7 +180,7 @@ export async function runAttributionAndRubric(
   if (outcome.status === "exhausted") {
     return {
       status: "exhausted",
-      message: `Schema-Bewertung erschöpft: ${outcome.lastError.message}`,
+      message: `Bewertung erschöpft: ${outcome.lastError.message}`,
     };
   }
   return {

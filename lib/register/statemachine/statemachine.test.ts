@@ -697,7 +697,7 @@ describe("source-correction readmission edge (pending_adjudication → recheck_r
       tx.transitionClaim("clm_eskaliert", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Existenz nachgewiesen.",
+        reason: "Zitat nachgewiesen.",
       });
       tx.transitionClaim("clm_eskaliert", {
         to: "pending_adjudication",

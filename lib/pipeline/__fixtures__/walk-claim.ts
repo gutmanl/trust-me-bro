@@ -52,7 +52,7 @@ export async function addClaimWalkedTo(options: {
     tx.transitionClaim(claimId, {
       to: "existence_checked",
       actor: "system:existence_check",
-      reason: "Existenz nachgewiesen.",
+      reason: "Zitat nachgewiesen.",
     });
     if (status === "existence_checked") {
       return;

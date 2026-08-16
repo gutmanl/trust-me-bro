@@ -144,7 +144,7 @@ export function renderBriefing(
             " derselben Modellfamilie. Die Urteile der Stufen 2 und 3" +
             " (Belegprüfung, Bewertung gegen das Bewertungsschema) sind" +
             " dadurch nicht unabhängig. Stufe 1 – die Zitatprüfung des" +
-            " zitierten Wortlauts gegen das eingefrorene Dokument – ist" +
+            " Wortlauts gegen das eingefrorene Dokument – ist" +
             " davon nicht betroffen.",
           "",
         ]

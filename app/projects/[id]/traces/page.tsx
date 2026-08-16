@@ -17,7 +17,7 @@ const METHOD_LABELS: Record<string, string> = {
   research: "Recherche",
   extraction: "Aussagen-Erfassung",
   attribution: "Belegprüfung",
-  rubric: "Schema-Bewertung",
+  rubric: "Bewertung (Bewertungsschema)",
   repair: "Reparatur",
   relevance: "Einschlägigkeit",
   reference_parse: "Referenz-Parsing",
