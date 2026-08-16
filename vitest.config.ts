@@ -9,6 +9,15 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Three times the 5 s default, because the default measures the
+    // machine, not the test: under a fully parallel suite run on a loaded
+    // (WSL) box, three unrelated files whose tests finish in 1–2 s alone
+    // have each crossed 5 s — different files on different days. A genuine
+    // hang still fails, 10 s later; a test that is EXPECTED to be slow for
+    // a reason (real-PDF parsing, multi-process locking, live sockets)
+    // still declares its own larger budget at the test, where the reason
+    // can be stated.
+    testTimeout: 15_000,
     include: [
       "lib/**/*.test.ts",
       "cli/**/*.test.ts",

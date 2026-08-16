@@ -80,7 +80,10 @@ describe("corpus documents", () => {
       const text = await extractFullText(bytes as Buffer, "pdf");
       expect(text.length).toBeGreaterThan(0);
     }
-  });
+    // With `documents/` fetched, "the documents" includes the real 18-page
+    // PDF, and unpdf parsing it under a loaded full-suite run has crossed
+    // the 5 s default. The parse being real is this test's entire point.
+  }, 30_000);
 
   it("contain the quote the stage-1 wording proof looks for", async () => {
     const document = loadDocumentManifest().documents.find((entry) =>
@@ -95,7 +98,8 @@ describe("corpus documents", () => {
     // across a line break exactly as a real one does, and the point is that
     // the production normalizer sees through it.
     expect(containsNormalized(text, QUOTE_PRESENT)).toBe(true);
-  });
+    // Same real-document budget as above.
+  }, 30_000);
 });
 
 describe("corpus provenance", () => {

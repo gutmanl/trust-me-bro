@@ -352,7 +352,10 @@ describe("failure class: extraction cites a source that was never captured", () 
         evidence.source_id,
       );
     }
-  });
+    // Real-document budget: captureCleanSource parses the recorded
+    // 18-page PDF when documents/ is fetched — same reason as the
+    // wording-proof spec above.
+  }, 30_000);
 });
 
 describe("the whole walk, ending where an auditor starts", () => {
@@ -400,5 +403,8 @@ describe("the whole walk, ending where an auditor starts", () => {
     const verification = await workspace.store(project.projectId).verify();
     expect(verification.errors).toEqual([]);
     expect(verification.ok).toBe(true);
-  });
+    // Real-document budget: captureCleanSource parses the recorded
+    // 18-page PDF when documents/ is fetched — same reason as the
+    // wording-proof spec above.
+  }, 30_000);
 });

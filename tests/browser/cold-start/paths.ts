@@ -3,11 +3,12 @@
  *
  * The suite deliberately sets NEITHER `TMB_WORKSPACE` nor `TMB_CONFIG_PATH`,
  * and redirects `HOME` instead. That is the configuration a real first start
- * has: the README documents the defaults (`~/.trustmebro/config.json`, the
- * workspace under `~/.trustmebro/workspace`), and setting the variables would
- * have flipped the wizard into its read-only "provided by the environment"
- * branch — testing the one path an evaluator never takes, and skipping the
- * default-path resolution entirely.
+ * has: the config file defaults to `~/.trustmebro/config.json`, the
+ * workspace default is cwd-relative (`./workspace` — which is why the
+ * server also gets its own cwd, see COLD_CWD), and setting the variables
+ * would have flipped the wizard into its read-only "provided by the
+ * environment" branch — testing the one path an evaluator never takes, and
+ * skipping the default-path resolution entirely.
  *
  * Separate from the seeded browser suite's workspace: that one is populated
  * before the first navigation, and this suite's whole subject is what the
@@ -38,3 +39,21 @@ export const COLD_WORKSPACE = path.join(COLD_HOME, ".trustmebro", "workspace");
  * living inside it would be deleted out from under the running server.
  */
 export const COLD_PATH_DIR = path.join(os.tmpdir(), "tmb-cold-path");
+
+/**
+ * The server's WORKING DIRECTORY — an empty scratch directory, never the
+ * repository.
+ *
+ * The workspace default is cwd-relative (`./workspace`, config.ts) because
+ * a dev-mode start has no launcher to point it at `~/.trustmebro`. Started
+ * with the repository as cwd, the server therefore resolves the
+ * DEVELOPER'S real workspace: the wizard's workspace step sees existing
+ * projects, declares the workspace no longer settable, and refuses the
+ * path this suite types — and any spec that got further would create its
+ * example project inside real data. CI and a fresh checkout never notice,
+ * because their `./workspace` does not exist; a working copy with project
+ * data fails, which is how this constant earned its existence. The config
+ * recreates it empty on every load, so the resolved default is always a
+ * workspace with zero projects.
+ */
+export const COLD_CWD = path.join(os.tmpdir(), "tmb-cold-cwd");

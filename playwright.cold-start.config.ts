@@ -18,7 +18,11 @@ import path from "node:path";
 
 import { defineConfig, devices } from "@playwright/test";
 
-import { COLD_HOME, COLD_PATH_DIR } from "./tests/browser/cold-start/paths";
+import {
+  COLD_CWD,
+  COLD_HOME,
+  COLD_PATH_DIR,
+} from "./tests/browser/cold-start/paths";
 
 /**
  * Built here rather than in global setup, because Playwright starts the web
@@ -36,6 +40,13 @@ if (!fs.existsSync(nodeLink)) {
   fs.symlinkSync(process.execPath, nodeLink);
 }
 
+// Recreated empty on every load, BEFORE the server starts: the server runs
+// with this as its cwd so the cwd-relative workspace default resolves to a
+// directory with zero projects — see COLD_CWD in paths.ts for the failure
+// mode (a developer's real workspace) this exists to make unreachable.
+fs.rmSync(COLD_CWD, { recursive: true, force: true, maxRetries: 5 });
+fs.mkdirSync(COLD_CWD, { recursive: true });
+
 const port = Number(process.env.TMB_E2E_COLD_PORT ?? 3124);
 const executablePath = process.env.TMB_E2E_CHROMIUM;
 
@@ -48,6 +59,12 @@ export default defineConfig({
   // is the subject.
   workers: 1,
   fullyParallel: false,
+  // Above Playwright's 5 s default because this suite's server is COLD by
+  // design: every route a spec reaches is compiled by the dev server on
+  // first contact, and a first compile of the project workbench measured
+  // 4.8 s on a loaded machine — the assertion after it then times out with
+  // the navigation mid-flight. Latency is not this suite's subject.
+  expect: { timeout: 15_000 },
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
@@ -65,10 +82,16 @@ export default defineConfig({
   projects: [{ name: "desktop", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     // Node by absolute path, so the server still starts under the empty
-    // PATH below (see COLD_PATH_DIR for why the PATH is empty).
+    // PATH below (see COLD_PATH_DIR for why the PATH is empty). Everything
+    // else absolute too, and the app directory passed as an argument: cwd
+    // below is the COLD_CWD scratch directory, not the repository, so no
+    // relative path would resolve — and `next dev` does not chdir into its
+    // directory argument, which is exactly what keeps the cwd-relative
+    // workspace default pointed at scratch instead of at the repo.
     command:
       process.env.TMB_E2E_SERVER_CMD ??
-      `${process.execPath} node_modules/next/dist/bin/next dev --port ${port}`,
+      `${process.execPath} ${path.join(__dirname, "node_modules/next/dist/bin/next")} dev ${__dirname} --port ${port}`,
+    cwd: COLD_CWD,
     // The gate redirects everything, so readiness is checked on /setup —
     // /projects would answer 307 and look like a failure to start.
     url: `http://localhost:${port}/setup`,
