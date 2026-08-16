@@ -273,22 +273,18 @@ function main(): void {
         author: [{ family: "Zhang", given: "Weijia" }],
         issued: { "date-parts": [[2024]] },
         "container-title": ["Proceedings of INLG 2024"],
-        link: [
-          {
-            URL: "https://aclanthology.org/2024.inlg-main.35/",
-            "content-type": "text/html",
-            "intended-application": "similarity-checking",
-          },
-          {
-            URL: "https://aclanthology.org/2024.inlg-main.35.pdf",
-            "content-type": "application/pdf",
-            "intended-application": "text-mining",
-          },
-        ],
+        // Empty because the real record is: recording (16.08.2026) showed
+        // Crossref carries NO link[] for this DOI, so the derivation falls
+        // through to Unpaywall — and the scan spec asserts exactly that
+        // branch. An invented PDF entry here would flip the derivation to
+        // crossref_pdf on a reseed and break the spec, violating this
+        // script's promise that recording changes no spec.
+        link: [],
       },
     }),
     provenance: synthetic(
-      "Crossref /works/<doi> with a text/html and an application/pdf link[].",
+      "Crossref /works/<doi> with an empty link[], as the real record has — " +
+        "the document is only reachable via Unpaywall.",
     ),
   });
 
@@ -331,29 +327,27 @@ function main(): void {
         author: [{ family: "Bjarnason", given: "Elizabeth" }],
         issued: { "date-parts": [[SOURCE_MISATTRIBUTED_INLINE.year]] },
         "container-title": ["Empirical Software Engineering"],
-        link: [],
+        // The real record's shape (16.08.2026): Springer publishes an exact
+        // application/pdf link, so the derivation stops at crossref_pdf and
+        // Unpaywall is never consulted for this DOI — in either tier. This
+        // block used to invent an empty link[] and a "closed-access" story,
+        // which needed an Unpaywall cassette of its own to answer a request
+        // the recorded pipeline never makes; the paper is in fact CC-BY.
+        link: [
+          {
+            URL:
+              "https://link.springer.com/content/pdf/" +
+              `${SOURCE_MISATTRIBUTED_INLINE.canonical}.pdf`,
+            "content-type": "application/pdf",
+            "content-version": "vor",
+            "intended-application": "text-mining",
+          },
+        ],
       },
     }),
     provenance: synthetic(
-      "Crossref /works/<doi> with no link[] — a closed-access journal article.",
-    ),
-  });
-
-  writeHttpCassette({
-    url:
-      `https://api.unpaywall.org/v2/${encodeURIComponent(SOURCE_MISATTRIBUTED_INLINE.canonical)}` +
-      "?email=REDACTED",
-    accept: JSON_ACCEPT,
-    status: 200,
-    contentType: "application/json",
-    bodyText: JSON.stringify({
-      doi: SOURCE_MISATTRIBUTED_INLINE.canonical,
-      is_oa: false,
-      best_oa_location: null,
-      oa_locations: [],
-    }),
-    provenance: synthetic(
-      "Unpaywall knows the DOI and reports no open-access copy.",
+      "Crossref /works/<doi> with the application/pdf link the real Springer " +
+        "record carries.",
     ),
   });
 
