@@ -361,7 +361,7 @@ describe("cascading verification run", () => {
     const started = register.project_events.find(
       (event) => event.event === "verification_run_started",
     );
-    expect(started?.reason).toContain("LLM-Prüfstufen gesperrt");
+    expect(started?.reason).toContain("KI-Prüfstufen gesperrt");
     expect(started?.reason).toContain("claude nicht gefunden");
 
     const outcomes = handle

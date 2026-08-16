@@ -125,7 +125,7 @@ export function BackendHealthNotice({
   if (!health.primary.usable) {
     messages.push(
       mode === "verification"
-        ? `LLM-Prüfstufen gesperrt – primäres Backend "${health.primary.cli}" ` +
+        ? `KI-Prüfstufen gesperrt – primäres Backend "${health.primary.cli}" ` +
             `nicht einsatzbereit: ${firstFailureHint(health.primary)} ` +
             "Die deterministische Zitatprüfung (Stufe 1) bleibt nutzbar."
         : `Dieser Schritt ist gesperrt – primäres Backend "${health.primary.cli}" ` +

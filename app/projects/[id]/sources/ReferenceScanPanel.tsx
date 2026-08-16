@@ -76,7 +76,7 @@ export function ReferenceScanNotices({
     <>
       {!llmAvailable ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Fließtext-Erkennung (LLM) derzeit nicht verfügbar – primäres Backend
+          Fließtext-Erkennung (KI) derzeit nicht verfügbar – primäres Backend
           nicht angemeldet. Die regelbasierte Erkennung (DOI/arXiv/URL und
           Markdown-Fußnoten <code>[^n]:</code>) funktioniert unabhängig davon.
         </div>

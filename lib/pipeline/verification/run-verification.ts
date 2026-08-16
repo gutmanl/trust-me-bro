@@ -250,7 +250,7 @@ async function recordStartedOnce(
     context.degradedNote,
     context.llmLockedHint === null
       ? null
-      : `LLM-Prüfstufen gesperrt (Preflight): ${context.llmLockedHint}`,
+      : `KI-Prüfstufen gesperrt (Preflight): ${context.llmLockedHint}`,
   ].filter((note): note is string => note !== null);
   await context.store.transaction((tx) => {
     tx.recordProjectEvent({
@@ -327,7 +327,7 @@ async function processClaim(
       claimId,
       outcome: "llm_locked",
       message:
-        `LLM-Prüfstufen gesperrt (${context.llmLockedHint}) – ` +
+        `KI-Prüfstufen gesperrt (${context.llmLockedHint}) – ` +
         "Aussage bleibt zitatgeprüft.",
     };
   }
