@@ -318,7 +318,11 @@ describe("failure class: extraction quotes wording the document lacks", () => {
     // a human.
     expect(misquoted?.status).toBe("pending_adjudication");
     expect(byStatus.discarded).toBeUndefined();
-  });
+    // Room for the real document: when `documents/` holds the recorded
+    // 18-page PDF, the capture parses THAT with unpdf — the entire point of
+    // recording — at ~650 ms alone and past the 5 s default under a loaded
+    // full-suite run. The cost is the subject here, not fixture waste.
+  }, 30_000);
 });
 
 describe("failure class: extraction cites a source that was never captured", () => {

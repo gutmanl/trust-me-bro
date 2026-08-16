@@ -44,7 +44,13 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // reached the scan with no title — and the identity cross-check, which
   // compares a resolved identifier against the title the briefing claims for
   // it, cannot run without one. Only footnote-style citations were checked.
-  reference_parse: "1.1.0",
+  // 1.1.1: resolves 1.1.0's contradiction with the output schema, caught by
+  // recording against the real claude CLI: "omit what you cannot read"
+  // collided with `authors` being required (a parenthetical citation names
+  // none — the schema now defaults it) and with "omit the title" (a
+  // titleless already-detected citation is now not reported at all, and a
+  // prose citation takes the briefing's own wording as its title).
+  reference_parse: "1.1.1",
 };
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);

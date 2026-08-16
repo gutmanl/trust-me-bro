@@ -259,9 +259,23 @@ outbound access to doi.org, arXiv, Crossref or Unpaywall.
 They were recorded for real on 16.08.2026, from a machine that does:
 
 ```
-corpus: 12/12 cassettes recorded from live services (11 HTTP, 1 LLM),
+corpus: 13/13 cassettes recorded from live services (11 HTTP, 2 LLM),
         1/2 documents hash-pinned from a real recording.
 ```
+
+Recording `reference_parse` took two attempts, and the first failure was a
+finding of its own: prompt v1.1.0 told the model to omit any field it cannot
+read off the text, while the output schema required `authors` — so the real
+model's correct answer to a parenthetical citation (which names no authors)
+failed validation twice and the scan silently degraded to regex-only. The
+schema now defaults `authors` to [], and prompt v1.1.1 resolves the same
+contradiction for `title` (a titleless already-detected citation is not
+reported; a prose citation takes the briefing's own wording as its title —
+which the recorded model then did, retiring the invented formal title the
+fixture had given the prose-only citation). The recorded answer also echoed
+the arXiv identifier in its prefixed surface form, `arXiv:2601.20727` —
+precisely the case the canonicalization in `dedup-identified.ts` and the
+seed-building exists for.
 
 Every cassette on disk is a live recording. One synthetic cassette was
 DELETED rather than recorded: Unpaywall for the inline-cited DOI. The real

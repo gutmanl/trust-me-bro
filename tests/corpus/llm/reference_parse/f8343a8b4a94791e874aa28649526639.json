@@ -1,0 +1,56 @@
+{
+  "key": "f8343a8b4a94791e874aa28649526639",
+  "method": "reference_parse",
+  "params": {
+    "briefing_text": "# Prüfbarkeit LLM-recherchierter Briefings\n\nEin manipulationssicheres Register macht den Zustand eines eingesetzten Systems rekonstruierbar: Prüfende können feststellen, was zu einem Zeitpunkt aktiv war, unter welchen Einschränkungen und in wessen Verantwortung.[^1]\n\nFür die Prüfung einzelner Aussagen generierter Zusammenfassungen liegt eine eigene Arbeit vor.[^2]\n\nEvidenzschranken für automatisierte Literaturübersichten werden ebenfalls diskutiert.[^3]\n\nZur automatisierten Beschaffung von Belegstellen liegt eine Übersicht vor (Automated Evidence Retrieval for Systematic Reviews, doi:10.1007/s10664-023-10288-w).\n\nErgänzend wird ein interaktives Prüf-Interface beschrieben (Braun & Kohl 2024).\n\nLangfristig verbessert sich dadurch die Qualität der Ergebnisse.\n\n[^1]: Audit Trails for Accountability in Large Language Models. arXiv:2601.20727\n[^2]: Claim-Level Verification of Generated Scientific Summaries. 10.18653/v1/2024.inlg-main.35\n[^3]: Evidence Gates for Automated Literature Reviews. arXiv:6598.37140",
+    "already_detected": [
+      "10.1007/s10664-023-10288-w",
+      "arXiv:2601.20727",
+      "10.18653/v1/2024.inlg-main.35",
+      "arXiv:6598.37140"
+    ]
+  },
+  "result": {
+    "references": [
+      {
+        "raw_text": "Audit Trails for Accountability in Large Language Models. arXiv:2601.20727",
+        "authors": [],
+        "title": "Audit Trails for Accountability in Large Language Models",
+        "arxiv_id": "arXiv:2601.20727"
+      },
+      {
+        "raw_text": "Claim-Level Verification of Generated Scientific Summaries. 10.18653/v1/2024.inlg-main.35",
+        "authors": [],
+        "title": "Claim-Level Verification of Generated Scientific Summaries",
+        "doi": "10.18653/v1/2024.inlg-main.35"
+      },
+      {
+        "raw_text": "Evidence Gates for Automated Literature Reviews. arXiv:6598.37140",
+        "authors": [],
+        "title": "Evidence Gates for Automated Literature Reviews",
+        "arxiv_id": "arXiv:6598.37140"
+      },
+      {
+        "raw_text": "(Automated Evidence Retrieval for Systematic Reviews, doi:10.1007/s10664-023-10288-w)",
+        "authors": [],
+        "title": "Automated Evidence Retrieval for Systematic Reviews",
+        "doi": "10.1007/s10664-023-10288-w"
+      },
+      {
+        "raw_text": "Ergänzend wird ein interaktives Prüf-Interface beschrieben (Braun & Kohl 2024).",
+        "authors": ["Braun", "Kohl"],
+        "year": 2024,
+        "title": "ein interaktives Prüf-Interface"
+      }
+    ]
+  },
+  "backend": "claude",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_version": "1.1.1",
+  "prompt_sha256": "f7f7d51030a5d4f8f0efdc1a8c4114be561cecf08fbe2673b3ae3b3d386deb88",
+  "provenance": {
+    "kind": "recorded",
+    "recorded_at": "2026-08-16T15:31:43.134Z",
+    "recorder": "record-corpus/1"
+  }
+}

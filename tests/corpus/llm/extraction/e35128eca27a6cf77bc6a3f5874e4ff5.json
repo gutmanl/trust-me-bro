@@ -26,7 +26,6 @@
           {
             "source_id": "src_ojewale2026",
             "locator": {
-              "page": 7,
               "section": "4.4 Deployment and System Integration"
             },
             "verbatim_excerpt": "The audit trail at this stage should make the deployed system state reconstructible, so that reviewers can determine what was live, under what constraints, and under whose authority."
@@ -42,7 +41,7 @@
   "prompt_sha256": "cdeb0c16e64e9289ac1abe46106b4dcf34b58379ba548b1c30e5dc6a3fdfbdfd",
   "provenance": {
     "kind": "recorded",
-    "recorded_at": "2026-08-16T15:14:06.213Z",
+    "recorded_at": "2026-08-16T15:32:21.506Z",
     "recorder": "record-corpus/1"
   }
 }

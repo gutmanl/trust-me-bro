@@ -10,7 +10,16 @@ import { z } from "zod";
  */
 export const ParsedReference = z.strictObject({
   raw_text: z.string().min(1),
-  authors: z.array(z.string()),
+  // Omittable, parsing to []: the prompt tells the model never to fill a
+  // field it cannot read off the text, and a parenthetical citation
+  // "(Title, doi:…)" names no authors. Requiring the array here made an
+  // obedient model's answer fail validation — the recorder caught the real
+  // claude CLI omitting the field and the whole scan degrading to
+  // regex-only. `title` stays required: a citation the model cannot title
+  // is not reported at all (prompt v1.1.1), because a titleless reference
+  // can neither enrich the identity cross-check nor be searched on
+  // Crossref.
+  authors: z.array(z.string()).default([]),
   year: z.int().optional(),
   title: z.string().min(1),
   venue: z.string().optional(),

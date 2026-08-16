@@ -159,9 +159,16 @@ export const SCENARIO_SOURCES: readonly ScenarioSource[] = [
 /**
  * A citation the briefing makes in prose only, with no identifier anywhere —
  * the shape that reaches the LLM channel and then Crossref's title search.
+ *
+ * `title` is the briefing's own phrase for the work, because that is what
+ * the recorded model reports and the only thing an honest one can: prompt
+ * v1.1.1 tells it to take the sentence's wording when no formal title is
+ * stated, and this sentence states none. The previous value here was an
+ * invented formal title that appears nowhere in the briefing — a fixture no
+ * obedient model could reproduce, which recording exposed.
  */
 export const CITATION_WITHOUT_IDENTIFIER = {
-  title: "Interaktive Prüfoberflächen für generierte Zusammenfassungen",
+  title: "ein interaktives Prüf-Interface",
   authors: ["Braun", "Kohl"],
   year: 2024,
   rawText:
