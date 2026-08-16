@@ -35,31 +35,36 @@ describe("unzipBundle archive limits (S-06)", () => {
   });
 
   it("refuses a zip bomb before decompressing it", () => {
-    // 16 MB of zeroes deflates to ~16 KB — a ratio around 1000:1, an order
-    // of magnitude past anything real content reaches. The point is that
-    // this throws rather than materialising 16 MB in memory first.
-    const original = 16_000_000;
+    // 1 MiB of zeroes deflates to ~1 KB — a ratio around 900:1, more than
+    // four times the ceiling and an order of magnitude past anything real
+    // content reaches. The point is that this throws rather than
+    // materialising the entry in memory first.
+    //
+    // Sized for the guard rather than for drama: the ratio check only
+    // applies above RATIO_CHECK_FLOOR_BYTES (64 KiB), so the fixture has to
+    // clear that floor, and 1 MiB clears it sixteen times over. A 16 MB
+    // bomb tested nothing further and cost ~650 ms to deflate against
+    // ~20 ms here — which is what put this test within reach of the default
+    // timeout on a loaded machine.
+    const original = 1024 * 1024;
     const bomb = zipSync({ "blobs/aa/bomb.pdf": new Uint8Array(original) });
     expect(original / bomb.byteLength).toBeGreaterThan(MAX_COMPRESSION_RATIO);
     expect(() => unzipBundle(bomb)).toThrow(BundleFormatError);
     expect(() => unzipBundle(bomb)).toThrow(/compression ratio/);
-    // The cost is BUILDING the fixture, not the guard being measured:
-    // deflating 16 MB takes about half a second alone but ran to 2.5 s of
-    // the 5 s default under a loaded full-suite run, and intermittently past
-    // it. Generous rather than snug, because the number is protecting
-    // against a machine under load, not against this test hanging — a real
-    // hang here would not finish in thirty seconds either.
-  }, 30_000);
+  });
 
   it("refuses an archive with too many entries", () => {
     const files: Record<string, Uint8Array> = {};
     for (let i = 0; i <= MAX_BUNDLE_ENTRIES; i += 1) {
       files[`blobs/aa/${i}.txt`] = bundleText.encode("x");
     }
-    expect(() => unzipBundle(zipSync(files))).toThrow(/more than .* entries/);
-    // Same reason as the bomb above: zipping MAX_BUNDLE_ENTRIES + 1 real
-    // entries is the slow part, and it shares the suite's CPU.
-  }, 30_000);
+    // Stored, not deflated. The limit under test is counted off the central
+    // directory, so the compression method is irrelevant to it — and
+    // deflating ten thousand one-byte entries is pure fixture cost
+    // (~900 ms against ~60 ms stored).
+    const archive = zipSync(files, { level: 0 });
+    expect(() => unzipBundle(archive)).toThrow(/more than .* entries/);
+  });
 
   it("still rejects non-ZIP input as a format error", () => {
     expect(() => unzipBundle(bundleText.encode("kein ZIP"))).toThrow(
