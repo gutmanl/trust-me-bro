@@ -15,9 +15,9 @@ export const dynamic = "force-dynamic";
 
 const METHOD_LABELS: Record<string, string> = {
   research: "Recherche",
-  extraction: "Extraktion",
-  attribution: "Attribution",
-  rubric: "Rubrik-Kalibrierung",
+  extraction: "Aussagen-Erfassung",
+  attribution: "Belegprüfung",
+  rubric: "Schema-Bewertung",
   repair: "Reparatur",
   relevance: "Einschlägigkeit",
   reference_parse: "Referenz-Parsing",
@@ -82,7 +82,7 @@ export default async function TracesPage(
 
       {aggregate.traces.length === 0 ? (
         <p className="rounded-md border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-          Noch keine Aufrufe – sie entstehen mit Extraktion, Prüfung und
+          Noch keine Aufrufe – sie entstehen mit Aussagen-Erfassung, Prüfung und
           Reparatur.
         </p>
       ) : (

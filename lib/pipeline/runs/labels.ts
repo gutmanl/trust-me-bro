@@ -10,13 +10,13 @@
  * barrel.
  */
 const RUN_KIND_LABELS: Record<string, string> = {
-  extraction: "Extraktion",
-  verification: "Prüflauf",
+  extraction: "Aussagen-Erfassung",
+  verification: "KI-Prüfung",
   reference_scan: "Referenz-Scan",
   source_capture: "Quellenerfassung",
   research: "Recherche",
   relevance: "Relevanzprüfung",
-  existence_check: "Existenzprüfung",
+  existence_check: "Zitatprüfung",
   // The off-runner chain triggers (run visibility): invisible before, now
   // named wherever an activity is shown or blamed.
   capture_failure_repair: "Automatische Reparatur (Erfassung)",

@@ -29,8 +29,8 @@ const EVENT_LABELS: Record<string, string> = {
   claim_anchor_revised: "Anker korrigiert",
   source_set_frozen: "Quellenbestand eingefroren",
   source_set_revised: "Quellenbestand revidiert",
-  batch_run_started: "Extraktionslauf gestartet",
-  batch_run_completed: "Extraktionslauf beendet",
+  batch_run_started: "Erfassungslauf gestartet",
+  batch_run_completed: "Erfassungslauf beendet",
   verification_run_started: "Prüflauf gestartet",
   verification_run_completed: "Prüflauf beendet",
   relevance_run_started: "Einschlägigkeitsprüfung gestartet",
@@ -74,13 +74,13 @@ function describeChainError(
     case "hash_mismatch":
       return `Der Inhalt von Eintrag ${error.seq} passt nicht zu seinem Hash – der Eintrag wurde nachträglich verändert.`;
     case "status_mismatch":
-      return `Claim ${error.claimId} trägt den Status „${statusLabel(
+      return `Aussage ${error.claimId} trägt den Status „${statusLabel(
         error.status,
       )}", die verkettete Historie endet aber bei „${statusLabel(
         error.lastHistoryStatus,
       )}".`;
     case "state_root_mismatch":
-      return `Der Inhaltszustand (Eintrag ${error.seq}) weicht vom festgeschriebenen Prüfwert ab – Claims, Belege, Quellen oder Konfiguration wurden seit dem letzten Schreiben verändert.`;
+      return `Der Inhaltszustand (Eintrag ${error.seq}) weicht vom festgeschriebenen Prüfwert ab – Aussagen, Belege, Quellen oder Konfiguration wurden seit dem letzten Schreiben verändert.`;
   }
 }
 

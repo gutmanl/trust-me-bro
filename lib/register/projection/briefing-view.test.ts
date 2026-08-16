@@ -124,7 +124,7 @@ describe("buildBriefingViewModel", () => {
     expect(fresh.isFullyAdjudicated).toBe(false);
     expect(fresh.openCount).toBe(0);
     expect(renderBriefing(BRIEFING, registerWith([]))).toContain(
-      "NICHT BEGONNEN – noch keine Claims aus dem Briefing extrahiert",
+      "NICHT BEGONNEN – noch keine Aussagen aus dem Briefing erfasst",
     );
   });
 
@@ -134,7 +134,7 @@ describe("buildBriefingViewModel", () => {
     ]);
     const markdown = renderBriefing(BRIEFING, register);
     expect(markdown).toContain(
-      "IN PRÜFUNG – 1 Claim(s) zur Adjudikation offen",
+      "IN PRÜFUNG – 1 Aussage(n) zur manuellen Überprüfung offen",
     );
   });
 

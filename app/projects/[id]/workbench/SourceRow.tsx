@@ -125,8 +125,8 @@ export function SourceRow({
         <span>{formatTimestamp(source.capturedAt)}</span>
         <span>
           {source.citingClaims === 0
-            ? "kein Claim gestützt"
-            : `${source.citingClaims} Claim(s) gestützt`}
+            ? "keine Aussage gestützt"
+            : `${source.citingClaims} Aussage(n) gestützt`}
         </span>
         {source.identifierVerified ? (
           <span className="text-green-600">✓ Identifier verifiziert</span>
@@ -161,17 +161,19 @@ export function SourceRow({
         {extractingLive ? (
           <span className="flex items-center gap-1 text-blue-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-            Claims werden extrahiert …
+            Aussagen werden erfasst …
           </span>
         ) : source.extractionOutcome === "completed" ? (
-          <span className="text-green-600">✓ Claims extrahiert</span>
+          <span className="text-green-600">✓ Aussagen erfasst</span>
         ) : null}
       </div>
 
       {!extractingLive && source.extractionOutcome === "failed" ? (
         <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
-          ⚠ {source.extractionMessage ?? "Letzte Extraktion ohne Ergebnis."} Der
-          Extraktions-Button unten startet den Durchlauf erneut.
+          ⚠{" "}
+          {source.extractionMessage ??
+            "Letzte Aussagen-Erfassung ohne Ergebnis."}{" "}
+          Der Erfassungs-Button unten startet den Durchlauf erneut.
         </div>
       ) : null}
 
@@ -228,8 +230,8 @@ export function SourceRow({
             className="text-xs font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700 disabled:opacity-50"
           >
             {pending
-              ? "Extraktion wird gestartet …"
-              : "Claims aus dieser Quelle extrahieren"}
+              ? "Aussagen-Erfassung wird gestartet …"
+              : "Aussagen aus dieser Quelle erfassen"}
           </button>
         </form>
       )}

@@ -102,7 +102,7 @@ export async function createWarmRunProject(
   );
   if (eligible.length === 0) {
     throw new WarmRunPreconditionError(
-      "Das Ursprungsprojekt hat keine abgeschlossenen Claims (bestätigt, " +
+      "Das Ursprungsprojekt hat keine abgeschlossenen Aussagen (bestätigt, " +
         "automatisch bestätigt oder verworfen) – nichts zu übernehmen.",
     );
   }
@@ -142,7 +142,7 @@ export async function createWarmRunProject(
         actor: ACTOR_ADOPTION,
         reason:
           `Aus Projekt "${input.originProjectId}" übernommen ` +
-          `(Claim ${originClaim.id}, Status ${originClaim.status}, ` +
+          `(Aussage ${originClaim.id}, Status ${originClaim.status}, ` +
           `Bestandsrevision ${origin.project.source_set_revision}).`,
       });
     }

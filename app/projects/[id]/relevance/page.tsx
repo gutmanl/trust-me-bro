@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 const STATE_BADGES: Record<string, { label: string; className: string }> = {
   not_applicable: {
-    label: "Nicht anwendbar – dieses Projekt hat keine übernommenen Claims",
+    label: "Nicht anwendbar – dieses Projekt hat keine übernommenen Aussagen",
     className: "border-slate-200 bg-slate-50 text-slate-700",
   },
   not_started: {
@@ -32,7 +32,7 @@ const STATE_BADGES: Record<string, { label: string; className: string }> = {
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
   halted: {
-    label: "Angehalten – Claims verbleiben ungeprüft",
+    label: "Angehalten – Aussagen verbleiben ungeprüft",
     className: "border-amber-200 bg-amber-50 text-amber-800",
   },
   completed: {
@@ -58,10 +58,10 @@ export default async function RelevancePage(
       <div>
         <SubpageHeader projectId={id} title="Einschlägigkeitsprüfung" />
         <p className="mt-1 text-sm text-slate-600">
-          Übernommene Claims sind auf demselben Quellenbestand bereits geprüft
-          und adjudiziert – neu bewertet wird nur ihre Einschlägigkeit für die
-          neue Recherchefrage. Negative oder unsichere Urteile gehen zur
-          Adjudikation; die Entscheidung bleibt beim Menschen.
+          Übernommene Aussagen sind auf demselben Quellenbestand bereits geprüft
+          und manuell überprüft – neu bewertet wird nur ihre Einschlägigkeit für
+          die neue Recherchefrage. Negative oder unsichere Urteile gehen zur
+          manuellen Überprüfung; die Entscheidung bleibt beim Menschen.
         </p>
       </div>
 
@@ -70,7 +70,7 @@ export default async function RelevancePage(
         {state.status !== "not_applicable" ? (
           <p className="mt-1">
             {state.pendingClaims} von {state.adoptedClaims} übernommenen
-            Claim(s) ausstehend.
+            Aussage(n) ausstehend.
           </p>
         ) : null}
         {state.reason ? <p className="mt-1">{state.reason}</p> : null}
@@ -91,7 +91,7 @@ export default async function RelevancePage(
       {adopted.length > 0 ? (
         <section className="rounded-md border border-slate-200 bg-white">
           <h2 className="border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700">
-            Übernommene Claims ({adopted.length})
+            Übernommene Aussagen ({adopted.length})
           </h2>
           <ul className="divide-y divide-slate-100">
             {adopted.map((claim) => (

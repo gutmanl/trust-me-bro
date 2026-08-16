@@ -22,9 +22,9 @@ export default async function WarmRunPage(
         <SubpageHeader projectId={id} title="Folgefrage (warmer Lauf)" />
         <p className="mt-1 text-sm text-slate-600">
           Ein warmer Lauf legt ein Folgeprojekt auf demselben Quellenbestand an:
-          abgeschlossene Claims werden mit Herkunftsvermerk übernommen, neu
+          abgeschlossene Aussagen werden mit Herkunftsvermerk übernommen, neu
           bewertet wird nur ihre Einschlägigkeit für die neue Frage – nicht
-          erneut Existenz und Attribution.
+          erneut Zitatprüfung und Belegprüfung.
         </p>
       </div>
 
@@ -34,7 +34,7 @@ export default async function WarmRunPage(
         </p>
         <p className="mt-1 text-slate-600">{summary.research_question}</p>
         <p className="mt-2 text-xs text-slate-500">
-          {settled} abgeschlossene(r) Claim(s) übernehmbar (
+          {settled} abgeschlossene Aussage(n) übernehmbar (
           {summary.claim_counts.confirmed} bestätigt,{" "}
           {summary.claim_counts.auto_confirmed} automatisch bestätigt,{" "}
           {summary.claim_counts.discarded} verworfen) · {summary.source_count}{" "}
@@ -44,7 +44,7 @@ export default async function WarmRunPage(
 
       {settled === 0 ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Noch keine abgeschlossenen Claims (bestätigt, automatisch bestätigt
+          Noch keine abgeschlossenen Aussagen (bestätigt, automatisch bestätigt
           oder verworfen) – es gibt nichts zu übernehmen.
         </p>
       ) : (

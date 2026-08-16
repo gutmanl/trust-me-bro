@@ -25,7 +25,7 @@ import { RELATION_LABEL_DE, STATUS_LABEL_DE } from "./status-display";
 function statusLabel(claim: Claim): string {
   switch (claim.status) {
     case "confirmed":
-      return "bestätigt (adjudiziert)";
+      return "bestätigt (manuell überprüft)";
     case "auto_confirmed":
       return "automatisch bestätigt (stichprobenweise nachprüfbar)";
     default:
@@ -123,17 +123,17 @@ export function renderBriefing(
     "",
     // Three states, not two: a briefing whose claims have not been extracted
     // yet has nothing open AND nothing checked, and calling that "IN PRÜFUNG
-    // – 0 Claim(s) offen" would be as misleading here as "GEPRÜFT" was
+    // – 0 Aussage(n) offen" would be as misleading here as "GEPRÜFT" was
     // before. This is the state every freshly imported briefing renders in,
     // since freezeBriefing writes this file before any claim exists.
     register.claims.length === 0
-      ? `**Prüfstand:** NICHT BEGONNEN – noch keine Claims aus dem Briefing extrahiert`
+      ? `**Prüfstand:** NICHT BEGONNEN – noch keine Aussagen aus dem Briefing erfasst`
       : view.isFullyAdjudicated
-        ? `**Prüfstand:** GEPRÜFT – kein Claim zur Adjudikation offen` +
+        ? `**Prüfstand:** GEPRÜFT – keine Aussage zur manuellen Überprüfung offen` +
           (view.unconfirmedCount > 0
-            ? ` (${view.unconfirmedCount} Claim(s) nicht bestätigt)`
+            ? ` (${view.unconfirmedCount} Aussage(n) nicht bestätigt)`
             : "")
-        : `**Prüfstand:** IN PRÜFUNG – ${view.openCount} Claim(s) zur Adjudikation offen`,
+        : `**Prüfstand:** IN PRÜFUNG – ${view.openCount} Aussage(n) zur manuellen Überprüfung offen`,
     "",
     ...(context.sharedModelFamily
       ? [
@@ -142,8 +142,8 @@ export function renderBriefing(
           // application.
           "**Hinweis zur Unabhängigkeit:** Briefing und Prüfung stammen aus" +
             " derselben Modellfamilie. Die Urteile der Stufen 2 und 3" +
-            " (Attributionsprüfung, Kalibrierung gegen die Rubrik) sind" +
-            " dadurch nicht unabhängig. Stufe 1 – die Existenzprüfung des" +
+            " (Belegprüfung, Bewertung gegen das Bewertungsschema) sind" +
+            " dadurch nicht unabhängig. Stufe 1 – die Zitatprüfung des" +
             " zitierten Wortlauts gegen das eingefrorene Dokument – ist" +
             " davon nicht betroffen.",
           "",
@@ -154,7 +154,7 @@ export function renderBriefing(
     // state, and after a repair the two deliberately differ.
     "Die Absätze geben den eingefrorenen Originalwortlaut des Briefings" +
       " wieder und bleiben unverändert. Die Markierungen darunter geben den" +
-      " geprüften Stand wieder; wurde ein Claim repariert, steht seine" +
+      " geprüften Stand wieder; wurde eine Aussage repariert, steht ihre" +
       " geprüfte Fassung dort ausdrücklich.",
     "",
     "---",
@@ -168,7 +168,7 @@ export function renderBriefing(
   }
 
   if (view.unanchored.length > 0) {
-    lines.push("", "---", "", "## Nicht zuordenbare Claims");
+    lines.push("", "---", "", "## Nicht zuordenbare Aussagen");
     for (const marker of view.unanchored) {
       lines.push(
         "",

@@ -358,7 +358,7 @@ describe("relevance check", () => {
       register.project_events.find(
         (event) => event.event === "relevance_run_completed",
       )?.reason,
-    ).toContain("2 zur Adjudikation");
+    ).toContain("2 zur manuellen Überprüfung");
   });
 
   it("escalates exhausted adapter calls and still closes the bracket", async () => {

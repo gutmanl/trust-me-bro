@@ -14,10 +14,10 @@ import type { ClaimStatus, RelationType } from "../schema/enums";
 
 export const STATUS_LABEL_DE: Record<ClaimStatus, string> = {
   captured: "erfasst",
-  existence_checked: "existenzgeprüft",
+  existence_checked: "Zitate geprüft",
   prechecked: "vorgeprüft",
   auto_confirmed: "automatisch bestätigt",
-  pending_adjudication: "zur Adjudikation",
+  pending_adjudication: "zur manuellen Überprüfung",
   confirmed: "bestätigt",
   contested: "beanstandet",
   revised: "überarbeitet",

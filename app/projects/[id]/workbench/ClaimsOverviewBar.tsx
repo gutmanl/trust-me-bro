@@ -92,12 +92,12 @@ export function ClaimsOverviewBar({
       }`}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">Claims</h2>
+        <h2 className="text-sm font-semibold text-slate-700">Aussagen</h2>
 
         {everQueued > 0 ? (
           <>
             <p className="text-sm text-slate-700">
-              {decided} von {everQueued} Claim{everQueued === 1 ? "" : "s"}{" "}
+              {decided} von {everQueued} Aussage{everQueued === 1 ? "" : "n"}{" "}
               entschieden
             </p>
             <div className="h-2 min-w-32 flex-1 overflow-hidden rounded-full bg-slate-200">
@@ -112,8 +112,8 @@ export function ClaimsOverviewBar({
         ) : (
           <p className="flex-1 text-sm text-slate-500">
             {totalClaims === 0
-              ? "Noch keine Claims – sie entstehen mit der Extraktion aus dem Briefing."
-              : "Kein Claim zur Adjudikation geroutet."}
+              ? "Noch keine Aussagen – sie entstehen mit der Aussagen-Erfassung aus dem Briefing."
+              : "Keine Aussage zur manuellen Überprüfung geroutet."}
           </p>
         )}
 
@@ -123,23 +123,23 @@ export function ClaimsOverviewBar({
             onClick={onJumpToNextOpen}
             className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
           >
-            Nächster offener Claim ↓
+            Nächste offene Aussage ↓
           </button>
         ) : null}
 
         {existenceCheckRunning ? (
           <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-            Existenzprüfung läuft …
+            Zitatprüfung läuft …
           </span>
         ) : openExistenceCount > 0 ? (
           <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">
-            {openExistenceCount} Claim(s) ohne Existenzprüfung
+            {openExistenceCount} Aussage(n) ohne Zitatprüfung
           </span>
         ) : null}
 
         {verificationRunning ? (
           <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-            Attribution &amp; Kalibrierung laufen …
+            KI-Prüfung läuft …
           </span>
         ) : startable ? (
           <form action={formAction}>
@@ -152,8 +152,8 @@ export function ClaimsOverviewBar({
                 ? "Wird gestartet …"
                 : verificationState.status === "interrupted" ||
                     verificationState.status === "halted"
-                  ? `Prüfung fortsetzen (${verificationState.openClaims} Claim(s) offen)`
-                  : "Attribution & Kalibrierung starten"}
+                  ? `Prüfung fortsetzen (${verificationState.openClaims} Aussage(n) offen)`
+                  : "KI-Prüfung starten"}
             </button>
           </form>
         ) : null}
@@ -188,7 +188,7 @@ export function ClaimsOverviewBar({
       {verificationState.status === "interrupted" ? (
         <p className="mt-2 text-xs text-amber-700">
           Prüflauf unterbrochen – über „Prüfung fortsetzen“ wieder aufnehmen;
-          fortgesetzt wird nur mit den offenen Claims.
+          fortgesetzt wird nur mit den offenen Aussagen.
         </p>
       ) : verificationState.reason !== undefined &&
         (verificationState.status === "halted" ||
@@ -201,7 +201,7 @@ export function ClaimsOverviewBar({
           }`}
         >
           {verificationState.status === "halted"
-            ? "Prüflauf angehalten – es verbleiben offene Claims. "
+            ? "Prüflauf angehalten – es verbleiben offene Aussagen. "
             : "Letzter Prüflauf: "}
           {verificationState.reason}
         </p>

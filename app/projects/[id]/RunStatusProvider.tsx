@@ -24,13 +24,13 @@ import type { ActiveRunStatus, ProjectActivity } from "@/lib/pipeline";
  * server-side where the target is known. tests/run-kind-labels.test.ts pins
  * the two maps against each other so they cannot drift. */
 const RUN_KIND_LABELS: Record<string, string> = {
-  extraction: "Extraktion",
-  verification: "Prüflauf",
+  extraction: "Aussagen-Erfassung",
+  verification: "KI-Prüfung",
   reference_scan: "Referenz-Scan",
   source_capture: "Quellenerfassung",
   research: "Recherche",
   relevance: "Relevanzprüfung",
-  existence_check: "Existenzprüfung",
+  existence_check: "Zitatprüfung",
 };
 
 export function runKindLabel(kind: string | null): string {

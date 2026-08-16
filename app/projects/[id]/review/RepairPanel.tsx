@@ -235,7 +235,7 @@ export function RepairPanel({
               onClick={() => setDiscardOpen(true)}
               className="text-xs text-red-700 underline decoration-red-300 hover:decoration-red-600"
             >
-              Claim verwerfen (bleibt mit Begründung im Register sichtbar)
+              Aussage verwerfen (bleibt mit Begründung im Register sichtbar)
             </button>
           )}
         </div>

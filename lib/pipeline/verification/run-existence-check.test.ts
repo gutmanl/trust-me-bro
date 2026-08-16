@@ -130,7 +130,7 @@ describe("startExistenceCheck", () => {
         claimId,
         passed: true,
         message:
-          "Existenzprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+          "Zitatprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
       },
     ]);
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
@@ -163,7 +163,7 @@ describe("startExistenceCheck", () => {
         claimId,
         passed: false,
         message:
-          "Existenzprüfung nicht bestanden (1 Fundstelle(n)) – zur Adjudikation.",
+          "Zitatprüfung nicht bestanden (1 Fundstelle(n)) – zur manuellen Überprüfung.",
       },
     ]);
   });

@@ -164,7 +164,7 @@ describe("full project lifecycle", () => {
             ],
           },
           actor: "system:extraction",
-          reason: "Aus Briefing-Absatz p2 extrahiert.",
+          reason: "Aus Briefing-Absatz p2 erfasst.",
           at: "2026-08-06T08:10:00Z",
         });
         tx.addClaim({
@@ -227,7 +227,8 @@ describe("full project lifecycle", () => {
         tx.transitionClaim("clm_0001", {
           to: "auto_confirmed",
           actor: "system:adjudication_gate",
-          reason: "Durchgehend positiv, keine Divergenz, Rubrik lizenziert.",
+          reason:
+            "Durchgehend positiv, keine Divergenz, Bewertung freigegeben.",
           at: "2026-08-06T09:10:01Z",
         });
       });
@@ -335,8 +336,10 @@ describe("full project lifecycle", () => {
       expect(
         fs.readFileSync(path.join(projectDir, "briefing.md"), "utf8"),
       ).toBe(rendered);
-      expect(rendered).toContain("GEPRÜFT – kein Claim zur Adjudikation offen");
-      expect(rendered).toContain("bestätigt (adjudiziert)");
+      expect(rendered).toContain(
+        "GEPRÜFT – keine Aussage zur manuellen Überprüfung offen",
+      );
+      expect(rendered).toContain("bestätigt (manuell überprüft)");
       expect(rendered).toContain("NICHT BESTÄTIGT – Status: verworfen");
       expect(await store.renderBriefingFile()).toBe(rendered);
 

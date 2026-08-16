@@ -9,10 +9,10 @@ import type {
 /** German display labels of the ASCII-transliterated status enum. */
 export const STATUS_LABELS: Record<ClaimStatus, string> = {
   captured: "erfasst",
-  existence_checked: "existenzgeprüft",
+  existence_checked: "Zitate geprüft",
   prechecked: "vorgeprüft",
   auto_confirmed: "automatisch bestätigt",
-  pending_adjudication: "zur Adjudikation",
+  pending_adjudication: "zur manuellen Überprüfung",
   confirmed: "bestätigt",
   contested: "beanstandet",
   revised: "überarbeitet",
@@ -56,9 +56,9 @@ export const SUPPORT_LABELS: Record<SupportDegree, string> = {
 };
 
 export const CALIBRATION_LABELS: Record<CalibrationResult, string> = {
-  licensed: "lizenziert",
+  licensed: "freigegeben",
   weakened: "abschwächen",
-  pending_adjudication: "zur Adjudikation",
+  pending_adjudication: "zur manuellen Überprüfung",
 };
 
 /** Status pill styling (amber = awaiting adjudication, green = confirmed,

@@ -74,8 +74,8 @@ export async function runStage1ForClaim(
       actor: ACTOR_STAGE1,
       reason:
         failures.length === 0
-          ? "Existenzprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen."
-          : `Existenzprüfung nicht bestanden: ${failures
+          ? "Zitatprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen."
+          : `Zitatprüfung nicht bestanden: ${failures
               .map((failure) => failure.detail)
               .join(" ")}`,
       ...(failures.length > 0

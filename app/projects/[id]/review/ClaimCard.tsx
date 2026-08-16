@@ -140,14 +140,14 @@ export function ClaimCard({
         <div className="space-y-4 border-t border-slate-100 px-3 pt-3 pb-3">
           <div>
             <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-              Leitsatz (Claim)
+              Leitsatz (Aussage)
             </h3>
             <p className="mt-1 text-sm text-slate-800">{claim.text}</p>
           </div>
 
           {claim.evidence.length === 0 ? (
             <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Ohne Fundstelle extrahiert – dieser Claim hat keinen Beleg.
+              Ohne Fundstelle erfasst – diese Aussage hat keinen Beleg.
             </p>
           ) : (
             claim.evidence.map((evidence, index) => (
@@ -164,7 +164,7 @@ export function ClaimCard({
           {claim.support_degree || claim.calibration_result ? (
             <details className="rounded-md border border-slate-200">
               <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600">
-                Automatische Vorprüfung des Claims
+                Automatische Vorprüfung der Aussage
                 {verdict ? (
                   <span
                     className={`ml-2 rounded-full px-2 py-0.5 ${verdictBadgeClassName(verdict.severity)}`}
@@ -187,7 +187,7 @@ export function ClaimCard({
                 {claim.calibration_result ? (
                   <div>
                     <dt className="inline text-slate-500">
-                      Kalibrierung (Rubrik):{" "}
+                      Bewertung (Schema):{" "}
                     </dt>
                     <dd className="inline">
                       {CALIBRATION_LABELS[claim.calibration_result]}
@@ -342,7 +342,7 @@ function EvidenceCard({
                 : "text-red-700"
             }`}
           >
-            Existenzprüfung:{" "}
+            Zitatprüfung:{" "}
             {evidence.existence_check.status === "passed"
               ? "bestanden"
               : "nicht bestanden"}

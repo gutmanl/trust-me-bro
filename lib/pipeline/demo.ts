@@ -140,7 +140,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
         ],
       },
       actor: SEED_ACTOR,
-      reason: "Beispielprojekt: aus Absatz p2 extrahiert.",
+      reason: "Beispielprojekt: aus Absatz p2 erfasst.",
     });
     tx.addClaim({
       claim: {
@@ -165,7 +165,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
         ],
       },
       actor: SEED_ACTOR,
-      reason: "Beispielprojekt: aus Absatz p3 extrahiert.",
+      reason: "Beispielprojekt: aus Absatz p3 erfasst.",
     });
     tx.addClaim({
       claim: {
@@ -183,7 +183,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
       },
       actor: SEED_ACTOR,
       reason:
-        "Beispielprojekt: keine Fundstelle extrahierbar – der Claim geht ohne Beleg in die Adjudikation.",
+        "Beispielprojekt: keine Fundstelle erfassbar – die Aussage geht ohne Beleg in die manuelle Überprüfung.",
     });
   });
 
@@ -219,7 +219,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
     tx.transitionClaim("clm_demo1", {
       to: "auto_confirmed",
       actor: SEED_ACTOR,
-      reason: "Durchgehend positiv, Rubrik lizenziert.",
+      reason: "Durchgehend positiv, Bewertung freigegeben.",
     });
 
     tx.setExistenceCheck("clm_demo2", "ev_demo2", {
@@ -273,7 +273,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
       to: "pending_adjudication",
       actor: SEED_ACTOR,
       reason:
-        "Konfidenz unter der Schwelle und Rubrik nicht lizenziert – keine automatische Bestätigung.",
+        "Konfidenz unter der Schwelle und Bewertung nicht freigegeben – keine automatische Bestätigung.",
     });
     // clm_demo3 is already in pending_adjudication: a claim added without
     // evidence enters there directly (the null → pending_adjudication edge),

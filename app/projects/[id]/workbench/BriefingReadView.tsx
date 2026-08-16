@@ -60,9 +60,9 @@ export function BriefingReadView({
       {briefing.isFullyAdjudicated ? (
         <div className="mb-6">
           <SuccessBanner>
-            Briefing geprüft – kein Claim zur Adjudikation offen
+            Briefing geprüft – keine Aussage zur manuellen Überprüfung offen
             {briefing.unconfirmedCount > 0
-              ? ` (${briefing.unconfirmedCount} Claim(s) nicht bestätigt)`
+              ? ` (${briefing.unconfirmedCount} Aussage(n) nicht bestätigt)`
               : ""}
             .
           </SuccessBanner>
@@ -139,10 +139,10 @@ export function BriefingReadView({
       {briefing.unanchored.length > 0 ? (
         <div className="mt-10 border-t border-slate-200 pt-6">
           <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-            Nicht zuordenbare Claims
+            Nicht zuordenbare Aussagen
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Die Anker dieser Claims verweisen auf keinen Absatz des Briefings.
+            Die Anker dieser Aussagen verweisen auf keinen Absatz des Briefings.
           </p>
           <div className="mt-3 max-w-xl space-y-3">
             {briefing.unanchored.map((marker) => (

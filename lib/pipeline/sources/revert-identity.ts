@@ -108,7 +108,7 @@ export async function revertSourceIdentity(
       reason:
         `Kennungskorrektur von ${sourceId} zurückgenommen – frühere ` +
         `Kennung und zugehöriges Dokument wiederhergestellt, ` +
-        `${recheckedClaimIds.length} Claim(s) zur Nachprüfung markiert.`,
+        `${recheckedClaimIds.length} Aussage(n) zur Nachprüfung markiert.`,
       at: now,
     });
     const reverted = tx.listSources().find((entry) => entry.id === sourceId);

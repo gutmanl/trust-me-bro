@@ -87,7 +87,7 @@ async function start(
   const briefing = register.project.briefing_import;
   if (!briefing) {
     throw new ExtractionPreconditionError(
-      "Vor der Extraktion muss das Briefing importiert sein.",
+      "Vor der Aussagen-Erfassung muss das Briefing importiert sein.",
     );
   }
   const target =
@@ -158,7 +158,7 @@ async function runPassOnce(
   await store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "batch_run_started",
-      reason: `Claim-Extraktion gestartet (${scope}, Backend ${backendId}, Lauf ${runId}).`,
+      reason: `Aussagen-Erfassung gestartet (${scope}, Backend ${backendId}, Lauf ${runId}).`,
       actor: ACTOR,
       ...(target !== null ? { source_id: target.id } : {}),
     });
@@ -195,7 +195,7 @@ async function runPassOnce(
     const message =
       outcome.status === "paused"
         ? `Lauf pausiert (Rate-Limit): ${outcome.reason} – später erneut starten.`
-        : `Extraktion nach ${outcome.attempts} Versuch(en) erschöpft: ${outcome.lastError.message}`;
+        : `Aussagen-Erfassung nach ${outcome.attempts} Versuch(en) erschöpft: ${outcome.lastError.message}`;
     await recordFailedCompletion(store, scope, runId, message, target?.id);
     return { outcome: "failed", created: 0, merged: 0, message };
   }
@@ -220,8 +220,8 @@ async function runPassOnce(
       created: summary.created,
       merged: summary.merged,
       message:
-        `${summary.created} neue(r) Claim(s), ${summary.merged} zusätzliche ` +
-        `Fundstelle(n), ${summary.recheckPulled.length} Claim(s) zur Nachprüfung.` +
+        `${summary.created} neue Aussage(n), ${summary.merged} zusätzliche ` +
+        `Fundstelle(n), ${summary.recheckPulled.length} Aussage(n) zur Nachprüfung.` +
         (summary.droppedUnknownSourceEvidence > 0
           ? ` ${summary.droppedUnknownSourceEvidence} Fundstelle(n) mit ` +
             "unbekannter Quellen-Id verworfen."
@@ -231,7 +231,7 @@ async function runPassOnce(
     // The register rejected the bundle as a whole (unknown source
     // references, schema violations, a forbidden transition) — nothing was
     // written; the completion event documents the model violation.
-    const message = `Extraktionsergebnis vom Register zurückgewiesen: ${
+    const message = `Erfassungsergebnis vom Register zurückgewiesen: ${
       error instanceof Error ? error.message : String(error)
     }`;
     await recordFailedCompletion(store, scope, runId, message, target?.id);

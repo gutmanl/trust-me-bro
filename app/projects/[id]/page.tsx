@@ -234,7 +234,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         verificationState={getVerificationState(id, register)}
         verificationBlockedReason={
           register.claims.length === 0
-            ? "Vor der Prüfung müssen Claims extrahiert sein."
+            ? "Vor der Prüfung müssen Aussagen erfasst sein."
             : null
         }
         sources={sources}
@@ -268,7 +268,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
               href={`/projects/${summary.id}/relevance`}
               className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
             >
-              Einschlägigkeit der übernommenen Claims prüfen (
+              Einschlägigkeit der übernommenen Aussagen prüfen (
               {summary.adopted_claims} übernommen)
             </Link>
           ) : null}
@@ -322,9 +322,9 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         </p>
         {summary.claim_counts.pending_adjudication > 0 ? (
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Hinweis: {summary.claim_counts.pending_adjudication} Claim(s) sind
-            noch zur Adjudikation offen. Ein jetzt erzeugtes Bundle gibt einen
-            Zwischenstand wieder, nicht das abgeschlossene Ergebnis.
+            Hinweis: {summary.claim_counts.pending_adjudication} Aussage(n) sind
+            noch zur manuellen Überprüfung offen. Ein jetzt erzeugtes Bundle
+            gibt einen Zwischenstand wieder, nicht das abgeschlossene Ergebnis.
           </p>
         ) : null}
         <ul className="mt-3 space-y-2 text-sm">

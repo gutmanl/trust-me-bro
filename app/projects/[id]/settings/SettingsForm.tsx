@@ -133,7 +133,7 @@ export function SettingsForm({
             htmlFor="rubric_version"
             className="mb-1 block text-sm font-medium"
           >
-            Rubrikversion
+            Version des Bewertungsschemas
           </label>
           <input
             id="rubric_version"

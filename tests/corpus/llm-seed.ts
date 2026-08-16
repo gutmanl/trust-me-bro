@@ -161,6 +161,6 @@ export const JUDGMENT_SEED = {
   },
   rubric: {
     calibration_result: "licensed",
-    reasoning: "Die Mindestevidenz der Rubrik liegt vor.",
+    reasoning: "Die Mindestbelege des Bewertungsschemas liegen vor.",
   },
 } satisfies Partial<{ [K in JobKind]: unknown }>;

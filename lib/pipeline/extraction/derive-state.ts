@@ -26,11 +26,23 @@ import type { ClaimsRegister } from "../../register";
 export const EXTRACTION_ACTOR = "system:extraction" as const;
 
 /** Prefix of the completion reason of a pass that committed its result. */
-export const EXTRACTION_COMPLETED_PREFIX = "Claim-Extraktion abgeschlossen";
+export const EXTRACTION_COMPLETED_PREFIX = "Aussagen-Erfassung abgeschlossen";
 
 /** Prefix of the completion reason of a pass that produced nothing (backend
  * exhausted, rate-limited, or a bundle the register rejected as a whole). */
-export const EXTRACTION_FAILED_PREFIX = "Claim-Extraktion ohne Ergebnis";
+export const EXTRACTION_FAILED_PREFIX = "Aussagen-Erfassung ohne Ergebnis";
+
+/** Failed prefix as written before the display-tier rename — registers are
+ * append-only, so events carrying it exist forever and must keep deriving
+ * as failures. */
+const LEGACY_FAILED_PREFIX = "Claim-Extraktion ohne Ergebnis";
+
+function isFailedReason(reason: string): boolean {
+  return (
+    reason.startsWith(EXTRACTION_FAILED_PREFIX) ||
+    reason.startsWith(LEGACY_FAILED_PREFIX)
+  );
+}
 
 export interface ExtractionActivity {
   running: boolean;
@@ -55,9 +67,7 @@ export function deriveExtractionActivity(
   }
   return {
     running: runnerRunning,
-    lastOutcome: lastCompleted.reason.startsWith(EXTRACTION_FAILED_PREFIX)
-      ? "failed"
-      : "completed",
+    lastOutcome: isFailedReason(lastCompleted.reason) ? "failed" : "completed",
     lastMessage: lastCompleted.reason,
   };
 }
@@ -84,9 +94,7 @@ export function deriveSourceExtractionOutcomes(
       continue;
     }
     outcomes.set(event.source_id, {
-      outcome: event.reason.startsWith(EXTRACTION_FAILED_PREFIX)
-        ? "failed"
-        : "completed",
+      outcome: isFailedReason(event.reason) ? "failed" : "completed",
       message: event.reason,
     });
   }

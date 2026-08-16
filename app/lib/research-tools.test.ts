@@ -46,7 +46,7 @@ describe("assessResearchQuestion", () => {
     ).toEqual([
       {
         severity: "warnung",
-        text: "Das klingt nach mehreren Fragen. Ein Projekt prüft genau eine Frage – weitere Fragen als eigene Projekte anlegen (Atomarität, wie später bei den Claims).",
+        text: "Das klingt nach mehreren Fragen. Ein Projekt prüft genau eine Frage – weitere Fragen als eigene Projekte anlegen (Atomarität, wie später bei den Aussagen).",
       },
     ]);
   });
@@ -57,7 +57,7 @@ describe("assessResearchQuestion", () => {
     );
     expect(hints).toContainEqual({
       severity: "warnung",
-      text: "Das klingt nach mehreren Fragen. Ein Projekt prüft genau eine Frage – weitere Fragen als eigene Projekte anlegen (Atomarität, wie später bei den Claims).",
+      text: "Das klingt nach mehreren Fragen. Ein Projekt prüft genau eine Frage – weitere Fragen als eigene Projekte anlegen (Atomarität, wie später bei den Aussagen).",
     });
   });
 
@@ -186,7 +186,7 @@ describe("RESEARCH_TOOLS", () => {
         url: "https://consensus.app",
         mode: "Frage direkt stellen; Ergebnisansicht mit Papers und DOI-Angaben nutzen",
         strengths:
-          "Evidenzfokus: aggregiert empirische Befunde aus begutachteten Studien",
+          "Belegfokus: aggregiert empirische Befunde aus begutachteten Studien",
         caveats:
           "Liefert Antworten je Einzelfrage statt eines Fließtext-Briefings – Ergebnisse selbst zu Absätzen zusammenführen",
       },

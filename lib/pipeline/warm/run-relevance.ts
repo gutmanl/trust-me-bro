@@ -85,7 +85,7 @@ export async function startRelevanceCheck(
     deriveRelevanceState(register, false).status === "interrupted";
   if (population.length === 0 && !interrupted) {
     throw new RelevancePreconditionError(
-      "Keine übernommenen Claims ohne Einschlägigkeitsprüfung – " +
+      "Keine übernommenen Aussagen ohne Einschlägigkeitsprüfung – " +
         "nichts zu prüfen.",
     );
   }
@@ -199,7 +199,7 @@ async function recordStartedOnce(
   await context.store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "relevance_run_started",
-      reason: `Einschlägigkeitsprüfung gestartet: ${context.totalEligible} Claim(s) (Lauf ${runId}).`,
+      reason: `Einschlägigkeitsprüfung gestartet: ${context.totalEligible} Aussage(n) (Lauf ${runId}).`,
       actor: ACTOR_RUN,
     });
   });
@@ -258,7 +258,7 @@ async function processClaim(
       claimId,
       outcome: "paused",
       message:
-        `Lauf pausiert (Rate-Limit): ${outcome.reason} – Claim unverändert, ` +
+        `Lauf pausiert (Rate-Limit): ${outcome.reason} – Aussage unverändert, ` +
         "später erneut starten.",
     };
   }
@@ -275,7 +275,7 @@ async function processClaim(
     return {
       claimId,
       outcome: "escalated",
-      message: `Adapter erschöpft – zur Adjudikation eskaliert (${outcome.lastError.message}).`,
+      message: `Adapter erschöpft – zur manuellen Überprüfung eskaliert (${outcome.lastError.message}).`,
     };
   }
 
@@ -302,7 +302,7 @@ async function processClaim(
   return {
     claimId,
     outcome: "pending_adjudication",
-    message: `Einschlägigkeit ${verdict} – zur Adjudikation.`,
+    message: `Einschlägigkeit ${verdict} – zur manuellen Überprüfung.`,
   };
 }
 
@@ -332,13 +332,13 @@ async function closeBracket(
       event: "relevance_run_completed",
       reason:
         `Einschlägigkeitsprüfung abgeschlossen (Lauf ${runId}): ` +
-        `${bracket.kept} einschlägig, ${bracket.routed} zur Adjudikation, ` +
+        `${bracket.kept} einschlägig, ${bracket.routed} zur manuellen Überprüfung, ` +
         `${bracket.escalated} eskaliert, ${bracket.errors} Fehler.`,
       actor: ACTOR_RUN,
     });
   });
   return {
     outcome: "closed",
-    message: `${bracket.kept} einschlägig, ${bracket.routed} zur Adjudikation, ${bracket.escalated} eskaliert.`,
+    message: `${bracket.kept} einschlägig, ${bracket.routed} zur manuellen Überprüfung, ${bracket.escalated} eskaliert.`,
   };
 }

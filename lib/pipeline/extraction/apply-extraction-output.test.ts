@@ -138,7 +138,7 @@ describe("applyExtractionOutput — creation and anchoring", () => {
     expect(claim.provenance).toMatchObject({
       tool: "claude",
       model: "claude-sonnet-5",
-      search_path: "Extraktionslauf lauf-1",
+      search_path: "Erfassungslauf lauf-1",
     });
   });
 

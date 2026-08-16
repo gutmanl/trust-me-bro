@@ -87,7 +87,7 @@ function verbatimProof(
       match: "none",
       detail:
         `Kein Text-Blob für Quelle ${source.id} ` +
-        `(Extraktion gescheitert: ${snapshot.text_extraction_error ?? "unbekannt"}) – ` +
+        `(Volltextextraktion gescheitert: ${snapshot.text_extraction_error ?? "unbekannt"}) – ` +
         "Wortlaut nicht nachweisbar.",
     };
   }

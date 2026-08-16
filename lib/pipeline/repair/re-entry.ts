@@ -45,7 +45,7 @@ export function decideReEntry(
       target: "existence_checked",
       reason:
         "Fundstellen unverändert und bereits nachgewiesen – Stufe 1 " +
-        "übersprungen, Attribution und Kalibrierung prüfen die Neufassung.",
+        "übersprungen, Belegprüfung und Bewertung prüfen die Neufassung.",
     };
   }
   return {

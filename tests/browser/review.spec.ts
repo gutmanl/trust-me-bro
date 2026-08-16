@@ -77,8 +77,10 @@ test.describe("the workbench", () => {
     // Both claims, each carrying the German label of its English enum value.
     await expect(page.getByText("clm_0001")).toBeVisible();
     await expect(page.getByText("clm_0002")).toBeVisible();
-    await expect(page.getByText("existenzgeprüft").first()).toBeVisible();
-    await expect(page.getByText("zur Adjudikation").first()).toBeVisible();
+    await expect(page.getByText("Zitate geprüft").first()).toBeVisible();
+    await expect(
+      page.getByText("zur manuellen Überprüfung").first(),
+    ).toBeVisible();
 
     // The captured source, under the identity the resolver returned.
     // Exact match: the title also appears inside the briefing's footnote
@@ -135,7 +137,7 @@ test.describe("adjudication", () => {
     // not in the frozen document, and the card says so.
     await openClaim(page, "clm_0002");
     await expect(
-      page.getByText("Existenzprüfung nicht bestanden").first(),
+      page.getByText("Zitatprüfung nicht bestanden").first(),
     ).toBeVisible();
 
     const confirm = page.getByRole("button", { name: "Bestätigen" });

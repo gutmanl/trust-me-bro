@@ -188,7 +188,7 @@ export async function repairBriefingPassage(
   );
   if (paragraph === undefined) {
     throw new AnchorPreconditionError(
-      "Dieser Claim ist keinem Absatz des Briefings zugeordnet – " +
+      "Diese Aussage ist keinem Absatz des Briefings zugeordnet – " +
         "zuerst den Anker korrigieren, dann die Passage.",
     );
   }
@@ -197,6 +197,6 @@ export async function repairBriefingPassage(
   revised[paragraph.index] = newParagraphText.trim();
   await publishBriefingRevision(projectId, {
     text: revised.join("\n\n"),
-    reason: `Briefing-Passage zu Claim ${claimId} korrigiert (Arbeitsbereich).`,
+    reason: `Briefing-Passage zu Aussage ${claimId} korrigiert (Arbeitsbereich).`,
   });
 }

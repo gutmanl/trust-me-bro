@@ -162,7 +162,7 @@ export function BriefingEditView({
       <p className="text-xs text-slate-500">
         Veröffentlichen schreibt eine neue Briefing-Revision in die
         Append-only-Historie; die bisherige Fassung bleibt erhalten. Anker von
-        Claims, deren zitierter Wortlaut sich verschoben hat, werden dabei
+        Aussagen, deren zitierter Wortlaut sich verschoben hat, werden dabei
         automatisch nachgeführt.
       </p>
     </div>

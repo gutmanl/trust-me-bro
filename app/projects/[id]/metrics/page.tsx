@@ -38,8 +38,8 @@ export default async function MetricsPage(
         <p className="mt-1 text-sm text-slate-600">
           Alle Messgrößen werden bei jedem Aufruf aus dem Verlauf berechnet und
           bewusst nicht gespeichert – der fortschreibende Verlauf bleibt die
-          einzige Quelle. Stichproben-Adjudikationen (RQ3-Kontrolle) sind
-          separat ausgewiesen.
+          einzige Quelle. Stichproben-Überprüfungen (RQ3-Kontrolle) sind separat
+          ausgewiesen.
         </p>
       </div>
 
@@ -48,13 +48,13 @@ export default async function MetricsPage(
           Nachweisvollständigkeit
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Anteil der Claims mit mindestens einer gegen das eingefrorene Dokument
-          existenzgeprüften Fundstelle – nicht die vollständige Herkunft jeder
-          Aussage.
+          Anteil der Aussagen mit mindestens einer gegen das eingefrorene
+          Dokument zitatgeprüften Fundstelle – nicht die vollständige Herkunft
+          jeder Aussage.
         </p>
         <dl className="mt-3 grid grid-cols-3 gap-3">
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
-            <dt className="text-xs text-slate-500">Claims gesamt</dt>
+            <dt className="text-xs text-slate-500">Aussagen gesamt</dt>
             <dd className="text-lg font-semibold">
               {metrics.evidence_completeness.total_claims}
             </dd>
@@ -78,12 +78,12 @@ export default async function MetricsPage(
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">
-          Nachweiskorrektheit (nach Adjudikation)
+          Nachweiskorrektheit (nach manueller Überprüfung)
         </h2>
         <p className="mt-1 text-xs text-slate-500">
           Verteilung der Unterstützungsgrade über die{" "}
           {metrics.evidence_correctness.total_terminal} menschlich
-          abgeschlossenen Claims (bestätigt/verworfen).
+          abgeschlossenen Aussagen (bestätigt/verworfen).
         </p>
         <dl className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
           {SUPPORT_ORDER.map((degree) => (
@@ -112,7 +112,7 @@ export default async function MetricsPage(
         <h2 className="text-sm font-semibold text-slate-700">Prüfaufwand</h2>
         <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
-            <dt className="text-xs text-slate-500">Adjudikationen</dt>
+            <dt className="text-xs text-slate-500">Manuelle Überprüfungen</dt>
             <dd className="text-lg font-semibold">
               {metrics.review_effort.total_decisions}
             </dd>
@@ -124,7 +124,9 @@ export default async function MetricsPage(
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
-            <dt className="text-xs text-slate-500">Ø je Adjudikation</dt>
+            <dt className="text-xs text-slate-500">
+              Ø je manueller Überprüfung
+            </dt>
             <dd className="text-lg font-semibold">
               {formatSeconds(metrics.review_effort.mean_duration_s)}
             </dd>
@@ -138,12 +140,12 @@ export default async function MetricsPage(
         </dl>
         <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           Stichprobenkontrolle (separat, RQ3):{" "}
-          {metrics.spot_check.total_decisions} Adjudikation(en),{" "}
+          {metrics.spot_check.total_decisions} manuelle Überprüfung(en),{" "}
           {formatSeconds(metrics.spot_check.total_duration_s)}
           {metrics.spot_check.claim_ids.length > 0 ? (
             <>
               {" "}
-              – Claims{" "}
+              – Aussagen{" "}
               <span className="font-mono">
                 {metrics.spot_check.claim_ids.join(", ")}
               </span>
@@ -193,7 +195,7 @@ export default async function MetricsPage(
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">Export</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Der Export enthält die Rohwerte je Claim, nicht nur Aggregate.
+          Der Export enthält die Rohwerte je Aussage, nicht nur Aggregate.
         </p>
         <ul className="mt-2 flex flex-wrap gap-x-4 text-sm">
           <li>
@@ -218,17 +220,19 @@ export default async function MetricsPage(
       {metrics.rows.length > 0 ? (
         <section className="rounded-md border border-slate-200 bg-white">
           <h2 className="border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700">
-            Rohwerte je Claim ({metrics.rows.length})
+            Rohwerte je Aussage ({metrics.rows.length})
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 text-slate-500">
-                  <th className="px-4 py-2 font-medium">Claim</th>
+                  <th className="px-4 py-2 font-medium">Aussage</th>
                   <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium">Fundstelle</th>
                   <th className="px-4 py-2 font-medium">Grad</th>
-                  <th className="px-4 py-2 font-medium">Adjudikationen</th>
+                  <th className="px-4 py-2 font-medium">
+                    Manuelle Überprüfungen
+                  </th>
                   <th className="px-4 py-2 font-medium">Dauer</th>
                   <th className="px-4 py-2 font-medium">Zyklen</th>
                   <th className="px-4 py-2 font-medium">Stichprobe</th>

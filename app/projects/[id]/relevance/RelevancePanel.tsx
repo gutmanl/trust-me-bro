@@ -20,9 +20,9 @@ const initialState: RelevanceFormState = { error: null };
 function describeProgress(event: Record<string, unknown>): string | null {
   switch (event.type) {
     case "run_started":
-      return "Einschlägigkeitsprüfung gestartet – übernommene Claims werden gegen die neue Frage bewertet.";
+      return "Einschlägigkeitsprüfung gestartet – übernommene Aussagen werden gegen die neue Frage bewertet.";
     case "item_started":
-      return `Claim ${String(event.itemId ?? "")} wird bewertet …`;
+      return `Aussage ${String(event.itemId ?? "")} wird bewertet …`;
     case "item_completed": {
       const outcome = event.outcome as
         | { status: string; result?: { message?: string }; error?: string }
@@ -33,15 +33,15 @@ function describeProgress(event: Record<string, unknown>): string | null {
       return `Schritt fehlgeschlagen: ${outcome?.error ?? "unbekannt"}`;
     }
     case "run_pause_requested":
-      return "Pause angefordert – der laufende Claim wird noch abgeschlossen …";
+      return "Pause angefordert – die laufende Aussage wird noch abgeschlossen …";
     case "run_paused":
-      return "Lauf pausiert. Fortsetzen startet beim nächsten offenen Claim.";
+      return "Lauf pausiert. Fortsetzen startet bei der nächsten offenen Aussage.";
     case "run_resumed":
       return "Lauf fortgesetzt.";
     case "run_cancel_requested":
-      return "Abbruch angefordert – der laufende Claim wird noch abgeschlossen …";
+      return "Abbruch angefordert – die laufende Aussage wird noch abgeschlossen …";
     case "run_cancelled":
-      return "Lauf abgebrochen – alle abgeschlossenen Claims bleiben erhalten.";
+      return "Lauf abgebrochen – alle abgeschlossenen Aussagen bleiben erhalten.";
     case "run_completed":
       return "Lauf beendet.";
     default:

@@ -220,7 +220,7 @@ export function applyExtractionOutput(
           tool: meta.backendId,
           model: meta.model,
           extracted_at: now,
-          search_path: `Extraktionslauf ${meta.runId}`,
+          search_path: `Erfassungslauf ${meta.runId}`,
         },
         evidence,
       },
@@ -254,11 +254,11 @@ export function applyExtractionOutput(
         ? extracted.evidence.length > 0
           ? "Alle Fundstellen nannten unbekannte Quellen-Ids " +
             "(mutmaßlich halluzinierte Referenzen) und wurden verworfen – " +
-            "unbelegter Claim zur Adjudikation."
-          : "Keine Fundstelle extrahierbar – unbelegter Claim zur Adjudikation."
+            "unbelegte Aussage zur manuellen Überprüfung."
+          : "Keine Fundstelle erfassbar – unbelegte Aussage zur manuellen Überprüfung."
         : isAtomicClaimText(extracted.text)
-          ? `Aus dem Briefing extrahiert (${scope}).`
-          : "Atomaritätsgate: Extraktionsergebnis bündelt mehrere Aussagen – zur Adjudikation.";
+          ? `Aus dem Briefing erfasst (${scope}).`
+          : "Atomaritätsgate: Erfassungsergebnis bündelt mehrere Aussagen – zur manuellen Überprüfung.";
     create({
       text: extracted.text,
       claim_type: extracted.claim_type,
@@ -295,8 +295,8 @@ export function applyExtractionOutput(
       quote: additional.claim_text_match,
       evidence: [additional.evidence],
       reason:
-        `Zusatzfundstelle ohne zuordenbaren Claim (${scope}) – ` +
-        "als neuer Claim aufgenommen; Aussage und Claim-Typ prüfen.",
+        `Zusatzfundstelle ohne zuordenbare Aussage (${scope}) – ` +
+        "als neue Aussage aufgenommen; Wortlaut und Aussagen-Typ prüfen.",
     });
   }
 
@@ -322,9 +322,9 @@ export function applyExtractionOutput(
     event: "batch_run_completed",
     reason:
       `${EXTRACTION_COMPLETED_PREFIX} (${scope}, Lauf ${meta.runId}): ` +
-      `${created} neue(r) Claim(s), davon ${escalated} zur Adjudikation; ` +
-      `${merged} zusätzliche Fundstelle(n) an bestehenden Claims; ` +
-      `${recheckPulled.length} Claim(s) zur Nachprüfung.` +
+      `${created} neue Aussage(n), davon ${escalated} zur manuellen Überprüfung; ` +
+      `${merged} zusätzliche Fundstelle(n) an bestehenden Aussagen; ` +
+      `${recheckPulled.length} Aussage(n) zur Nachprüfung.` +
       (droppedUnknownSourceEvidence > 0
         ? ` ${droppedUnknownSourceEvidence} Fundstelle(n) mit unbekannter ` +
           `Quellen-Id verworfen (${[...droppedSourceIds].join(", ")}).`

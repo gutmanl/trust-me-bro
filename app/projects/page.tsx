@@ -99,7 +99,7 @@ export default async function ProjectsPage() {
                   ) : null}
                   {project.is_demo ? <DemoProjectBadge /> : null}
                   <span>· {project.source_count} Quelle(n)</span>
-                  <span>· {project.total_claims} Claim(s)</span>
+                  <span>· {project.total_claims} Aussage(n)</span>
                   {STATUS_ORDER.filter(
                     (status) => project.claim_counts[status] > 0,
                   ).map((status) => (

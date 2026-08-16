@@ -44,18 +44,18 @@ export async function decideClaim(
     const claim = tx.listClaims().find((candidate) => candidate.id === claimId);
     if (!claim) {
       throw new AdjudicationPreconditionError(
-        `Claim "${claimId}" existiert nicht.`,
+        `Aussage "${claimId}" existiert nicht.`,
       );
     }
     if (claim.status !== "pending_adjudication") {
       throw new AdjudicationPreconditionError(
-        `Claim "${claimId}" steht nicht zur Adjudikation (Status: ${claim.status}).`,
+        `Aussage "${claimId}" steht nicht zur manuellen Überprüfung (Status: ${claim.status}).`,
       );
     }
     const confirm = input.categories.length === 0;
     const reason = confirm
-      ? `Adjudikation: bestätigt.${justification ? ` ${justification}` : ""}`
-      : `Adjudikation: beanstandet (${input.categories.join(", ")}).` +
+      ? `Manuelle Überprüfung: bestätigt.${justification ? ` ${justification}` : ""}`
+      : `Manuelle Überprüfung: beanstandet (${input.categories.join(", ")}).` +
         (justification ? ` ${justification}` : "");
     return tx.transitionClaim(claimId, {
       to: confirm ? "confirmed" : "contested",

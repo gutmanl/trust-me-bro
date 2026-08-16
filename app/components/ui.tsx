@@ -127,7 +127,7 @@ export function BackendHealthNotice({
       mode === "verification"
         ? `LLM-Prüfstufen gesperrt – primäres Backend "${health.primary.cli}" ` +
             `nicht einsatzbereit: ${firstFailureHint(health.primary)} ` +
-            "Die deterministische Existenzprüfung (Stufe 1) bleibt nutzbar."
+            "Die deterministische Zitatprüfung (Stufe 1) bleibt nutzbar."
         : `Dieser Schritt ist gesperrt – primäres Backend "${health.primary.cli}" ` +
             `nicht einsatzbereit: ${firstFailureHint(health.primary)}`,
     );
@@ -227,13 +227,13 @@ export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
           </>
         ) : null}
         . Das Briefing wurde in dieser Anwendung erzeugt; die Urteile der Stufen
-        2 und 3 – Attributionsprüfung und Kalibrierung gegen die Rubrik – sind
+        2 und 3 – Belegprüfung und Bewertung gegen das Bewertungsschema – sind
         dadurch nicht unabhängig vom Modell, das den Text geschrieben hat.
       </p>
       <p className="mt-1">
-        Stufe 1, die Existenzprüfung des zitierten Wortlauts gegen das
-        eingefrorene Dokument, ist davon nicht betroffen: sie ist
-        deterministisch und modellunabhängig.
+        Stufe 1, die Zitatprüfung des zitierten Wortlauts gegen das eingefrorene
+        Dokument, ist davon nicht betroffen: sie ist deterministisch und
+        modellunabhängig.
       </p>
     </div>
   );

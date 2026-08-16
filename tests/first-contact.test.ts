@@ -526,7 +526,9 @@ describe("doing things in the wrong order", () => {
   it("refuses extraction before a briefing exists", async () => {
     await expect(
       startSourceExtraction("proj_reihenfolge", "src_egal"),
-    ).rejects.toThrow(/Vor der Extraktion muss das Briefing importiert sein/);
+    ).rejects.toThrow(
+      /Vor der Aussagen-Erfassung muss das Briefing importiert sein/,
+    );
   });
 
   it("refuses verification when nothing has been extracted", async () => {
@@ -534,7 +536,7 @@ describe("doing things in the wrong order", () => {
     // briefing at all the answer names the step that is actually missing
     // rather than reporting an empty worklist.
     await expect(startVerification("proj_reihenfolge")).rejects.toThrow(
-      /Vor der Prüfung müssen Claims extrahiert sein/,
+      /Vor der Prüfung müssen Aussagen erfasst sein/,
     );
   });
 

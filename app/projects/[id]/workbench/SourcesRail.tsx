@@ -219,7 +219,7 @@ export function SourcesRail({
             Quellen ({sources.length})
           </h2>
           <span
-            title="Der Quellenbestand wird bei jeder Quellenrevision hochgezählt – er datiert die Evidenzlage, gegen die geprüft wurde."
+            title="Der Quellenbestand wird bei jeder Quellenrevision hochgezählt – er datiert die Beleglage, gegen die geprüft wurde."
             className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
           >
             Bestand Rev. {sourceSetRevision}
@@ -358,15 +358,16 @@ export function SourcesRail({
         </h2>
         <p className="mt-1 mb-3 text-xs text-slate-600">
           Findet Aussagen des Briefings, die keine erfasste Quelle zitieren. Sie
-          gehen sichtbar zur Adjudikation und werden nicht verworfen.
+          gehen sichtbar zur manuellen Überprüfung und werden nicht verworfen.
         </p>
         {!hasBriefing ? (
           <p className="text-xs text-amber-700">
-            Vor der Extraktion muss das Briefing übernommen sein.
+            Vor der Aussagen-Erfassung muss das Briefing übernommen sein.
           </p>
         ) : extractionRunning ? (
           <p className="text-xs text-blue-800">
-            Extraktion läuft – der Fortschritt steht in der Laufleiste oben.
+            Aussagen-Erfassung läuft – der Fortschritt steht in der Laufleiste
+            oben.
           </p>
         ) : blockedBy ? (
           <StartBlockedNotice label={blockedBy} />
@@ -392,7 +393,7 @@ export function SourcesRail({
                 : "text-slate-500"
             }`}
           >
-            Letzter Extraktionsdurchlauf: {extractionActivity.lastMessage}
+            Letzter Erfassungsdurchlauf: {extractionActivity.lastMessage}
           </p>
         ) : null}
       </div>

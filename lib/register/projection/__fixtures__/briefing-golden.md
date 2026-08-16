@@ -4,9 +4,9 @@
 
 **Projekt:** proj_llm-code-review-2026
 
-**Prüfstand:** GEPRÜFT – kein Claim zur Adjudikation offen
+**Prüfstand:** GEPRÜFT – keine Aussage zur manuellen Überprüfung offen
 
-Die Absätze geben den eingefrorenen Originalwortlaut des Briefings wieder und bleiben unverändert. Die Markierungen darunter geben den geprüften Stand wieder; wurde ein Claim repariert, steht seine geprüfte Fassung dort ausdrücklich.
+Die Absätze geben den eingefrorenen Originalwortlaut des Briefings wieder und bleiben unverändert. Die Markierungen darunter geben den geprüften Stand wieder; wurde eine Aussage repariert, steht ihre geprüfte Fassung dort ausdrücklich.
 
 ---
 
@@ -14,7 +14,7 @@ LLM-gestützte Code-Reviews verändern den Reviewprozess grundlegend.
 
 Studien zeigen, dass die mediane Reviewzeit um etwa 55 % sinkt.
 
-> ✓ **clm_0001** · bestätigt (adjudiziert) · Belege [1]
+> ✓ **clm_0001** · bestätigt (manuell überprüft) · Belege [1]
 
 Langfristige Effekte sind noch nicht ausreichend untersucht.
 

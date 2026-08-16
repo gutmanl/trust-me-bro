@@ -5,6 +5,8 @@ import type { ReferenceScanRunSummary } from "../sources/reference-scan/run-refe
 import type { SourceCaptureItemResult } from "../sources/work-items/run-item";
 import type { SourceCaptureWorkItem } from "../sources/work-items/types";
 import type { ExistenceCheckItemResult } from "../verification/run-existence-check";
+import type { VerificationItemResult } from "../verification/run-verification";
+import { VerificationPreconditionError } from "../errors";
 import { createAutoChain } from "./auto-chain";
 import { createJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
@@ -65,6 +67,33 @@ function fakeExistenceCheck(runner: JobRunner) {
         (id) => id,
         async () => fakeExistenceCheckResult,
         { kind: "existence_check" },
+      );
+    },
+  );
+}
+
+const fakeVerificationResult: VerificationItemResult = {
+  claimId: "claim_1",
+  outcome: "auto_confirmed",
+  message: "ok",
+};
+
+/** Stage-2/3 start-fn fake through the real runner, mirroring
+ * fakeExistenceCheck — injected everywhere because the chain now enqueues a
+ * verification trigger behind every existence check. */
+function fakeVerification(runner: JobRunner) {
+  return vi.fn(
+    async (
+      projectId: string,
+      deps?: { runner?: JobRunner },
+    ): Promise<RunHandle<VerificationItemResult>> => {
+      const r = deps?.runner ?? runner;
+      return r.submit(
+        projectId,
+        ["verification_item"],
+        (id) => id,
+        async () => fakeVerificationResult,
+        { kind: "verification" },
       );
     },
   );
@@ -169,8 +198,10 @@ describe("createAutoChain: sequential ordering", () => {
     const runner = createJobRunner();
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -213,8 +244,10 @@ describe("createAutoChain: extraction → existence-check chaining", () => {
     const runner = createJobRunner();
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -239,8 +272,10 @@ describe("createAutoChain: extraction → existence-check chaining", () => {
     const runner = createJobRunner();
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -254,13 +289,96 @@ describe("createAutoChain: extraction → existence-check chaining", () => {
   });
 });
 
+describe("createAutoChain: existence-check → verification chaining", () => {
+  it("runs the LLM stages right after the existence check of an extraction pass", async () => {
+    const runner = createJobRunner();
+    const startSourceExtraction = fakeExtraction(runner);
+    const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
+    const chain = createAutoChain({
+      runner,
+      startVerification,
+      startSourceExtraction,
+      startExistenceCheck,
+    });
+
+    chain.enqueueSourceExtraction("proj_a", "src_1");
+
+    await vi.waitFor(() => {
+      expect(startVerification).toHaveBeenCalledTimes(1);
+    });
+    expect(startVerification).toHaveBeenCalledWith("proj_a", { runner });
+    // The full cascade in order: extraction → existence check → stages 2/3.
+    const extractionOrder = startSourceExtraction.mock.invocationCallOrder[0];
+    const checkOrder = startExistenceCheck.mock.invocationCallOrder[0];
+    const verificationOrder = startVerification.mock.invocationCallOrder[0];
+    expect(extractionOrder).toBeLessThan(checkOrder);
+    expect(checkOrder).toBeLessThan(verificationOrder);
+
+    await vi.waitFor(() => {
+      expect(chain.pendingTriggerCount("proj_a")).toBe(0);
+    });
+  });
+
+  it("chains verification behind an explicit existence-check enqueue too", async () => {
+    const runner = createJobRunner();
+    const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
+    const chain = createAutoChain({
+      runner,
+      startVerification,
+      startExistenceCheck,
+    });
+
+    chain.enqueueExistenceCheck("proj_a");
+
+    await vi.waitFor(() => {
+      expect(startVerification).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("swallows a precondition refusal silently and keeps draining", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const runner = createJobRunner();
+    const startExistenceCheck = fakeExistenceCheck(runner);
+    // "Nothing left to verify" — the routine outcome when stage 1 routed
+    // every claim to the manual queue; must not be logged as a failure.
+    const startVerification = vi.fn(async (): Promise<never> => {
+      throw new VerificationPreconditionError("nichts zu prüfen");
+    });
+    const chain = createAutoChain({
+      runner,
+      startVerification,
+      startExistenceCheck,
+    });
+
+    chain.enqueueExistenceCheck("proj_a");
+    await vi.waitFor(() => {
+      expect(startVerification).toHaveBeenCalledTimes(1);
+    });
+    await vi.waitFor(() => {
+      expect(chain.pendingTriggerCount("proj_a")).toBe(0);
+    });
+    expect(warn).not.toHaveBeenCalled();
+
+    // The queue is alive: a later trigger still drains normally.
+    chain.enqueueExistenceCheck("proj_a");
+    await vi.waitFor(() => {
+      expect(startExistenceCheck).toHaveBeenCalledTimes(2);
+    });
+    warn.mockRestore();
+  });
+});
+
 describe("createAutoChain: coalescing", () => {
   it("collapses consecutive identical extraction triggers into one pass", async () => {
     const runner = createJobRunner();
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -318,8 +436,10 @@ describe("createAutoChain: coalescing", () => {
     const runner = createJobRunner();
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -360,8 +480,10 @@ describe("createAutoChain: errors never kill the drain", () => {
       "src_fail",
     );
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -408,8 +530,10 @@ describe("createAutoChain: errors never kill the drain", () => {
       "src_fail",
     );
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -444,8 +568,10 @@ describe("createAutoChain: reference-scan → auto-capture chaining", () => {
     const startReferenceScan = fakeReferenceScan(runner);
     const buildAutoCaptureItems = fakeBuildAutoCaptureItems(2);
     const startSourceCaptureItem = fakeResolvingSourceCaptureItem(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startReferenceScan,
       buildAutoCaptureItems,
       startSourceCaptureItem,
@@ -481,8 +607,10 @@ describe("createAutoChain: reference-scan → auto-capture chaining", () => {
     const startSourceCaptureItem = fakeResolvingSourceCaptureItem(runner);
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startReferenceScan,
       buildAutoCaptureItems,
       startSourceCaptureItem,
@@ -510,8 +638,10 @@ describe("createAutoChain: reference-scan → auto-capture chaining", () => {
     const startReferenceScan = fakeReferenceScan(runner);
     const buildAutoCaptureItems = fakeBuildAutoCaptureItems(1);
     const startSourceCaptureItem = fakeResolvingSourceCaptureItem(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startReferenceScan,
       buildAutoCaptureItems,
       startSourceCaptureItem,
@@ -553,8 +683,10 @@ describe("createAutoChain: reference-scan → auto-capture chaining", () => {
     const startSourceCaptureItem = fakeResolvingSourceCaptureItem(runner);
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startReferenceScan,
       buildAutoCaptureItems,
       startSourceCaptureItem,
@@ -584,8 +716,10 @@ describe("createAutoChain: pendingTriggerCount", () => {
     const runner = createJobRunner();
     const startSourceExtraction = fakeExtraction(runner);
     const startExistenceCheck = fakeExistenceCheck(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction,
       startExistenceCheck,
     });
@@ -672,8 +806,10 @@ describe("createAutoChain: source-capture work items", () => {
   it("runs queued items sequentially and reports active/pending honestly", async () => {
     const runner = createJobRunner();
     const capture = fakeSourceCaptureItem(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction: fakeExtraction(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       startSourceCaptureItem: capture.fn,
@@ -709,8 +845,10 @@ describe("createAutoChain: source-capture work items", () => {
       throw new Error("capture start failed");
     });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction: fakeExtraction(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       startSourceCaptureItem: failing,
@@ -731,8 +869,10 @@ describe("createAutoChain: source-capture work items", () => {
   it("coalesces only same-id bursts, never distinct work items", async () => {
     const runner = createJobRunner();
     const capture = fakeSourceCaptureItem(runner);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction: fakeExtraction(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       startSourceCaptureItem: capture.fn,
@@ -837,8 +977,10 @@ describe("createAutoChain: automatic repair fan-out", () => {
   it("gives a failed reference-import capture exactly one repair evaluation", async () => {
     const runner = createJobRunner();
     const deps = repairDeps();
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       ...deps,
@@ -867,6 +1009,7 @@ describe("createAutoChain: automatic repair fan-out", () => {
       const deps = repairDeps();
       const chain = createAutoChain({
         runner,
+        startVerification: fakeVerification(runner),
         startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
         startExistenceCheck: fakeExistenceCheck(runner),
         ...deps,
@@ -889,8 +1032,10 @@ describe("createAutoChain: automatic repair fan-out", () => {
   it("never evaluates a failed auto_repair capture (loop guard)", async () => {
     const runner = createJobRunner();
     const deps = repairDeps();
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceCaptureItem: fakeFailingSourceCaptureItem(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       ...deps,
@@ -910,8 +1055,10 @@ describe("createAutoChain: automatic repair fan-out", () => {
   it("chains the briefing substitution and an anchor sweep behind a successful correction", async () => {
     const runner = createJobRunner();
     const deps = repairDeps();
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceCaptureItem: fakeResolvingSourceCaptureItem(runner),
       ...deps,
     });
@@ -939,8 +1086,10 @@ describe("createAutoChain: automatic repair fan-out", () => {
     const runner = createJobRunner();
     const deps = repairDeps();
     deps.listRepairEvaluationSources.mockResolvedValue(["src_a", "src_b"]);
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startExistenceCheck: fakeExistenceCheck(runner),
       ...deps,
     });
@@ -954,8 +1103,10 @@ describe("createAutoChain: automatic repair fan-out", () => {
   it("runs the anchor sweep for an explicit enqueue and behind an extraction", async () => {
     const runner = createJobRunner();
     const deps = repairDeps();
+    const startVerification = fakeVerification(runner);
     const chain = createAutoChain({
       runner,
+      startVerification,
       startSourceExtraction: fakeExtraction(runner),
       startExistenceCheck: fakeExistenceCheck(runner),
       ...deps,

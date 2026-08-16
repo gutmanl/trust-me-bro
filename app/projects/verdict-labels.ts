@@ -58,7 +58,7 @@ const VERDICT_MATRIX: Record<
       severity: "amber",
     },
     pending_adjudication: {
-      phrase: "stützt, Kalibrierung unklar",
+      phrase: "stützt, Bewertung unklar",
       severity: "orange",
     },
   },
@@ -69,7 +69,7 @@ const VERDICT_MATRIX: Record<
       severity: "orange",
     },
     pending_adjudication: {
-      phrase: "stützt teilweise, Kalibrierung unklar",
+      phrase: "stützt teilweise, Bewertung unklar",
       severity: "orange",
     },
   },
@@ -92,7 +92,7 @@ const VERDICT_MATRIX: Record<
     licensed: { phrase: "stützt nicht", severity: "red" },
     weakened: { phrase: "stützt nicht", severity: "red" },
     pending_adjudication: {
-      phrase: "stützt nicht, Kalibrierung unklar",
+      phrase: "stützt nicht, Bewertung unklar",
       severity: "red",
     },
   },

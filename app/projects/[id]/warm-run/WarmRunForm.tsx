@@ -68,7 +68,7 @@ export function WarmRunForm({ originProjectId }: { originProjectId: string }) {
       <button type="submit" disabled={pending} className={primaryButtonClass}>
         {pending
           ? "Wird angelegt …"
-          : "Folgeprojekt anlegen und Claims übernehmen"}
+          : "Folgeprojekt anlegen und Aussagen übernehmen"}
       </button>
     </form>
   );

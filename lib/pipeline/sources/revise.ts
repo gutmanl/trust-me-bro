@@ -123,7 +123,7 @@ export async function reviseSource(
         `${lockedSnapshot.revision} → ${newRevision} ` +
         `(sha256 ${lockedSnapshot.sha256.slice(0, 12)}… → ${blob.sha256.slice(0, 12)}…), ` +
         `Quellenbestand-Revision ${projectRevision}; ` +
-        `${recheckedClaimIds.length} Claim(s) zur Nachprüfung markiert.`,
+        `${recheckedClaimIds.length} Aussage(n) zur Nachprüfung markiert.`,
       actor: getCurrentActor(),
       at: now,
     });

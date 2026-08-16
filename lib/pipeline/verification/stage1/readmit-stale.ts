@@ -62,7 +62,7 @@ export async function readmitStaleExistenceChecks(
         to: "recheck_required",
         actor: READMIT_ACTOR,
         reason:
-          "Erneute Existenzprüfung: die frühere Prüfung verglich den " +
+          "Erneute Zitatprüfung: die frühere Prüfung verglich den " +
           "Wortlaut mit einer Normalform, die Trennstrich-Umbrüche und " +
           "Gedankenstriche am Zeilenende falsch auflöste.",
       });

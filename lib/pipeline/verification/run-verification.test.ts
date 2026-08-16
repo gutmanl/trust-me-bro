@@ -243,7 +243,7 @@ describe("cascading verification run", () => {
     expect(claim.evidence[0].existence_check?.status).toBe("failed");
     expect(claim.evidence[0].judgments).toHaveLength(0); // stages 2/3 skipped
     expect(claim.history.at(-1)?.reason).toContain(
-      "Existenzprüfung nicht bestanden",
+      "Zitatprüfung nicht bestanden",
     );
   });
 

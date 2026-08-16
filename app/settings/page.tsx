@@ -28,8 +28,8 @@ export default async function InstallationSettingsPage() {
         <h1 className="text-2xl font-semibold">Einstellungen</h1>
         <p className="mt-2 text-sm text-slate-600">
           Gilt für diese Installation, nicht für ein einzelnes Projekt. Die
-          Konfiguration eines Projekts (Backends, Stichprobenrate, Rubrik) steht
-          in dessen eigenen Einstellungen.
+          Konfiguration eines Projekts (Backends, Stichprobenrate,
+          Bewertungsschema) steht in dessen eigenen Einstellungen.
         </p>
       </div>
 

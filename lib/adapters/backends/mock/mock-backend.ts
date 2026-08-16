@@ -47,11 +47,12 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
   attribution: {
     relation_type: "supports",
     confidence: 0.9,
-    reasoning: "Mock-Urteil: Auszug und Claim stimmen überein.",
+    reasoning: "Mock-Urteil: Auszug und Aussage stimmen überein.",
   },
   rubric: {
     calibration_result: "licensed",
-    reasoning: "Mock-Vorbewertung: Mindestevidenz der Rubrik liegt vor.",
+    reasoning:
+      "Mock-Vorbewertung: Mindestbelege des Bewertungsschemas liegen vor.",
   },
   repair: {
     suggested_text: "Mock-Vorschlag einer abgeschwächten Formulierung.",
@@ -59,7 +60,7 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
   },
   relevance: {
     relevant: "yes",
-    reasoning: "Mock-Einschätzung: Claim betrifft die neue Recherchefrage.",
+    reasoning: "Mock-Einschätzung: Aussage betrifft die neue Recherchefrage.",
   },
   reference_parse: {
     references: [

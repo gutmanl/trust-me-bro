@@ -22,6 +22,8 @@ import type {
   SourceCaptureWorkItem,
 } from "../sources/work-items/types";
 import { startExistenceCheck } from "../verification/run-existence-check";
+import { startVerification } from "../verification/run-verification";
+import { RunActiveError, VerificationPreconditionError } from "../errors";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
 import type {
@@ -33,6 +35,11 @@ import type {
 type PendingTrigger =
   | { kind: "extraction"; sourceId: string }
   | { kind: "existence_check" }
+  // The LLM stages 2+3 (attribution + rubric), chained behind every
+  // existence check so a captured source flows through the whole cascade
+  // without a manual click. Coalesces with itself; a start refused by its
+  // preconditions is a routine no-op, not an error.
+  | { kind: "verification" }
   | { kind: "reference_scan" }
   | { kind: "source_capture"; item: SourceCaptureWorkItem }
   // Automatic repair (automatic repair): evaluation/sweep steps that run
@@ -79,6 +86,8 @@ function describeTrigger(trigger: PendingTrigger): string {
       return `extraction (source "${trigger.sourceId}")`;
     case "existence_check":
       return "existence check";
+    case "verification":
+      return "verification";
     case "reference_scan":
       return "reference scan";
     case "source_capture":
@@ -109,6 +118,7 @@ export interface AutoChainDependencies {
   runner?: JobRunner;
   startSourceExtraction?: typeof startSourceExtraction;
   startExistenceCheck?: typeof startExistenceCheck;
+  startVerification?: typeof startVerification;
   startReferenceScan?: typeof startReferenceScan;
   buildAutoCaptureItems?: typeof buildAutoCaptureItems;
   startSourceCaptureItem?: typeof startSourceCaptureItem;
@@ -218,6 +228,7 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
   const runSourceExtraction =
     deps.startSourceExtraction ?? startSourceExtraction;
   const runExistenceCheck = deps.startExistenceCheck ?? startExistenceCheck;
+  const runVerification = deps.startVerification ?? startVerification;
 
   /**
    * The reference chain's two functions are resolved on first use rather
@@ -649,6 +660,24 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       // The substitution published a revision (or not) — either way the
       // sweep is cheap and coalesces; quotes may have shifted paragraphs.
       queue.push({ kind: "anchor_repair" });
+    } else if (trigger.kind === "verification") {
+      // Opportunistic start, mirroring the repair action's precedent: with
+      // the chain having just run stage 1, "nothing left to verify" (all
+      // claims failed the existence check, or a manual run got there first)
+      // is a routine outcome — swallowing those two keeps the drain log
+      // free of noise while every real failure still surfaces through
+      // drain()'s catch.
+      try {
+        const handle = await runVerification(projectId, { runner });
+        await handle.done;
+      } catch (error) {
+        if (
+          !(error instanceof RunActiveError) &&
+          !(error instanceof VerificationPreconditionError)
+        ) {
+          throw error;
+        }
+      }
     } else {
       const handle = await runExistenceCheck(projectId, { runner });
       await handle.done;
@@ -658,6 +687,10 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
       for (const sourceId of await computeRepairEvaluationSources(projectId)) {
         queue.push({ kind: "source_repair_evaluation", sourceId });
       }
+      // Stage 1 just settled the claims' statuses — the LLM stages follow
+      // automatically, behind whatever the repair fan-out queued (a repair
+      // may pull claims back before stage 2/3 would judge them).
+      queue.push({ kind: "verification" });
     }
   }
 

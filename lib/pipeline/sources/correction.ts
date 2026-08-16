@@ -149,7 +149,7 @@ export async function correctSource(
       actor: CORRECTION_ACTOR,
       reason:
         `Quellenkennung von ${input.sourceId} korrigiert – ` +
-        `${recheckedClaimIds.length} Claim(s) zur Nachprüfung markiert.`,
+        `${recheckedClaimIds.length} Aussage(n) zur Nachprüfung markiert.`,
       at: now,
     });
     const corrected = tx

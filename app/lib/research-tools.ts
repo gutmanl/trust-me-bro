@@ -88,7 +88,7 @@ export const RESEARCH_TOOLS: readonly ResearchTool[] = [
     url: "https://consensus.app",
     mode: "Frage direkt stellen; Ergebnisansicht mit Papers und DOI-Angaben nutzen",
     strengths:
-      "Evidenzfokus: aggregiert empirische Befunde aus begutachteten Studien",
+      "Belegfokus: aggregiert empirische Befunde aus begutachteten Studien",
     caveats:
       "Liefert Antworten je Einzelfrage statt eines Fließtext-Briefings – Ergebnisse selbst zu Absätzen zusammenführen",
   },
@@ -185,7 +185,7 @@ export function assessResearchQuestion(question: string): QuestionHint[] {
   if (undCount >= 2 || questionMarkCount >= 2) {
     hints.push({
       severity: "warnung",
-      text: "Das klingt nach mehreren Fragen. Ein Projekt prüft genau eine Frage – weitere Fragen als eigene Projekte anlegen (Atomarität, wie später bei den Claims).",
+      text: "Das klingt nach mehreren Fragen. Ein Projekt prüft genau eine Frage – weitere Fragen als eigene Projekte anlegen (Atomarität, wie später bei den Aussagen).",
     });
   }
 

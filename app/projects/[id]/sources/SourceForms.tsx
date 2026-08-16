@@ -221,7 +221,7 @@ function SourceTypeSelect({ defaultValue }: { defaultValue: SourceType }) {
   return (
     <div>
       <label htmlFor="source_type" className="mb-1 block text-sm font-medium">
-        Quellentyp (Rubrik-Gewichtung)
+        Quellentyp (Gewichtung im Bewertungsschema)
       </label>
       <select
         id="source_type"
@@ -370,7 +370,7 @@ export function CorrectSourceForm({
       {state.revised === true ? (
         <SuccessBanner>
           Revision {state.newRevision} erstellt – {state.recheckedCount}{" "}
-          Claim(s) zur Nachprüfung markiert.
+          Aussage(n) zur Nachprüfung markiert.
         </SuccessBanner>
       ) : null}
       {state.revised === false ? (
@@ -396,11 +396,11 @@ export function CorrectSourceForm({
                 <p className="text-xs text-amber-700">
                   Für eine falsch aufgelöste Kennung (z.&nbsp;B. eine
                   halluzinierte DOI): Die Quelle behält ihre Id und alle
-                  Claim-Verweise; Metadaten und Dokument werden aus der
+                  Aussagen-Verweise; Metadaten und Dokument werden aus der
                   korrigierten Kennung neu eingefroren, die bisherige Kennung
-                  bleibt in der Historie erhalten. Betroffene Claims – auch
-                  bereits wegen der falschen Kennung in der Adjudikation
-                  gestrandete – wandern zur Nachprüfung.
+                  bleibt in der Historie erhalten. Betroffene Aussagen – auch
+                  bereits wegen der falschen Kennung in der manuellen
+                  Überprüfung gestrandete – wandern zur Nachprüfung.
                 </p>
                 <input type="hidden" name="kind" value={kind} />
                 <IdentityFields kind={kind} onKindChange={setKind} />
@@ -411,7 +411,7 @@ export function CorrectSourceForm({
                 <p className="text-xs text-slate-600">
                   Aktualisierte Fassung der Quelle laden: Die alte Revision
                   bleibt im Blob-Store erhalten; betroffene, bereits geprüfte
-                  Claims wandern zur Nachprüfung.
+                  Aussagen wandern zur Nachprüfung.
                 </p>
                 <div>
                   <label

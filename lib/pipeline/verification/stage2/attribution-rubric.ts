@@ -180,7 +180,7 @@ export async function runAttributionAndRubric(
   if (outcome.status === "exhausted") {
     return {
       status: "exhausted",
-      message: `Rubrik-Vorbewertung erschöpft: ${outcome.lastError.message}`,
+      message: `Schema-Bewertung erschöpft: ${outcome.lastError.message}`,
     };
   }
   return {
@@ -222,7 +222,7 @@ async function runAttribution(
     return {
       status: "exhausted",
       message:
-        `Attributionsurteil (${backendId}) für Evidenz ${input.evidence.id} ` +
+        `Belegprüfungs-Urteil (${backendId}) für Fundstelle ${input.evidence.id} ` +
         `erschöpft: ${outcome.lastError.message}`,
     };
   }

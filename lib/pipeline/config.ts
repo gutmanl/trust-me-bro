@@ -90,7 +90,7 @@ function validate(input: UpdateProjectConfigInput): void {
     loadRubricRuleSet(input.rubricVersion);
   } catch (error) {
     throw new InvalidProjectInputError(
-      `Rubrikversion "${input.rubricVersion}" ist nicht prüfbar: ${
+      `Version "${input.rubricVersion}" des Bewertungsschemas ist nicht prüfbar: ${
         error instanceof Error ? error.message : String(error)
       }`,
       { cause: error },

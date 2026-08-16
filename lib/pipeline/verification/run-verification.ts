@@ -108,7 +108,7 @@ export async function startVerification(
   const register = await store.read();
   if (register.claims.length === 0) {
     throw new VerificationPreconditionError(
-      "Vor der Prüfung müssen Claims extrahiert sein.",
+      "Vor der Prüfung müssen Aussagen erfasst sein.",
     );
   }
   const eligible = pickUnfinishedClaims(register);
@@ -119,7 +119,7 @@ export async function startVerification(
     deriveVerificationState(register, false).status === "interrupted";
   if (eligible.length === 0 && !interrupted) {
     throw new VerificationPreconditionError(
-      "Kein Claim im Status erfasst oder existenzgeprüft – nichts zu prüfen.",
+      "Keine Aussage im Status erfasst oder zitatgeprüft – nichts zu prüfen.",
     );
   }
   let ruleSet: RubricRuleSet;
@@ -127,7 +127,7 @@ export async function startVerification(
     ruleSet = loadRubricRuleSet(register.config.rubric_version);
   } catch (error) {
     throw new VerificationPreconditionError(
-      `Rubrikversion "${register.config.rubric_version}" ist nicht prüfbar: ${
+      `Version "${register.config.rubric_version}" des Bewertungsschemas ist nicht prüfbar: ${
         error instanceof Error ? error.message : String(error)
       }`,
       { cause: error },
@@ -256,7 +256,7 @@ async function recordStartedOnce(
     tx.recordProjectEvent({
       event: "verification_run_started",
       reason:
-        `Prüflauf gestartet: ${context.totalEligible} Claim(s) (Lauf ${runId}).` +
+        `Prüflauf gestartet: ${context.totalEligible} Aussage(n) (Lauf ${runId}).` +
         (notes.length === 0 ? "" : ` ${notes.join(" ")}`),
       actor: ACTOR_RUN,
     });
@@ -313,7 +313,7 @@ async function processClaim(
       return {
         claimId,
         outcome: "existence_check_failed",
-        message: `Existenzprüfung nicht bestanden (${failedCount} Fundstelle(n)) – zur Adjudikation.`,
+        message: `Zitatprüfung nicht bestanden (${failedCount} Fundstelle(n)) – zur manuellen Überprüfung.`,
       };
     }
   }
@@ -328,7 +328,7 @@ async function processClaim(
       outcome: "llm_locked",
       message:
         `LLM-Prüfstufen gesperrt (${context.llmLockedHint}) – ` +
-        "Claim bleibt existenzgeprüft.",
+        "Aussage bleibt zitatgeprüft.",
     };
   }
 
@@ -344,7 +344,7 @@ async function processClaim(
       claimId,
       outcome: "paused",
       message:
-        `Lauf pausiert (Rate-Limit): ${stage23.reason} – Claim unverändert, ` +
+        `Lauf pausiert (Rate-Limit): ${stage23.reason} – Aussage unverändert, ` +
         "später erneut starten.",
     };
   }
@@ -361,7 +361,7 @@ async function processClaim(
     return {
       claimId,
       outcome: "escalated",
-      message: `Adapter erschöpft – zur Adjudikation eskaliert (${stage23.message}).`,
+      message: `Adapter erschöpft – zur manuellen Überprüfung eskaliert (${stage23.message}).`,
     };
   }
   return applyPreCheckResult(context, claimId, stage23);
@@ -394,7 +394,7 @@ async function applyPreCheckResult(
         actor: ACTOR_PRECHECK,
         reason:
           "Divergenz der Backend-Urteile – Relation bleibt bis zur " +
-          "Adjudikation offen, beide Urteile sind sichtbar.",
+          "manuellen Überprüfung offen, beide Urteile sind sichtbar.",
         routing: "divergence",
       });
       return "divergence" as const;
@@ -413,9 +413,9 @@ async function applyPreCheckResult(
       actor: ACTOR_PRECHECK,
       reason:
         `Stufen 2/3 abgeschlossen: Unterstützungsgrad ${stage23.supportDegree}, ` +
-        `Rubrik ${stage23.calibration.result}` +
+        `Bewertung ${stage23.calibration.result}` +
         (stage23.calibration.mechanical === "not_met"
-          ? " (mechanisches Rubrik-Minimum verletzt)."
+          ? " (mechanisches Minimum des Bewertungsschemas verletzt)."
           : "."),
     });
     const verdict = evaluateAutoConfirmation(tx.getClaim(claimId));
@@ -452,8 +452,8 @@ async function applyPreCheckResult(
     outcome,
     message:
       outcome === "divergence"
-        ? "Backend-Urteile divergieren – zur Adjudikation."
-        : "Vorprüfung nicht durchgehend positiv – zur Adjudikation.",
+        ? "Backend-Urteile divergieren – zur manuellen Überprüfung."
+        : "Vorprüfung nicht durchgehend positiv – zur manuellen Überprüfung.",
   };
 }
 
@@ -486,7 +486,7 @@ async function drawSampleStep(
     }
     const summary =
       `${bracket.autoConfirmed.length} automatisch bestätigt, ` +
-      `${bracket.adjudicated} zur Adjudikation, ${bracket.escalated} eskaliert, ` +
+      `${bracket.adjudicated} zur manuellen Überprüfung, ${bracket.escalated} eskaliert, ` +
       `${bracket.errors} Fehler, ${drawn.length} Stichprobe(n) (Rate ${sampleRate}, Seed ${runId}).`;
     tx.recordProjectEvent({
       event: "verification_run_completed",
@@ -502,6 +502,6 @@ async function drawSampleStep(
     message:
       drawn.length === 0
         ? `Keine Stichprobe gezogen (Rate ${sampleRate}).`
-        : `Stichprobenkontrolle: ${drawn.length} Claim(s) zur Adjudikation gezogen.`,
+        : `Stichprobenkontrolle: ${drawn.length} Aussage(n) zur manuellen Überprüfung gezogen.`,
   };
 }

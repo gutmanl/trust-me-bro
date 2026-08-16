@@ -148,7 +148,7 @@ describe("reviseSource", () => {
       (candidate) => candidate.event === "source_set_revised",
     );
     expect(event?.reason).toContain(sourceId);
-    expect(event?.reason).toContain("3 Claim(s) zur Nachprüfung");
+    expect(event?.reason).toContain("3 Aussage(n) zur Nachprüfung");
 
     // Exactly the settled claims moved; the others are untouched.
     const statusOf = (id: string) =>

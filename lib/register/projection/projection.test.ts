@@ -64,7 +64,7 @@ describe("renderBriefing determinism", () => {
 describe("status annotations", () => {
   it("marks the confirmation path of adjudicated vs automatic claims", () => {
     const adjudicated = renderBriefing(BRIEFING, baseRegister());
-    expect(adjudicated).toContain("bestätigt (adjudiziert)");
+    expect(adjudicated).toContain("bestätigt (manuell überprüft)");
 
     const automatic = baseRegister();
     automatic.claims[0].status = "auto_confirmed";
@@ -85,10 +85,10 @@ describe("status annotations", () => {
     const open = baseRegister();
     open.claims[0].status = "pending_adjudication";
     expect(renderBriefing(BRIEFING, open)).toContain(
-      "IN PRÜFUNG – 1 Claim(s) zur Adjudikation offen",
+      "IN PRÜFUNG – 1 Aussage(n) zur manuellen Überprüfung offen",
     );
     expect(renderBriefing(BRIEFING, baseRegister())).toContain(
-      "GEPRÜFT – kein Claim zur Adjudikation offen",
+      "GEPRÜFT – keine Aussage zur manuellen Überprüfung offen",
     );
   });
 });
@@ -106,7 +106,7 @@ describe("anchors and evidence numbering", () => {
     const register = baseRegister();
     register.claims[0].briefing_anchor = "p99";
     const output = renderBriefing(BRIEFING, register);
-    expect(output).toContain("Nicht zuordenbare Claims");
+    expect(output).toContain("Nicht zuordenbare Aussagen");
     expect(output).toContain("Anker: p99");
   });
 

@@ -142,7 +142,7 @@ async function captureWorkItem(
         sourceId: item.request.targetSourceId,
         message:
           `Quellenkennung von "${item.request.targetSourceId}" korrigiert – ` +
-          `${result.recheckedClaimIds.length} Claim(s) zur Nachprüfung markiert.`,
+          `${result.recheckedClaimIds.length} Aussage(n) zur Nachprüfung markiert.`,
       };
     }
     const source = await captureSource(input, { fetcher });
