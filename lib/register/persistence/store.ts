@@ -41,7 +41,9 @@ import type {
   SourceType,
   SupportDegree,
 } from "../schema/enums";
+import type { TriggerKind } from "../schema/enums";
 import type {
+  CaptureFailure,
   CaptureFailureInput,
   HistoryEntry,
   RepairAction,
@@ -84,6 +86,12 @@ export interface RegisterTransaction {
     actor: ActorId;
     source_id?: string;
     work_item_id?: string;
+    /** Bracket discriminator for chained work (run visibility) — see
+     * TriggerKind in the schema. */
+    trigger_kind?: TriggerKind;
+    /** Retryable input snapshot on a capture START bracket (run
+     * visibility); same shape a `source_capture_failed` event carries. */
+    capture_attempt?: CaptureFailure;
     at?: string;
   }): ProjectEvent;
   /**
@@ -646,7 +654,16 @@ function createTransaction(
     addSource(source) {
       draft.sources.push(source);
     },
-    recordProjectEvent({ event, reason, actor, source_id, work_item_id, at }) {
+    recordProjectEvent({
+      event,
+      reason,
+      actor,
+      source_id,
+      work_item_id,
+      trigger_kind,
+      capture_attempt,
+      at,
+    }) {
       const entry = chain.append({
         at: at ?? new Date().toISOString(),
         actor,
@@ -654,6 +671,8 @@ function createTransaction(
         reason,
         ...(source_id !== undefined ? { source_id } : {}),
         ...(work_item_id !== undefined ? { work_item_id } : {}),
+        ...(trigger_kind !== undefined ? { trigger_kind } : {}),
+        ...(capture_attempt !== undefined ? { capture_attempt } : {}),
       }) as ProjectEvent;
       draft.project_events.push(entry);
       return entry;

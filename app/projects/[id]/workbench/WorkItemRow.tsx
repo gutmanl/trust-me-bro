@@ -10,8 +10,11 @@ import {
   applyRepairSuggestionAction,
   dismissCaptureAction,
   dismissRepairSuggestionAction,
+  removeQueuedCaptureAction,
   retryCaptureAction,
+  retryInterruptedCaptureAction,
 } from "../sources/actions";
+import { cancelRunAction } from "@/app/lib/run-control-actions";
 
 const initialRetryState: RetryCaptureState = { error: null };
 
@@ -179,6 +182,10 @@ export function WorkItemRow({
           <CapturingChip />
         ) : item.status === "queued" ? (
           <QueuedChip />
+        ) : item.status === "interrupted" ? (
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">
+            Erfassung unterbrochen
+          </span>
         ) : (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
             Erfassung fehlgeschlagen
@@ -187,6 +194,14 @@ export function WorkItemRow({
         <span className="text-xs text-slate-500">
           {ORIGIN_LABELS[item.origin]}
         </span>
+        {capturing ? (
+          <CancelCaptureButton projectId={projectId} />
+        ) : item.status === "queued" ? (
+          <RemoveQueuedButton
+            projectId={projectId}
+            workItemId={item.workItemId}
+          />
+        ) : null}
       </div>
 
       {!capturing && item.status === "failed" ? (
@@ -215,10 +230,113 @@ export function WorkItemRow({
           </div>
         </FailureBox>
       ) : null}
+      {!capturing && item.status === "interrupted" ? (
+        <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700">
+          <p>
+            {item.error}
+            {item.failedAt !== undefined ? (
+              <span className="text-slate-500">
+                {" "}
+                (seit {formatTimestamp(item.failedAt)})
+              </span>
+            ) : null}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <RetryInterruptedButton
+              projectId={projectId}
+              workItemId={item.workItemId}
+            />
+            <DismissButton projectId={projectId} workItemId={item.workItemId} />
+          </div>
+        </div>
+      ) : null}
       {!capturing && item.status === "failed" && suggestion !== undefined ? (
         <SuggestionBox projectId={projectId} suggestion={suggestion} />
       ) : null}
     </li>
+  );
+}
+
+/** "Abbrechen" on the capturing row (run visibility): the in-flight capture
+ * is a runner run of kind source_capture, and cancel abandons its step
+ * immediately — the user is never held hostage by a hung attempt. */
+function CancelCaptureButton({ projectId }: { projectId: string }) {
+  const [state, formAction, pending] = useActionState(
+    cancelRunAction.bind(null, projectId, "source_capture"),
+    { error: null },
+  );
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      {state.error ? (
+        <span className="text-xs text-red-700">{state.error}</span>
+      ) : null}
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+      >
+        Abbrechen
+      </button>
+    </form>
+  );
+}
+
+/** "Entfernen" on a waiting row (run visibility): queued work must be
+ * removable — a backlog nobody can edit is a guard nobody can clear. */
+function RemoveQueuedButton({
+  projectId,
+  workItemId,
+}: {
+  projectId: string;
+  workItemId: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    removeQueuedCaptureAction.bind(null, projectId, workItemId),
+    initialRetryState,
+  );
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      {state.error ? (
+        <span className="text-xs text-red-700">{state.error}</span>
+      ) : null}
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+      >
+        Entfernen
+      </button>
+    </form>
+  );
+}
+
+/** "Erneut versuchen" on an interrupted row: re-queues from the start
+ * bracket's input snapshot — the attempt has no failure event to retry
+ * from (run visibility). */
+function RetryInterruptedButton({
+  projectId,
+  workItemId,
+}: {
+  projectId: string;
+  workItemId: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    retryInterruptedCaptureAction.bind(null, projectId, workItemId),
+    initialRetryState,
+  );
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      {state.error ? (
+        <span className="text-xs text-red-700">{state.error}</span>
+      ) : null}
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-md bg-slate-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+      >
+        Erneut versuchen
+      </button>
+    </form>
   );
 }
 

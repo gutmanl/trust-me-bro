@@ -142,6 +142,11 @@ export function useRunFeed(options: RunFeedOptions): {
   const { connectionLost } = useProjectEvents(
     { kind: options.kind },
     (envelope) => {
+      if (envelope.source !== "run") {
+        // Panel feeds follow runner runs; the off-runner trigger kinds are
+        // disjoint from every panel's kind, so nothing is lost here.
+        return;
+      }
       // Before anything else: this is the run the panel is now following, so
       // a completion latched for an earlier run can no longer come due.
       latch.observed(envelope.runId);

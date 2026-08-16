@@ -1,6 +1,8 @@
+import { getGlobalAutoChain } from "./auto-chain";
+import type { AutoChain } from "./auto-chain";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
-import type { RunControlState, RunHandle } from "./types";
+import type { OffRunnerTriggerKind, RunControlState, RunHandle } from "./types";
 
 /**
  * Project-level view of the runner (TMB runner UI): the single source of
@@ -24,7 +26,31 @@ export interface ActiveRunStatus {
    * readout. total is 0 until the run_started event is observed. */
   completed: number;
   total: number;
+  /** ISO submission time — "läuft seit" (run visibility). */
+  startedAt: string;
 }
+
+/**
+ * The project's current occupant, whichever machine it lives on (run
+ * visibility): a runner run, or one of the auto-chain's off-runner
+ * triggers — the four steps that used to run invisibly between runs.
+ * The status bar, the SSE state snapshot, the start-gating and every
+ * blocked-action message read THIS, never one half alone; the two halves
+ * are mutually exclusive by the chain's own sequencing (it never starts a
+ * trigger while the runner is active for the project, and vice versa).
+ */
+export type ProjectActivity =
+  | ({ source: "run" } & ActiveRunStatus)
+  | {
+      source: "trigger";
+      /** Lets the client tell one trigger from its successor, like runId. */
+      triggerId: string;
+      kind: OffRunnerTriggerKind;
+      /** German, per-instance (may name a source) — precomputed serverside. */
+      description: string;
+      startedAt: string;
+      phase: "running" | "cancelling";
+    };
 
 /** The live run handle for a project, any kind — the project-level twin of
  * the per-kind getXRun accessors, for the kind-agnostic status stream. */
@@ -56,5 +82,29 @@ export function getActiveRun(
     phase: run.controlState() as ActiveRunStatus["phase"],
     completed: events.filter((event) => event.type === "item_completed").length,
     total: started?.type === "run_started" ? started.totalItems : 0,
+    startedAt: run.startedAt,
+  };
+}
+
+/** The project's current activity — run or off-runner trigger — or null. */
+export function getProjectActivity(
+  projectId: string,
+  deps: { runner?: JobRunner; chain?: AutoChain } = {},
+): ProjectActivity | null {
+  const run = getActiveRun(projectId, deps);
+  if (run) {
+    return { source: "run", ...run };
+  }
+  const trigger = (deps.chain ?? getGlobalAutoChain()).activeTrigger(projectId);
+  if (!trigger) {
+    return null;
+  }
+  return {
+    source: "trigger",
+    triggerId: trigger.triggerId,
+    kind: trigger.kind,
+    description: trigger.description,
+    startedAt: trigger.startedAt,
+    phase: trigger.controlState(),
   };
 }

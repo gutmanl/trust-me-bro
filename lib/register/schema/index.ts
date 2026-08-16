@@ -20,6 +20,7 @@ export {
   RoutingReason,
   SourceType,
   SupportDegree,
+  TriggerKind,
 } from "./enums";
 export {
   AutoCaptureProvenance,
@@ -30,6 +31,7 @@ export {
 } from "./source";
 export { Evidence, ExistenceCheck, Judgment, Locator } from "./evidence";
 export {
+  CaptureFailure,
   ChainFields,
   Decision,
   HistoryEntry,

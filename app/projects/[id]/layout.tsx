@@ -1,5 +1,5 @@
 import { ProjectEventStreamProvider } from "@/app/lib/ProjectEventStream";
-import { getActiveRun } from "@/lib/pipeline";
+import { getProjectActivity } from "@/lib/pipeline";
 
 import { RunStatusProvider } from "./RunStatusProvider";
 
@@ -16,7 +16,10 @@ export default async function ProjectLayout(
 ) {
   const { id } = await props.params;
   return (
-    <ProjectEventStreamProvider projectId={id} initialRun={getActiveRun(id)}>
+    <ProjectEventStreamProvider
+      projectId={id}
+      initialActivity={getProjectActivity(id)}
+    >
       <RunStatusProvider projectId={id}>{props.children}</RunStatusProvider>
     </ProjectEventStreamProvider>
   );

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ClaimsRegister, SourceType } from "../../../register";
+import type { CaptureFailureInput } from "../../../register/schema/history";
 import {
   InvalidSourceInputError,
   PipelineError,
@@ -14,12 +15,16 @@ import {
   enqueueSourceCapture,
   hasCaptureInFlight,
   pendingCaptureItems,
+  removeQueuedCapture as removeQueuedCaptureFromChain,
 } from "../../runs/auto-chain";
 import type { CaptureKind } from "../capture";
 import type { ManualMetadata } from "../csl";
 import { extFromFilename } from "../document";
 import { isHttpUrl, normalizeArxivId, normalizeDoi } from "../identifiers";
-import { deriveOpenCaptureFailures } from "./failures";
+import {
+  deriveInterruptedCaptureAttempts,
+  deriveOpenCaptureFailures,
+} from "./failures";
 import type {
   SourceCaptureRequest,
   SourceCaptureWorkItem,
@@ -291,6 +296,7 @@ export function getSourceWorkItems(
     if (seen.has(failure.workItemId)) {
       continue;
     }
+    seen.add(failure.workItemId);
     rows.push({
       workItemId: failure.workItemId,
       origin: failure.origin,
@@ -308,7 +314,51 @@ export function getSourceWorkItems(
       failedAt: failure.failedAt,
     });
   }
+  // Attempts cut off before any outcome (run visibility): visible and
+  // retryable like failures, but the message says what actually happened —
+  // nothing was recorded, not "it failed".
+  for (const interrupted of deriveInterruptedCaptureAttempts(register)) {
+    if (seen.has(interrupted.workItemId)) {
+      continue;
+    }
+    seen.add(interrupted.workItemId);
+    rows.push({
+      workItemId: interrupted.workItemId,
+      origin: interrupted.origin,
+      label: displayLabel({
+        manual: interrupted.input.manual,
+        identifier: interrupted.input.identifier,
+        uploadFilename: interrupted.input.upload?.filename,
+        kind: interrupted.input.kind,
+      }),
+      ...(interrupted.input.target_source_id !== undefined
+        ? { targetSourceId: interrupted.input.target_source_id }
+        : {}),
+      status: "interrupted",
+      error:
+        "Erfassung unterbrochen (Absturz, Abbruch oder Zeitüberschreitung) – " +
+        "kein Ergebnis aufgezeichnet.",
+      failedAt: interrupted.since,
+    });
+  }
   return rows;
+}
+
+/**
+ * Drops a still-WAITING capture work item from the backlog (run visibility:
+ * queued work must be removable by the user). False when the item is no
+ * longer waiting — already capturing, finished, or never queued — so a
+ * stale click is a no-op, never an error.
+ */
+export function removeQueuedCapture(
+  projectId: string,
+  workItemId: string,
+  deps: WorkItemQueueDependencies = {},
+): boolean {
+  return (deps.chain?.removeQueuedCapture ?? removeQueuedCaptureFromChain)(
+    projectId,
+    workItemId,
+  );
 }
 
 /**
@@ -338,7 +388,19 @@ export async function retryManualCapture(
       `Zum Arbeitsposten "${workItemId}" liegt kein offener Fehlschlag vor.`,
     );
   }
-  const input = failure.input;
+  const item = itemFromDurableInput(workItemId, failure.origin, failure.input);
+  (deps.chain?.enqueueSourceCapture ?? enqueueSourceCapture)(projectId, item);
+  return { workItemId };
+}
+
+/** Rebuilds a work item from a durable input snapshot — the shared back
+ * half of retrying a recorded failure and retrying an INTERRUPTED attempt
+ * (run visibility), so the two rebuilds can never drift. */
+function itemFromDurableInput(
+  workItemId: string,
+  origin: SourceCaptureWorkItem["origin"],
+  input: CaptureFailureInput,
+): SourceCaptureWorkItem {
   const request: SourceCaptureRequest = {
     kind: input.kind,
     sourceType: input.source_type,
@@ -366,9 +428,9 @@ export async function retryManualCapture(
       ? { autoCapture: { ...input.auto_capture } }
       : {}),
   };
-  const item: SourceCaptureWorkItem = {
+  return {
     workItemId,
-    origin: failure.origin,
+    origin,
     label: displayLabel({
       manual: input.manual,
       identifier: input.identifier,
@@ -377,6 +439,45 @@ export async function retryManualCapture(
     }),
     request,
   };
+}
+
+/**
+ * Re-queues an INTERRUPTED capture attempt (run visibility) from the input
+ * its start bracket snapshotted — the attempt that has no failure event to
+ * retry from, because a crash, a cancel or an expired deadline cut it off
+ * before any outcome. Same work-item id, so the eventual success or failure
+ * closes the open bracket's story.
+ */
+export async function retryInterruptedCapture(
+  projectId: string,
+  workItemId: string,
+  deps: WorkItemQueueDependencies = {},
+): Promise<{ workItemId: string }> {
+  const store = requireProjectStore(projectId);
+  const register = await store.read();
+  const interrupted = deriveInterruptedCaptureAttempts(register).find(
+    (candidate) => candidate.workItemId === workItemId,
+  );
+  if (!interrupted) {
+    throw new PipelineError(
+      `Zum Arbeitsposten "${workItemId}" liegt keine unterbrochene Erfassung vor.`,
+    );
+  }
+  if (
+    hasCaptureInFlight(
+      projectId,
+      (item) => item.workItemId === workItemId,
+      deps.chain,
+    )
+  ) {
+    // Already queued or running again — a double-click, not an error.
+    return { workItemId };
+  }
+  const item = itemFromDurableInput(
+    workItemId,
+    interrupted.origin,
+    interrupted.input,
+  );
   (deps.chain?.enqueueSourceCapture ?? enqueueSourceCapture)(projectId, item);
   return { workItemId };
 }

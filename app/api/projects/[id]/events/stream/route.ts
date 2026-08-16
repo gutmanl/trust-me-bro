@@ -1,5 +1,5 @@
 import {
-  getActiveRun,
+  getProjectActivity,
   readProject,
   streamProjectRunEvents,
   UnknownProjectError,
@@ -29,11 +29,12 @@ function sse(event: string, data: unknown): Uint8Array {
  * attaches to each new run as it starts.
  *
  * Protocol:
- * - `state` — once on connect: `{ activeRun: ActiveRunStatus | null }`, the
+ * - `state` — once on connect: `{ activity: ProjectActivity | null }`, the
  *   same snapshot the pages render server-side, so a reconnecting client
- *   re-syncs without a reload.
- * - `progress` — `{ kind, runId, event }` per run progress event. The client
- *   routes by `kind` (which panel) and `runId` (which run).
+ *   re-syncs without a reload — a runner run OR an off-runner chain trigger
+ *   (run visibility): a client that connects mid-trigger sees it too.
+ * - `progress` — one envelope per run/trigger progress event. The client
+ *   routes by `source`+`kind` (which panel) and run/trigger id (which one).
  * - `: ping` comments as a heartbeat.
  */
 export async function GET(
@@ -90,7 +91,7 @@ export async function GET(
         }
       };
 
-      push(sse("state", { activeRun: getActiveRun(id) ?? null }));
+      push(sse("state", { activity: getProjectActivity(id) ?? null }));
       // Attaches to the currently active run AND to every run started later;
       // deliberately never closes on a terminal event.
       const stop = streamProjectRunEvents(id, (envelope) => {

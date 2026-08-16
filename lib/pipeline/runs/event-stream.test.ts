@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { createActivityLedger } from "./activity-ledger";
+import { createAutoChain } from "./auto-chain";
 import { createJobRunner } from "./job-runner";
 import {
   streamProjectRunEvents,
@@ -150,10 +152,11 @@ describe("streamProjectRunEvents", () => {
     expect(
       envelopes.filter((e) => e.event.type === "run_completed"),
     ).toHaveLength(2);
-    expect([...new Set(envelopes.map((e) => e.runId))]).toEqual([
-      "run-1",
-      "run-2",
-    ]);
+    expect([
+      ...new Set(
+        envelopes.map((e) => (e.source === "run" ? e.runId : e.triggerId)),
+      ),
+    ]).toEqual(["run-1", "run-2"]);
     expect([...new Set(envelopes.map((e) => e.kind))]).toEqual([
       "extraction",
       "existence_check",
@@ -238,5 +241,65 @@ describe("streamProjectRunEvents", () => {
     run.release();
     await expect(run.done).resolves.toEqual({ succeeded: 1, failed: 0 });
     stop();
+  });
+});
+
+describe("streamProjectRunEvents: off-runner triggers (run visibility)", () => {
+  function wedgedChain() {
+    const ledger = createActivityLedger();
+    const runner = createJobRunner({ ledger });
+    const chain = createAutoChain({
+      runner,
+      ledger,
+      startExistenceCheck: (async () => ({
+        runId: "run-ec",
+        projectId: "proj_a",
+        kind: "existence_check",
+        startedAt: new Date().toISOString(),
+        isActive: () => false,
+        eventsSoFar: () => [],
+        subscribe: () => () => {},
+        controlState: () => "running" as const,
+        requestPause: () => false,
+        resume: () => false,
+        requestCancel: () => false,
+        done: Promise.resolve({ succeeded: 1, failed: 0 }),
+      })) as never,
+      listRepairEvaluationSources: async () => ["src_a"],
+      evaluateSourceRepair: () => new Promise<void>(() => {}),
+    });
+    return { runner, chain };
+  }
+
+  it("ships trigger events, replays to a mid-flight subscriber, and closes on cancel", async () => {
+    const { runner, chain } = wedgedChain();
+    const live: ProjectRunEnvelope[] = [];
+    const stopLive = streamProjectRunEvents("proj_a", (e) => live.push(e), {
+      runner,
+      chain,
+    });
+
+    chain.enqueueExistenceCheck("proj_a");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(types(live)).toContain("trigger_started");
+
+    // A client that connects MID-trigger sees it via the replay — the
+    // capture-run-visibility precedent, applied to the chain's half.
+    const late: ProjectRunEnvelope[] = [];
+    const stopLate = streamProjectRunEvents("proj_a", (e) => late.push(e), {
+      runner,
+      chain,
+    });
+    expect(types(late)).toContain("trigger_started");
+    const started = late.find((e) => e.event.type === "trigger_started");
+    expect(started?.source).toBe("trigger");
+
+    chain.activeTrigger("proj_a")?.requestCancel();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(types(live)).toContain("trigger_cancel_requested");
+    expect(types(live)).toContain("trigger_cancelled");
+
+    stopLive();
+    stopLate();
   });
 });

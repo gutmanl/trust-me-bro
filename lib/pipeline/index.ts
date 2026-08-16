@@ -83,9 +83,17 @@ export {
   enqueueManualCapture,
   enqueueSourceCorrection,
   getSourceWorkItems,
+  removeQueuedCapture,
+  retryInterruptedCapture,
   retryManualCapture,
 } from "./sources/work-items/queue";
 export { dismissCaptureFailure } from "./sources/work-items/failures";
+// Run visibility: an attempt cut off before any outcome is visible and
+// retryable from its start bracket, and its interruption derives at read
+// time — see deriveInterruptedCaptureAttempts for the contract.
+export { deriveInterruptedCaptureAttempts } from "./sources/work-items/failures";
+export { deriveOpenChainTriggers } from "./runs/derive-brackets";
+export type { OpenChainTrigger } from "./runs/derive-brackets";
 // Undo of an identity correction (source correction): app-facing on its
 // own, unlike correctSource — it queues nothing and does no network work,
 // it only restores what the register already archived.
@@ -164,13 +172,18 @@ export type {
 // TMB-50: cooperative run control, generic across run kinds; the runner
 // itself stays internal (runs start only through the use-cases).
 export { cancelRun, pauseRun, resumeRun } from "./runs/control";
+// Run visibility: the unified activity surface. One truth for "what
+// occupies this project" (a runner run OR an off-runner chain trigger),
+// one cancel that reaches either — nothing that can block future work may
+// be invisible or uncancellable.
+export { cancelActivity, describeBlockingActivity } from "./runs/control";
 // Runner UI: the project-level run status the shared status bar and the
 // global start-gating read (one truth across pages). The runner stays
 // internal — and so does the live run handle: its only app-facing consumer
 // was the kind-agnostic status stream route, which the unified project
 // event stream below replaced, and that stream attaches to runs internally.
-export type { ActiveRunStatus } from "./runs/status";
-export { getActiveRun } from "./runs/status";
+export type { ActiveRunStatus, ProjectActivity } from "./runs/status";
+export { getActiveRun, getProjectActivity } from "./runs/status";
 // Workbench epic: the unified per-project event stream — one SSE route
 // follows EVERY run of a project, including runs the auto-chain starts after
 // the client connected. The runner's run-start announcement and the project

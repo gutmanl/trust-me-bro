@@ -41,6 +41,8 @@ describe("getActiveRun", () => {
       phase: "running",
       completed: 1,
       total: 2,
+      // Run visibility: "läuft seit" for the status surface.
+      startedAt: expect.any(String),
     });
 
     release();

@@ -8,6 +8,7 @@ import {
   requireProjectStore,
 } from "./projects";
 import type { BackendCli } from "./projects";
+import { describeBlockingActivity } from "./runs/control";
 import { getGlobalJobRunner } from "./runs/job-runner";
 import type { JobRunner } from "./runs/job-runner";
 import { loadRubricRuleSet } from "./verification/rubric-rules";
@@ -186,9 +187,10 @@ export async function updateProjectConfig(
   validate(input);
   const runner = deps.runner ?? getGlobalJobRunner();
   if (runner.isRunning(projectId)) {
+    const blocking = describeBlockingActivity(projectId);
     // A run reads its config once at start; an edit mid-run would not
     // corrupt it, but the UX would suggest otherwise — reject clearly.
-    throw new RunActiveError(projectId);
+    throw new RunActiveError(projectId, blocking);
   }
   const store = requireProjectStore(projectId);
   return store.transaction((tx) => {

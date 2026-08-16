@@ -72,6 +72,29 @@ export const ExistenceCheckStatus = z.enum(["passed", "failed"]);
 export type ExistenceCheckStatus = z.infer<typeof ExistenceCheckStatus>;
 
 /**
+ * Which kind of chained work a `batch_run_started`/`batch_run_completed`
+ * bracket belongs to, when that work runs on the auto-chain rather than as
+ * an extraction pass (run visibility: brackets for chained work).
+ *
+ * The extraction brackets predate this field and stay recognizable exactly
+ * as before (actor + `source_id`, no `trigger_kind`); a bracket CARRYING
+ * this field belongs to one of the chained steps listed here. An unclosed
+ * bracket — a start whose (kind, target) pair never sees a completion — is
+ * how a crash or an abandoned step becomes visible after the fact: the
+ * derivation reads it as interrupted, and the same reading self-heals if an
+ * abandoned step's own completion lands late (documented extension,
+ * additive).
+ */
+export const TriggerKind = z.enum([
+  "source_capture",
+  "capture_failure_repair",
+  "source_repair_evaluation",
+  "anchor_repair",
+  "briefing_substitution",
+]);
+export type TriggerKind = z.infer<typeof TriggerKind>;
+
+/**
  * How the existence check established the wording: contiguously
  * (`exact`), across bounded interpolated material such as a copyright
  * block or figure caption the PDF extraction emitted mid-sentence

@@ -4,9 +4,11 @@ import { useActionState } from "react";
 
 import { ErrorBanner } from "@/app/components/ui";
 import { useProjectEvents } from "@/app/lib/ProjectEventStream";
+import { formatTimestamp } from "../../status-labels";
 import { useItemLiveStatus } from "@/app/lib/useItemLiveStatus";
 import type {
   ExtractionActivity,
+  OpenChainTrigger,
   ReferenceScanState,
   RepairActionVM,
   ReviewCandidate,
@@ -78,6 +80,7 @@ export function SourcesRail({
   repairSuggestions,
   sourceSetRevision,
   pendingTriggers,
+  interruptedTriggers,
   extractionActivity,
   referenceImport,
   hasBriefing,
@@ -92,6 +95,9 @@ export function SourcesRail({
   repairSuggestions: RepairActionVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
+  /** Open evaluator brackets (run visibility): chain steps a crash, cancel
+   * or deadline cut off. Informational — each re-runs organically. */
+  interruptedTriggers: OpenChainTrigger[];
   /** How the last extraction pass ended — the durable half of the run state
    * the deleted extraction page used to show, kept because an extraction
    * that produced nothing would otherwise fail silently. */
@@ -99,7 +105,7 @@ export function SourcesRail({
   referenceImport: ReferenceImportVM | null;
   hasBriefing: boolean;
 }) {
-  const { activeRun } = useProjectEvents();
+  const { activeRun, activity } = useProjectEvents();
   const [sweepState, sweepAction, sweepPending] = useActionState(
     startUnevidencedExtractionAction.bind(null, projectId),
     sweepInitial,
@@ -194,7 +200,12 @@ export function SourcesRail({
   const runningLabel =
     activeRun?.kind && CHAIN_KINDS.has(activeRun.kind)
       ? `${runKindLabel(activeRun.kind)} läuft …`
-      : undefined;
+      : activity?.source === "trigger"
+        ? // The off-runner chain steps (run visibility): repair evaluation,
+          // anchor sweep, briefing substitution — named per instance by the
+          // server-computed description, never a blank chip while one runs.
+          `${activity.description} läuft …`
+        : undefined;
   const chainRunning = runningLabel !== undefined;
   const chainLabel =
     runningLabel ??
@@ -223,6 +234,19 @@ export function SourcesRail({
                 }`}
               >
                 {chainLabel}
+              </span>
+            ) : null}
+            {interruptedTriggers.length > 0 ? (
+              <span
+                title={interruptedTriggers
+                  .map(
+                    (entry) =>
+                      `${entry.description}${entry.sourceId ? ` (${entry.sourceId})` : ""} – unterbrochen seit ${formatTimestamp(entry.since)}; wird beim nächsten passenden Lauf automatisch nachgeholt.`,
+                  )
+                  .join("\n")}
+                className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700"
+              >
+                {interruptedTriggers.length} Folgeschritt(e) unterbrochen
               </span>
             ) : null}
             {referenceImport !== null ? (

@@ -12,15 +12,29 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 
-import type { ActiveRunStatus } from "@/lib/pipeline";
+import type { ActiveRunStatus, ProjectActivity } from "@/lib/pipeline";
 
-/** One progress event of one run, as the unified stream ships it. Mirrors
- * the server's ProjectRunEnvelope; the event payload stays an opaque record
- * here, exactly as the per-panel describe() functions expect it. */
-export interface RunEnvelope {
-  kind: string | null;
-  runId: string;
-  event: Record<string, unknown>;
+/** One progress event of one run or off-runner trigger, as the unified
+ * stream ships it. Mirrors the server's ProjectRunEnvelope; the event
+ * payload stays an opaque record here, exactly as the per-panel describe()
+ * functions expect it. */
+export type RunEnvelope =
+  | {
+      source: "run";
+      kind: string | null;
+      runId: string;
+      event: Record<string, unknown>;
+    }
+  | {
+      source: "trigger";
+      kind: string;
+      triggerId: string;
+      event: Record<string, unknown>;
+    };
+
+/** The id that tells one run/trigger from its successor. */
+function envelopeId(envelope: RunEnvelope): string {
+  return envelope.source === "run" ? envelope.runId : envelope.triggerId;
 }
 
 interface Subscriber {
@@ -35,29 +49,42 @@ interface Subscriber {
 }
 
 interface ProjectEventStreamValue {
+  activity: ProjectActivity | null;
   activeRun: ActiveRunStatus | null;
   connectionLost: boolean;
   subscribe: (subscriber: Subscriber) => () => void;
 }
 
 const ProjectEventStreamContext = createContext<ProjectEventStreamValue>({
+  activity: null,
   activeRun: null,
   connectionLost: false,
   subscribe: () => () => {},
 });
 
 function isTerminal(type: unknown): boolean {
-  return type === "run_completed" || type === "run_cancelled";
+  return (
+    type === "run_completed" ||
+    type === "run_cancelled" ||
+    type === "trigger_completed" ||
+    type === "trigger_cancelled"
+  );
 }
 
-function sameStatus(a: ActiveRunStatus, b: ActiveRunStatus): boolean {
-  return (
-    a.runId === b.runId &&
-    a.kind === b.kind &&
-    a.phase === b.phase &&
-    a.completed === b.completed &&
-    a.total === b.total
-  );
+function sameActivity(a: ProjectActivity, b: ProjectActivity): boolean {
+  if (a.source === "run" && b.source === "run") {
+    return (
+      a.runId === b.runId &&
+      a.kind === b.kind &&
+      a.phase === b.phase &&
+      a.completed === b.completed &&
+      a.total === b.total
+    );
+  }
+  if (a.source === "trigger" && b.source === "trigger") {
+    return a.triggerId === b.triggerId && a.phase === b.phase;
+  }
+  return false;
 }
 
 /**
@@ -77,32 +104,77 @@ function sameStatus(a: ActiveRunStatus, b: ActiveRunStatus): boolean {
  *   replay) say nothing new about the status, and every re-render of this
  *   provider re-renders every start-gated button on the page.
  */
-function reduceActiveRun(
-  previous: ActiveRunStatus | null,
+function reduceActivity(
+  previous: ProjectActivity | null,
   envelope: RunEnvelope,
-): ActiveRunStatus | null {
-  const next = foldActiveRun(previous, envelope);
-  if (previous !== null && next !== null && sameStatus(previous, next)) {
+): ProjectActivity | null {
+  const next = foldActivity(previous, envelope);
+  if (previous !== null && next !== null && sameActivity(previous, next)) {
     return previous;
   }
   return next;
 }
 
-function foldActiveRun(
-  previous: ActiveRunStatus | null,
+function foldActivity(
+  previous: ProjectActivity | null,
   envelope: RunEnvelope,
-): ActiveRunStatus | null {
-  const { event, runId, kind } = envelope;
+): ProjectActivity | null {
+  const { event } = envelope;
+  const id = envelopeId(envelope);
+  const previousId =
+    previous === null
+      ? null
+      : previous.source === "run"
+        ? previous.runId
+        : previous.triggerId;
   if (isTerminal(event.type)) {
-    return previous !== null && previous.runId !== runId ? previous : null;
+    // Only the activity the event names ends — a late terminal event of an
+    // already-replaced run/trigger cannot null its successor.
+    return previous !== null && previousId !== id ? previous : null;
   }
-  const base: ActiveRunStatus =
-    previous !== null && previous.runId === runId
+  if (envelope.source === "trigger") {
+    if (event.type === "trigger_started") {
+      return {
+        source: "trigger",
+        triggerId: envelope.triggerId,
+        kind: envelope.kind as (ProjectActivity & {
+          source: "trigger";
+        })["kind"],
+        description: String(event.description ?? ""),
+        startedAt: String(event.startedAt ?? new Date().toISOString()),
+        phase: "running",
+      };
+    }
+    if (
+      event.type === "trigger_cancel_requested" &&
+      previous?.source === "trigger" &&
+      previous.triggerId === envelope.triggerId
+    ) {
+      return { ...previous, phase: "cancelling" };
+    }
+    return previous;
+  }
+  const base: ProjectActivity & { source: "run" } =
+    previous !== null && previous.source === "run" && previous.runId === id
       ? previous
-      : { runId, kind, phase: "running", completed: 0, total: 0 };
+      : {
+          source: "run",
+          runId: envelope.runId,
+          kind: envelope.kind,
+          phase: "running",
+          completed: 0,
+          total: 0,
+          // Placeholder until run_started (below) or the next state
+          // snapshot supplies the server's own value.
+          startedAt: new Date().toISOString(),
+        };
   switch (event.type) {
     case "run_started":
-      return { ...base, total: Number(event.totalItems) || base.total };
+      return {
+        ...base,
+        total: Number(event.totalItems) || base.total,
+        startedAt: String(event.startedAt ?? base.startedAt),
+      };
     case "item_completed":
       return {
         ...base,
@@ -130,7 +202,7 @@ function foldActiveRun(
  * across successive runs and distributes each envelope to the subscribers
  * that care about its kind.
  *
- * `initialRun` is the server-rendered snapshot, re-read on every server
+ * `initialActivity` is the server-rendered snapshot, re-read on every server
  * render (the project layout is force-dynamic). It is adopted when the PROP
  * changes identity — i.e. when the server has something new to say — never
  * merely because it differs from what the stream established. An unrelated
@@ -138,29 +210,36 @@ function foldActiveRun(
  * refresh whose render started before the current run did cannot roll the
  * client back to a run that has since ended.
  */
+function activityId(activity: ProjectActivity | null): string | null {
+  if (activity === null) {
+    return null;
+  }
+  return activity.source === "run" ? activity.runId : activity.triggerId;
+}
+
 export function ProjectEventStreamProvider({
   projectId,
-  initialRun,
+  initialActivity,
   children,
 }: {
   projectId: string;
-  initialRun: ActiveRunStatus | null;
+  initialActivity: ProjectActivity | null;
   children: ReactNode;
 }) {
   const router = useRouter();
-  const [activeRun, setActiveRun] = useState<ActiveRunStatus | null>(
-    initialRun,
+  const [activity, setActivity] = useState<ProjectActivity | null>(
+    initialActivity,
   );
   const [connectionLost, setConnectionLost] = useState(false);
-  const [serverRunId, setServerRunId] = useState<string | null>(
-    initialRun?.runId ?? null,
+  const [serverActivityId, setServerActivityId] = useState<string | null>(
+    activityId(initialActivity),
   );
 
   // Render-phase state adjustment (established idiom in this codebase):
-  // adopt the server snapshot exactly when the prop's run identity changed.
-  if ((initialRun?.runId ?? null) !== serverRunId) {
-    setServerRunId(initialRun?.runId ?? null);
-    setActiveRun(initialRun);
+  // adopt the server snapshot exactly when the prop's identity changed.
+  if (activityId(initialActivity) !== serverActivityId) {
+    setServerActivityId(activityId(initialActivity));
+    setActivity(initialActivity);
   }
 
   const subscribers = useRef<Set<Subscriber>>(new Set());
@@ -172,14 +251,14 @@ export function ProjectEventStreamProvider({
   /** Latest connection snapshot, or undefined before the first one. Kept in
    * a ref (not only in state) so a subscriber that mounts later gets the
    * same "snapshot, then replay" sequence a connecting client gets. */
-  const snapshot = useRef<{ activeRun: ActiveRunStatus | null } | undefined>(
+  const snapshot = useRef<{ activity: ProjectActivity | null } | undefined>(
     undefined,
   );
 
   const subscribe = useCallback((subscriber: Subscriber) => {
     subscribers.current.add(subscriber);
     if (snapshot.current !== undefined) {
-      subscriber.onSync?.(snapshot.current.activeRun);
+      subscriber.onSync?.(runHalfOf(snapshot.current.activity));
     }
     for (const envelope of buffer.current) {
       if (subscriber.kind === undefined || envelope.kind === subscriber.kind) {
@@ -200,26 +279,29 @@ export function ProjectEventStreamProvider({
 
     source.addEventListener("state", (event) => {
       const payload = JSON.parse((event as MessageEvent).data) as {
-        activeRun: ActiveRunStatus | null;
+        activity: ProjectActivity | null;
       };
       // A fresh connection replays the active run's events, so whatever was
       // buffered from the previous one would duplicate.
       buffer.current = [];
-      snapshot.current = { activeRun: payload.activeRun };
+      snapshot.current = { activity: payload.activity };
       setConnectionLost(false);
-      setActiveRun(payload.activeRun);
+      setActivity(payload.activity);
       for (const subscriber of subscribers.current) {
-        subscriber.onSync?.(payload.activeRun);
+        subscriber.onSync?.(runHalfOf(payload.activity));
       }
     });
 
     source.addEventListener("progress", (event) => {
       const envelope = JSON.parse((event as MessageEvent).data) as RunEnvelope;
-      if (buffer.current[0]?.runId !== envelope.runId) {
+      if (
+        buffer.current.length > 0 &&
+        envelopeId(buffer.current[0]) !== envelopeId(envelope)
+      ) {
         buffer.current = [];
       }
       buffer.current.push(envelope);
-      setActiveRun((previous) => reduceActiveRun(previous, envelope));
+      setActivity((previous) => reduceActivity(previous, envelope));
       for (const subscriber of subscribers.current) {
         if (
           subscriber.kind === undefined ||
@@ -253,9 +335,10 @@ export function ProjectEventStreamProvider({
   // with the same run, a parent re-render) does not churn every consumer —
   // `subscribe` is stable, so the value only changes when the status or the
   // connection state genuinely did.
+  const activeRun = runHalfOf(activity);
   const value = useMemo(
-    () => ({ activeRun, connectionLost, subscribe }),
-    [activeRun, connectionLost, subscribe],
+    () => ({ activity, activeRun, connectionLost, subscribe }),
+    [activity, activeRun, connectionLost, subscribe],
   );
 
   return (
@@ -285,8 +368,9 @@ export function useProjectEvents(
 ): {
   connectionLost: boolean;
   activeRun: ActiveRunStatus | null;
+  activity: ProjectActivity | null;
 } {
-  const { activeRun, connectionLost, subscribe } = useContext(
+  const { activity, activeRun, connectionLost, subscribe } = useContext(
     ProjectEventStreamContext,
   );
   const kind = filter?.kind;
@@ -305,5 +389,11 @@ export function useProjectEvents(
     [kind, subscribe],
   );
 
-  return { activeRun, connectionLost };
+  return { activeRun, activity, connectionLost };
+}
+
+/** The run half of an activity — what panel-level consumers (their feeds,
+ * their sync hooks) understand; a chain trigger has no items to feed. */
+function runHalfOf(activity: ProjectActivity | null): ActiveRunStatus | null {
+  return activity !== null && activity.source === "run" ? activity : null;
 }

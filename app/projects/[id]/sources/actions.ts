@@ -10,6 +10,8 @@ import {
   enqueueExistenceCheck,
   enqueueManualCapture,
   enqueueSourceCorrection,
+  removeQueuedCapture,
+  retryInterruptedCapture,
   retryManualCapture,
   revertSourceIdentity,
   reviseSource,
@@ -303,6 +305,41 @@ export async function revertSourceIdentityAction(
 ): Promise<RetryCaptureState> {
   const result = await runPipelineAction(() =>
     revertSourceIdentity(projectId, sourceId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
+}
+
+/** Drops a still-waiting capture from the backlog (run visibility): queued
+ * work must be removable. A stale click is a no-op, never an error. */
+export async function removeQueuedCaptureAction(
+  projectId: string,
+  workItemId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(async () =>
+    removeQueuedCapture(projectId, workItemId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null };
+}
+
+/** Re-queues an interrupted capture attempt from its start bracket's input
+ * snapshot (run visibility) — the retry for the attempt that never even
+ * recorded a failure. */
+export async function retryInterruptedCaptureAction(
+  projectId: string,
+  workItemId: string,
+  _previous: RetryCaptureState,
+): Promise<RetryCaptureState> {
+  const result = await runPipelineAction(() =>
+    retryInterruptedCapture(projectId, workItemId),
   );
   if (result.error !== null) {
     return { error: result.error };

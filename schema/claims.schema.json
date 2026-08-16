@@ -405,6 +405,108 @@
     "__schema30": {
       "$ref": "#/$defs/__schema3"
     },
+    "__schema31": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "additionalProperties": false,
+          "properties": {
+            "auto_capture": {
+              "$ref": "#/$defs/__schema21"
+            },
+            "document_url": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "identifier": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "doi",
+                "arxiv",
+                "url",
+                "upload"
+              ],
+              "type": "string"
+            },
+            "manual": {
+              "additionalProperties": false,
+              "properties": {
+                "authors": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "container_title": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "title": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "year": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "title"
+              ],
+              "type": "object"
+            },
+            "source_type": {
+              "$ref": "#/$defs/__schema15"
+            },
+            "target_source_id": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "upload": {
+              "additionalProperties": false,
+              "properties": {
+                "blob_path": {
+                  "$ref": "#/$defs/__schema4"
+                },
+                "filename": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "blob_path",
+                "filename"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "source_type"
+          ],
+          "type": "object"
+        },
+        "origin": {
+          "enum": [
+            "manual",
+            "reference_import",
+            "correction",
+            "auto_repair"
+          ],
+          "type": "string"
+        },
+        "work_item_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "work_item_id",
+        "origin",
+        "input"
+      ],
+      "type": "object"
+    },
     "__schema4": {
       "pattern": "^blobs\\/[0-9a-f]{2}\\/[0-9a-f]{64}\\.[a-z0-9]+$",
       "type": "string"
@@ -796,107 +898,11 @@
           "at": {
             "$ref": "#/$defs/__schema1"
           },
+          "capture_attempt": {
+            "$ref": "#/$defs/__schema31"
+          },
           "capture_failure": {
-            "additionalProperties": false,
-            "properties": {
-              "input": {
-                "additionalProperties": false,
-                "properties": {
-                  "auto_capture": {
-                    "$ref": "#/$defs/__schema21"
-                  },
-                  "document_url": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "identifier": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "kind": {
-                    "enum": [
-                      "doi",
-                      "arxiv",
-                      "url",
-                      "upload"
-                    ],
-                    "type": "string"
-                  },
-                  "manual": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "authors": {
-                        "minLength": 1,
-                        "type": "string"
-                      },
-                      "container_title": {
-                        "minLength": 1,
-                        "type": "string"
-                      },
-                      "title": {
-                        "minLength": 1,
-                        "type": "string"
-                      },
-                      "year": {
-                        "minLength": 1,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "title"
-                    ],
-                    "type": "object"
-                  },
-                  "source_type": {
-                    "$ref": "#/$defs/__schema15"
-                  },
-                  "target_source_id": {
-                    "$ref": "#/$defs/__schema12"
-                  },
-                  "upload": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "blob_path": {
-                        "$ref": "#/$defs/__schema4"
-                      },
-                      "filename": {
-                        "minLength": 1,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "blob_path",
-                      "filename"
-                    ],
-                    "type": "object"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "source_type"
-                ],
-                "type": "object"
-              },
-              "origin": {
-                "enum": [
-                  "manual",
-                  "reference_import",
-                  "correction",
-                  "auto_repair"
-                ],
-                "type": "string"
-              },
-              "work_item_id": {
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "work_item_id",
-              "origin",
-              "input"
-            ],
-            "type": "object"
+            "$ref": "#/$defs/__schema31"
           },
           "config_change": {
             "additionalProperties": false,
@@ -1142,6 +1148,16 @@
           },
           "state_root": {
             "$ref": "#/$defs/__schema30"
+          },
+          "trigger_kind": {
+            "enum": [
+              "source_capture",
+              "capture_failure_repair",
+              "source_repair_evaluation",
+              "anchor_repair",
+              "briefing_substitution"
+            ],
+            "type": "string"
           },
           "work_item_id": {
             "minLength": 1,

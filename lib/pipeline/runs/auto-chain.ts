@@ -1,5 +1,14 @@
+import { randomUUID } from "node:crypto";
+
 import { processGlobal } from "../../process-global";
 import { startSourceExtraction } from "../extraction/run-source-extraction";
+import {
+  createActivityLedger,
+  getGlobalActivityLedger,
+} from "./activity-ledger";
+import type { ActivityLedger } from "./activity-ledger";
+import { runKindLabel } from "./labels";
+import { createZombieLedger } from "./zombie-ledger";
 // Statically imported where every other automatic-repair module is resolved
 // lazily: this one neither enqueues onto the chain nor pulls the adapter
 // graph behind it, so it closes none of the cycles documented in
@@ -15,6 +24,11 @@ import type {
 import { startExistenceCheck } from "../verification/run-existence-check";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
+import type {
+  OffRunnerTriggerKind,
+  TriggerHandle,
+  TriggerProgressEvent,
+} from "./types";
 
 type PendingTrigger =
   | { kind: "extraction"; sourceId: string }
@@ -111,6 +125,18 @@ export interface AutoChainDependencies {
     projectId: string,
     sourceId: string,
   ) => Promise<unknown>;
+  /** The activity ledger the off-runner triggers register into. The
+   * process-global chain shares the process-global ledger with the runner —
+   * that sharing IS the unified view; a chain built without one gets its
+   * own, keeping unit tests isolated. */
+  ledger?: ActivityLedger;
+  /** Backstop deadline per trigger (run visibility): even ignoring cancel,
+   * nothing may wedge the queue indefinitely. Injectable for tests. */
+  triggerDeadlineMs?: number;
+  /** Bracket writers, injectable for tests (production resolves the real
+   * ones lazily, same cycle rationale as every other lazy seam here). */
+  openTriggerBracket?: typeof import("./trigger-brackets").openTriggerBracket;
+  closeTriggerBracket?: typeof import("./trigger-brackets").closeTriggerBracket;
 }
 
 export interface AutoChain {
@@ -136,6 +162,19 @@ export interface AutoChain {
    * the backlog, run not finished), if any — the "capturing" half the
    * backlog view cannot see. */
   activeCaptureItem(projectId: string): SourceCaptureItemInfo | undefined;
+  /** The off-runner trigger currently in flight for a project, if any —
+   * the half of the project's activity the runner cannot see (run
+   * visibility). */
+  activeTrigger(projectId: string): TriggerHandle | undefined;
+  /** Notifies once per off-runner trigger start (any project), with the
+   * fresh handle — the SSE stream's attach point, mirroring the runner's
+   * subscribeRunStarts. Returns the unsubscribe function. */
+  subscribeTriggerStarts(listener: (handle: TriggerHandle) => void): () => void;
+  /** Drops a still-WAITING capture work item from the backlog (run
+   * visibility: queued work must be removable). False when the item is not
+   * waiting (already in flight, finished, or never queued) — a stale click
+   * is a no-op, never an error. */
+  removeQueuedCapture(projectId: string, workItemId: string): boolean;
 }
 
 /**
@@ -166,6 +205,13 @@ export interface AutoChain {
  * their own manual buttons, and neither leaves half-written state behind.
  * A dropped capture work item loses only its queue slot — a failed ATTEMPT
  * is durable in the register, and re-enqueueing is one click.
+ *
+ * The IN-FLIGHT step is more precisely covered than the backlog since the
+ * run-visibility work: every trigger writes a durable start bracket (and
+ * captures snapshot their retryable input on it), so a step cut off
+ * mid-flight — crash, cancel or deadline — surfaces as a specific
+ * "interrupted" item with its own retry, not merely as a generic manual
+ * button somewhere.
  */
 export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
   const runner = deps.runner ?? getGlobalJobRunner();
@@ -271,6 +317,200 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
    * status readers see "capturing" exactly while the backlog cannot. */
   const activeCapture = new Map<string, SourceCaptureItemInfo>();
 
+  const ledger = deps.ledger ?? createActivityLedger();
+  const zombies = createZombieLedger();
+  const triggerDeadlineMs = deps.triggerDeadlineMs ?? 10 * 60_000;
+  const activeTriggers = new Map<string, TriggerHandle>();
+  const triggerStartListeners = new Set<(handle: TriggerHandle) => void>();
+
+  // No-op by default: a directly constructed chain is a test chain (see
+  // the getGlobalAutoChain doc — production always goes through it, and it
+  // wires the real writers). Visibility must never make a unit test need a
+  // real project workspace on disk.
+  const openBracket = deps.openTriggerBracket ?? (async () => {});
+  const closeBracket = deps.closeTriggerBracket ?? (async () => {});
+
+  /**
+   * Runs one off-runner trigger as a first-class, visible, cancellable
+   * activity (run visibility) — the four steps this wraps used to be bare
+   * awaits in the drain loop: no handle, no status entry, no cancel, no
+   * bound, able to wedge the whole per-project queue while every UI
+   * surface reported idle.
+   *
+   * The shape mirrors a runner run deliberately, one level down: a
+   * TriggerHandle with replayable events and subscribe (so the SSE stream
+   * attaches with the same replay-then-subscribe discipline), registration
+   * in the shared activity ledger (so guards and the status bar see it),
+   * and a durable start bracket whose CLOSE is written when the work
+   * itself settles — an abandoned trigger therefore leaves the same open
+   * bracket a crash does, and the same derivation reads both.
+   *
+   * Cancel and the deadline share one abandon path: the race stops
+   * waiting, the drain continues, the work keeps running as a tracked
+   * zombie. A new trigger of the same kind waits for that kind's zombies
+   * first, so same-kind work never overlaps.
+   */
+  async function runOffRunnerTrigger(
+    projectId: string,
+    kind: OffRunnerTriggerKind,
+    target: { sourceId?: string; workItemId?: string; label?: string },
+    work: () => Promise<unknown>,
+  ): Promise<void> {
+    const zombieWait = zombies.pending(projectId, kind);
+    if (zombieWait) {
+      await zombieWait;
+    }
+    const triggerId = randomUUID();
+    const startedAt = new Date().toISOString();
+    const description = target.label
+      ? `${runKindLabel(kind)} – ${target.label}`
+      : runKindLabel(kind);
+    let cancelRequested = false;
+    let releaseCancel!: () => void;
+    const cancelGate = new Promise<void>((resolve) => {
+      releaseCancel = resolve;
+    });
+    let activeFlag = true;
+    const events: TriggerProgressEvent[] = [];
+    const listeners = new Set<(event: TriggerProgressEvent) => void>();
+    const emit = (event: TriggerProgressEvent): void => {
+      events.push(event);
+      for (const listener of listeners) {
+        try {
+          listener(event);
+        } catch {
+          // dead SSE listener: it simply misses this event
+        }
+      }
+    };
+    let releaseDone!: () => void;
+    const done = new Promise<void>((resolve) => {
+      releaseDone = resolve;
+    });
+    const handle: TriggerHandle = {
+      triggerId,
+      projectId,
+      kind,
+      description,
+      startedAt,
+      isActive: () => activeFlag,
+      eventsSoFar: () => [...events],
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      controlState: () => (cancelRequested ? "cancelling" : "running"),
+      requestCancel() {
+        if (!activeFlag || cancelRequested) {
+          return false;
+        }
+        cancelRequested = true;
+        emit({ type: "trigger_cancel_requested", triggerId });
+        releaseCancel();
+        return true;
+      },
+      done,
+    };
+
+    const bracketTarget = {
+      ...(target.sourceId !== undefined ? { sourceId: target.sourceId } : {}),
+      ...(target.workItemId !== undefined
+        ? { workItemId: target.workItemId }
+        : {}),
+    };
+    await openBracket({ projectId, kind, ...bracketTarget });
+    const unregister = ledger.register({
+      activityId: triggerId,
+      projectId,
+      source: "trigger",
+      kind,
+      description,
+      startedAt,
+      isActive: () => activeFlag,
+      requestCancel: () => handle.requestCancel(),
+    });
+    activeTriggers.set(projectId, handle);
+    emit({
+      type: "trigger_started",
+      triggerId,
+      projectId,
+      kind,
+      description,
+      startedAt,
+    });
+    for (const listener of triggerStartListeners) {
+      try {
+        listener(handle);
+      } catch {
+        // dead listener: it simply misses this trigger
+      }
+    }
+
+    const workPromise = work();
+    // The durable close is attached to the WORK, not to the race below: an
+    // abandoned trigger leaves its bracket open (visible as interrupted)
+    // until — and only until — its zombie settles on its own.
+    void workPromise.then(
+      () =>
+        closeBracket({
+          projectId,
+          kind,
+          ...bracketTarget,
+          outcome: "completed",
+        }),
+      () =>
+        closeBracket({ projectId, kind, ...bracketTarget, outcome: "failed" }),
+    );
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<"deadline">((resolve) => {
+      timeoutHandle = setTimeout(() => resolve("deadline"), triggerDeadlineMs);
+      timeoutHandle.unref?.();
+    });
+    try {
+      const raced = await Promise.race([
+        workPromise.then(
+          () => "settled" as const,
+          () => "settled" as const,
+        ),
+        cancelGate.then(() => "cancelled" as const),
+        deadline,
+      ]);
+      if (raced !== "settled") {
+        zombies.track(projectId, kind, workPromise);
+        if (raced === "deadline") {
+          console.warn(
+            `auto-chain: ${kind} for project "${projectId}" exceeded its ` +
+              `${Math.round(triggerDeadlineMs / 1000)}s deadline and was ` +
+              "abandoned; the queue continues.",
+          );
+        }
+      }
+      emit({
+        // A deadline is a system-initiated cancel (same abandon path), and
+        // the event log says so — an abandoned trigger must never read as a
+        // genuine completion.
+        type: raced === "settled" ? "trigger_completed" : "trigger_cancelled",
+        triggerId,
+      });
+      // A genuine failure surfaces through the settled workPromise: rethrow
+      // it (after the terminal event above) so drain()'s existing catch
+      // logs it like before.
+      if (raced === "settled") {
+        await workPromise;
+      }
+    } finally {
+      if (timeoutHandle !== undefined) {
+        clearTimeout(timeoutHandle);
+      }
+      activeFlag = false;
+      unregister();
+      if (activeTriggers.get(projectId) === handle) {
+        activeTriggers.delete(projectId);
+      }
+      releaseDone();
+    }
+  }
+
   /** Pops the next trigger and silently drops any consecutive duplicates
    * behind it (same kind AND, for extraction, same sourceId) — several
    * captures or revisions firing in a burst collapse into one pass instead
@@ -321,6 +561,28 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
         })),
       );
     } else if (trigger.kind === "source_capture") {
+      // Start bracket at the moment the attempt leaves the backlog, with
+      // its retryable input (run visibility). The close is INFERRED — a
+      // later failure event or the created source — so a crash or an
+      // abandoned run leaves the bracket open, and the derivation offers
+      // the retry the failure event would otherwise have carried. Written
+      // BEFORE activeCapture flips: "capturing" implies the item's run is
+      // being submitted in the same tick, an invariant observers (and the
+      // cancel button they render) rely on.
+      const failures = await import("../sources/work-items/failures");
+      await openBracket({
+        projectId,
+        kind: "source_capture",
+        workItemId: trigger.item.workItemId,
+        ...(trigger.item.request.targetSourceId !== undefined
+          ? { sourceId: trigger.item.request.targetSourceId }
+          : {}),
+        captureAttempt: {
+          work_item_id: trigger.item.workItemId,
+          origin: trigger.item.origin,
+          input: failures.captureFailureInputOf(trigger.item.request),
+        },
+      });
       activeCapture.set(projectId, itemInfo(trigger.item));
       let summary: { succeeded: number; failed: number } | undefined;
       try {
@@ -357,13 +619,33 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
         });
       }
     } else if (trigger.kind === "capture_failure_repair") {
-      await runCaptureFailureRepair(projectId, trigger.workItemId);
+      await runOffRunnerTrigger(
+        projectId,
+        "capture_failure_repair",
+        {
+          workItemId: trigger.workItemId,
+          label: `Arbeitsposten "${trigger.workItemId}"`,
+        },
+        () => runCaptureFailureRepair(projectId, trigger.workItemId),
+      );
     } else if (trigger.kind === "source_repair_evaluation") {
-      await runSourceRepairEvaluation(projectId, trigger.sourceId);
+      await runOffRunnerTrigger(
+        projectId,
+        "source_repair_evaluation",
+        { sourceId: trigger.sourceId, label: `Quelle "${trigger.sourceId}"` },
+        () => runSourceRepairEvaluation(projectId, trigger.sourceId),
+      );
     } else if (trigger.kind === "anchor_repair") {
-      await runAnchorRepairSweep(projectId);
+      await runOffRunnerTrigger(projectId, "anchor_repair", {}, () =>
+        runAnchorRepairSweep(projectId),
+      );
     } else if (trigger.kind === "briefing_substitution") {
-      await runBriefingSubstitutionStep(projectId, trigger.sourceId);
+      await runOffRunnerTrigger(
+        projectId,
+        "briefing_substitution",
+        { sourceId: trigger.sourceId, label: `Quelle "${trigger.sourceId}"` },
+        () => runBriefingSubstitutionStep(projectId, trigger.sourceId),
+      );
       // The substitution published a revision (or not) — either way the
       // sweep is cheap and coalesces; quotes may have shifted paragraphs.
       queue.push({ kind: "anchor_repair" });
@@ -486,6 +768,30 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     activeCaptureItem(projectId) {
       return activeCapture.get(projectId);
     },
+    activeTrigger(projectId) {
+      const handle = activeTriggers.get(projectId);
+      return handle && handle.isActive() ? handle : undefined;
+    },
+    subscribeTriggerStarts(listener) {
+      triggerStartListeners.add(listener);
+      return () => triggerStartListeners.delete(listener);
+    },
+    removeQueuedCapture(projectId, workItemId) {
+      const queue = pending.get(projectId);
+      if (!queue) {
+        return false;
+      }
+      const index = queue.findIndex(
+        (trigger) =>
+          trigger.kind === "source_capture" &&
+          trigger.item.workItemId === workItemId,
+      );
+      if (index === -1) {
+        return false;
+      }
+      queue.splice(index, 1);
+      return true;
+    },
   };
 }
 
@@ -498,7 +804,18 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
  * for the process-global test only — the app layer uses the bound functions
  * below, tests build their own chain with createAutoChain. */
 export function getGlobalAutoChain(): AutoChain {
-  return processGlobal("runs/auto-chain", createAutoChain);
+  return processGlobal("runs/auto-chain", () =>
+    createAutoChain({
+      ledger: getGlobalActivityLedger(),
+      // Real bracket writers, resolved lazily like every other heavy seam:
+      // only the process-global chain — the one production path — writes
+      // durable brackets; directly constructed chains are test chains.
+      openTriggerBracket: async (options) =>
+        (await import("./trigger-brackets")).openTriggerBracket(options),
+      closeTriggerBracket: async (options) =>
+        (await import("./trigger-brackets")).closeTriggerBracket(options),
+    }),
+  );
 }
 
 export function enqueueSourceExtraction(
@@ -557,7 +874,20 @@ export function activeCaptureItem(
 export type CaptureChainAccess = Pick<
   AutoChain,
   "enqueueSourceCapture" | "pendingCaptureItems" | "activeCaptureItem"
->;
+> &
+  // Optional: only the queue's removal path needs it, and the evaluator
+  // fakes that inject the slice should not have to carry a member they
+  // never call.
+  Partial<Pick<AutoChain, "removeQueuedCapture">>;
+
+/** Drops a still-waiting capture work item from the process-global chain's
+ * backlog (run visibility) — see AutoChain.removeQueuedCapture. */
+export function removeQueuedCapture(
+  projectId: string,
+  workItemId: string,
+): boolean {
+  return getGlobalAutoChain().removeQueuedCapture(projectId, workItemId);
+}
 
 /**
  * Whether any queued or active capture work item of a project matches —

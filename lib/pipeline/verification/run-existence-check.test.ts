@@ -317,7 +317,7 @@ describe("startExistenceCheck", () => {
     });
     await expect(
       startExistenceCheck(PROJECT, { runner, fetcher: fakeFetcher({}) }),
-    ).rejects.toThrow(/bereits ein Lauf/);
+    ).rejects.toThrow(/läuft bereits/);
     await first.done;
   });
 });

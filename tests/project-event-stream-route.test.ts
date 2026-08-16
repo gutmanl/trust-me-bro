@@ -150,7 +150,7 @@ describe("GET /api/projects/[id]/events/stream", () => {
     const state = await stream.next();
     expect(state.event).toBe("state");
     expect(state.data).toMatchObject({
-      activeRun: { kind: "extraction", phase: "running" },
+      activity: { source: "run", kind: "extraction", phase: "running" },
     });
 
     // The run's log so far is replayed as progress envelopes, tagged.
@@ -172,7 +172,7 @@ describe("GET /api/projects/[id]/events/stream", () => {
     const stream = frames(await open(projectId));
     expect(await stream.next()).toMatchObject({
       event: "state",
-      data: { activeRun: null },
+      data: { activity: null },
     });
     await stream.cancel();
   });

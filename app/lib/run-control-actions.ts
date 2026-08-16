@@ -1,7 +1,7 @@
 "use server";
 
 import { runPipelineAction } from "@/app/lib/pipeline-action";
-import { cancelRun, pauseRun, resumeRun } from "@/lib/pipeline";
+import { cancelActivity, cancelRun, pauseRun, resumeRun } from "@/lib/pipeline";
 
 /**
  * Shared pause/resume/cancel actions of the multi-item run panels
@@ -44,5 +44,19 @@ export async function cancelRunAction(
   const result = await runPipelineAction(async () =>
     cancelRun(projectId, kind),
   );
+  return { error: result.error };
+}
+
+/**
+ * Cancels whatever currently occupies the project — a run or an off-runner
+ * chain trigger — without the caller knowing which (run visibility): the
+ * status bar's one cancel for the one activity it shows.
+ */
+export async function cancelActivityAction(
+  projectId: string,
+  _previous: RunControlFormState,
+  _formData: FormData,
+): Promise<RunControlFormState> {
+  const result = await runPipelineAction(async () => cancelActivity(projectId));
   return { error: result.error };
 }

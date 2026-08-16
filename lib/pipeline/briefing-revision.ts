@@ -11,6 +11,7 @@ import {
 } from "./errors";
 import { requireProjectStore } from "./projects";
 import { briefingRenderContext } from "./research/independence";
+import { describeBlockingActivity } from "./runs/control";
 import { getGlobalJobRunner } from "./runs/job-runner";
 
 export type { BriefingDraft };
@@ -108,7 +109,8 @@ export async function publishBriefingRevision(
   input: PublishBriefingRevisionInput,
 ): Promise<BriefingImport> {
   if (getGlobalJobRunner().isRunning(projectId)) {
-    throw new RunActiveError(projectId);
+    const blocking = describeBlockingActivity(projectId);
+    throw new RunActiveError(projectId, blocking);
   }
   const store = requireProjectStore(projectId);
   const draft = store.readDraft();

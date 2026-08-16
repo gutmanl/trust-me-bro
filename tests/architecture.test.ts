@@ -406,6 +406,22 @@ describe("public surface of lib/pipeline", () => {
     // never needs to drive attachment itself.
     expect(surface.streamProjectRunEvents).toBeDefined();
     expect(surface.subscribeProjectRunStarts).toBeUndefined();
+    // Run visibility: the unified activity surface. One truth for "what
+    // occupies this project" (runner run OR off-runner chain trigger), one
+    // cancel that reaches either, a descriptor for blocked-action messages,
+    // queued work removable, interrupted work derivable and retryable. The
+    // ledgers themselves stay internal — the app never touches them.
+    expect(surface.getProjectActivity).toBeDefined();
+    expect(surface.cancelActivity).toBeDefined();
+    expect(surface.describeBlockingActivity).toBeDefined();
+    expect(surface.removeQueuedCapture).toBeDefined();
+    expect(surface.retryInterruptedCapture).toBeDefined();
+    expect(surface.deriveInterruptedCaptureAttempts).toBeDefined();
+    expect(surface.deriveOpenChainTriggers).toBeDefined();
+    expect(surface.getGlobalActivityLedger).toBeUndefined();
+    expect(surface.createActivityLedger).toBeUndefined();
+    expect(surface.openTriggerBracket).toBeUndefined();
+    expect(surface.closeTriggerBracket).toBeUndefined();
   });
 });
 

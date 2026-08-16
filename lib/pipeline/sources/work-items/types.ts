@@ -79,7 +79,11 @@ export interface SourceWorkItemVM {
   /** The corrected source, for correction items — such rows render on that
    * source's own row instead of as standalone list entries. */
   targetSourceId?: string;
-  status: "queued" | "capturing" | "failed";
+  /** "interrupted": a start bracket with no outcome — the attempt was cut
+   * off by a crash, a cancel or an expired deadline before it could even
+   * record its failure (run visibility); retryable from the bracket's
+   * input snapshot exactly like a failed row. */
+  status: "queued" | "capturing" | "failed" | "interrupted";
   /** German failure reason; present when status is "failed". */
   error?: string;
   /** ISO timestamp of the recorded failure; present when status is

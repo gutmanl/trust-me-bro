@@ -20,6 +20,7 @@ import {
   getReferenceCandidates,
   getReferenceScanState,
   deriveOpenRepairActions,
+  deriveOpenChainTriggers,
   getSourceWorkItems,
   getUnpaywallSetting,
   getVerificationState,
@@ -149,6 +150,14 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   // The not-yet-sources half of the unified list: queued/capturing from the
   // chain and runner, durable failures from the register.
   const workItems = getSourceWorkItems(id, register);
+  // Interrupted chain steps (run visibility): open evaluator brackets — a
+  // crash, cancel or deadline cut them off. Informational: each re-runs
+  // organically (the repair evaluation with the next existence check, the
+  // anchor sweep with the next publish/extraction), but the cut-off must
+  // be visible, not silently absorbed.
+  const interruptedTriggers = deriveOpenChainTriggers(
+    register.project_events,
+  ).filter((entry) => entry.kind !== "source_capture");
   // Open auto-repair suggestions, joined onto failed work items and source
   // rows client-side by the rail.
   const repairSuggestions = deriveOpenRepairActions(register);
@@ -233,6 +242,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         repairSuggestions={repairSuggestions}
         sourceSetRevision={register.project.source_set_revision}
         pendingTriggers={pendingTriggerCount(id)}
+        interruptedTriggers={interruptedTriggers}
         extractionActivity={deriveExtractionActivity(
           register,
           getActiveRun(id)?.kind === "extraction",

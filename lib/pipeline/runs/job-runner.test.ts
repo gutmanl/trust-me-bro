@@ -178,7 +178,7 @@ describe("createJobRunner", () => {
     ]);
   });
 
-  it("cancels before the next item and ends with run_cancelled (TMB-50)", async () => {
+  it("cancel abandons the in-flight item and finalizes immediately (run visibility)", async () => {
     const runner = createJobRunner();
     let releaseFirst!: () => void;
     const firstItem = new Promise<void>((resolve) => {
@@ -202,10 +202,12 @@ describe("createJobRunner", () => {
     expect(handle.controlState()).toBe("cancelling");
     expect(handle.requestCancel()).toBe(false);
 
-    releaseFirst();
+    // The run finalizes WITHOUT the in-flight item being released: cancel
+    // must never wait on a step that may never settle. The abandoned item
+    // counts nowhere; its item_started without a matching item_completed IS
+    // the record of the abandonment.
     const result = await handle.done;
-    // The in-flight item finished and counted; the rest never started.
-    expect(result).toEqual({ succeeded: 1, failed: 0 });
+    expect(result).toEqual({ succeeded: 0, failed: 0 });
     expect(started).toEqual(["eins"]);
     expect(handle.controlState()).toBe("cancelled");
     expect(handle.isActive()).toBe(false);
@@ -213,11 +215,74 @@ describe("createJobRunner", () => {
       "run_started",
       "item_started",
       "run_cancel_requested",
-      "item_completed",
       "run_cancelled",
     ]);
     // The project slot is free again.
     expect(runner.isRunning("proj_a")).toBe(false);
+    releaseFirst(); // the zombie settles late; nothing was waiting on it
+  });
+
+  it("a new same-kind run waits for the abandoned step to settle first", async () => {
+    const runner = createJobRunner();
+    let releaseZombie!: () => void;
+    const zombieGate = new Promise<void>((resolve) => {
+      releaseZombie = resolve;
+    });
+    const order: string[] = [];
+    const first = runner.submit(
+      "proj_a",
+      ["alt"],
+      (item) => item,
+      async () => {
+        order.push("zombie started");
+        await zombieGate;
+        order.push("zombie settled");
+      },
+      { kind: "extraction" },
+    );
+    first.requestCancel();
+    await first.done; // finalized immediately, step still in flight
+
+    // Same kind: must serialize behind the zombie (extraction passes embed
+    // prior claims for dedupe and may never overlap).
+    const second = runner.submit(
+      "proj_a",
+      ["neu"],
+      (item) => item,
+      async () => {
+        order.push("second ran");
+      },
+      { kind: "extraction" },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(order).toEqual(["zombie started"]);
+    releaseZombie();
+    await second.done;
+    expect(order).toEqual(["zombie started", "zombie settled", "second ran"]);
+  });
+
+  it("a different-kind run does not wait for another kind's zombie", async () => {
+    const runner = createJobRunner();
+    const zombieGate = new Promise<void>(() => {}); // never settles
+    const first = runner.submit(
+      "proj_a",
+      ["alt"],
+      (item) => item,
+      async () => zombieGate,
+      { kind: "anchor_repair" },
+    );
+    first.requestCancel();
+    await first.done;
+
+    const second = runner.submit(
+      "proj_a",
+      ["neu"],
+      (item) => item,
+      async (item) => item,
+      { kind: "source_capture" },
+    );
+    // Settles despite the other kind's zombie never settling.
+    await expect(second.done).resolves.toEqual({ succeeded: 1, failed: 0 });
   });
 
   it("cancel releases a pending pause instead of deadlocking (TMB-50)", async () => {

@@ -1,6 +1,9 @@
 import { getCurrentActor } from "../../../identity";
 import type { ClaimsRegister } from "../../../register";
-import type { CaptureFailureInput } from "../../../register/schema/history";
+import type {
+  CaptureFailure,
+  CaptureFailureInput,
+} from "../../../register/schema/history";
 import { PipelineError } from "../../errors";
 import { requireProjectStore } from "../../projects";
 import type { SourceCaptureRequest, SourceCaptureWorkItem } from "./types";
@@ -174,7 +177,15 @@ export async function dismissCaptureFailure(
   const failure = deriveOpenCaptureFailures(register).find(
     (candidate) => candidate.workItemId === workItemId,
   );
-  if (!failure) {
+  // An INTERRUPTED attempt is dismissable too (run visibility): the same
+  // event closes its open bracket, so a cut-off attempt nobody wants to
+  // retry does not sit in the list forever.
+  const interrupted = failure
+    ? undefined
+    : deriveInterruptedCaptureAttempts(register).find(
+        (candidate) => candidate.workItemId === workItemId,
+      );
+  if (!failure && !interrupted) {
     throw new PipelineError(
       `Zum Arbeitsposten "${workItemId}" liegt kein offener Fehlschlag vor.`,
     );
@@ -182,9 +193,80 @@ export async function dismissCaptureFailure(
   await store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "source_capture_dismissed",
-      reason: `Fehlgeschlagener Erfassungsversuch verworfen: ${failure.reason}`,
+      reason: failure
+        ? `Fehlgeschlagener Erfassungsversuch verworfen: ${failure.reason}`
+        : "Unterbrochener Erfassungsversuch verworfen (kein Ergebnis aufgezeichnet).",
       actor: getCurrentActor(),
       work_item_id: workItemId,
     });
   });
+}
+
+/**
+ * Capture attempts cut off before their own outcome (run visibility): a
+ * start bracket (`batch_run_started`, `trigger_kind: "source_capture"`)
+ * with none of the three close signals — no later failure event for the
+ * work item, no source carrying its `capture_attempt_id`, no dismissal.
+ * That is an attempt a crash, a cancel or an expired deadline interrupted
+ * BEFORE it could even record its failure — the one shape
+ * `deriveOpenCaptureFailures` is structurally blind to, and the reason the
+ * bracket snapshots the retryable input at START.
+ *
+ * A NEWER start bracket for the same work item closes an older one (the
+ * retry is the live truth); the caller overlays volatile queued/running
+ * state, which takes precedence in display.
+ */
+export interface InterruptedCaptureVM {
+  workItemId: string;
+  origin: CaptureFailure["origin"];
+  since: string;
+  input: CaptureFailureInput;
+}
+
+export function deriveInterruptedCaptureAttempts(
+  register: Pick<ClaimsRegister, "sources" | "project_events">,
+): InterruptedCaptureVM[] {
+  const resolved = new Set(
+    register.sources.flatMap((source) =>
+      source.custom.capture_attempt_id !== undefined
+        ? [source.custom.capture_attempt_id]
+        : [],
+    ),
+  );
+  const open = new Map<string, InterruptedCaptureVM>();
+  for (const event of register.project_events) {
+    if (
+      event.event === "batch_run_started" &&
+      event.trigger_kind === "source_capture" &&
+      event.capture_attempt !== undefined
+    ) {
+      const attempt = event.capture_attempt;
+      open.set(attempt.work_item_id, {
+        workItemId: attempt.work_item_id,
+        origin: attempt.origin,
+        since: event.at,
+        input: attempt.input,
+      });
+      continue;
+    }
+    // Any of the three close signals ends the bracket — chain order carries
+    // the semantics, exactly as in deriveOpenCaptureFailures above.
+    if (
+      event.event === "source_capture_failed" &&
+      event.capture_failure !== undefined
+    ) {
+      open.delete(event.capture_failure.work_item_id);
+      continue;
+    }
+    if (
+      event.event === "source_capture_dismissed" &&
+      event.work_item_id !== undefined
+    ) {
+      open.delete(event.work_item_id);
+    }
+  }
+  for (const workItemId of resolved) {
+    open.delete(workItemId);
+  }
+  return [...open.values()];
 }

@@ -5,6 +5,7 @@ import {
   UnknownSourceError,
 } from "../errors";
 import { requireProjectStore } from "../projects";
+import { describeBlockingActivity } from "../runs/control";
 import { getGlobalJobRunner } from "../runs/job-runner";
 import type { JobRunner } from "../runs/job-runner";
 import { acquireDocument, buildSnapshot, extractTextOrError } from "./document";
@@ -44,12 +45,18 @@ export async function reviseSource(
 ): Promise<ReviseSourceResult> {
   const fetcher = deps.fetcher ?? nodeHttpFetcher;
   const runner = deps.runner ?? getGlobalJobRunner();
-  if (runner.isRunning(input.projectId)) {
+  // Broadened from the runner alone to the unified activity (run
+  // visibility): an off-runner chain step — a repair evaluation reading
+  // this very source, say — must equally finish or be cancelled before the
+  // document underneath it rotates. The refusal names the blocker; the
+  // status bar shows the same activity with its cancel.
+  const blocking = describeBlockingActivity(input.projectId);
+  if (blocking || runner.isRunning(input.projectId)) {
     // A verification/relevance run caches the source snapshots at run start
     // (sourcesById); a mid-run revision would let the run silently validate
     // claims against the superseded text — exactly what the revision exists
     // to prevent. Same guard as the config edit.
-    throw new RunActiveError(input.projectId);
+    throw new RunActiveError(input.projectId, blocking);
   }
   const store = requireProjectStore(input.projectId);
   const register = await store.read();

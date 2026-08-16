@@ -18,6 +18,7 @@ import type { BriefingImport, ClaimStatus } from "@/lib/register";
 import { useEffortTimer } from "../review/useEffortTimer";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimsOverviewBar } from "./ClaimsOverviewBar";
+import type { OpenChainTrigger } from "@/lib/pipeline";
 import { SourcesRail, type ReferenceImportVM } from "./SourcesRail";
 import type { SourceRowVM } from "./SourceRow";
 import { useCollapsedRefresh } from "./use-collapsed-refresh";
@@ -51,6 +52,7 @@ export function Workbench({
   verificationBlockedReason,
   sources,
   workItems,
+  interruptedTriggers,
   repairSuggestions,
   sourceSetRevision,
   pendingTriggers,
@@ -72,6 +74,7 @@ export function Workbench({
   verificationBlockedReason: string | null;
   sources: SourceRowVM[];
   workItems: SourceWorkItemVM[];
+  interruptedTriggers: OpenChainTrigger[];
   repairSuggestions: RepairActionVM[];
   sourceSetRevision: number;
   pendingTriggers: number;
@@ -187,6 +190,7 @@ export function Workbench({
           projectId={projectId}
           sources={sources}
           workItems={workItems}
+          interruptedTriggers={interruptedTriggers}
           repairSuggestions={repairSuggestions}
           sourceSetRevision={sourceSetRevision}
           pendingTriggers={pendingTriggers}

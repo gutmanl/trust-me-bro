@@ -6,6 +6,7 @@ import {
   ProjectEventType,
   RoutingReason,
   SourceType,
+  TriggerKind,
 } from "./enums";
 import {
   ActorId,
@@ -277,6 +278,23 @@ export const ProjectEvent = z.strictObject({
    * failure being dismissed already carries its full snapshot in its own
    * event's `capture_failure` (documented extension, additive). */
   work_item_id: z.string().min(1).optional(),
+  /** Which chained step a `batch_run_started`/`batch_run_completed`
+   * bracket belongs to, for the auto-chain's bracketed work (run
+   * visibility). Absent on the extraction brackets that predate this
+   * field; see TriggerKind for the unclosed-bracket contract (documented
+   * extension, additive). */
+  trigger_kind: TriggerKind.optional(),
+  /** The retryable input of the capture attempt a
+   * `batch_run_started`/`trigger_kind: "source_capture"` bracket opened —
+   * the same shape a `source_capture_failed` event snapshots, recorded at
+   * START so an attempt cut off by a crash or an abandon stays retryable
+   * even though it never reached its own failure event. Capture brackets
+   * are closed by INFERENCE, not by a completion event: a later
+   * `source_capture_failed` for the same work item, a
+   * `source_capture_dismissed` event for it, or a source carrying the
+   * matching `custom.capture_attempt_id` closes them (documented
+   * extension, additive). */
+  capture_attempt: CaptureFailure.optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
   state_root: ChainFields.shape.state_root,

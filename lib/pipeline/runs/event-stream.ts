@@ -1,7 +1,15 @@
+import { getGlobalAutoChain } from "./auto-chain";
+import type { AutoChain } from "./auto-chain";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
 import { getActiveRunHandle } from "./status";
-import type { RunHandle, RunProgressEvent } from "./types";
+import type {
+  OffRunnerTriggerKind,
+  RunHandle,
+  RunProgressEvent,
+  TriggerHandle,
+  TriggerProgressEvent,
+} from "./types";
 
 /**
  * One progress event of one run, tagged with the run it belongs to — the
@@ -10,11 +18,19 @@ import type { RunHandle, RunProgressEvent } from "./types";
  * streams did) needs both tags to route an event: `kind` to decide which
  * panel it belongs to, `runId` to tell one run from its successor.
  */
-export interface ProjectRunEnvelope {
-  kind: string | null;
-  runId: string;
-  event: RunProgressEvent;
-}
+export type ProjectRunEnvelope =
+  | {
+      source: "run";
+      kind: string | null;
+      runId: string;
+      event: RunProgressEvent;
+    }
+  | {
+      source: "trigger";
+      kind: OffRunnerTriggerKind;
+      triggerId: string;
+      event: TriggerProgressEvent;
+    };
 
 /** Run starts of ONE project. The runner announces every run process-wide;
  * this is the project filter the SSE route needs, so the runner itself stays
@@ -54,9 +70,10 @@ export function subscribeProjectRunStarts(
 export function streamProjectRunEvents(
   projectId: string,
   onEnvelope: (envelope: ProjectRunEnvelope) => void,
-  deps: { runner?: JobRunner } = {},
+  deps: { runner?: JobRunner; chain?: AutoChain } = {},
 ): () => void {
   const runner = deps.runner ?? getGlobalJobRunner();
+  const chain = deps.chain ?? getGlobalAutoChain();
   /** Runs already attached (live subscription) — also the dedupe ledger. */
   const following = new Map<string, () => void>();
   /** Every runId ever attached, including finished ones: a tombstone keeps a
@@ -69,7 +86,12 @@ export function streamProjectRunEvents(
     }
     attached.add(handle.runId);
     const send = (event: RunProgressEvent): void => {
-      onEnvelope({ kind: handle.kind ?? null, runId: handle.runId, event });
+      onEnvelope({
+        source: "run",
+        kind: handle.kind ?? null,
+        runId: handle.runId,
+        event,
+      });
     };
     // No await between these two — see the ordering guarantees above.
     for (const event of handle.eventsSoFar()) {
@@ -92,16 +114,63 @@ export function streamProjectRunEvents(
     following.set(handle.runId, unsubscribe);
   };
 
+  // The chain's off-runner triggers, attached with the IDENTICAL replay-
+  // then-subscribe discipline (run visibility): a client that connects
+  // mid-trigger must see it, exactly as it sees a mid-flight run — this is
+  // the capture-run-visibility precedent applied to the second half of the
+  // project's activity.
+  const attachTrigger = (handle: TriggerHandle): void => {
+    if (attached.has(handle.triggerId)) {
+      return;
+    }
+    attached.add(handle.triggerId);
+    const send = (event: TriggerProgressEvent): void => {
+      onEnvelope({
+        source: "trigger",
+        kind: handle.kind,
+        triggerId: handle.triggerId,
+        event,
+      });
+    };
+    for (const event of handle.eventsSoFar()) {
+      send(event);
+    }
+    if (!handle.isActive()) {
+      return;
+    }
+    const unsubscribe = handle.subscribe((event) => {
+      send(event);
+      if (
+        event.type === "trigger_completed" ||
+        event.type === "trigger_cancelled"
+      ) {
+        following.get(handle.triggerId)?.();
+        following.delete(handle.triggerId);
+      }
+    });
+    following.set(handle.triggerId, unsubscribe);
+  };
+
   const unsubscribeStarts = subscribeProjectRunStarts(projectId, attach, {
     runner,
+  });
+  const unsubscribeTriggerStarts = chain.subscribeTriggerStarts((handle) => {
+    if (handle.projectId === projectId) {
+      attachTrigger(handle);
+    }
   });
   const active = getActiveRunHandle(projectId, { runner });
   if (active) {
     attach(active);
   }
+  const activeTrigger = chain.activeTrigger(projectId);
+  if (activeTrigger) {
+    attachTrigger(activeTrigger);
+  }
 
   return () => {
     unsubscribeStarts();
+    unsubscribeTriggerStarts();
     for (const unsubscribe of following.values()) {
       unsubscribe();
     }

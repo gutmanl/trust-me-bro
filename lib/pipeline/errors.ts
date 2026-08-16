@@ -31,10 +31,17 @@ export class UnknownProjectError extends PipelineError {
  * make it write into a vanished path. Recoverable — the caller waits for the
  * run or cancels it, then retries. */
 export class ProjectArchiveBlockedError extends PipelineError {
-  constructor(readonly projectId: string) {
+  constructor(
+    readonly projectId: string,
+    blocking?: { description: string; since: string },
+  ) {
     super(
-      `Projekt "${projectId}" kann nicht archiviert werden, ` +
-        "solange ein Lauf aktiv ist – bitte den Lauf abwarten oder abbrechen.",
+      blocking
+        ? `Projekt "${projectId}" kann nicht archiviert werden, solange ` +
+            `etwas läuft: ${blocking.description} (seit ${blocking.since}) – ` +
+            "in der Statusleiste abwarten oder abbrechen."
+        : `Projekt "${projectId}" kann nicht archiviert werden, ` +
+            "solange ein Lauf aktiv ist – bitte den Lauf abwarten oder abbrechen.",
     );
   }
 }
@@ -79,12 +86,26 @@ export class BlockedAddressError extends PipelineError {}
  */
 export class BackendUnavailableError extends PipelineError {}
 
-/** A run is already active for this project (per-project sequential). */
+/**
+ * A run is already active for this project (per-project sequential).
+ *
+ * With the blocking activity's descriptor the message names WHAT is
+ * running and since when (run visibility): a refusal that names nothing
+ * leaves the user blocked by work they cannot see — the status bar shows
+ * the same activity with its cancel, so the message points there.
+ */
 export class RunActiveError extends PipelineError {
-  constructor(readonly projectId: string) {
+  constructor(
+    readonly projectId: string,
+    blocking?: { description: string; since: string },
+  ) {
     super(
-      `Für Projekt "${projectId}" läuft bereits ein Lauf – ` +
-        "je Projekt wird sequenziell gearbeitet (Einzelschreiber).",
+      blocking
+        ? `Für Projekt "${projectId}" läuft bereits: ${blocking.description} ` +
+            `(seit ${blocking.since}) – je Projekt wird sequenziell ` +
+            "gearbeitet. Der Lauf lässt sich in der Statusleiste abbrechen."
+        : `Für Projekt "${projectId}" läuft bereits ein Lauf – ` +
+            "je Projekt wird sequenziell gearbeitet (Einzelschreiber).",
     );
   }
 }

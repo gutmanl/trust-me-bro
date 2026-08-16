@@ -25,6 +25,7 @@ import {
   ProjectArchiveBlockedError,
   UnknownProjectError,
 } from "./errors";
+import { describeBlockingActivity } from "./runs/control";
 import { getGlobalJobRunner } from "./runs/job-runner";
 import { pendingRelevancePopulation } from "./warm/select-claims";
 
@@ -329,7 +330,8 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 export async function archiveProject(projectId: string): Promise<void> {
   const store = requireProjectStore(projectId);
   if (getGlobalJobRunner().isRunning(projectId)) {
-    throw new ProjectArchiveBlockedError(projectId);
+    const blocking = describeBlockingActivity(projectId);
+    throw new ProjectArchiveBlockedError(projectId, blocking);
   }
   const archiveRoot = path.join(getWorkspaceRoot(), ARCHIVE_DIRNAME);
   fs.mkdirSync(archiveRoot, { recursive: true });
