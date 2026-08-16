@@ -49,12 +49,17 @@ export const SOURCE_AUDIT_TRAILS: ScenarioSource = {
   canonical: "2601.20727",
   citedTitle: "Audit Trails for Accountability in Large Language Models",
   resolvedTitle: "Audit Trails for Accountability in Large Language Models",
-  authors: ["Rivera", "Nakamura"],
+  // The paper's real authors, as arXiv answers for this id.
+  authors: ["Ojewale", "Suresh"],
   year: 2026,
+  // Carried by the generated stand-in PDF that stands in for the real
+  // document when `documents/` has not been fetched. It has to contain
+  // QUOTE_PRESENT verbatim, because the same stage-1 proof runs against
+  // either — so the sentence is quoted from the real paper, not invented.
   documentText:
-    "Every accountability claim requires an append-only record: the median " +
-    "audit reconstruction time fell from 42 to 19 minutes once the register " +
-    "was hash-chained.",
+    "The audit trail at this stage should make the deployed system state " +
+    "reconstructible, so that reviewers can determine what was live, under " +
+    "what constraints, and under whose authority.",
   note: "korpus-manifest.csv, sha256 4e2243…, 18 pages — the happy path.",
 };
 
@@ -71,9 +76,12 @@ export const SOURCE_MISATTRIBUTED: ScenarioSource = {
   identifier: "10.18653/v1/2024.inlg-main.35",
   canonical: "10.18653/v1/2024.inlg-main.35",
   citedTitle: "Claim-Level Verification of Generated Scientific Summaries",
+  // What doi.org really answers for this DOI, recorded rather than assumed —
+  // the previous value named a different ACL paper entirely.
   resolvedTitle:
-    "Referring Expression Generation in Visually Grounded Dialogue",
-  authors: ["Willemsen", "Skantze"],
+    "Towards Fine-Grained Citation Evaluation in Generated Text: A " +
+    "Comparative Analysis of Faithfulness Metrics",
+  authors: ["Zhang", "Aliannejadi"],
   year: 2024,
   note: "Real DOI, real resolved title; the cited title is the misattribution.",
 };
@@ -131,8 +139,12 @@ export const SOURCE_MISATTRIBUTED_INLINE: ScenarioSource = {
   identifier: "10.1007/s10664-023-10288-w",
   canonical: "10.1007/s10664-023-10288-w",
   citedTitle: "Automated Evidence Retrieval for Systematic Reviews",
-  resolvedTitle: "On the Reproducibility of Software Defect Prediction Studies",
-  authors: ["Lindholm"],
+  // Recorded from doi.org, not invented: a real EMSE article, and not the
+  // one the briefing attributes to this DOI.
+  resolvedTitle:
+    "Software selection in large-scale software engineering: A model and " +
+    "criteria based on interactive rapid reviews",
+  authors: ["Bjarnason", "Åberg"],
   year: 2023,
   note: "Real DOI, real journal; the cited title is the misattribution. Cited inline, not by footnote.",
 };
@@ -195,9 +207,10 @@ export const FOOTNOTES = {
  */
 export const SCENARIO_BRIEFING = [
   "# Prüfbarkeit LLM-recherchierter Briefings",
-  "Ein manipulationssicheres Register verkürzt die Rekonstruktion einer " +
-    "Prüfentscheidung erheblich: Die mediane Rekonstruktionszeit sank von 42 " +
-    "auf 19 Minuten, nachdem der Nachweis als Hash-Kette geführt wurde.[^1]",
+  "Ein manipulationssicheres Register macht den Zustand eines eingesetzten " +
+    "Systems rekonstruierbar: Prüfende können feststellen, was zu einem " +
+    "Zeitpunkt aktiv war, unter welchen Einschränkungen und in wessen " +
+    "Verantwortung.[^1]",
   "Für die Prüfung einzelner Aussagen generierter Zusammenfassungen liegt " +
     "eine eigene Arbeit vor.[^2]",
   "Evidenzschranken für automatisierte Literaturübersichten werden " +
@@ -224,8 +237,17 @@ export const AUDIT_TRAILS_DOCUMENT = "arxiv-2601.20727.pdf";
  * A quote that occurs verbatim in the frozen document, and one that does
  * not. Stage 1 has to separate these two deterministically, and the
  * separation is the product's central claim.
+ *
+ * QUOTE_PRESENT is copied out of the REAL paper (§4.4, deployment), verified
+ * with the pipeline's own `containsNormalized` against the recorded PDF. It
+ * used to be an invented sentence about a median reconstruction time falling
+ * from 42 to 19 minutes, which read plausibly and appears nowhere in the
+ * work the corpus cites — the sort of thing recording the corpus is for.
+ * QUOTE_ABSENT stays invented on purpose: it has to be absent, and it is.
  */
 export const QUOTE_PRESENT =
-  "the median audit reconstruction time fell from 42 to 19 minutes";
+  "The audit trail at this stage should make the deployed system state " +
+  "reconstructible, so that reviewers can determine what was live, under " +
+  "what constraints, and under whose authority.";
 export const QUOTE_ABSENT =
   "audit trails reduce reconstruction effort by more than eighty percent";

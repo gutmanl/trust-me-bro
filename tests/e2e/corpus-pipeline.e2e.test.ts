@@ -15,7 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   captureSource,
@@ -60,6 +60,8 @@ beforeEach(() => {
 
 afterEach(() => {
   workspace.cleanup();
+  // The Unpaywall opt-in below is one spec's business, not the file's.
+  vi.unstubAllEnvs();
 });
 
 /** Captures the clean source through the real capture path. */
@@ -80,6 +82,15 @@ async function captureCleanSource(
 
 describe("reference scan over a real briefing", () => {
   it("finds every cited work and derives a PDF url for each identifier", async () => {
+    // Unpaywall is opt-in, and this spec opts in. The recorded Crossref
+    // record for the ACL DOI carries an EMPTY `link[]` — the synthetic
+    // fixture used to invent a PDF entry there — so the real derivation only
+    // reaches a document through Unpaywall, which knows the work is open
+    // access. Without an address configured that step is skipped and the
+    // candidate legitimately gets no document at all; asserting THAT would
+    // leave the open-access branch of the chain untested against real data.
+    // The cassette key redacts the address, so any value replays.
+    vi.stubEnv("TMB_UNPAYWALL_EMAIL", "corpus@example.org");
     const project = await createCorpusProject({
       briefing: SCENARIO_BRIEFING,
       backend: createReplayBackend({ seed: REFERENCE_PARSE_SEED }),
@@ -132,12 +143,15 @@ describe("reference scan over a real briefing", () => {
     expect(
       byIdentifier.get(SOURCE_AUDIT_TRAILS.canonical)?.document_url_source,
     ).toBe("arxiv");
+    // Crossref answered with no link at all for this DOI, so the chain fell
+    // through to Unpaywall — the third branch, and the one that knows about
+    // open access rather than guessing from a URL.
     expect(
       byIdentifier.get(SOURCE_MISATTRIBUTED.canonical)?.document_url,
     ).toMatch(/\.pdf$/);
     expect(
       byIdentifier.get(SOURCE_MISATTRIBUTED.canonical)?.document_url_source,
-    ).toBe("crossref_pdf");
+    ).toBe("unpaywall");
 
     // Crossref answered the title lookup and had nothing. That is NOT an
     // outage, and the candidate must not claim one — the two take different

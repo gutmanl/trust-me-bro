@@ -244,8 +244,8 @@ function main(): void {
       type: "paper-conference",
       title: SOURCE_MISATTRIBUTED.resolvedTitle,
       author: [
-        { family: "Willemsen", given: "Bram" },
-        { family: "Skantze", given: "Gabriel" },
+        { family: "Zhang", given: "Weijia" },
+        { family: "Aliannejadi", given: "Mohammad" },
       ],
       issued: { "date-parts": [[2024, 9]] },
       "container-title":
@@ -270,7 +270,7 @@ function main(): void {
       message: {
         DOI: SOURCE_MISATTRIBUTED.canonical,
         title: [SOURCE_MISATTRIBUTED.resolvedTitle],
-        author: [{ family: "Willemsen", given: "Bram" }],
+        author: [{ family: "Zhang", given: "Weijia" }],
         issued: { "date-parts": [[2024]] },
         "container-title": ["Proceedings of INLG 2024"],
         link: [
@@ -306,7 +306,7 @@ function main(): void {
       id: `https://doi.org/${SOURCE_MISATTRIBUTED_INLINE.canonical}`,
       type: "article-journal",
       title: SOURCE_MISATTRIBUTED_INLINE.resolvedTitle,
-      author: [{ family: "Lindholm", given: "Petra" }],
+      author: [{ family: "Bjarnason", given: "Elizabeth" }],
       issued: { "date-parts": [[SOURCE_MISATTRIBUTED_INLINE.year]] },
       "container-title": "Empirical Software Engineering",
       publisher: "Springer",
@@ -328,7 +328,7 @@ function main(): void {
       message: {
         DOI: SOURCE_MISATTRIBUTED_INLINE.canonical,
         title: [SOURCE_MISATTRIBUTED_INLINE.resolvedTitle],
-        author: [{ family: "Lindholm", given: "Petra" }],
+        author: [{ family: "Bjarnason", given: "Elizabeth" }],
         issued: { "date-parts": [[SOURCE_MISATTRIBUTED_INLINE.year]] },
         "container-title": ["Empirical Software Engineering"],
         link: [],

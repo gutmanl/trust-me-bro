@@ -30,12 +30,12 @@ export function extractionSeed(sourceId: string): Partial<{
     extraction: {
       claims: [
         {
-          text: "Ein manipulationssicheres Register verkürzt die mediane Rekonstruktionszeit einer Prüfentscheidung von 42 auf 19 Minuten.",
+          text: "Ein manipulationssicheres Register macht den Zustand eines eingesetzten Systems rekonstruierbar.",
           claim_type: "quantitative_finding",
           // Must occur verbatim in the briefing paragraph, or the claim
           // lands unanchored — the pipeline resolves the paragraph by
           // searching for this phrase.
-          anchor_quote: "Die mediane Rekonstruktionszeit sank von 42",
+          anchor_quote: "Prüfende können feststellen, was zu einem",
           evidence: [
             {
               source_id: sourceId,
@@ -63,7 +63,7 @@ export function misquotingExtractionSeed(sourceId: string): Partial<{
         {
           text: "Audit-Trails senken den Rekonstruktionsaufwand um über achtzig Prozent.",
           claim_type: "quantitative_finding",
-          anchor_quote: "Die mediane Rekonstruktionszeit sank von 42",
+          anchor_quote: "Prüfende können feststellen, was zu einem",
           evidence: [
             {
               source_id: sourceId,
@@ -156,7 +156,8 @@ export const JUDGMENT_SEED = {
     relation_type: "supports",
     confidence: 0.91,
     reasoning:
-      "Der Auszug nennt denselben Zahlenwert und dieselbe Richtung wie der Claim.",
+      "Der Auszug beschreibt dieselbe Eigenschaft wie der Claim: den " +
+      "rekonstruierbaren Zustand des eingesetzten Systems.",
   },
   rubric: {
     calibration_result: "licensed",

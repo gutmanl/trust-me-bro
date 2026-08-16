@@ -1,6 +1,15 @@
 {
   "documents": [
     {
+      "name": "2601.20727",
+      "url": "https://arxiv.org/pdf/2601.20727",
+      "sha256": "4e2243656bb0bb7529e46de41603d651622c7e3bd04cc9b001d8eb29ccf0f149",
+      "sha256_source": "recorded",
+      "bytes": 1260302,
+      "file": "documents/2601.20727",
+      "note": "Recorded from the live source; not committed (see .gitignore)."
+    },
+    {
       "name": "arxiv-2601.20727.pdf",
       "url": "https://arxiv.org/pdf/2601.20727",
       "sha256": "4e2243656bb0bb7529e46de41603d651622c7e3bd04cc9b001d8eb29ccf0f149",

@@ -9,9 +9,9 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
 endobj
 4 0 obj
-<< /Length 219 >>
+<< /Length 257 >>
 stream
-BT /F1 12 Tf 72 720 Td (Every accountability claim requires an append-only reco-) Tj 0 -16 Td (rd: the median audit reconstruction time fell from 42 to 19) Tj 0 -16 Td (minutes once the register was hash-chained.) Tj ET
+BT /F1 12 Tf 72 720 Td (The audit trail at this stage should make the depl-) Tj 0 -16 Td (oyed system state reconstructible, so that reviewers can) Tj 0 -16 Td (determine what was live, under what constraints, and under) Tj 0 -16 Td (whose authority.) Tj ET
 endstream
 endobj
 5 0 obj
@@ -24,9 +24,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000511 00000 n 
+0000000549 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-581
+619
 %%EOF

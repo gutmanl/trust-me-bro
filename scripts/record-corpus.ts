@@ -104,6 +104,37 @@ function documentNameFor(url: string): string {
 }
 
 /**
+ * Minimum gap between two requests to the same rate-limited public API.
+ *
+ * Crossref throttles the anonymous pool, and one scan issues several title
+ * queries back to back. Production is right to shrug that off — it waits out
+ * ONE `Retry-After` and then answers "Crossref unavailable" rather than
+ * failing a run — but a RECORDING inherits whatever it met: a 429 becomes a
+ * cassette, every later replay believes Crossref was down, and the specs
+ * that distinguish "answered with nothing" from "did not answer" quietly
+ * test the wrong branch. Worse, a 429's body is not textual, so the recorder
+ * files it as a `documents/works.pdf` of zero bytes.
+ *
+ * Spacing the requests here rather than in the pipeline: this is politeness
+ * owed by a script hammering a free API on purpose, not behaviour the
+ * product should adopt.
+ */
+const PACED_HOSTS = new Set(["api.crossref.org"]);
+const PACE_GAP_MS = 2_000;
+let lastPacedRequestAt = 0;
+
+async function paceIfNeeded(url: string): Promise<void> {
+  if (!PACED_HOSTS.has(new URL(url).hostname)) {
+    return;
+  }
+  const wait = lastPacedRequestAt + PACE_GAP_MS - Date.now();
+  if (wait > 0) {
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+  lastPacedRequestAt = Date.now();
+}
+
+/**
  * Wraps the production fetcher and writes a cassette per call.
  *
  * Recording the REAL implementation matters: redirect chains, the SSRF
@@ -113,10 +144,22 @@ function documentNameFor(url: string): string {
 function recordingFetcher(documents: Map<string, CorpusDocument>): HttpFetcher {
   return {
     async fetch(url: string, options?: FetchOptions) {
+      await paceIfNeeded(url);
       const resource: FetchedResource = await nodeHttpFetcher.fetch(
         url,
         options,
       );
+      if (resource.status === 429) {
+        // Never silently: a recorded 429 is indistinguishable from a service
+        // outage on replay, which is precisely the confusion finding 4 of
+        // review/CORPUS-TEST-FINDINGS.md is about. Re-run when the limit has
+        // relaxed rather than committing this.
+        console.warn(
+          `  WARN  rate-limited (429): ${url}\n` +
+            "        The cassette now says the service was unavailable. " +
+            "Re-run the recorder before committing.",
+        );
+      }
       const key = httpCassetteKey(url, options?.accept);
       const isTextual =
         resource.contentType !== null &&

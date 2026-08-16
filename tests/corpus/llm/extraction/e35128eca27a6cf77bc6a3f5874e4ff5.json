@@ -1,0 +1,48 @@
+{
+  "key": "e35128eca27a6cf77bc6a3f5874e4ff5",
+  "method": "extraction",
+  "params": {
+    "research_question": "Welche Werkzeuge prüfen Claims LLM-recherchierter Briefings?",
+    "briefing_text": "# Prüfbarkeit LLM-recherchierter Briefings\n\nEin manipulationssicheres Register macht den Zustand eines eingesetzten Systems rekonstruierbar: Prüfende können feststellen, was zu einem Zeitpunkt aktiv war, unter welchen Einschränkungen und in wessen Verantwortung.[^1]\n\nFür die Prüfung einzelner Aussagen generierter Zusammenfassungen liegt eine eigene Arbeit vor.[^2]\n\nEvidenzschranken für automatisierte Literaturübersichten werden ebenfalls diskutiert.[^3]\n\nZur automatisierten Beschaffung von Belegstellen liegt eine Übersicht vor (Automated Evidence Retrieval for Systematic Reviews, doi:10.1007/s10664-023-10288-w).\n\nErgänzend wird ein interaktives Prüf-Interface beschrieben (Braun & Kohl 2024).\n\nLangfristig verbessert sich dadurch die Qualität der Ergebnisse.\n\n[^1]: Audit Trails for Accountability in Large Language Models. arXiv:2601.20727\n[^2]: Claim-Level Verification of Generated Scientific Summaries. 10.18653/v1/2024.inlg-main.35\n[^3]: Evidence Gates for Automated Literature Reviews. arXiv:6598.37140",
+    "sources": [
+      {
+        "id": "src_ojewale2026",
+        "citation": "Ojewale et al. (2026)"
+      }
+    ],
+    "target_source": {
+      "id": "src_ojewale2026",
+      "citation": "Ojewale et al. (2026)"
+    },
+    "known_claims": []
+  },
+  "result": {
+    "claims": [
+      {
+        "text": "Ein manipulationssicheres Register macht den Zustand eines eingesetzten Systems rekonstruierbar: Prüfende können feststellen, was zu einem Zeitpunkt aktiv war, unter welchen Einschränkungen und in wessen Verantwortung.",
+        "claim_type": "effectiveness_statement",
+        "anchor_quote": "macht den Zustand eines eingesetzten Systems rekonstruierbar",
+        "evidence": [
+          {
+            "source_id": "src_ojewale2026",
+            "locator": {
+              "page": 7,
+              "section": "4.4 Deployment and System Integration"
+            },
+            "verbatim_excerpt": "The audit trail at this stage should make the deployed system state reconstructible, so that reviewers can determine what was live, under what constraints, and under whose authority."
+          }
+        ]
+      }
+    ],
+    "additional_evidence": []
+  },
+  "backend": "claude",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_version": "2.0.0",
+  "prompt_sha256": "cdeb0c16e64e9289ac1abe46106b4dcf34b58379ba548b1c30e5dc6a3fdfbdfd",
+  "provenance": {
+    "kind": "recorded",
+    "recorded_at": "2026-08-16T15:14:06.213Z",
+    "recorder": "record-corpus/1"
+  }
+}
