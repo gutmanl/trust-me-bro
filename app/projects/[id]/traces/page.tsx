@@ -4,7 +4,7 @@ import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { getTracesAggregate, summarizeTraces } from "@/lib/pipeline";
 import { formatModel, formatTimestamp } from "../../status-labels";
 
-export const metadata: Metadata = { title: "Trace-Log" };
+export const metadata: Metadata = { title: "KI-Aufrufe" };
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,8 @@ const METHOD_LABELS: Record<string, string> = {
   attribution: "Belegprüfung",
   rubric: "Bewertung (Bewertungsschema)",
   repair: "Reparatur",
-  relevance: "Einschlägigkeit",
-  reference_parse: "Referenz-Parsing",
+  relevance: "Relevanz",
+  reference_parse: "Referenzen einlesen",
 };
 
 function formatDuration(ms: number): string {
@@ -49,7 +49,7 @@ export default async function TracesPage(
       <div>
         <SubpageHeader
           projectId={id}
-          title="Trace-Log (LLM-Aufrufe)"
+          title="Protokoll der KI-Aufrufe"
           current="traces"
         />
         <p className="mt-1 text-sm text-slate-600">

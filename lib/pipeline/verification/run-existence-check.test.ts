@@ -130,7 +130,7 @@ describe("startExistenceCheck", () => {
         claimId,
         passed: true,
         message:
-          "Zitatprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+          "Zitatprüfung bestanden: alle Belege im eingefrorenen Bestand nachgewiesen.",
       },
     ]);
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
@@ -163,7 +163,7 @@ describe("startExistenceCheck", () => {
         claimId,
         passed: false,
         message:
-          "Zitatprüfung nicht bestanden (1 Fundstelle(n)) – zur manuellen Überprüfung.",
+          "Zitatprüfung nicht bestanden (1 Beleg(e)) – zur manuellen Überprüfung.",
       },
     ]);
   });
@@ -418,7 +418,7 @@ describe("readmission of stale existence checks", () => {
       tx.transitionClaim(claimId, {
         to: "contested",
         actor: "human:lg",
-        reason: "Reviewer widerspricht der Fundstelle.",
+        reason: "Reviewer widerspricht dem Beleg.",
         decision: {
           categories: ["wording_not_in_source"],
           reviewed_evidence_ids: [],

@@ -93,7 +93,7 @@ export async function createWarmRunProject(
   const origin: ClaimsRegister = await originStore.read();
   if (newResearchQuestion === origin.project.research_question.trim()) {
     throw new WarmRunPreconditionError(
-      "Ein warmer Lauf ist eine Folgefrage – die Recherchefrage muss sich " +
+      "Ein Folgeprojekt beantwortet eine Folgefrage – die Recherchefrage muss sich " +
         "von der des Ursprungsprojekts unterscheiden.",
     );
   }
@@ -143,7 +143,7 @@ export async function createWarmRunProject(
         reason:
           `Aus Projekt "${input.originProjectId}" übernommen ` +
           `(Aussage ${originClaim.id}, Status ${originClaim.status}, ` +
-          `Bestandsrevision ${origin.project.source_set_revision}).`,
+          `Bestandsfassung ${origin.project.source_set_revision}).`,
       });
     }
   });

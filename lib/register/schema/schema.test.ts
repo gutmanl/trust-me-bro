@@ -34,7 +34,7 @@ describe("ClaimsRegister", () => {
     expect(ClaimsRegister.safeParse(invalid).success).toBe(false);
   });
 
-  it("rejects evidence without a verbatim excerpt (missing Fundstelle)", () => {
+  it("rejects evidence without a verbatim excerpt (missing evidence)", () => {
     const invalid = clone(exampleProject);
     (
       invalid.claims[0].evidence[0] as { verbatim_excerpt?: string }
@@ -270,7 +270,7 @@ describe("workbench epic: briefing revisions and quote-based anchors", () => {
       at: "2026-08-10T08:05:00Z",
       actor: "human:lg",
       event: "claim_anchor_revised",
-      reason: "Anker manuell korrigiert.",
+      reason: "Textstelle manuell korrigiert.",
       prev_hash: "aa11bb".padEnd(64, "0"),
       hash: "cc22dd".padEnd(64, "0"),
     });
@@ -283,7 +283,7 @@ describe("workbench epic: briefing revisions and quote-based anchors", () => {
       at: "2026-08-10T08:05:00Z",
       actor: "human:lg",
       event: "claim_anchor_revised",
-      reason: "Anker manuell korrigiert.",
+      reason: "Textstelle manuell korrigiert.",
       anchor_change: {
         claim_id: "clm_0001",
         previous_anchor: "p12",
@@ -305,7 +305,7 @@ describe("workbench epic: briefing revisions and quote-based anchors", () => {
       at: "2026-08-10T08:05:00Z",
       actor: "human:lg",
       event: "claim_anchor_revised",
-      reason: "Anker manuell korrigiert.",
+      reason: "Textstelle manuell korrigiert.",
       anchor_change: {
         claim_id: "clm_0001",
         previous_anchor: "p12",

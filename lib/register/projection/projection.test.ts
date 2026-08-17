@@ -107,7 +107,7 @@ describe("anchors and evidence numbering", () => {
     register.claims[0].briefing_anchor = "p99";
     const output = renderBriefing(BRIEFING, register);
     expect(output).toContain("Nicht zuordenbare Aussagen");
-    expect(output).toContain("Anker: p99");
+    expect(output).toContain("Textstelle: p99");
   });
 
   it("numbers inline evidence and cross-references the Belege section", () => {

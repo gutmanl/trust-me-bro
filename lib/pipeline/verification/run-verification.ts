@@ -21,6 +21,26 @@ import type { VerificationState } from "./derive-state";
 import { drawSample, pendingSamplePopulation } from "./sample-draw";
 import { pickUnfinishedClaims } from "./select-claims";
 import { runStage1ForClaim } from "./stage1/run-stage1-claim";
+
+/**
+ * German labels for the two stage-2/3 enum values that reach a persisted
+ * `reason`. Without them the history read "Unterstützungsgrad
+ * partially_supported, Bewertung licensed" — raw English enum values inside
+ * a German sentence, the exact leak `render-briefing.ts` keeps its own label
+ * maps to prevent. The wording is the app's (`app/projects/status-labels.ts`)
+ * verbatim, so one degree is not named two ways across the two surfaces.
+ */
+const SUPPORT_DEGREE_DE: Record<string, string> = {
+  supported: "gestützt",
+  partially_supported: "teilweise gestützt",
+  unsupported: "nicht gestützt",
+  uncertain: "unklar",
+};
+const CALIBRATION_RESULT_DE: Record<string, string> = {
+  licensed: "freigegeben",
+  weakened: "abschwächen",
+  pending_adjudication: "zur manuellen Überprüfung",
+};
 import type { SourceCheckCache } from "./stage1/source-check";
 import { loadRubricRuleSet } from "./rubric-rules";
 import type { RubricRuleSet } from "./rubric-rules";
@@ -313,7 +333,7 @@ async function processClaim(
       return {
         claimId,
         outcome: "existence_check_failed",
-        message: `Zitatprüfung nicht bestanden (${failedCount} Fundstelle(n)) – zur manuellen Überprüfung.`,
+        message: `Zitatprüfung nicht bestanden (${failedCount} Beleg(e)) – zur manuellen Überprüfung.`,
       };
     }
   }
@@ -393,7 +413,7 @@ async function applyPreCheckResult(
         to: "pending_adjudication",
         actor: ACTOR_PRECHECK,
         reason:
-          "Divergenz der Backend-Urteile – Relation bleibt bis zur " +
+          "Backend-Urteile widersprüchlich – Relation bleibt bis zur " +
           "manuellen Überprüfung offen, beide Urteile sind sichtbar.",
         routing: "divergence",
       });
@@ -412,8 +432,8 @@ async function applyPreCheckResult(
       to: "prechecked",
       actor: ACTOR_PRECHECK,
       reason:
-        `Stufen 2/3 abgeschlossen: Unterstützungsgrad ${stage23.supportDegree}, ` +
-        `Bewertung ${stage23.calibration.result}` +
+        `Stufen 2/3 abgeschlossen: Unterstützungsgrad ${SUPPORT_DEGREE_DE[stage23.supportDegree] ?? stage23.supportDegree}, ` +
+        `Bewertung ${CALIBRATION_RESULT_DE[stage23.calibration.result] ?? stage23.calibration.result}` +
         (stage23.calibration.mechanical === "not_met"
           ? " (mechanisches Minimum des Bewertungsschemas verletzt)."
           : "."),

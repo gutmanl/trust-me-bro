@@ -304,7 +304,7 @@ describe("relevance check", () => {
     const completedEvent = register.project_events.find(
       (event) => event.event === "relevance_run_completed",
     );
-    expect(completedEvent?.reason).toContain("2 einschlägig");
+    expect(completedEvent?.reason).toContain("2 relevant");
     expect(
       pendingRelevancePopulation(register.claims, register.project_events),
     ).toEqual([]);

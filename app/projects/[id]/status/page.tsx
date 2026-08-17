@@ -115,10 +115,10 @@ export default async function StatusPage(
           current="status"
         />
         <p className="mt-1 text-sm text-slate-600">
-          Preflight-Diagnose der Agenten-CLIs dieses Projekts. Ohne
+          Bereitschaftsprüfung der Agenten-CLIs dieses Projekts. Ohne
           einsatzbereites Backend bleiben Import, Quellenerfassung, die
-          deterministische Zitatprüfung, manuelle Überprüfung, Verlauf und
-          Export nutzbar; nur die KI-Prüfstufen sind gesperrt.
+          regelbasierte Zitatprüfung, manuelle Überprüfung, Verlauf und Export
+          nutzbar; nur die KI-Prüfstufen sind gesperrt.
         </p>
       </div>
       <BackendCard

@@ -13,7 +13,7 @@ import {
 } from "../../status-labels";
 import { RelevancePanel } from "./RelevancePanel";
 
-export const metadata: Metadata = { title: "Einschlägigkeitsprüfung" };
+export const metadata: Metadata = { title: "Relevanzprüfung" };
 
 export const dynamic = "force-dynamic";
 
@@ -59,11 +59,11 @@ export default async function RelevancePage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Einschlägigkeitsprüfung" />
+        <SubpageHeader projectId={id} title="Relevanzprüfung" />
         <p className="mt-1 text-sm text-slate-600">
           Übernommene Aussagen sind auf demselben Quellenbestand bereits geprüft
-          und manuell überprüft – neu bewertet wird nur ihre Einschlägigkeit für
-          die neue Recherchefrage. Negative oder unsichere Urteile gehen zur
+          und manuell überprüft – neu bewertet wird nur ihre Relevanz für die
+          neue Recherchefrage. Negative oder unsichere Urteile gehen zur
           manuellen Überprüfung; die Entscheidung bleibt beim Menschen.
         </p>
       </div>

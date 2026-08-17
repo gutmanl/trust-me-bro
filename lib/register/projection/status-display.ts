@@ -29,5 +29,5 @@ export const RELATION_LABEL_DE: Record<RelationType, string> = {
   supports: "stützt",
   partially_supports: "stützt teilweise",
   contradicts: "widerspricht",
-  not_relevant: "nicht einschlägig",
+  not_relevant: "nicht relevant",
 };

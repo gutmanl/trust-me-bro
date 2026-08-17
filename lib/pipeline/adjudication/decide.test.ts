@@ -36,7 +36,7 @@ async function projectWithOpenClaim(): Promise<string> {
     tx.addClaim({
       claim: {
         id: "clm_0001",
-        text: "Unbelegter Leitsatz.",
+        text: "Unbelegte Kernaussage.",
         claim_type: "quantitative_finding",
         briefing_anchor: "p1",
         provenance: {
@@ -48,7 +48,7 @@ async function projectWithOpenClaim(): Promise<string> {
         evidence: [],
       } as Omit<Claim, "status" | "history">,
       actor: "system:extraction",
-      reason: "Ohne Fundstelle extrahiert.",
+      reason: "Ohne Beleg extrahiert.",
     });
   });
   return projectId;

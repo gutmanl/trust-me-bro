@@ -142,7 +142,8 @@ export function BriefingReadView({
             Nicht zuordenbare Aussagen
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Die Anker dieser Aussagen verweisen auf keinen Absatz des Briefings.
+            Die Textstellen dieser Aussagen verweisen auf keinen Absatz des
+            Briefings.
           </p>
           <div className="mt-3 max-w-xl space-y-3">
             {briefing.unanchored.map((marker) => (

@@ -175,7 +175,7 @@ export function renderBriefing(
         ...claimLines(
           marker.claim,
           marker.evidenceNumbers,
-          ` · Anker: ${marker.claim.briefing_anchor}`,
+          ` · Textstelle: ${marker.claim.briefing_anchor}`,
         ),
       );
     }

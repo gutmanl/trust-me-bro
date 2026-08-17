@@ -221,9 +221,9 @@ async function runPassOnce(
       merged: summary.merged,
       message:
         `${summary.created} neue Aussage(n), ${summary.merged} zusätzliche ` +
-        `Fundstelle(n), ${summary.recheckPulled.length} Aussage(n) zur Nachprüfung.` +
+        `Beleg(e), ${summary.recheckPulled.length} Aussage(n) zur Nachprüfung.` +
         (summary.droppedUnknownSourceEvidence > 0
-          ? ` ${summary.droppedUnknownSourceEvidence} Fundstelle(n) mit ` +
+          ? ` ${summary.droppedUnknownSourceEvidence} Beleg(e) mit ` +
             "unbekannter Quellen-Id verworfen."
           : ""),
     };

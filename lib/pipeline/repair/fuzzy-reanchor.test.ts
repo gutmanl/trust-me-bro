@@ -83,7 +83,7 @@ describe("runFuzzyReanchorSweep", () => {
       (entry) => entry.event === "claim_anchor_revised",
     );
     expect(event?.actor).toBe("system:anchor_repair");
-    expect(event?.reason).toContain("Näherungs-Neuverankerung");
+    expect(event?.reason).toContain("Automatisch neu zugeordnet");
   });
 
   it("leaves verbatim-resolvable and hopeless quotes alone", async () => {

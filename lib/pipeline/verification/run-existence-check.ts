@@ -115,7 +115,7 @@ async function processClaim(
       claimId,
       passed: true,
       message:
-        "Zitatprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+        "Zitatprüfung bestanden: alle Belege im eingefrorenen Bestand nachgewiesen.",
     };
   }
   const failedCount = updated.evidence.filter(
@@ -124,6 +124,6 @@ async function processClaim(
   return {
     claimId,
     passed: false,
-    message: `Zitatprüfung nicht bestanden (${failedCount} Fundstelle(n)) – zur manuellen Überprüfung.`,
+    message: `Zitatprüfung nicht bestanden (${failedCount} Beleg(e)) – zur manuellen Überprüfung.`,
   };
 }

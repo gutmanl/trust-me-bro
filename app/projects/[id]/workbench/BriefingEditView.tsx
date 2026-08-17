@@ -194,7 +194,7 @@ export function BriefingEditView({
           >
             {publishPending
               ? "Wird veröffentlicht …"
-              : "Revision veröffentlichen"}
+              : "Fassung veröffentlichen"}
           </button>
         </form>
         <form action={discardAction}>
@@ -209,10 +209,10 @@ export function BriefingEditView({
       </div>
 
       <p className="text-xs text-slate-500">
-        Veröffentlichen schreibt eine neue Briefing-Revision in die
-        Append-only-Historie; die bisherige Fassung bleibt erhalten. Anker von
-        Aussagen, deren zitierter Wortlaut sich verschoben hat, werden dabei
-        automatisch nachgeführt.
+        Veröffentlichen schreibt eine neue Briefing-Fassung in den
+        unveränderlichen Verlauf; die bisherige Fassung bleibt erhalten. Die
+        Textstellen von Aussagen, deren zitierter Wortlaut sich verschoben hat,
+        werden dabei automatisch nachgeführt.
       </p>
     </div>
   );

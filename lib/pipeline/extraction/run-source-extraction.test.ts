@@ -298,7 +298,7 @@ describe("per-source extraction pass", () => {
     expect(claim.status).toBe("pending_adjudication");
     expect(claim.history[0]?.reason).toContain("unbekannte Quellen-Ids");
     expect(register.project_events.at(-1)?.reason).toContain(
-      "Fundstelle(n) mit unbekannter Quellen-Id verworfen (src_unbekannt)",
+      "Beleg(e) mit unbekannter Quellen-Id verworfen (src_unbekannt)",
     );
     expect((await RegisterStore.forProject(PROJECT).verify()).ok).toBe(true);
   });

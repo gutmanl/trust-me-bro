@@ -63,7 +63,7 @@ function preview(text: string): string {
  * 1. the WORDING overstates its evidence → an evidence-backed reformulation
  *    (proposed by the adapter, accepted or adjusted by the reviewer) that
  *    re-enters only the affected stages,
- * 2. the ANCHOR points at the wrong paragraph → „Anker korrigieren",
+ * 2. the ANCHOR points at the wrong paragraph → „Textstelle korrigieren",
  * 3. the PASSAGE itself is wrong → „Briefing-Passage korrigieren", which
  *    publishes a briefing revision.
  *
@@ -86,7 +86,7 @@ export function RepairPanel({
   paragraphs?: ParagraphOption[];
   /** The paragraph the claim currently resolves to, seeding the passage
    * editor. Absent for an unanchored claim — which is exactly the case
-   * „Anker korrigieren" exists for. */
+   * „Textstelle korrigieren" exists for. */
   anchoredParagraph?: ParagraphOption;
 }) {
   const [proposalState, proposeAction, proposePending] = useActionState(
@@ -292,7 +292,7 @@ function AnchorRepairForms({
             onClick={() => setOpen("anchor")}
             className="text-xs font-medium text-slate-600 underline decoration-slate-300 hover:text-slate-800"
           >
-            Anker korrigieren
+            Textstelle korrigieren
           </button>
           {anchoredParagraph !== undefined ? (
             <button
@@ -309,7 +309,7 @@ function AnchorRepairForms({
       {open === "anchor" ? (
         <form action={anchorAction} className="space-y-2">
           <p className="text-xs font-medium text-slate-600">
-            Anker korrigieren
+            Textstelle korrigieren
           </p>
           <p className="text-xs text-slate-500">
             Absatz wählen, in dem der zitierte Wortlaut steht. Die Korrektur
@@ -347,7 +347,7 @@ function AnchorRepairForms({
           <ErrorBanner message={anchorState.error} />
           {anchorState.repaired === true ? (
             <SuccessBanner>
-              Anker korrigiert – die Änderung steht als Ereignis in der
+              Textstelle korrigiert – die Änderung steht als Ereignis in der
               Historie.
             </SuccessBanner>
           ) : null}
@@ -357,7 +357,7 @@ function AnchorRepairForms({
               disabled={anchorPending}
               className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
             >
-              {anchorPending ? "Wird korrigiert …" : "Anker speichern"}
+              {anchorPending ? "Wird korrigiert …" : "Textstelle speichern"}
             </button>
             <button
               type="button"
@@ -377,7 +377,7 @@ function AnchorRepairForms({
           </p>
           <p className="text-xs text-slate-500">
             Ersetzt Absatz p{anchoredParagraph.index + 1} des Briefings und
-            veröffentlicht das Ergebnis als neue Revision.
+            veröffentlicht das Ergebnis als neue Fassung.
           </p>
           <label htmlFor={`passage-${claim.id}`} className="sr-only">
             Korrigierte Passage
@@ -393,7 +393,7 @@ function AnchorRepairForms({
           <ErrorBanner message={passageState.error} />
           {passageState.repaired === true ? (
             <SuccessBanner>
-              Passage korrigiert – als neue Briefing-Revision veröffentlicht.
+              Passage korrigiert – als neue Briefing-Fassung veröffentlicht.
             </SuccessBanner>
           ) : null}
           <div className="flex gap-2">

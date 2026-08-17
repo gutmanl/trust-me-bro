@@ -28,7 +28,7 @@ import { ROUTING_LABELS } from "./routing-labels";
 /**
  * A claim as a margin card beside its anchor paragraph. Collapsed: identity,
  * status, routing reason and the evidence numbers. Selected, it expands in
- * place to the full detail (TMB-34): Leitsatz, source, Fundstelle and
+ * place to the full detail (TMB-34): Kernaussage, source, Beleg and
  * verbatim excerpt. The automatic pre-check (judgments, support degree,
  * calibration) is deliberately SUBORDINATE to the excerpt: collapsed below
  * it, expanded only on divergence, because LLM explanations invite
@@ -123,11 +123,11 @@ export function ClaimCard({
           // the badge that tells a reviewer the position beside the text is
           // a guess.
           <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
-            Anker verschoben
+            Textstelle verschoben
             <span className="sr-only">
               {" "}
               – der zitierte Wortlaut steht nicht mehr an der Stelle, auf die
-              der Anker zeigt; die Position ist nur noch geschätzt.
+              die Textstelle zeigt; die Position ist nur noch geschätzt.
             </span>
           </span>
         ) : null}
@@ -140,14 +140,14 @@ export function ClaimCard({
         <div className="space-y-4 border-t border-slate-100 px-3 pt-3 pb-3">
           <div>
             <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-              Leitsatz (Aussage)
+              Kernaussage
             </h3>
             <p className="mt-1 text-sm text-slate-800">{claim.text}</p>
           </div>
 
           {claim.evidence.length === 0 ? (
             <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Ohne Fundstelle erfasst – diese Aussage hat keinen Beleg.
+              Ohne Beleg erfasst – für diese Aussage wurde keine Quelle zitiert.
             </p>
           ) : (
             claim.evidence.map((evidence, index) => (
@@ -310,7 +310,7 @@ function EvidenceCard({
       </div>
 
       <p className="mt-2 text-xs text-slate-600">
-        <span className="font-semibold text-slate-500">Fundstelle: </span>
+        <span className="font-semibold text-slate-500">Beleg: </span>
         {display?.locatorText || "ohne Angabe"}
         {display?.snapshotHref ? (
           <>
@@ -321,7 +321,7 @@ function EvidenceCard({
               rel="noreferrer"
               className="text-blue-700 underline decoration-blue-300 hover:decoration-blue-600"
             >
-              Im Snapshot öffnen
+              In der eingefrorenen Fassung öffnen
             </a>
           </>
         ) : null}

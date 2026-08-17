@@ -12,7 +12,7 @@ import {
 
 import { ResearchPanel } from "./ResearchPanel";
 
-export const metadata: Metadata = { title: "Erstrecherche" };
+export const metadata: Metadata = { title: "Erste Recherche" };
 
 export const dynamic = "force-dynamic";
 
@@ -34,15 +34,15 @@ export default async function ResearchPage(
 
   return (
     <div className="space-y-6">
-      <SubpageHeader projectId={id} title="Erstrecherche" />
+      <SubpageHeader projectId={id} title="Erste Recherche" />
 
       {briefing ? (
         <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
           <p className="font-medium">Briefing bereits eingefroren</p>
           <p className="mt-1">
             Herkunft: <span className="font-mono">{briefing.tool}</span>. Die
-            Erstrecherche erzeugt die Originalfassung und läuft daher nur einmal
-            je Projekt.
+            erste Recherche erzeugt die Originalfassung und läuft daher nur
+            einmal je Projekt.
           </p>
           <p className="mt-2">
             <Link href={`/projects/${id}`} className="underline">

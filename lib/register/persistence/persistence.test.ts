@@ -446,7 +446,7 @@ describe("RegisterTransaction.reviseClaimAnchor / remapClaimAnchor", () => {
         new_anchor: "p14",
         new_quote: "verkürzen die Reviewzeit",
         actor: "human:lg",
-        reason: "Anker manuell korrigiert.",
+        reason: "Textstelle manuell korrigiert.",
       }),
     );
     expect(event.event).toBe("claim_anchor_revised");

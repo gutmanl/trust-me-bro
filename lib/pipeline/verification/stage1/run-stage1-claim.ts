@@ -48,7 +48,7 @@ export async function runStage1ForClaim(
         to: "captured",
         actor: ACTOR_STAGE1,
         reason:
-          "Wiederaufnahme in die Prüfkaskade nach Bestandsrevision der Quelle(n).",
+          "Wiederaufnahme der Prüfung (Stufe 1) nach Bestandsfassung der Quelle(n).",
       });
       return tx.getClaim(claimId);
     });
@@ -74,7 +74,7 @@ export async function runStage1ForClaim(
       actor: ACTOR_STAGE1,
       reason:
         failures.length === 0
-          ? "Zitatprüfung bestanden: alle Fundstellen im eingefrorenen Bestand nachgewiesen."
+          ? "Zitatprüfung bestanden: alle Belege im eingefrorenen Bestand nachgewiesen."
           : `Zitatprüfung nicht bestanden: ${failures
               .map((failure) => failure.detail)
               .join(" ")}`,

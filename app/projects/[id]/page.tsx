@@ -279,7 +279,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
                 href={`/projects/${summary.id}/relevance`}
                 className={sideViewLinkClass}
               >
-                Einschlägigkeit der übernommenen Aussagen prüfen (
+                Relevanz der übernommenen Aussagen prüfen (
                 {summary.adopted_claims} übernommen)
               </Link>
             ) : null}

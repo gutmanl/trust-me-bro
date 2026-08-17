@@ -7,7 +7,7 @@ export const COMPLAINT_CATEGORY_LABELS: Record<ComplaintCategory, string> = {
   source_not_trustworthy: "Quelle nicht vertrauenswürdig",
   source_outdated: "Quelle veraltet",
   wording_not_in_source: "Wortlaut so nicht in Quelle enthalten",
-  claim_not_derivable: "Leitsatz nicht aus Wortlaut herleitbar",
+  claim_not_derivable: "Kernaussage nicht aus Wortlaut herleitbar",
   taken_out_of_context: "Aus dem Kontext gerissen",
   other: "Sonstiges",
 };

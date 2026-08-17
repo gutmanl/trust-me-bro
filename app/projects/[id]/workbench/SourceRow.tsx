@@ -121,7 +121,7 @@ export function SourceRow({
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
         <span className="font-mono">{source.id}</span>
         <span>{source.sourceTypeLabel}</span>
-        <span>Revision {source.revision}</span>
+        <span>Fassung {source.revision}</span>
         <span>{formatTimestamp(source.capturedAt)}</span>
         <span>
           {source.citingClaims === 0
@@ -129,13 +129,13 @@ export function SourceRow({
             : `${source.citingClaims} Aussage(n) gestützt`}
         </span>
         {source.identifierVerified ? (
-          <span className="text-green-600">✓ Identifier verifiziert</span>
+          <span className="text-green-600">✓ Kennung verifiziert</span>
         ) : null}
         {source.fullTextExtracted ? (
           <span className="text-green-600">✓ Volltext extrahiert</span>
         ) : null}
         {source.previousSnapshots > 0 ? (
-          <span>{source.previousSnapshots} frühere Revision(en)</span>
+          <span>{source.previousSnapshots} frühere Fassung(en)</span>
         ) : null}
         {source.previousIdentities > 0 ? (
           <span className="flex items-center gap-1.5">

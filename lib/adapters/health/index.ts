@@ -32,7 +32,7 @@ const API_LOGIN_HINT =
   "Testaufruf gescheitert – ANTHROPIC_API_KEY prüfen (gültig? Guthaben?).";
 
 function unknownCliHealth(cli: string): BackendHealth {
-  const detail = `Kein Adapter für Backend-CLI "${cli}" registriert.`;
+  const detail = `Für die CLI "${cli}" ist keine Unterstützung eingebaut.`;
   const failed: ProbeResult = {
     stage: "on_path",
     status: "failed",

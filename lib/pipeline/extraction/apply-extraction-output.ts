@@ -252,13 +252,13 @@ export function applyExtractionOutput(
     const reason =
       evidence.length === 0
         ? extracted.evidence.length > 0
-          ? "Alle Fundstellen nannten unbekannte Quellen-Ids " +
+          ? "Alle Belege nannten unbekannte Quellen-Ids " +
             "(mutmaßlich halluzinierte Referenzen) und wurden verworfen – " +
             "unbelegte Aussage zur manuellen Überprüfung."
-          : "Keine Fundstelle erfassbar – unbelegte Aussage zur manuellen Überprüfung."
+          : "Kein Beleg erfassbar – unbelegte Aussage zur manuellen Überprüfung."
         : isAtomicClaimText(extracted.text)
           ? `Aus dem Briefing erfasst (${scope}).`
-          : "Atomaritätsgate: Erfassungsergebnis bündelt mehrere Aussagen – zur manuellen Überprüfung.";
+          : "Erfassungsergebnis bündelt mehrere Aussagen – zur manuellen Überprüfung.";
     create({
       text: extracted.text,
       claim_type: extracted.claim_type,
@@ -312,7 +312,7 @@ export function applyExtractionOutput(
     tx.transitionClaim(known.id, {
       to: "recheck_required",
       actor: ACTOR,
-      reason: `Neue Fundstelle aus Quelle ${sources} – erneute Prüfung erforderlich.`,
+      reason: `Neuer Beleg aus Quelle ${sources} – erneute Prüfung erforderlich.`,
       at: now,
     });
     recheckPulled.push(known.id);
@@ -323,10 +323,10 @@ export function applyExtractionOutput(
     reason:
       `${EXTRACTION_COMPLETED_PREFIX} (${scope}, Lauf ${meta.runId}): ` +
       `${created} neue Aussage(n), davon ${escalated} zur manuellen Überprüfung; ` +
-      `${merged} zusätzliche Fundstelle(n) an bestehenden Aussagen; ` +
+      `${merged} zusätzliche Beleg(e) an bestehenden Aussagen; ` +
       `${recheckPulled.length} Aussage(n) zur Nachprüfung.` +
       (droppedUnknownSourceEvidence > 0
-        ? ` ${droppedUnknownSourceEvidence} Fundstelle(n) mit unbekannter ` +
+        ? ` ${droppedUnknownSourceEvidence} Beleg(e) mit unbekannter ` +
           `Quellen-Id verworfen (${[...droppedSourceIds].join(", ")}).`
         : ""),
     actor: ACTOR,

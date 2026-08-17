@@ -222,7 +222,7 @@ export function SourcesRail({
             title="Der Quellenbestand wird bei jeder Quellenrevision hochgezählt – er datiert die Beleglage, gegen die geprüft wurde."
             className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
           >
-            Bestand Rev. {sourceSetRevision}
+            Bestand Fassung {sourceSetRevision}
           </span>
           <div className="ml-auto flex items-center gap-2">
             {chainLabel !== null ? (
@@ -321,7 +321,7 @@ export function SourcesRail({
               ) : (
                 <p className="text-xs text-slate-600">
                   Der Referenz-Scan läuft automatisch nach der Übernahme des
-                  Briefings und nach jeder Revision mit geändertem Text; die
+                  Briefings und nach jeder Fassung mit geändertem Text; die
                   gefundenen Kandidaten erscheinen als Zeilen in dieser Liste.
                 </p>
               )}

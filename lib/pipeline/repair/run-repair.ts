@@ -150,7 +150,7 @@ export async function applyRepair(
   if (!isAtomicClaimText(newText)) {
     throw new RepairPreconditionError(
       "Die überarbeitete Fassung bündelt mehrere Aussagen – bitte genau " +
-        "einen atomaren Leitsatz formulieren (Atomaritätsgate).",
+        "genau eine Aussage formulieren.",
     );
   }
   const store = requireProjectStore(projectId);

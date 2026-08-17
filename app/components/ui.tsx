@@ -180,7 +180,7 @@ export function BackendHealthNotice({
       mode === "verification"
         ? `KI-Prüfstufen gesperrt – primäres Backend "${health.primary.cli}" ` +
             `nicht einsatzbereit: ${firstFailureHint(health.primary)} ` +
-            "Die deterministische Zitatprüfung (Stufe 1) bleibt nutzbar."
+            "Die regelbasierte Zitatprüfung (Stufe 1) bleibt nutzbar."
         : `Dieser Schritt ist gesperrt – primäres Backend "${health.primary.cli}" ` +
             `nicht einsatzbereit: ${firstFailureHint(health.primary)}`,
     );
@@ -333,28 +333,28 @@ export const PROJECT_SIDE_VIEWS = [
   {
     slug: "history",
     label: "Verlauf",
-    description: "Verlauf der Append-only-Historie ansehen",
+    description: "Unveränderlichen Verlauf ansehen",
   },
   {
     slug: "warm-run",
-    label: "Warmer Lauf",
-    description: "Folgefrage als warmen Lauf starten",
+    label: "Folgeprojekt",
+    description: "Folgeprojekt zu einer neuen Frage anlegen",
   },
   {
     slug: "metrics",
     label: "Auswertung",
-    description: "Auswertung (Messgrößen) ansehen",
+    description: "Auswertung (Kennzahlen) ansehen",
   },
   {
     slug: "traces",
-    label: "Trace-Log",
-    description: "Trace-Log der LLM-Aufrufe ansehen",
+    label: "KI-Aufrufe",
+    description: "Protokoll der KI-Aufrufe ansehen",
   },
   { slug: "settings", label: "Einstellungen", description: "Einstellungen" },
   {
     slug: "status",
     label: "Systemstatus",
-    description: "Systemstatus (Backend-Diagnose)",
+    description: "Systemstatus (Bereitschaftsprüfung)",
   },
 ] as const;
 

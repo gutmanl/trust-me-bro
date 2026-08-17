@@ -80,7 +80,7 @@ export default async function InstallationSettingsPage() {
       <section className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-700">
-            Backend-Diagnose
+            Bereitschaftsprüfung
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Dreistufige Prüfung je Backend, unabhängig von einem Projekt. Stufe

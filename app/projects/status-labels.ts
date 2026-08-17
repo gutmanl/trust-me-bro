@@ -45,7 +45,7 @@ export const RELATION_LABELS: Record<RelationType, string> = {
   supports: "stützt",
   partially_supports: "stützt teilweise",
   contradicts: "widerspricht",
-  not_relevant: "nicht einschlägig",
+  not_relevant: "nicht relevant",
 };
 
 export const SUPPORT_LABELS: Record<SupportDegree, string> = {

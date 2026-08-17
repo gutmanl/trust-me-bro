@@ -55,7 +55,7 @@ function securityHeaders(contentType: string): Record<string, string> {
 
 /**
  * Serves a project's frozen snapshot blobs (TMB-34: the detail panel's jump
- * to the Fundstelle). Path shape validation happens in the blob store —
+ * to the evidence). Path shape validation happens in the blob store —
  * anything not matching blobs/<prefix>/<sha256>.<ext> is a 404, traversal
  * is ruled out by construction.
  */

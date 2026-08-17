@@ -88,7 +88,7 @@ export async function correctSource(
   }
   if (!source.custom.snapshot) {
     throw new SourceCorrectionPreconditionError(
-      `Quelle "${input.sourceId}" hat keinen Snapshot – ` +
+      `Quelle "${input.sourceId}" hat keine eingefrorene Fassung – ` +
         "ohne eingefrorenen Stand gibt es nichts zu korrigieren.",
     );
   }

@@ -171,7 +171,7 @@ export async function probeLogin(
         status: "ok",
         detail:
           "Anmeldung funktionsfähig (Testaufruf beantwortet, Ausgabe wich " +
-          "vom Probeschema ab).",
+          "vom erwarteten Antwortformat ab).",
         checkedAt,
       };
     }

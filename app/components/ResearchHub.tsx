@@ -184,7 +184,7 @@ function ResearchHubBody({
     <div className="space-y-4">
       <p className="text-sm text-slate-600">
         Diese Anwendung prüft ein Briefing – recherchiert wird außerhalb oder
-        per Erstrecherche in der Anwendung.
+        per erster Recherche in der Anwendung.
       </p>
 
       <QuestionGuidance />

@@ -152,7 +152,7 @@ export function SettingsForm({
               htmlFor="confidence_threshold"
               className="mb-1 block text-sm font-medium"
             >
-              Konfidenzschwelle für Zweiturteil
+              Sicherheits-Schwellenwert für ein zweites Urteil
             </label>
             <input
               id="confidence_threshold"

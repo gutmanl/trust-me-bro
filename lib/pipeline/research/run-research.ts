@@ -122,7 +122,7 @@ async function runResearchOnce(
   await store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "research_run_started",
-      reason: `Erstrecherche gestartet (Backend ${backendId}, Lauf ${runId}).`,
+      reason: `Erste Recherche gestartet (Backend ${backendId}, Lauf ${runId}).`,
       actor: ACTOR,
     });
   });

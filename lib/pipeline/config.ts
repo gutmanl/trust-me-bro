@@ -104,7 +104,7 @@ function validate(input: UpdateProjectConfigInput): void {
       confidenceThreshold > 1
     ) {
       throw new InvalidProjectInputError(
-        "Die Konfidenzschwelle der Divergenzregel muss zwischen 0 und 1 liegen.",
+        "Der Sicherheits-Schwellenwert der Divergenzregel muss zwischen 0 und 1 liegen.",
       );
     }
   }

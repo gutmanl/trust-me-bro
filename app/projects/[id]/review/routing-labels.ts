@@ -4,9 +4,9 @@ import type { RoutingReason } from "@/lib/register";
 export const ROUTING_LABELS: Record<RoutingReason, string> = {
   no_evidence: "ohne Beleg erfasst",
   existence_check_failed: "Zitatprüfung nicht bestanden",
-  divergence: "Divergenz der Backend-Urteile",
+  divergence: "Backend-Urteile widersprüchlich",
   negative_precheck: "negative Vorprüfung",
   spot_check: "Stichprobe",
   escalated: "eskaliert",
-  negative_relevance: "Einschlägigkeit (warmer Lauf) negativ/unsicher",
+  negative_relevance: "Relevanz (Folgeprojekt) negativ/unsicher",
 };

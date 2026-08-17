@@ -183,7 +183,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
       },
       actor: SEED_ACTOR,
       reason:
-        "Beispielprojekt: keine Fundstelle erfassbar – die Aussage geht ohne Beleg in die manuelle Überprüfung.",
+        "Beispielprojekt: kein Beleg erfassbar – die Aussage geht unbelegt in die manuelle Überprüfung.",
     });
   });
 
@@ -262,7 +262,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
       to: "confirmed",
       actor: SEED_HUMAN_ACTOR,
       reason:
-        "Fundstelle im eingefrorenen Dokument geprüft, Zahlenwert stimmt überein.",
+        "Beleg im eingefrorenen Dokument geprüft, Zahlenwert stimmt überein.",
       decision: {
         categories: [],
         reviewed_evidence_ids: ["ev_demo1"],
@@ -282,7 +282,7 @@ export async function createDemoProject(): Promise<ClaimsRegister> {
       to: "contested",
       actor: SEED_HUMAN_ACTOR,
       reason:
-        "Aussage ohne Fundstelle; im Briefing als belegt formuliert, im Material nicht auffindbar.",
+        "Aussage ohne Beleg; im Briefing als belegt formuliert, im Material nicht auffindbar.",
       decision: {
         categories: ["wording_not_in_source"],
         reviewed_evidence_ids: [],

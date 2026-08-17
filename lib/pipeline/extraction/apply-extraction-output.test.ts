@@ -199,7 +199,7 @@ describe("applyExtractionOutput — creation and anchoring", () => {
     expect(summary).toMatchObject({ created: 1, escalated: 1 });
     const [claim] = await claims();
     expect(claim.status).toBe("pending_adjudication");
-    expect(claim.history[0].reason).toContain("Atomaritätsgate");
+    expect(claim.history[0].reason).toContain("bündelt mehrere Aussagen");
   });
 
   it("merges two identical candidates of the SAME output into one claim", async () => {
@@ -242,7 +242,7 @@ describe("applyExtractionOutput — creation and anchoring", () => {
     expect(summary).toMatchObject({ created: 1, escalated: 1 });
     const [claim] = await claims();
     expect(claim.status).toBe("pending_adjudication");
-    expect(claim.history[0].reason).toContain("Keine Fundstelle");
+    expect(claim.history[0].reason).toContain("Kein Beleg");
   });
 });
 
@@ -437,7 +437,7 @@ describe("applyExtractionOutput — the recheck pull", () => {
     expect(claim.status).toBe("recheck_required");
     const last = claim.history.at(-1);
     expect(last?.actor).toBe("system:extraction");
-    expect(last?.reason).toContain("Neue Fundstelle aus Quelle src_studie");
+    expect(last?.reason).toContain("Neuer Beleg aus Quelle src_studie");
     expect(last?.reason).toContain("erneute Prüfung");
   });
 

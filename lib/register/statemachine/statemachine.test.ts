@@ -116,7 +116,7 @@ describe("claim creation (extraction gate)", () => {
       tx.addClaim({
         claim: newClaim("clm_0002", []),
         actor: "system:extraction",
-        reason: "Keine Fundstelle extrahierbar.",
+        reason: "Kein Beleg extrahierbar.",
       }),
     );
     expect(claim.status).toBe("pending_adjudication");
@@ -199,7 +199,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.transitionClaim("clm_0001", {
         to: "pending_adjudication",
         actor: "system:existence_check",
-        reason: "Wortlaut nicht im Snapshot gefunden.",
+        reason: "Wortlaut nicht in der eingefrorenen Fassung gefunden.",
       });
     });
     const register = await store.read();
@@ -215,7 +215,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Wortlaut im Snapshot verifiziert.",
+        reason: "Wortlaut in der eingefrorenen Fassung verifiziert.",
       });
       const entry = tx.transitionClaim("clm_0001", {
         to: "pending_adjudication",
@@ -239,7 +239,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Fundstelle nachgewiesen.",
+        reason: "Beleg nachgewiesen.",
       });
       tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "supports"));
       tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "supports"));
@@ -277,7 +277,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Fundstelle nachgewiesen.",
+        reason: "Beleg nachgewiesen.",
       });
       tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "supports"));
       tx.appendJudgment(
@@ -322,7 +322,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Fundstelle nachgewiesen.",
+        reason: "Beleg nachgewiesen.",
       });
       // claude first judged partially_supports, then revised to supports after
       // a re-run; codex agrees with the current position.
@@ -367,7 +367,7 @@ describe("gate conditions re-derive from persisted state", () => {
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Fundstelle nachgewiesen.",
+        reason: "Beleg nachgewiesen.",
       });
       tx.appendJudgment("clm_0001", "ev_0001", judgment("claude", "supports"));
       tx.appendJudgment("clm_0001", "ev_0001", judgment("codex", "supports"));
@@ -549,7 +549,7 @@ describe("repair loop", () => {
       tx.transitionClaim("clm_0001", {
         to: "captured",
         actor: "system:repair",
-        reason: "Neue Fundstelle, volle Kaskade.",
+        reason: "Neuer Beleg, volle Kaskade.",
       });
     });
     const claim = (await store.read()).claims[0];

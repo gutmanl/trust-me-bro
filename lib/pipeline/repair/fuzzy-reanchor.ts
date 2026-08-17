@@ -74,7 +74,7 @@ export async function runFuzzyReanchorSweep(
         new_anchor: `p${index + 1}`,
         actor: ANCHOR_REPAIR_ACTOR,
         reason:
-          `Automatische Näherungs-Neuverankerung: Zitat nicht mehr wörtlich ` +
+          `Automatisch neu zugeordnet: Zitat nicht mehr wörtlich ` +
           `im Briefing, aber mit hoher Ähnlichkeit in Absatz p${index + 1} ` +
           `gefunden (Übereinstimmung ${Math.round(score * 100)} %).`,
       });

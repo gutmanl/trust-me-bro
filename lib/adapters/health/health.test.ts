@@ -131,7 +131,7 @@ describe("probeLogin", () => {
     };
     const result = await probeLogin(spec, backend);
     expect(result.status).toBe("ok");
-    expect(result.detail).toContain("Probeschema");
+    expect(result.detail).toContain("Antwortformat");
   });
 
   it("reports a rate limit distinctly from a broken login", async () => {

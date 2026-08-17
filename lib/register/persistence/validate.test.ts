@@ -22,7 +22,7 @@ describe("findIntegrityProblems", () => {
       at: "2026-08-10T08:05:00Z",
       actor: "human:lg",
       event: "claim_anchor_revised",
-      reason: "Anker manuell korrigiert.",
+      reason: "Textstelle manuell korrigiert.",
       anchor_change: {
         claim_id: "clm_9999",
         previous_anchor: "p12",
@@ -44,7 +44,7 @@ describe("findIntegrityProblems", () => {
       at: "2026-08-10T08:05:00Z",
       actor: "human:lg",
       event: "claim_anchor_revised",
-      reason: "Anker manuell korrigiert.",
+      reason: "Textstelle manuell korrigiert.",
       anchor_change: {
         claim_id: "clm_0001",
         previous_anchor: "p12",

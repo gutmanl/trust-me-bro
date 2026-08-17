@@ -370,13 +370,13 @@ export function CorrectSourceForm({
       </button>
       {state.revised === true ? (
         <SuccessBanner>
-          Revision {state.newRevision} erstellt – {state.recheckedCount}{" "}
+          Fassung {state.newRevision} erstellt – {state.recheckedCount}{" "}
           Aussage(n) zur Nachprüfung markiert.
         </SuccessBanner>
       ) : null}
       {state.revised === false ? (
         <SuccessBanner>
-          Inhalt unverändert (Prüfsumme identisch) – keine neue Revision.
+          Inhalt unverändert (Prüfsumme identisch) – keine neue Fevision.
         </SuccessBanner>
       ) : null}
       {open ? (
@@ -459,7 +459,7 @@ export function CorrectSourceForm({
                     : "Wird revidiert …"
                   : mode === "identity"
                     ? "Korrektur starten"
-                    : "Revision erstellen"}
+                    : "Neue Fassung erstellen"}
               </button>
               <button
                 type="button"

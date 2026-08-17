@@ -20,7 +20,7 @@ const initialState: RelevanceFormState = { error: null };
 function describeProgress(event: Record<string, unknown>): string | null {
   switch (event.type) {
     case "run_started":
-      return "Einschlägigkeitsprüfung gestartet – übernommene Aussagen werden gegen die neue Frage bewertet.";
+      return "Relevanzprüfung gestartet – übernommene Aussagen werden gegen die neue Frage bewertet.";
     case "item_started":
       return `Aussage ${String(event.itemId ?? "")} wird bewertet …`;
     case "item_completed": {
@@ -110,8 +110,8 @@ export function RelevancePanel({
             {pending
               ? "Wird gestartet …"
               : state.status === "not_started"
-                ? "Einschlägigkeitsprüfung starten"
-                : "Einschlägigkeitsprüfung fortsetzen"}
+                ? "Relevanzprüfung starten"
+                : "Relevanzprüfung fortsetzen"}
           </button>
         </form>
       ) : null}
@@ -121,7 +121,7 @@ export function RelevancePanel({
 
       {watching ? (
         <RunProgressFeed
-          title="Fortschritt der Einschlägigkeitsprüfung"
+          title="Fortschritt der Relevanzprüfung"
           lines={lines}
         />
       ) : null}

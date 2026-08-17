@@ -69,7 +69,7 @@ export async function reviseSource(
   const currentSnapshot = source.custom.snapshot;
   if (!currentSnapshot) {
     throw new SourceRevisionPreconditionError(
-      `Quelle "${input.sourceId}" hat keinen Snapshot – ` +
+      `Quelle "${input.sourceId}" hat keine eingefrorene Fassung – ` +
         "ohne eingefrorenen Stand gibt es nichts zu revidieren.",
     );
   }
@@ -112,7 +112,7 @@ export async function reviseSource(
       actor: "system:source_revision",
       at: now,
       reason:
-        `Bestandsrevision der Quelle ${input.sourceId} ` +
+        `Bestandsfassung der Quelle ${input.sourceId} ` +
         `(Snapshot-Revision ${lockedSnapshot.revision} → ${newRevision}): ` +
         "bisherige Prüfung bezog sich auf die alte Fassung.",
     });

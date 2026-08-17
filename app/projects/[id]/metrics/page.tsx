@@ -39,25 +39,24 @@ export default async function MetricsPage(
       <div>
         <SubpageHeader
           projectId={id}
-          title="Auswertung (Messgrößen)"
+          title="Auswertung (Kennzahlen)"
           current="metrics"
         />
         <p className="mt-1 text-sm text-slate-600">
-          Alle Messgrößen werden bei jedem Aufruf aus dem Verlauf berechnet und
+          Alle Kennzahlen werden bei jedem Aufruf aus dem Verlauf berechnet und
           bewusst nicht gespeichert – der fortschreibende Verlauf bleibt die
-          einzige Quelle. Stichproben-Überprüfungen (RQ3-Kontrolle) sind separat
-          ausgewiesen.
+          einzige Quelle. Zusätzliche Stichprüfungen sind separat ausgewiesen.
         </p>
       </div>
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">
-          Nachweisvollständigkeit
+          Vollständigkeit der Belege
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Anteil der Aussagen mit mindestens einer gegen das eingefrorene
-          Dokument zitatgeprüften Fundstelle – nicht die vollständige Herkunft
-          jeder Aussage.
+          Anteil der Aussagen mit mindestens einem gegen das eingefrorene
+          Dokument zitatgeprüften Beleg – nicht die vollständige Herkunft jeder
+          Aussage.
         </p>
         <dl className="mt-3 grid grid-cols-3 gap-3">
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
@@ -67,9 +66,7 @@ export default async function MetricsPage(
             </dd>
           </div>
           <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
-            <dt className="text-xs text-slate-500">
-              mit nachgewiesener Fundstelle
-            </dt>
+            <dt className="text-xs text-slate-500">mit nachgewiesenem Beleg</dt>
             <dd className="text-lg font-semibold">
               {metrics.evidence_completeness.with_proven_evidence}
             </dd>
@@ -85,7 +82,7 @@ export default async function MetricsPage(
 
       <section className="rounded-md border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-700">
-          Nachweiskorrektheit (nach manueller Überprüfung)
+          Richtigkeit der Belege (nach manueller Überprüfung)
         </h2>
         <p className="mt-1 text-xs text-slate-500">
           Verteilung der Unterstützungsgrade über die{" "}
@@ -146,7 +143,7 @@ export default async function MetricsPage(
           </div>
         </dl>
         <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          Stichprobenkontrolle (separat, RQ3):{" "}
+          Zusätzliche Stichprüfung (separat gezählt):{" "}
           {metrics.spot_check.total_decisions} manuelle Überprüfung(en),{" "}
           {formatSeconds(metrics.spot_check.total_duration_s)}
           {metrics.spot_check.claim_ids.length > 0 ? (
@@ -164,7 +161,7 @@ export default async function MetricsPage(
       {metrics.warm_run ? (
         <section className="rounded-md border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-700">
-            Wiederverwendung (warmer Lauf)
+            Wiederverwendung (Folgeprojekt)
           </h2>
           <dl className="mt-3 grid grid-cols-3 gap-3">
             <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
@@ -182,9 +179,7 @@ export default async function MetricsPage(
               </dd>
             </div>
             <div className="rounded-md bg-slate-50 px-3 py-2 text-center">
-              <dt className="text-xs text-slate-500">
-                Einschlägigkeit negativ
-              </dt>
+              <dt className="text-xs text-slate-500">Relevanz negativ</dt>
               <dd className="text-lg font-semibold">
                 {metrics.warm_run.routed_negative_relevance}
               </dd>
@@ -235,7 +230,7 @@ export default async function MetricsPage(
                 <tr className="border-b border-slate-100 text-slate-500">
                   <th className="px-4 py-2 font-medium">Aussage</th>
                   <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Fundstelle</th>
+                  <th className="px-4 py-2 font-medium">Beleg</th>
                   <th className="px-4 py-2 font-medium">Grad</th>
                   <th className="px-4 py-2 font-medium">
                     Manuelle Überprüfungen

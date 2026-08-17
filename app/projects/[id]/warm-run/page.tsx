@@ -22,16 +22,12 @@ export default async function WarmRunPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader
-          projectId={id}
-          title="Folgefrage (warmer Lauf)"
-          current="warm-run"
-        />
+        <SubpageHeader projectId={id} title="Folgeprojekt" current="warm-run" />
         <p className="mt-1 text-sm text-slate-600">
-          Ein warmer Lauf legt ein Folgeprojekt auf demselben Quellenbestand an:
+          Ein Folgeprojekt setzt auf demselben Quellenbestand auf:
           abgeschlossene Aussagen werden mit Herkunftsvermerk übernommen, neu
-          bewertet wird nur ihre Einschlägigkeit für die neue Frage – nicht
-          erneut Zitatprüfung und Belegprüfung.
+          bewertet wird nur ihre Relevanz für die neue Frage – nicht erneut
+          Zitatprüfung und Belegprüfung.
         </p>
       </div>
 
@@ -45,7 +41,7 @@ export default async function WarmRunPage(
           {summary.claim_counts.confirmed} bestätigt,{" "}
           {summary.claim_counts.auto_confirmed} automatisch bestätigt,{" "}
           {summary.claim_counts.discarded} verworfen) · {summary.source_count}{" "}
-          Quelle(n), Bestandsrevision {register.project.source_set_revision}.
+          Quelle(n), Bestandsfassung {register.project.source_set_revision}.
         </p>
       </div>
 

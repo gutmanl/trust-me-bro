@@ -271,7 +271,7 @@ describe("cascading verification run", () => {
     ]);
     expect(claim.evidence[0].relation_type).toBeUndefined();
     expect(claim.support_degree).toBeUndefined();
-    expect(claim.history.at(-1)?.reason).toContain("Divergenz");
+    expect(claim.history.at(-1)?.reason).toContain("widersprüchlich");
   });
 
   it("escalates exhausted adapter retries via the ratified edge", async () => {

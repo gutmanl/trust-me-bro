@@ -44,14 +44,14 @@ export function decideReEntry(
     return {
       target: "existence_checked",
       reason:
-        "Fundstellen unverändert und bereits nachgewiesen – Stufe 1 " +
+        "Belege unverändert und bereits nachgewiesen – Stufe 1 " +
         "übersprungen, Belegprüfung und Bewertung prüfen die Neufassung.",
     };
   }
   return {
     target: "captured",
     reason:
-      "Wiedereintritt in die volle Prüfkaskade (Fundstellen nicht " +
+      "Wiedereintritt in die vollständige Prüfung (Belege nicht " +
       "vollständig nachgewiesen).",
   };
 }

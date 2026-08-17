@@ -222,7 +222,7 @@ async function runAttribution(
     return {
       status: "exhausted",
       message:
-        `Belegprüfungs-Urteil (${backendId}) für Fundstelle ${input.evidence.id} ` +
+        `Belegprüfungs-Urteil (${backendId}) für Beleg ${input.evidence.id} ` +
         `erschöpft: ${outcome.lastError.message}`,
     };
   }

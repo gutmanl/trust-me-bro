@@ -75,7 +75,7 @@ describe("adapter failure escalation into the register", () => {
       tx.transitionClaim("clm_0001", {
         to: "existence_checked",
         actor: "system:existence_check",
-        reason: "Wortlaut im Snapshot verifiziert.",
+        reason: "Wortlaut in der eingefrorenen Fassung verifiziert.",
       });
     });
   });

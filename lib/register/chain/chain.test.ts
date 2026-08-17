@@ -49,7 +49,7 @@ function buildValidRegister(): ClaimsRegister {
       actor: "system:existence_check",
       from_status: "captured",
       to_status: "existence_checked",
-      reason: "Alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+      reason: "Alle Belege im eingefrorenen Bestand nachgewiesen.",
     }) as ClaimsRegister["claims"][number]["history"][number],
   );
   base.project_events.push(
@@ -96,7 +96,7 @@ function buildSealedRegister(): ClaimsRegister {
       actor: "system:existence_check",
       from_status: "captured",
       to_status: "existence_checked",
-      reason: "Alle Fundstellen im eingefrorenen Bestand nachgewiesen.",
+      reason: "Alle Belege im eingefrorenen Bestand nachgewiesen.",
     }) as ClaimsRegister["claims"][number]["history"][number],
   );
   appender.seal(base);

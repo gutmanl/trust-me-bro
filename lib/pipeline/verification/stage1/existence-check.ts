@@ -86,7 +86,7 @@ function verbatimProof(
       status: "failed",
       match: "none",
       detail:
-        `Kein Text-Blob für Quelle ${source.id} ` +
+        `Kein extrahierter Text für Quelle ${source.id} ` +
         `(Volltextextraktion gescheitert: ${snapshot.text_extraction_error ?? "unbekannt"}) – ` +
         "Wortlaut nicht nachweisbar.",
     };
@@ -115,7 +115,7 @@ function verbatimProof(
         `Reihenfolge, aber im extrahierten Text durch ` +
         `${interrupted.skipped} Zeichen Fremdtext unterbrochen ` +
         `(${interrupted.interruptions}×, typisch: Rechtekasten, ` +
-        `Abbildungsunterschrift oder Kolumnentitel).`,
+        `Abbildungsunterschrift oder Kopfzeile).`,
     };
   }
   return {

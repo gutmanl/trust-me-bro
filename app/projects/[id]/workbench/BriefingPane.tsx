@@ -155,7 +155,7 @@ function BriefingProvenance({ meta }: { meta: BriefingImport }) {
     <div className="mb-4 border-b border-slate-100 pb-3 text-xs text-slate-500">
       <p className="flex flex-wrap gap-x-3 gap-y-1">
         <span>
-          Revision <span className="font-semibold">{meta.revision ?? 1}</span>
+          Fassung <span className="font-semibold">{meta.revision ?? 1}</span>
         </span>
         <span>
           Werkzeug: <span className="font-mono">{meta.tool}</span>
@@ -220,7 +220,7 @@ function BriefingImportPane({
             className={inputClass}
           />
           <p className="mt-1 text-xs text-slate-500">
-            Wird als Provenienz im Import-Ereignis festgehalten.
+            Wird als Herkunftsangabe im Import-Ereignis festgehalten.
           </p>
         </div>
         <div>
@@ -249,7 +249,7 @@ function BriefingImportPane({
           href={`/projects/${projectId}/research`}
           className="underline decoration-slate-300 hover:text-slate-700"
         >
-          Zur Erstrecherche
+          Zur ersten Recherche
         </Link>
         .
       </p>

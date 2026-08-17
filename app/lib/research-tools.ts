@@ -131,11 +131,11 @@ Anforderungen an das Briefing:
 - Jede Aussage, die auf einer Quelle beruht, nennt die Quelle direkt im Absatz
   – mit DOI, arXiv-Id oder vollständiger URL.
 - Zitiere den belegenden Wortlaut wörtlich in Anführungszeichen und gib die
-  Fundstelle an (Seite oder Abschnitt).
+  Belegstelle an (Seite oder Abschnitt).
 - Bevorzuge begutachtete Publikationen und Preprints; kennzeichne graue
   Literatur und Anbieterdokumentation als solche.
 - Verwende nur öffentlich abrufbare Quellen. Erfinde keine Quellen und keine
-  Fundstellen; fehlt ein Beleg, schreibe das ausdrücklich dazu.
+  Belegstellen; fehlt ein Beleg, schreibe das ausdrücklich dazu.
 - Schließe mit einem Abschnitt »Quellen«: eine Zeile je Quelle mit DOI/arXiv-Id/URL.`;
 
 /** Deterministic converter: research question → ready-to-paste prompt for

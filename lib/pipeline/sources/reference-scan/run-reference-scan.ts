@@ -230,12 +230,12 @@ async function runReferenceScanOnce(
       parsed = outcome.output.references;
       method = "regex+llm";
     } else if (outcome.status === "paused") {
-      degradationNote = ` LLM-Kanal übersprungen (Rate-Limit: ${outcome.reason}).`;
+      degradationNote = ` KI-Kanal übersprungen (Rate-Limit: ${outcome.reason}).`;
     } else {
-      degradationNote = ` LLM-Kanal übersprungen (erschöpft: ${outcome.lastError.message}).`;
+      degradationNote = ` KI-Kanal übersprungen (erschöpft: ${outcome.lastError.message}).`;
     }
   } else {
-    degradationNote = ` LLM-Kanal übersprungen (Backend nicht einsatzbereit: ${context.backendHint ?? "unbekannt"}).`;
+    degradationNote = ` KI-Kanal übersprungen (Backend nicht einsatzbereit: ${context.backendHint ?? "unbekannt"}).`;
   }
 
   // De-dup units: the briefing paragraphs that carry an inline identifier,

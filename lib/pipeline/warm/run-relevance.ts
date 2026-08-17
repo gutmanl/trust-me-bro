@@ -85,7 +85,7 @@ export async function startRelevanceCheck(
     deriveRelevanceState(register, false).status === "interrupted";
   if (population.length === 0 && !interrupted) {
     throw new RelevancePreconditionError(
-      "Keine übernommenen Aussagen ohne Einschlägigkeitsprüfung – " +
+      "Keine übernommenen Aussagen ohne Relevanzprüfung – " +
         "nichts zu prüfen.",
     );
   }
@@ -199,7 +199,7 @@ async function recordStartedOnce(
   await context.store.transaction((tx) => {
     tx.recordProjectEvent({
       event: "relevance_run_started",
-      reason: `Einschlägigkeitsprüfung gestartet: ${context.totalEligible} Aussage(n) (Lauf ${runId}).`,
+      reason: `Relevanzprüfung gestartet: ${context.totalEligible} Aussage(n) (Lauf ${runId}).`,
       actor: ACTOR_RUN,
     });
   });
@@ -267,7 +267,7 @@ async function processClaim(
       tx.transitionClaim(claimId, {
         to: "pending_adjudication",
         actor: ACTOR_CHECK,
-        reason: `Einschlägigkeitsprüfung endgültig gescheitert – eskaliert: ${outcome.lastError.message}`,
+        reason: `Relevanzprüfung endgültig gescheitert – eskaliert: ${outcome.lastError.message}`,
         routing: "escalated",
       });
     });
@@ -286,7 +286,7 @@ async function processClaim(
     return {
       claimId,
       outcome: "relevant",
-      message: `Einschlägig für die neue Frage – Status bleibt. ${outcome.output.reasoning}`,
+      message: `Relevant für die neue Frage – Status bleibt. ${outcome.output.reasoning}`,
     };
   }
   const verdict = outcome.output.relevant === "no" ? "negativ" : "unsicher";
@@ -294,7 +294,7 @@ async function processClaim(
     tx.transitionClaim(claimId, {
       to: "pending_adjudication",
       actor: ACTOR_CHECK,
-      reason: `Einschlägigkeit für die neue Recherchefrage ${verdict} bewertet: ${outcome.output.reasoning}`,
+      reason: `Relevanz für die neue Recherchefrage ${verdict} bewertet: ${outcome.output.reasoning}`,
       routing: "negative_relevance",
     });
   });
@@ -302,7 +302,7 @@ async function processClaim(
   return {
     claimId,
     outcome: "pending_adjudication",
-    message: `Einschlägigkeit ${verdict} – zur manuellen Überprüfung.`,
+    message: `Relevanz ${verdict} – zur manuellen Überprüfung.`,
   };
 }
 
@@ -331,14 +331,14 @@ async function closeBracket(
     tx.recordProjectEvent({
       event: "relevance_run_completed",
       reason:
-        `Einschlägigkeitsprüfung abgeschlossen (Lauf ${runId}): ` +
-        `${bracket.kept} einschlägig, ${bracket.routed} zur manuellen Überprüfung, ` +
+        `Relevanzprüfung abgeschlossen (Lauf ${runId}): ` +
+        `${bracket.kept} relevant, ${bracket.routed} zur manuellen Überprüfung, ` +
         `${bracket.escalated} eskaliert, ${bracket.errors} Fehler.`,
       actor: ACTOR_RUN,
     });
   });
   return {
     outcome: "closed",
-    message: `${bracket.kept} einschlägig, ${bracket.routed} zur manuellen Überprüfung, ${bracket.escalated} eskaliert.`,
+    message: `${bracket.kept} relevant, ${bracket.routed} zur manuellen Überprüfung, ${bracket.escalated} eskaliert.`,
   };
 }
