@@ -97,11 +97,17 @@ export function issuedYear(item: Record<string, unknown>): number | undefined {
 }
 
 /**
- * Human-readable citation label ("Meyer (2025), IEEE TSE") — used as
- * SourceContext.citation for extraction jobs and in the sources list.
+ * Citation label of a bare CSL-JSON item, with `fallbackLabel` standing in when
+ * the item names neither an author nor a title. Split out of `formatCitation`
+ * so an archived identity (`custom.previous_identities[].item` — a plain item
+ * with no `custom` block, hence not a `Source`) formats through exactly this
+ * code path: a second formatter would drift and the original identity would
+ * stop reading like the current one.
  */
-export function formatCitation(source: Source): string {
-  const item = source as Record<string, unknown>;
+export function formatCitationItem(
+  item: Record<string, unknown>,
+  fallbackLabel: string,
+): string {
   const family = firstAuthorFamily(item);
   const year = issuedYear(item);
   const container = item["container-title"];
@@ -113,10 +119,18 @@ export function formatCitation(source: Source): string {
     ? `${family}${etAl}${year ? ` (${year})` : ""}`
     : typeof title === "string"
       ? title
-      : source.id;
+      : fallbackLabel;
   const tail =
     typeof container === "string" && container.length > 0
       ? `, ${container}`
       : "";
   return `${head}${tail}`;
+}
+
+/**
+ * Human-readable citation label ("Meyer (2025), IEEE TSE") — used as
+ * SourceContext.citation for extraction jobs and in the sources list.
+ */
+export function formatCitation(source: Source): string {
+  return formatCitationItem(source as Record<string, unknown>, source.id);
 }

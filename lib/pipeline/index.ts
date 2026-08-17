@@ -163,6 +163,12 @@ export {
 export type { ExtractionActivity } from "./extraction/derive-state";
 export { deriveSourceLifecycles } from "./sources/source-lifecycle";
 export type { SourceLifecycle } from "./sources/source-lifecycle";
+// Original-identity display: the very first archived identity of a corrected
+// source, projected for the sources rail. The item-level citation formatter it
+// uses stays off this barrel — internal to lib/pipeline/sources, like
+// firstAuthorFamily and issuedYear.
+export { deriveOriginalIdentity } from "./sources/original-identity";
+export type { OriginalIdentityVM } from "./sources/original-identity";
 export type {
   RunControlState,
   RunHandle,

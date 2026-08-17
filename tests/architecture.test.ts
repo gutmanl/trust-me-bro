@@ -233,6 +233,9 @@ describe("public surface of lib/pipeline", () => {
     // the bracket events' structured source_id.
     expect(surface.deriveSourceExtractionOutcomes).toBeDefined();
     expect(surface.deriveSourceLifecycles).toBeDefined();
+    // Original source identity: the sources rail renders the first archived
+    // identity of a corrected source, so the projection is public surface.
+    expect(surface.deriveOriginalIdentity).toBeDefined();
     expect(surface.applyExtractionOutput).toBeUndefined();
     expect(surface.startVerification).toBeDefined();
     expect(surface.getVerificationState).toBeDefined();
