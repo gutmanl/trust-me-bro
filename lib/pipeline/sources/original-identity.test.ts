@@ -117,7 +117,13 @@ describe("deriveOriginalIdentity", () => {
       },
     ];
     // The array is append-only in correction order, so the intermediate
-    // identity is history of the history — the row summarizes it by count.
+    // identity is history of the history: the block answers "what did this
+    // source originally claim to be", and only [0] answers that. What the row
+    // says about the ones in between is that they exist — the unchanged
+    // "Kennung korrigiert" chip, which is keyed on the array being non-empty
+    // and states no count. (Code review WR-05 asked for a count here; the count
+    // is deliberately not shown, and this comment no longer claims it is. Full
+    // history stays in the audit trail, which is where it is complete.)
     expect(deriveOriginalIdentity(source)?.citation).toBe(
       "Mayer (2024), ACM TOSEM",
     );
