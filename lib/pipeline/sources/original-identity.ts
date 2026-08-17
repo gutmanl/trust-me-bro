@@ -56,10 +56,17 @@ export function deriveOriginalIdentity(
   // every identity correction revises the snapshot before archiving the
   // identity, so on a corrected source `custom.snapshot.retrieved_at` is the
   // correction date. `previous_snapshots` is append-only in revision order and
-  // revisions start at 1, so [0] is the original capture; the fallback is
-  // defensive only, since a corrected source has always archived a snapshot.
-  const originalSnapshot =
-    source.custom.previous_snapshots?.[0] ?? source.custom.snapshot;
+  // revisions start at 1, so [0] — and only [0] — is the original capture.
+  //
+  // No fallback to `custom.snapshot`: that value is the correction's date, and
+  // the app renders this field under the label "Erfasst am", so falling back
+  // would assert the one thing this projection exists to disprove. The state is
+  // reachable — `tx.correctSourceIdentity` and `tx.reviseSource` are
+  // independent transaction capabilities, and a hand-edited or
+  // foreign-authored .tmb bundle satisfies the schema with an archived identity
+  // and no archived snapshot — so it fails closed, like the no-snapshot-at-all
+  // case always has: with no original date to state, there is nothing to state.
+  const originalSnapshot = source.custom.previous_snapshots?.[0];
   if (!originalSnapshot) {
     return undefined;
   }

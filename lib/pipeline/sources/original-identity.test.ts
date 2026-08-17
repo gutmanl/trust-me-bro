@@ -152,12 +152,22 @@ describe("deriveOriginalIdentity", () => {
     expect(projected?.citation).toBe(formatCitation(source));
   });
 
-  it("falls back to the current snapshot when no earlier revision was archived", () => {
+  /**
+   * Rewritten deliberately (code review WR-02). This case previously asserted a
+   * fallback to `custom.snapshot` — but on a corrected source that value IS the
+   * correction's date, and the app renders it under the label "Erfasst am", so
+   * the fallback made the row assert the one thing this projection exists to
+   * disprove. The old assertion pinned the mislabelling in as correct; the
+   * projection now fails closed instead, and this test pins THAT.
+   */
+  it("returns undefined rather than dating the original by the correction's snapshot", () => {
     const source = correctedSource();
     delete source.custom.previous_snapshots;
-    expect(deriveOriginalIdentity(source)?.capturedAt).toBe(
-      "2026-07-28T08:05:12Z",
-    );
+    // Reachable without a corrupt register: correctSourceIdentity and
+    // reviseSource are independent transaction capabilities, and a
+    // foreign-authored .tmb bundle satisfies the schema in this state.
+    expect(source.custom.snapshot?.retrieved_at).toBe("2026-07-28T08:05:12Z");
+    expect(deriveOriginalIdentity(source)).toBeUndefined();
   });
 
   it("returns undefined when the source carries no snapshot at all", () => {

@@ -187,10 +187,13 @@ export function SourceRow({
           originally claimed to be — the very thing one needs to recognize it.
           Slate, not amber: amber is this row's failure colour, and an original
           identity is information, not an alarm. Rendered whenever an earlier
-          identity exists and on no further condition — after a revert the
-          original and the current identity coincide, and hiding the block then
-          would silently decide that the reader did not mean the one they can
-          already see. */}
+          identity exists AND an archived snapshot dates it — every correction
+          archives one, so that is the normal state, and where it is missing the
+          projection fails closed rather than date the original by the
+          correction's snapshot. On no further condition than those two: after a
+          revert the original and the current identity coincide, and hiding the
+          block then would silently decide that the reader did not mean the one
+          they can already see. */}
       {source.originalIdentity !== undefined ? (
         <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs break-words text-slate-600">
           <p>
