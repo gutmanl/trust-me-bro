@@ -74,7 +74,19 @@ export function firstAuthorFamily(
   if (!Array.isArray(authors) || authors.length === 0) {
     return undefined;
   }
-  const first = authors[0] as Record<string, unknown>;
+  // Author entries are schema-unvalidated `unknown`: `previous_identities[].item`
+  // is a bare `z.record(z.string(), z.unknown())` and `Source` is a looseObject,
+  // and for a DOI-resolved source the array comes verbatim out of the resolver's
+  // response (resolve.ts JSON.parses and stores `item` unfiltered). A `null`
+  // entry must therefore degrade to "no author" — reading `.family` off it threw
+  // a TypeError, and this function runs inside the project page's server
+  // render, so one malformed entry in the append-only register took the whole
+  // page down and with it the only UI that can correct the source.
+  // Same guard shape as reference-scan/crossref.ts.
+  const first = authors[0] as Record<string, unknown> | null | undefined;
+  if (first === null || typeof first !== "object") {
+    return undefined;
+  }
   if (typeof first.family === "string" && first.family.length > 0) {
     return first.family;
   }

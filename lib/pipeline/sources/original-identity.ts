@@ -28,6 +28,17 @@ export interface OriginalIdentityVM {
  * Projects the source's first archived identity, or `undefined` when there is
  * none to show. Never throws — like every other `derive*` in this layer,
  * missing data means "nothing to display", never a failure.
+ *
+ * That guarantee is load-bearing rather than decorative: this runs inside the
+ * project page's server render, so a throw here fails the render of
+ * `/projects/[id]` — the only place from which a source can be corrected — and
+ * the register is append-only, so the offending row could not be deleted.
+ * It holds because every value read below is either schema-validated
+ * (`previous_snapshots[].retrieved_at`, `auto_capture.*`) or read through a
+ * shape guard: `previous_identities[].item` is a bare
+ * `z.record(z.string(), z.unknown())`, so `formatCitationItem` and the
+ * `fallbackLabel` derivation must treat its contents as hostile. Adding a read
+ * of unvalidated register data here means adding its guard in the same change.
  */
 export function deriveOriginalIdentity(
   source: Source,

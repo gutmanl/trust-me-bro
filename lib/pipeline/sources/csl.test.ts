@@ -5,6 +5,7 @@ import {
   buildManualCslItem,
   firstAuthorFamily,
   formatCitation,
+  formatCitationItem,
   issuedYear,
   parseAuthors,
   toPlainCsl,
@@ -134,5 +135,41 @@ describe("issuedYear / firstAuthorFamily edge cases", () => {
     expect(issuedYear({})).toBeUndefined();
     expect(firstAuthorFamily({ author: [] })).toBeUndefined();
     expect(firstAuthorFamily({ author: [{}] })).toBeUndefined();
+  });
+
+  /**
+   * Author entries reach this function unvalidated — `previous_identities[].item`
+   * is a bare record, `Source` is a looseObject, and a DOI-resolved item is
+   * stored verbatim from the resolver's response. Every one of these shapes used
+   * to be either a TypeError or a lie, and the throw happened inside the project
+   * page's server render, i.e. it took down the only page from which the source
+   * could be corrected. "No author" is the only honest answer to any of them.
+   */
+  it("degrades a malformed author entry to no author instead of throwing", () => {
+    expect(firstAuthorFamily({ author: [null] })).toBeUndefined();
+    expect(firstAuthorFamily({ author: [undefined] })).toBeUndefined();
+    // A bare string entry never threw, but nothing pinned it either: a string
+    // has no `.family`, so the item must fall through to title/id — never to
+    // the string's own characters.
+    expect(firstAuthorFamily({ author: ["Mayer, A."] })).toBeUndefined();
+    expect(firstAuthorFamily({ author: [42] })).toBeUndefined();
+    // The whole citation path, not just the accessor: a null first author must
+    // still yield the title (and, with no title, the fallback label).
+    expect(
+      formatCitationItem(
+        { id: "src_x", title: "Nur Titel", author: [null] },
+        "src_x",
+      ),
+    ).toBe("Nur Titel");
+    expect(formatCitationItem({ author: [null] }, "src_x")).toBe("src_x");
+    // A second, well-formed entry does not rescue a malformed first one — the
+    // et-al suffix is keyed on the array length, so the head must not silently
+    // become the second author's name.
+    expect(
+      formatCitationItem(
+        { title: "Titel", author: [null, { family: "Schulz" }] },
+        "src_x",
+      ),
+    ).toBe("Titel");
   });
 });

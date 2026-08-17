@@ -194,6 +194,44 @@ describe("deriveOriginalIdentity", () => {
     expect(deriveOriginalIdentity(source)?.citation).toBe("src_meyer2025");
   });
 
+  /**
+   * The "never throws" contract in the JSDoc, pinned against the shape the
+   * archive actually permits: `previous_identities[].item` is a bare
+   * `z.record(z.string(), z.unknown())`, and for a DOI-resolved source the item
+   * was stored verbatim from the resolver's response. A throw here fails the
+   * render of the whole project page — the only page from which the source can
+   * be corrected — and the register is append-only, so the row could not be
+   * removed afterwards.
+   */
+  it("never throws on an archived identity whose author array is malformed", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "src_meyer2025", type: "document", author: [null] },
+      },
+    ];
+    expect(() => deriveOriginalIdentity(source)).not.toThrow();
+    // No author and no title: the citation degrades to the archived id, exactly
+    // as a missing author array would.
+    expect(deriveOriginalIdentity(source)?.citation).toBe("src_meyer2025");
+
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: {
+          id: "src_meyer2025",
+          type: "document",
+          title: "Effects of AI Assistants on Code Review Time",
+          author: ["Mayer, A."],
+        },
+      },
+    ];
+    expect(deriveOriginalIdentity(source)?.citation).toBe(
+      "Effects of AI Assistants on Code Review Time",
+    );
+  });
+
   it("passes the raw reference text through byte for byte", () => {
     const source = correctedSource();
     const raw =
