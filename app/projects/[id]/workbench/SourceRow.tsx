@@ -66,8 +66,11 @@ export interface SourceRowVM {
     citation: string;
     /** de-DE label of the original capture time. */
     capturedAtLabel: string;
-    /** German auto-import method label; absent means captured by hand. */
-    methodLabel?: string;
+    /** German clause stating how the source was ORIGINALLY captured, composed
+     * server-side: this component must not decide it, because "auto-import
+     * method present" does not mean "captured automatically" for every method
+     * value (see originalCaptureProvenanceLabel). */
+    provenanceLabel: string;
     /** Raw reference text the auto-import matched, shown in full. */
     rawText?: string;
   };
@@ -208,9 +211,7 @@ export function SourceRow({
           </p>
           <p>
             Erfasst am {source.originalIdentity.capturedAtLabel} –{" "}
-            {source.originalIdentity.methodLabel !== undefined
-              ? `automatisch übernommen (${source.originalIdentity.methodLabel})`
-              : "manuell erfasst"}
+            {source.originalIdentity.provenanceLabel}
           </p>
           {source.originalIdentity.rawText !== undefined ? (
             <p>

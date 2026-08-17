@@ -38,26 +38,15 @@ import {
 import type { SourceType } from "@/lib/register";
 import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
 import { formatTimestamp, SOURCE_TYPE_LABELS } from "../status-labels";
+import {
+  AUTO_CAPTURE_METHOD_LABELS,
+  originalCaptureProvenanceLabel,
+} from "./auto-capture-labels";
 import type { ReferenceImportVM } from "./workbench/SourcesRail";
 import type { SourceRowVM } from "./workbench/SourceRow";
 import { Workbench } from "./workbench/Workbench";
 
 export const dynamic = "force-dynamic";
-
-/** German label per auto-import method, for the provenance note next to an
- * automatically captured source. A fuzzy `crossref_title` match resolved a
- * REAL DOI, but the identifier was GUESSED by title similarity rather than
- * found verbatim in the text — that difference has to stay legible. */
-const AUTO_CAPTURE_METHOD_LABELS: Record<
-  "doi" | "arxiv" | "url" | "crossref_title" | "unresolved",
-  string
-> = {
-  doi: "DOI im Text gefunden",
-  arxiv: "arXiv-Id im Text gefunden",
-  url: "URL im Text gefunden",
-  crossref_title: "Titelabgleich",
-  unresolved: "textuell gefunden, manuell vervollständigt",
-};
 
 /** Identifier shape of a source's CURRENT identity, prefilling the
  * correction modal's kind tabs (source correction) — pure presentation
@@ -122,8 +111,8 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     }
     const auto = source.custom.auto_capture;
     // Original source identity: the pipeline formats the first archived
-    // identity and dates it; only the German method label is added here,
-    // where AUTO_CAPTURE_METHOD_LABELS lives. Deliberately without the
+    // identity and dates it; only the German provenance wording is added
+    // here, from the same module the labels live in. Deliberately without the
     // crossref_title score suffix that autoCaptureNote carries below — the
     // block answers "what was this originally", not "how good was the match".
     const originalIdentity = deriveOriginalIdentity(source);
@@ -163,14 +152,11 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
               originalIdentity: {
                 citation: originalIdentity.citation,
                 capturedAtLabel: formatTimestamp(originalIdentity.capturedAt),
+                provenanceLabel: originalCaptureProvenanceLabel(
+                  originalIdentity.autoCapture?.method,
+                ),
                 ...(originalIdentity.autoCapture !== undefined
-                  ? {
-                      methodLabel:
-                        AUTO_CAPTURE_METHOD_LABELS[
-                          originalIdentity.autoCapture.method
-                        ],
-                      rawText: originalIdentity.autoCapture.rawText,
-                    }
+                  ? { rawText: originalIdentity.autoCapture.rawText }
                   : {}),
               },
             }
