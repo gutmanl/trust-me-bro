@@ -13,6 +13,7 @@ import {
   buildAdjudicationQueue,
   buildEvidenceDisplayMap,
   deriveExtractionActivity,
+  deriveOriginalIdentity,
   deriveSourceExtractionOutcomes,
   deriveSourceLifecycles,
   formatCitation,
@@ -120,6 +121,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       return [];
     }
     const auto = source.custom.auto_capture;
+    // Original source identity: the pipeline formats the first archived
+    // identity and dates it; only the German method label is added here,
+    // where AUTO_CAPTURE_METHOD_LABELS lives. Deliberately without the
+    // crossref_title score suffix that autoCaptureNote carries below — the
+    // block answers "what was this originally", not "how good was the match".
+    const originalIdentity = deriveOriginalIdentity(source);
     return [
       {
         id: source.id,
@@ -151,6 +158,23 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         currentKind: identifierKindOf(source as Record<string, unknown>),
         currentSourceType: source.custom.source_type as SourceType,
         previousIdentities: source.custom.previous_identities?.length ?? 0,
+        ...(originalIdentity !== undefined
+          ? {
+              originalIdentity: {
+                citation: originalIdentity.citation,
+                capturedAtLabel: formatTimestamp(originalIdentity.capturedAt),
+                ...(originalIdentity.autoCapture !== undefined
+                  ? {
+                      methodLabel:
+                        AUTO_CAPTURE_METHOD_LABELS[
+                          originalIdentity.autoCapture.method
+                        ],
+                      rawText: originalIdentity.autoCapture.rawText,
+                    }
+                  : {}),
+              },
+            }
+          : {}),
       },
     ];
   });

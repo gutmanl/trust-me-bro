@@ -57,6 +57,20 @@ export interface SourceRowVM {
   currentSourceType: SourceType;
   /** Earlier identity corrections, for the history note. */
   previousIdentities: number;
+  /** The source's VERY FIRST identity, present iff it was ever corrected.
+   * Display-ready strings only — the citation and the timestamp are formatted
+   * server-side, no register data crosses into this component. */
+  originalIdentity?: {
+    /** Citation of the first archived identity, formatted like the current
+     * one. */
+    citation: string;
+    /** de-DE label of the original capture time. */
+    capturedAtLabel: string;
+    /** German auto-import method label; absent means captured by hand. */
+    methodLabel?: string;
+    /** Raw reference text the auto-import matched, shown in full. */
+    rawText?: string;
+  };
 }
 
 const initialState: RunFormState = { error: null };
@@ -167,6 +181,36 @@ export function SourceRow({
           <span className="text-green-600">✓ Aussagen erfasst</span>
         ) : null}
       </div>
+
+      {/* Original source identity: the citation at the top of this row is the
+          CORRECTED one, so without this block nothing says what the source
+          originally claimed to be — the very thing one needs to recognize it.
+          Slate, not amber: amber is this row's failure colour, and an original
+          identity is information, not an alarm. Rendered whenever an earlier
+          identity exists and on no further condition — after a revert the
+          original and the current identity coincide, and hiding the block then
+          would silently decide that the reader did not mean the one they can
+          already see. */}
+      {source.originalIdentity !== undefined ? (
+        <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs break-words text-slate-600">
+          <p>
+            <span className="font-medium">Ursprünglich erfasst als:</span>{" "}
+            {source.originalIdentity.citation}
+          </p>
+          <p>
+            Erfasst am {source.originalIdentity.capturedAtLabel} –{" "}
+            {source.originalIdentity.methodLabel !== undefined
+              ? `automatisch übernommen (${source.originalIdentity.methodLabel})`
+              : "manuell erfasst"}
+          </p>
+          {source.originalIdentity.rawText !== undefined ? (
+            <p>
+              <span className="font-medium">Referenztext:</span>{" "}
+              {`„${source.originalIdentity.rawText}“`}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {!extractingLive && source.extractionOutcome === "failed" ? (
         <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
