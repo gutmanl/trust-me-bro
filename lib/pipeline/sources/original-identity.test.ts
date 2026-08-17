@@ -101,4 +101,110 @@ describe("deriveOriginalIdentity", () => {
       "Mayer (2024), ACM TOSEM",
     );
   });
+
+  it("shows the first archived identity, never a later one, after several corrections", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      { replaced_at: "2026-08-14T10:15:00Z", item: { ...ORIGINAL_ITEM } },
+      {
+        replaced_at: "2026-08-15T11:00:00Z",
+        item: {
+          id: "src_meyer2025",
+          type: "article-journal",
+          title: "Zwischenstand",
+          author: [{ family: "Schulz" }],
+        },
+      },
+    ];
+    // The array is append-only in correction order, so the intermediate
+    // identity is history of the history — the row summarizes it by count.
+    expect(deriveOriginalIdentity(source)?.citation).toBe(
+      "Mayer (2024), ACM TOSEM",
+    );
+    expect(deriveOriginalIdentity(source)?.citation).not.toContain("Schulz");
+  });
+
+  it("still reports the first identity of a reverted source, though it now equals the current one", () => {
+    const source = correctedSource();
+    // A revert is itself an audited correction: it re-corrects to the archived
+    // core, so the chain reads A → B → A and the archive holds [A, B]. The
+    // projection then reports an original identity identical to the current
+    // one. That is the expected result, not a defect — suppressing it would
+    // hide that a correction and a revert ever happened.
+    source.custom.previous_identities = [
+      { replaced_at: "2026-08-14T10:15:00Z", item: { ...ORIGINAL_ITEM } },
+      {
+        replaced_at: "2026-08-15T11:00:00Z",
+        item: {
+          id: "src_meyer2025",
+          type: "article-journal",
+          title: "Effects of AI Assistants on Code Review Duration",
+          author: [{ family: "Meyer", given: "A." }],
+          issued: { "date-parts": [[2025, 11]] },
+          "container-title": "IEEE Transactions on Software Engineering",
+        },
+      },
+    ];
+    Object.assign(source, ORIGINAL_ITEM);
+    const projected = deriveOriginalIdentity(source);
+    expect(projected).toBeDefined();
+    expect(projected?.citation).toBe("Mayer (2024), ACM TOSEM");
+    expect(projected?.citation).toBe(formatCitation(source));
+  });
+
+  it("falls back to the current snapshot when no earlier revision was archived", () => {
+    const source = correctedSource();
+    delete source.custom.previous_snapshots;
+    expect(deriveOriginalIdentity(source)?.capturedAt).toBe(
+      "2026-07-28T08:05:12Z",
+    );
+  });
+
+  it("returns undefined when the source carries no snapshot at all", () => {
+    const source = correctedSource();
+    delete source.custom.previous_snapshots;
+    delete source.custom.snapshot;
+    expect(deriveOriginalIdentity(source)).toBeUndefined();
+  });
+
+  it("renders a sparse archived identity as the formatter renders it", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "src_meyer2025", type: "document", title: "Nur ein Titel" },
+      },
+    ];
+    expect(deriveOriginalIdentity(source)?.citation).toBe("Nur ein Titel");
+  });
+
+  it("labels an archived identity without author or title by its id", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "src_alte_kennung", type: "document" },
+      },
+    ];
+    expect(deriveOriginalIdentity(source)?.citation).toBe("src_alte_kennung");
+    // An archived item without an id of its own falls back to the source's.
+    source.custom.previous_identities = [
+      { replaced_at: "2026-08-14T10:15:00Z", item: { type: "document" } },
+    ];
+    expect(deriveOriginalIdentity(source)?.citation).toBe("src_meyer2025");
+  });
+
+  it("passes the raw reference text through byte for byte", () => {
+    const source = correctedSource();
+    const raw =
+      "  Mayer, A. (2024): „Effects of AI Assistants“ — ACM TOSEM 33(4), S. 1–28.  ";
+    source.custom.auto_capture = { raw_text: raw, method: "unresolved" };
+    // No trimming, no truncation, no normalisation: for an auto-imported
+    // source the raw text IS what the reader recognizes the entry by, so any
+    // tidying would edit the evidence.
+    expect(deriveOriginalIdentity(source)?.autoCapture).toEqual({
+      method: "unresolved",
+      rawText: raw,
+    });
+  });
 });
