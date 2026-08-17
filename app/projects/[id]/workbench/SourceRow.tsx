@@ -136,7 +136,13 @@ export function SourceRow({
         <span className="font-mono">{source.id}</span>
         <span>{source.sourceTypeLabel}</span>
         <span>Fassung {source.revision}</span>
-        <span>{formatTimestamp(source.capturedAt)}</span>
+        {/* "Stand", not a bare date: this is the CURRENT snapshot's
+            retrieved_at, so on a corrected source it is the correction's
+            timestamp — while the original-identity block below carries an
+            EARLIER date explicitly labelled "Erfasst am". Unlabelled, the later
+            of the two reads as the capture date and reintroduces one line up
+            exactly the ambiguity that block exists to remove. */}
+        <span>Stand {formatTimestamp(source.capturedAt)}</span>
         <span>
           {source.citingClaims === 0
             ? "keine Aussage gestützt"
