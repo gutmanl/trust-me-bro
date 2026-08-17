@@ -38,10 +38,8 @@ import {
 import type { SourceType } from "@/lib/register";
 import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
 import { formatTimestamp, SOURCE_TYPE_LABELS } from "../status-labels";
-import {
-  AUTO_CAPTURE_METHOD_LABELS,
-  originalCaptureProvenanceLabel,
-} from "./auto-capture-labels";
+import { AUTO_CAPTURE_METHOD_LABELS } from "./auto-capture-labels";
+import { buildOriginalIdentityRow } from "./original-identity-vm";
 import type { ReferenceImportVM } from "./workbench/SourcesRail";
 import type { SourceRowVM } from "./workbench/SourceRow";
 import { Workbench } from "./workbench/Workbench";
@@ -110,12 +108,6 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       return [];
     }
     const auto = source.custom.auto_capture;
-    // Original source identity: the pipeline formats the first archived
-    // identity and dates it; only the German provenance wording is added
-    // here, from the same module the labels live in. Deliberately without the
-    // crossref_title score suffix that autoCaptureNote carries below — the
-    // block answers "what was this originally", not "how good was the match".
-    const originalIdentity = deriveOriginalIdentity(source);
     return [
       {
         id: source.id,
@@ -147,20 +139,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         currentKind: identifierKindOf(source as Record<string, unknown>),
         currentSourceType: source.custom.source_type as SourceType,
         previousIdentities: source.custom.previous_identities?.length ?? 0,
-        ...(originalIdentity !== undefined
-          ? {
-              originalIdentity: {
-                citation: originalIdentity.citation,
-                capturedAtLabel: formatTimestamp(originalIdentity.capturedAt),
-                provenanceLabel: originalCaptureProvenanceLabel(
-                  originalIdentity.autoCapture?.method,
-                ),
-                ...(originalIdentity.autoCapture !== undefined
-                  ? { rawText: originalIdentity.autoCapture.rawText }
-                  : {}),
-              },
-            }
-          : {}),
+        // Original source identity: the pipeline formats the first archived
+        // identity and dates it, the display module phrases it. Deliberately
+        // without the crossref_title score suffix that autoCaptureNote carries
+        // above — the block answers "what was this originally", not "how good
+        // was the match".
+        ...buildOriginalIdentityRow(deriveOriginalIdentity(source)),
       },
     ];
   });
