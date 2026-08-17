@@ -74,13 +74,13 @@ describe("deriveOriginalIdentity", () => {
   it("carries the original entry's auto-capture method and raw text", () => {
     const source = correctedSource();
     source.custom.auto_capture = {
-      raw_text: 'Mayer, A. (2024): „Effects of AI Assistants“, ACM TOSEM.',
+      raw_text: "Mayer, A. (2024): „Effects of AI Assistants“, ACM TOSEM.",
       method: "crossref_title",
       score: 0.87,
     };
     expect(deriveOriginalIdentity(source)?.autoCapture).toEqual({
       method: "crossref_title",
-      rawText: 'Mayer, A. (2024): „Effects of AI Assistants“, ACM TOSEM.',
+      rawText: "Mayer, A. (2024): „Effects of AI Assistants“, ACM TOSEM.",
     });
   });
 
