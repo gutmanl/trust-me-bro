@@ -441,7 +441,7 @@ describe("cascading verification run", () => {
     await store.transaction((tx) => {
       tx.recordProjectEvent({
         event: "verification_run_started",
-        reason: "Prüflauf gestartet (Lauf tot-1).",
+        reason: "KI-Prüfung gestartet (Lauf tot-1).",
         actor: "system:verification",
       });
       tx.setExistenceCheck("clm_0001", "ev_0001", {

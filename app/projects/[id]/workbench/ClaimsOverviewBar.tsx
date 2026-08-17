@@ -187,7 +187,7 @@ export function ClaimsOverviewBar({
           reason only where the event exists. */}
       {verificationState.status === "interrupted" ? (
         <p className="mt-2 text-xs text-amber-700">
-          Prüflauf unterbrochen – über „Prüfung fortsetzen“ wieder aufnehmen;
+          KI-Prüfung unterbrochen – über „Prüfung fortsetzen“ wieder aufnehmen;
           fortgesetzt wird nur mit den offenen Aussagen.
         </p>
       ) : verificationState.reason !== undefined &&
@@ -201,8 +201,8 @@ export function ClaimsOverviewBar({
           }`}
         >
           {verificationState.status === "halted"
-            ? "Prüflauf angehalten – es verbleiben offene Aussagen. "
-            : "Letzter Prüflauf: "}
+            ? "KI-Prüfung angehalten – es verbleiben offene Aussagen. "
+            : "Letzte KI-Prüfung: "}
           {verificationState.reason}
         </p>
       ) : null}

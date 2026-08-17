@@ -298,7 +298,7 @@ export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
  */
 export function ProjectBreadcrumb() {
   return (
-    <nav aria-label="Brotkrumenpfad" className="mb-1 text-sm text-slate-500">
+    <nav aria-label="Navigationspfad" className="mb-1 text-sm text-slate-500">
       <Link href="/projects" className="hover:text-slate-700">
         Projekte
       </Link>
@@ -386,7 +386,7 @@ export function SubpageHeader({
 }) {
   return (
     <div>
-      <nav aria-label="Brotkrumenpfad" className="text-sm text-slate-500">
+      <nav aria-label="Navigationspfad" className="text-sm text-slate-500">
         <Link href="/projects" className="hover:text-slate-700">
           Projekte
         </Link>

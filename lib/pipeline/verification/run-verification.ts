@@ -256,7 +256,7 @@ async function recordStartedOnce(
     tx.recordProjectEvent({
       event: "verification_run_started",
       reason:
-        `Prüflauf gestartet: ${context.totalEligible} Aussage(n) (Lauf ${runId}).` +
+        `KI-Prüfung gestartet: ${context.totalEligible} Aussage(n) (Lauf ${runId}).` +
         (notes.length === 0 ? "" : ` ${notes.join(" ")}`),
       actor: ACTOR_RUN,
     });
@@ -492,8 +492,8 @@ async function drawSampleStep(
       event: "verification_run_completed",
       reason:
         bracket.pauseReason === null
-          ? `Prüflauf abgeschlossen (Lauf ${runId}): ${summary}`
-          : `Prüflauf pausiert (Rate-Limit, Lauf ${runId}): ${summary} Grund: ${bracket.pauseReason}`,
+          ? `KI-Prüfung abgeschlossen (Lauf ${runId}): ${summary}`
+          : `KI-Prüfung pausiert (Rate-Limit, Lauf ${runId}): ${summary} Grund: ${bracket.pauseReason}`,
       actor: ACTOR_RUN,
     });
   });

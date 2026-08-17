@@ -74,7 +74,7 @@ test.describe("navigation out of a project", () => {
     await page.goto(projectUrl);
 
     await page
-      .getByRole("navigation", { name: "Brotkrumenpfad" })
+      .getByRole("navigation", { name: "Navigationspfad" })
       .getByRole("link", { name: "Projekte" })
       .click();
 

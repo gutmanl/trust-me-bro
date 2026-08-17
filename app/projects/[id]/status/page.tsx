@@ -118,7 +118,7 @@ export default async function StatusPage(
           Preflight-Diagnose der Agenten-CLIs dieses Projekts. Ohne
           einsatzbereites Backend bleiben Import, Quellenerfassung, die
           deterministische Zitatprüfung, manuelle Überprüfung, Verlauf und
-          Export nutzbar; nur die LLM-Prüfschritte sind gesperrt.
+          Export nutzbar; nur die KI-Prüfstufen sind gesperrt.
         </p>
       </div>
       <BackendCard
