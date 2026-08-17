@@ -7,6 +7,8 @@ import {
 
 import { CreateProjectForm } from "./CreateProjectForm";
 
+export const metadata: Metadata = { title: "Projekt anlegen" };
+
 /**
  * Async because the form needs the installation's backend diagnosis: the
  * choice of model family is the one decision on this page that can be made
@@ -14,8 +16,6 @@ import { CreateProjectForm } from "./CreateProjectForm";
  * (stages 1+2 are a `--version` spawn, the same call the wizard and the
  * settings page already make).
  */
-export const metadata: Metadata = { title: "Projekt anlegen" };
-
 export default async function NewProjectPage() {
   const health = await getInstallationBackendsHealth();
   const usableRealCliIds = usableRealBackends(health).map(

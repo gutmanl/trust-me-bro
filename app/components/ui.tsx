@@ -312,18 +312,57 @@ export function ProjectBreadcrumb() {
   );
 }
 
-/** The side views reachable from a project, in the order the workbench's
- * "Weitere Sichten" section lists them. One list, so the workbench footer and
- * every side view's own header cannot drift apart. */
+/**
+ * The side views reachable from a project — the single list behind both
+ * places they are offered, so adding or reordering one cannot leave the two
+ * disagreeing. `label` is the chip in a side view's own header, where the
+ * neighbours have to fit on one row; `description` is the workbench footer's
+ * fuller wording, where the link is the first time a reader meets the view
+ * and the short label would not say what it is for.
+ *
+ * The two conditional entries — in-app research and the relevance check —
+ * are not here: each depends on project state and carries a count in its
+ * text, so the workbench renders them itself.
+ */
 export const PROJECT_SIDE_VIEWS = [
-  { slug: "start", label: "Recherche-Werkzeuge" },
-  { slug: "history", label: "Verlauf" },
-  { slug: "warm-run", label: "Warmer Lauf" },
-  { slug: "metrics", label: "Auswertung" },
-  { slug: "traces", label: "Trace-Log" },
-  { slug: "settings", label: "Einstellungen" },
-  { slug: "status", label: "Systemstatus" },
+  {
+    slug: "start",
+    label: "Recherche-Werkzeuge",
+    description: "Recherche-Werkzeuge und Prompt-Hilfe",
+  },
+  {
+    slug: "history",
+    label: "Verlauf",
+    description: "Verlauf der Append-only-Historie ansehen",
+  },
+  {
+    slug: "warm-run",
+    label: "Warmer Lauf",
+    description: "Folgefrage als warmen Lauf starten",
+  },
+  {
+    slug: "metrics",
+    label: "Auswertung",
+    description: "Auswertung (Messgrößen) ansehen",
+  },
+  {
+    slug: "traces",
+    label: "Trace-Log",
+    description: "Trace-Log der LLM-Aufrufe ansehen",
+  },
+  { slug: "settings", label: "Einstellungen", description: "Einstellungen" },
+  {
+    slug: "status",
+    label: "Systemstatus",
+    description: "Systemstatus (Backend-Diagnose)",
+  },
 ] as const;
+
+/** Link styling of the workbench's "Weitere Sichten" list, shared with the
+ * two conditional entries the workbench renders alongside it. */
+export const sideViewLinkClass =
+  "text-slate-500 underline decoration-slate-300 " +
+  "hover:text-slate-700 hover:decoration-slate-600";
 
 /**
  * Header of a side view on a project (history, metrics, traces, research,

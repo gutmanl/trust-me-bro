@@ -3,6 +3,8 @@ import Link from "next/link";
 import {
   BackendHealthNotice,
   ProjectBreadcrumb,
+  PROJECT_SIDE_VIEWS,
+  sideViewLinkClass,
   wideContainerClass,
   wideContentClass,
 } from "@/app/components/ui";
@@ -262,10 +264,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             Weitere Sichten
           </h2>
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {/* The two state-dependent entries first, then the fixed list —
+                see PROJECT_SIDE_VIEWS for why these two are not in it. */}
             {!briefingImported ? (
               <Link
                 href={`/projects/${summary.id}/research`}
-                className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+                className={sideViewLinkClass}
               >
                 In der Anwendung recherchieren
               </Link>
@@ -273,54 +277,21 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             {summary.adopted_claims > 0 ? (
               <Link
                 href={`/projects/${summary.id}/relevance`}
-                className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+                className={sideViewLinkClass}
               >
                 Einschlägigkeit der übernommenen Aussagen prüfen (
                 {summary.adopted_claims} übernommen)
               </Link>
             ) : null}
-            <Link
-              href={`/projects/${summary.id}/start`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Recherche-Werkzeuge und Prompt-Hilfe
-            </Link>
-            <Link
-              href={`/projects/${summary.id}/history`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Verlauf der Append-only-Historie ansehen
-            </Link>
-            <Link
-              href={`/projects/${summary.id}/warm-run`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Folgefrage als warmen Lauf starten
-            </Link>
-            <Link
-              href={`/projects/${summary.id}/metrics`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Auswertung (Messgrößen) ansehen
-            </Link>
-            <Link
-              href={`/projects/${summary.id}/traces`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Trace-Log der LLM-Aufrufe ansehen
-            </Link>
-            <Link
-              href={`/projects/${summary.id}/settings`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Einstellungen
-            </Link>
-            <Link
-              href={`/projects/${summary.id}/status`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Systemstatus (Backend-Diagnose)
-            </Link>
+            {PROJECT_SIDE_VIEWS.map((view) => (
+              <Link
+                key={view.slug}
+                href={`/projects/${summary.id}/${view.slug}`}
+                className={sideViewLinkClass}
+              >
+                {view.description}
+              </Link>
+            ))}
           </p>
         </section>
 

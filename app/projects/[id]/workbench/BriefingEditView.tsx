@@ -60,6 +60,15 @@ export function BriefingEditView({
   const [saving, setSaving] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * Text typed but not yet handed to a save call; null once it has been.
+   * The debounce means there is always a window in which the newest
+   * keystrokes exist only here — leaving the editor used to clear the timer
+   * and drop them, which is the silent loss this component's contract above
+   * rules out. Flushing on the way out closes the window.
+   */
+  const unsaved = useRef<string | null>(null);
+
   const [publishState, publishAction, publishPending] = useActionState(
     publishBriefingRevisionAction.bind(null, projectId),
     publishInitial,
@@ -80,18 +89,20 @@ export function BriefingEditView({
   });
   useEffect(() => {
     if (publishState.published === true || discardState.discarded === true) {
+      // Drop the pending keystrokes BEFORE leaving, so the unmount flush
+      // below finds nothing to write. Both actions clear the draft
+      // server-side; a flush firing after that would write it straight back
+      // — a phantom "unsaved revision" after a publish, and after a discard
+      // the very text the user just asked to throw away. The save carries no
+      // revalidation, so neither would surface until the next full reload.
+      if (timer.current !== null) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+      unsaved.current = null;
       leave.current();
     }
   }, [publishState, discardState]);
-
-  /**
-   * Text typed but not yet handed to a save call; null once it has been.
-   * The debounce means there is always a window in which the newest
-   * keystrokes exist only here — leaving the editor used to clear the timer
-   * and drop them, which is the silent loss this component's contract above
-   * rules out. Flushing on the way out closes the window.
-   */
-  const unsaved = useRef<string | null>(null);
 
   // `useCallback` over `projectId` alone: the body reads only refs and that
   // one prop, so the identity is stable for the component's whole life and
