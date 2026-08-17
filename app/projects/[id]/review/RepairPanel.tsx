@@ -3,7 +3,10 @@
 import { useActionState, useState } from "react";
 
 import {
+  compactInputClass,
+  dangerButtonClass,
   ErrorBanner,
+  inputClass,
   primaryButtonClass,
   SuccessBanner,
 } from "@/app/components/ui";
@@ -164,7 +167,7 @@ export function RepairPanel({
               rows={4}
               value={text}
               onChange={(event) => setText(event.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className={inputClass}
             />
             <input type="hidden" name="source" value={source} readOnly />
             <input
@@ -208,14 +211,14 @@ export function RepairPanel({
                 id={`discard-reason-${claim.id}`}
                 name="reason"
                 required
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                className={inputClass}
               />
               <ErrorBanner message={discardState.error} />
               <div className="flex gap-2">
                 <button
                   type="submit"
                   disabled={pending}
-                  className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                  className={dangerButtonClass}
                 >
                   {discardPending ? "Wird verworfen …" : "Endgültig verwerfen"}
                 </button>
@@ -319,7 +322,7 @@ function AnchorRepairForms({
             id={`anchor-select-${claim.id}`}
             name="anchor"
             defaultValue={suggested ? `p${suggested.index + 1}` : ""}
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-slate-500 focus:outline-none"
+            className={compactInputClass}
           >
             {paragraphs.map((paragraph) => (
               <option key={paragraph.index} value={`p${paragraph.index + 1}`}>
@@ -339,7 +342,7 @@ function AnchorRepairForms({
             rows={2}
             defaultValue={quote}
             required
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-slate-500 focus:outline-none"
+            className={compactInputClass}
           />
           <ErrorBanner message={anchorState.error} />
           {anchorState.repaired === true ? (
@@ -385,7 +388,7 @@ function AnchorRepairForms({
             rows={5}
             defaultValue={anchoredParagraph.text}
             required
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-slate-500 focus:outline-none"
+            className={compactInputClass}
           />
           <ErrorBanner message={passageState.error} />
           {passageState.repaired === true ? (

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
@@ -10,6 +11,8 @@ import {
 } from "@/lib/pipeline";
 
 import { ResearchPanel } from "./ResearchPanel";
+
+export const metadata: Metadata = { title: "Erstrecherche" };
 
 export const dynamic = "force-dynamic";
 

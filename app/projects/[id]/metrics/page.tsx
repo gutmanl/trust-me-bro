@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { getProjectMetrics } from "@/lib/pipeline";
 import { STATUS_LABELS, SUPPORT_LABELS } from "../../status-labels";
+
+export const metadata: Metadata = { title: "Auswertung" };
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +37,11 @@ export default async function MetricsPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Auswertung (Messgrößen)" />
+        <SubpageHeader
+          projectId={id}
+          title="Auswertung (Messgrößen)"
+          current="metrics"
+        />
         <p className="mt-1 text-sm text-slate-600">
           Alle Messgrößen werden bei jedem Aufruf aus dem Verlauf berechnet und
           bewusst nicht gespeichert – der fortschreibende Verlauf bleibt die

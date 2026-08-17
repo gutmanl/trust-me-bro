@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { focusRingClass } from "./ui";
+
 /**
  * The one modal primitive of the app (source work items — first overlay in
  * the codebase, so the conventions live here): a native `<dialog>` opened
@@ -30,13 +32,23 @@ export function Modal({
     }
   }, []);
 
+  /**
+   * Every dismissal goes through `close()`, never through `onClose` directly.
+   * Closing a `<dialog>` is what restores focus to whatever opened it; a
+   * parent that unmounts an still-open dialog skips that step, so the
+   * backdrop and × paths used to drop keyboard focus to `<body>` while ESC —
+   * which the browser routes through `close()` — behaved correctly. The
+   * native close event then calls `onClose` for all three alike.
+   */
+  const dismiss = () => ref.current?.close();
+
   return (
     <dialog
       ref={ref}
       onClose={onClose}
       onClick={(event) => {
         if (event.target === ref.current) {
-          onClose();
+          dismiss();
         }
       }}
       className="m-auto w-[36rem] max-w-[92vw] rounded-md border border-slate-200 bg-white p-0 shadow-lg backdrop:bg-slate-900/40"
@@ -45,9 +57,9 @@ export function Modal({
         <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
         <button
           type="button"
-          onClick={onClose}
+          onClick={dismiss}
           aria-label="Schließen"
-          className="rounded px-1.5 text-lg leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          className={`rounded px-1.5 text-lg leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 ${focusRingClass}`}
         >
           ×
         </button>

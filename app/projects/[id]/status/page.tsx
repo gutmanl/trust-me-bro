@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { SubpageHeader } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { getBackendsHealth } from "@/lib/pipeline";
 import type { BackendHealth, ProbeResult } from "@/lib/pipeline";
 
 import { LoginProbeButton } from "./LoginProbeButton";
+
+export const metadata: Metadata = { title: "Systemstatus" };
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +109,11 @@ export default async function StatusPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Systemstatus der Backends" />
+        <SubpageHeader
+          projectId={id}
+          title="Systemstatus der Backends"
+          current="status"
+        />
         <p className="mt-1 text-sm text-slate-600">
           Preflight-Diagnose der Agenten-CLIs dieses Projekts. Ohne
           einsatzbereites Backend bleiben Import, Quellenerfassung, die

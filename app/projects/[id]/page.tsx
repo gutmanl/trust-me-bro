@@ -1,6 +1,11 @@
 import Link from "next/link";
 
-import { BackendHealthNotice } from "@/app/components/ui";
+import {
+  BackendHealthNotice,
+  ProjectBreadcrumb,
+  wideContainerClass,
+  wideContentClass,
+} from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import {
   buildAdjudicationQueue,
@@ -188,177 +193,189 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="font-mono text-xs text-slate-500">
-          {summary.id}
-          {summary.origin_id ? (
-            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 font-sans">
-              importiert · Ursprungs-Id {summary.origin_id}
-            </span>
-          ) : null}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold">
-          {summary.research_question}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Angelegt: {formatTimestamp(summary.created_at)} · Letzte Änderung:{" "}
-          {formatTimestamp(summary.last_change_at)}
-        </p>
-      </div>
-
-      {summary.is_demo ? <DemoProjectNotice /> : null}
-      {independence.sharedModelFamily ? (
-        <IndependenceNotice modelFamily={independence.modelFamily} />
-      ) : null}
-      {health ? (
-        <BackendHealthNotice
-          projectId={id}
-          health={health}
-          mode="verification"
-        />
-      ) : null}
-
-      <Workbench
-        projectId={id}
-        researchQuestion={summary.research_question}
-        briefing={briefing}
-        briefingText={briefingContent?.text ?? null}
-        briefingMeta={briefingContent?.meta ?? null}
-        draft={draft}
-        queue={buildAdjudicationQueue(register)}
-        evidenceDisplay={buildEvidenceDisplayMap(id, register)}
-        counts={summary.claim_counts}
-        totalClaims={summary.total_claims}
-        openExistenceCount={getOpenExistenceCheckCount(register)}
-        verificationState={getVerificationState(id, register)}
-        verificationBlockedReason={
-          register.claims.length === 0
-            ? "Vor der Prüfung müssen Aussagen erfasst sein."
-            : null
-        }
-        sources={sources}
-        workItems={workItems}
-        repairSuggestions={repairSuggestions}
-        sourceSetRevision={register.project.source_set_revision}
-        pendingTriggers={pendingTriggerCount(id)}
-        interruptedTriggers={interruptedTriggers}
-        extractionActivity={deriveExtractionActivity(
-          register,
-          getActiveRun(id)?.kind === "extraction",
-        )}
-        referenceImport={referenceImport}
-      />
-
-      <section className="rounded-md border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-700">
-          Weitere Sichten
-        </h2>
-        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {!briefingImported ? (
-            <Link
-              href={`/projects/${summary.id}/research`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              In der Anwendung recherchieren
-            </Link>
-          ) : null}
-          {summary.adopted_claims > 0 ? (
-            <Link
-              href={`/projects/${summary.id}/relevance`}
-              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-            >
-              Einschlägigkeit der übernommenen Aussagen prüfen (
-              {summary.adopted_claims} übernommen)
-            </Link>
-          ) : null}
-          <Link
-            href={`/projects/${summary.id}/history`}
-            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-          >
-            Verlauf der Append-only-Historie ansehen
-          </Link>
-          <Link
-            href={`/projects/${summary.id}/warm-run`}
-            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-          >
-            Folgefrage als warmen Lauf starten
-          </Link>
-          <Link
-            href={`/projects/${summary.id}/metrics`}
-            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-          >
-            Auswertung (Messgrößen) ansehen
-          </Link>
-          <Link
-            href={`/projects/${summary.id}/traces`}
-            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-          >
-            Trace-Log der LLM-Aufrufe ansehen
-          </Link>
-          <Link
-            href={`/projects/${summary.id}/settings`}
-            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-          >
-            Einstellungen
-          </Link>
-          <Link
-            href={`/projects/${summary.id}/status`}
-            className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
-          >
-            Systemstatus (Backend-Diagnose)
-          </Link>
-        </p>
-      </section>
-
-      <section className="rounded-md border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-700">
-          Export &amp; Weitergabe
-        </h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Das .tmb-Bundle ist ein einzelnes Weitergabeartefakt (ZIP-Container)
-          mit Manifest-Prüfsummen; die Hash-Kette ist damit auch ohne
-          Repository-Historie prüfbar (<code>tmb verify</code>).
-        </p>
-        {summary.claim_counts.pending_adjudication > 0 ? (
-          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Hinweis: {summary.claim_counts.pending_adjudication} Aussage(n) sind
-            noch zur manuellen Überprüfung offen. Ein jetzt erzeugtes Bundle
-            gibt einen Zwischenstand wieder, nicht das abgeschlossene Ergebnis.
+    <div className={wideContainerClass}>
+      <div className={`${wideContentClass} space-y-6`}>
+        <div>
+          <ProjectBreadcrumb />
+          <p className="font-mono text-xs text-slate-500">
+            {summary.id}
+            {summary.origin_id ? (
+              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 font-sans">
+                importiert · Ursprungs-Id {summary.origin_id}
+              </span>
+            ) : null}
           </p>
+          <h1 className="mt-1 text-2xl font-semibold">
+            {summary.research_question}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Angelegt: {formatTimestamp(summary.created_at)} · Letzte Änderung:{" "}
+            {formatTimestamp(summary.last_change_at)}
+          </p>
+        </div>
+
+        {summary.is_demo ? <DemoProjectNotice /> : null}
+        {independence.sharedModelFamily ? (
+          <IndependenceNotice modelFamily={independence.modelFamily} />
         ) : null}
-        <ul className="mt-3 space-y-2 text-sm">
-          <li>
-            <a
-              href={`/api/projects/${summary.id}/export`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-            >
-              Bundle herunterladen (.tmb, mit Blobs)
-            </a>
-          </li>
-          <li>
-            <a
-              href={`/api/projects/${summary.id}/export?blobs=0`}
-              className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-            >
-              Schlankes Bundle (ohne Blobs, nur Prüfsummen-Referenzen)
-            </a>
-          </li>
-        </ul>
-        <p className="mt-3 text-xs text-slate-500">Abgeleitete Exporte:</p>
-        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {["references.csl.json", "prov.jsonld", "traces.json"].map((name) => (
-            <li key={name}>
-              <a
-                href={`/api/projects/${summary.id}/export/derived/${name}`}
-                className="font-mono text-xs text-slate-700 underline decoration-slate-300 hover:decoration-slate-600"
+        {health ? (
+          <BackendHealthNotice
+            projectId={id}
+            health={health}
+            mode="verification"
+          />
+        ) : null}
+
+        <Workbench
+          projectId={id}
+          researchQuestion={summary.research_question}
+          briefing={briefing}
+          briefingText={briefingContent?.text ?? null}
+          briefingMeta={briefingContent?.meta ?? null}
+          draft={draft}
+          queue={buildAdjudicationQueue(register)}
+          evidenceDisplay={buildEvidenceDisplayMap(id, register)}
+          counts={summary.claim_counts}
+          totalClaims={summary.total_claims}
+          openExistenceCount={getOpenExistenceCheckCount(register)}
+          verificationState={getVerificationState(id, register)}
+          verificationBlockedReason={
+            register.claims.length === 0
+              ? "Vor der Prüfung müssen Aussagen erfasst sein."
+              : null
+          }
+          sources={sources}
+          workItems={workItems}
+          repairSuggestions={repairSuggestions}
+          sourceSetRevision={register.project.source_set_revision}
+          pendingTriggers={pendingTriggerCount(id)}
+          interruptedTriggers={interruptedTriggers}
+          extractionActivity={deriveExtractionActivity(
+            register,
+            getActiveRun(id)?.kind === "extraction",
+          )}
+          referenceImport={referenceImport}
+        />
+
+        <section className="rounded-md border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Weitere Sichten
+          </h2>
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {!briefingImported ? (
+              <Link
+                href={`/projects/${summary.id}/research`}
+                className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
               >
-                {name}
+                In der Anwendung recherchieren
+              </Link>
+            ) : null}
+            {summary.adopted_claims > 0 ? (
+              <Link
+                href={`/projects/${summary.id}/relevance`}
+                className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+              >
+                Einschlägigkeit der übernommenen Aussagen prüfen (
+                {summary.adopted_claims} übernommen)
+              </Link>
+            ) : null}
+            <Link
+              href={`/projects/${summary.id}/start`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Recherche-Werkzeuge und Prompt-Hilfe
+            </Link>
+            <Link
+              href={`/projects/${summary.id}/history`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Verlauf der Append-only-Historie ansehen
+            </Link>
+            <Link
+              href={`/projects/${summary.id}/warm-run`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Folgefrage als warmen Lauf starten
+            </Link>
+            <Link
+              href={`/projects/${summary.id}/metrics`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Auswertung (Messgrößen) ansehen
+            </Link>
+            <Link
+              href={`/projects/${summary.id}/traces`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Trace-Log der LLM-Aufrufe ansehen
+            </Link>
+            <Link
+              href={`/projects/${summary.id}/settings`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Einstellungen
+            </Link>
+            <Link
+              href={`/projects/${summary.id}/status`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              Systemstatus (Backend-Diagnose)
+            </Link>
+          </p>
+        </section>
+
+        <section className="rounded-md border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Export &amp; Weitergabe
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Das .tmb-Bundle ist ein einzelnes Weitergabeartefakt (ZIP-Container)
+            mit Manifest-Prüfsummen; die Hash-Kette ist damit auch ohne
+            Repository-Historie prüfbar (<code>tmb verify</code>).
+          </p>
+          {summary.claim_counts.pending_adjudication > 0 ? (
+            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Hinweis: {summary.claim_counts.pending_adjudication} Aussage(n)
+              sind noch zur manuellen Überprüfung offen. Ein jetzt erzeugtes
+              Bundle gibt einen Zwischenstand wieder, nicht das abgeschlossene
+              Ergebnis.
+            </p>
+          ) : null}
+          <ul className="mt-3 space-y-2 text-sm">
+            <li>
+              <a
+                href={`/api/projects/${summary.id}/export`}
+                className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+              >
+                Bundle herunterladen (.tmb, mit Blobs)
               </a>
             </li>
-          ))}
-        </ul>
-      </section>
+            <li>
+              <a
+                href={`/api/projects/${summary.id}/export?blobs=0`}
+                className="text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
+              >
+                Schlankes Bundle (ohne Blobs, nur Prüfsummen-Referenzen)
+              </a>
+            </li>
+          </ul>
+          <p className="mt-3 text-xs text-slate-500">Abgeleitete Exporte:</p>
+          <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {["references.csl.json", "prov.jsonld", "traces.json"].map(
+              (name) => (
+                <li key={name}>
+                  <a
+                    href={`/api/projects/${summary.id}/export/derived/${name}`}
+                    className="font-mono text-xs text-slate-700 underline decoration-slate-300 hover:decoration-slate-600"
+                  >
+                    {name}
+                  </a>
+                </li>
+              ),
+            )}
+          </ul>
+        </section>
+      </div>
     </div>
   );
 }

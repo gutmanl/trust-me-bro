@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { ImportBundleForm } from "./ImportBundleForm";
+
+export const metadata: Metadata = { title: "Bundle importieren" };
 
 export default function ImportBundlePage() {
   return (

@@ -88,8 +88,9 @@ export function RelevancePanel({
   });
 
   const { blockedBy } = useStartGate("relevance");
-  const canStart =
-    !pending &&
+  // Not gated on `pending` — see the identical note in ResearchPanel: the
+  // button stays mounted and disabled so the wait after the click is visible.
+  const startable =
     !watching &&
     !blockedBy &&
     (state.status === "not_started" ||
@@ -99,12 +100,18 @@ export function RelevancePanel({
   return (
     <div className="space-y-4">
       {blockedBy && !watching ? <StartBlockedNotice label={blockedBy} /> : null}
-      {canStart ? (
+      {startable ? (
         <form action={formAction}>
-          <button type="submit" className={primaryButtonClass}>
-            {state.status === "not_started"
-              ? "Einschlägigkeitsprüfung starten"
-              : "Einschlägigkeitsprüfung fortsetzen"}
+          <button
+            type="submit"
+            disabled={pending}
+            className={primaryButtonClass}
+          >
+            {pending
+              ? "Wird gestartet …"
+              : state.status === "not_started"
+                ? "Einschlägigkeitsprüfung starten"
+                : "Einschlägigkeitsprüfung fortsetzen"}
           </button>
         </form>
       ) : null}

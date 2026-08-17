@@ -1,8 +1,18 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { ErrorBanner, primaryButtonClass } from "@/app/components/ui";
+import {
+  ErrorBanner,
+  inputClass,
+  primaryButtonClass,
+} from "@/app/components/ui";
 import type { BriefingDraft } from "@/lib/pipeline";
 import type { BriefingFormState } from "./actions";
 import {
@@ -74,23 +84,48 @@ export function BriefingEditView({
     }
   }, [publishState, discardState]);
 
-  useEffect(
-    () => () => {
-      if (timer.current !== null) {
-        clearTimeout(timer.current);
-      }
-    },
-    [],
-  );
+  /**
+   * Text typed but not yet handed to a save call; null once it has been.
+   * The debounce means there is always a window in which the newest
+   * keystrokes exist only here — leaving the editor used to clear the timer
+   * and drop them, which is the silent loss this component's contract above
+   * rules out. Flushing on the way out closes the window.
+   */
+  const unsaved = useRef<string | null>(null);
+
+  // `useCallback` over `projectId` alone: the body reads only refs and that
+  // one prop, so the identity is stable for the component's whole life and
+  // the unmount effect below can depend on it honestly.
+  const flush = useCallback((): void => {
+    if (timer.current !== null) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    const value = unsaved.current;
+    if (value === null) {
+      return;
+    }
+    unsaved.current = null;
+    // No state updates: every caller is on its way to unmounting this view,
+    // so the save is fire-and-forget — the draft it writes is what the next
+    // entry into edit mode reads back.
+    void saveBriefingDraftAction(projectId, value);
+  }, [projectId]);
+
+  // Covers the paths that do not go through the "Ansicht" button: a route
+  // change, the pane collapsing, the claim selection re-rendering the parent.
+  useEffect(() => () => flush(), [flush]);
 
   const change = (value: string): void => {
     setText(value);
     setSaveError(null);
+    unsaved.current = value;
     if (timer.current !== null) {
       clearTimeout(timer.current);
     }
     timer.current = setTimeout(() => {
       timer.current = null;
+      unsaved.current = null;
       setSaving(true);
       void saveBriefingDraftAction(projectId, value).then((result) => {
         setSaving(false);
@@ -116,7 +151,10 @@ export function BriefingEditView({
         </p>
         <button
           type="button"
-          onClick={onLeaveEditMode}
+          onClick={() => {
+            flush();
+            onLeaveEditMode();
+          }}
           className="text-xs text-slate-500 underline decoration-slate-300 hover:text-slate-700"
         >
           Ansicht
@@ -128,7 +166,7 @@ export function BriefingEditView({
         value={text}
         onChange={(event) => change(event.target.value)}
         rows={28}
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed focus:border-slate-500 focus:outline-none"
+        className={`${inputClass} font-mono text-xs leading-relaxed`}
       />
 
       <ErrorBanner message={saveError} />

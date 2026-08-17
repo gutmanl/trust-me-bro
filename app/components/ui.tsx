@@ -3,13 +3,66 @@ import Link from "next/link";
 /** Shared form/UI primitives — one source for the styling vocabulary the
  * project pages repeat (and TMB-5's adjudication UI will reuse). */
 
+/**
+ * Focus ring shared by every control that suppresses the native outline.
+ *
+ * The suppression used to stand alone, with a one-pixel border-colour change
+ * as its only replacement — effectively no visible focus indicator, and the
+ * one thing keyboard-only operation depends on. `focus-visible` rather than
+ * `focus` so a mouse click does not leave a ring behind.
+ */
+export const focusRingClass =
+  "focus-visible:ring-2 focus-visible:ring-slate-400 " +
+  "focus-visible:ring-offset-1 focus-visible:outline-none";
+
 export const inputClass =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-slate-500 focus:outline-none";
+  "focus:border-slate-500 focus:outline-none " +
+  focusRingClass;
+
+/** Compact form of `inputClass` for controls inside a claim/source card. */
+export const compactInputClass =
+  "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs " +
+  "focus:border-slate-500 focus:outline-none " +
+  focusRingClass;
 
 export const primaryButtonClass =
   "rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white " +
-  "hover:bg-slate-700 disabled:opacity-50";
+  "hover:bg-slate-700 disabled:opacity-50 " +
+  focusRingClass;
+
+/** Compact form of `primaryButtonClass`, for buttons inside a row or bar. */
+export const compactButtonClass =
+  "rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white " +
+  "hover:bg-slate-700 disabled:opacity-50 " +
+  focusRingClass;
+
+/**
+ * Destructive actions (discard a claim, revert an identity). One treatment,
+ * because there were two — an outline red and a solid red — sitting one click
+ * apart inside the same claim card, which read as two different kinds of
+ * action rather than one kind in two places.
+ */
+export const dangerButtonClass =
+  "rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium " +
+  "text-red-700 hover:bg-red-100 disabled:opacity-50 " +
+  focusRingClass;
+
+/**
+ * The project workspace's wide column.
+ *
+ * The workbench needs more than the layout's `max-w-5xl` — briefing, claim
+ * margin-cards and the sources rail sit side by side — so it breaks out of
+ * `<main>` to viewport width. Two things that breakout got wrong on its own:
+ * on an ultrawide screen it stretched the briefing card into a field of
+ * padding, and the sections stacked below it stayed at `max-w-5xl`, so the
+ * page rendered as two columns of visibly different widths. The inner cap
+ * fixes the first; applying this at the page level rather than inside
+ * `Workbench` fixes the second.
+ */
+export const wideContainerClass = "mx-[calc(50%-50vw)] px-6";
+/** Inner bound of `wideContainerClass` — apply to its single child. */
+export const wideContentClass = "mx-auto max-w-[110rem]";
 
 export const fileInputClass =
   "block w-full text-sm text-slate-600 file:mr-3 file:rounded-md " +
@@ -239,27 +292,101 @@ export function IndependenceNotice({ modelFamily }: { modelFamily?: string }) {
 }
 
 /**
+ * Way back out of a project. The header wordmark also points at `/projects`,
+ * but a logo is a home button, not an "up one level" — without this the only
+ * route from a project back to the list was the browser's back button.
+ */
+export function ProjectBreadcrumb() {
+  return (
+    <nav aria-label="Brotkrumenpfad" className="mb-1 text-sm text-slate-500">
+      <Link href="/projects" className="hover:text-slate-700">
+        Projekte
+      </Link>
+      <span aria-hidden="true" className="px-1.5 text-slate-300">
+        /
+      </span>
+      {/* Same terminal crumb the side views' trail uses for this page, so the
+          two read as one path rather than two conventions. */}
+      <span className="text-slate-700">Arbeitsbereich</span>
+    </nav>
+  );
+}
+
+/** The side views reachable from a project, in the order the workbench's
+ * "Weitere Sichten" section lists them. One list, so the workbench footer and
+ * every side view's own header cannot drift apart. */
+export const PROJECT_SIDE_VIEWS = [
+  { slug: "start", label: "Recherche-Werkzeuge" },
+  { slug: "history", label: "Verlauf" },
+  { slug: "warm-run", label: "Warmer Lauf" },
+  { slug: "metrics", label: "Auswertung" },
+  { slug: "traces", label: "Trace-Log" },
+  { slug: "settings", label: "Einstellungen" },
+  { slug: "status", label: "Systemstatus" },
+] as const;
+
+/**
  * Header of a side view on a project (history, metrics, traces, research,
  * warm run, settings, status). The `nextStep` forward affordance it used to
  * carry died with the staged step pages — there is no "next step" any more,
  * only the workbench and the views beside it.
+ *
+ * It carries the sibling views too: they are only listed at the bottom of the
+ * workbench, so comparing two of them meant returning to the workbench and
+ * finding the link again for every hop.
  */
 export function SubpageHeader({
   projectId,
   title,
+  /** Slug of the current view, so it is shown as position rather than link. */
+  current,
 }: {
   projectId: string;
   title: string;
+  current?: (typeof PROJECT_SIDE_VIEWS)[number]["slug"];
 }) {
   return (
     <div>
-      <Link
-        href={`/projects/${projectId}`}
-        className="text-sm text-slate-500 hover:text-slate-700"
-      >
-        ← Zurück zum Arbeitsbereich
-      </Link>
+      <nav aria-label="Brotkrumenpfad" className="text-sm text-slate-500">
+        <Link href="/projects" className="hover:text-slate-700">
+          Projekte
+        </Link>
+        <span aria-hidden="true" className="px-1.5 text-slate-300">
+          /
+        </span>
+        <Link href={`/projects/${projectId}`} className="hover:text-slate-700">
+          Arbeitsbereich
+        </Link>
+        <span aria-hidden="true" className="px-1.5 text-slate-300">
+          /
+        </span>
+        <span className="text-slate-700">{title}</span>
+      </nav>
       <h1 className="mt-1 text-2xl font-semibold">{title}</h1>
+      <nav
+        aria-label="Weitere Sichten"
+        className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm"
+      >
+        {PROJECT_SIDE_VIEWS.map((view) =>
+          view.slug === current ? (
+            <span
+              key={view.slug}
+              aria-current="page"
+              className="text-slate-700"
+            >
+              {view.label}
+            </span>
+          ) : (
+            <Link
+              key={view.slug}
+              href={`/projects/${projectId}/${view.slug}`}
+              className="text-slate-500 underline decoration-slate-300 hover:text-slate-700 hover:decoration-slate-600"
+            >
+              {view.label}
+            </Link>
+          ),
+        )}
+      </nav>
     </div>
   );
 }

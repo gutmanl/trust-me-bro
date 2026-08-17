@@ -80,7 +80,10 @@ export function BriefingPane({
   }
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-5">
+    <section
+      aria-label="Briefing"
+      className="rounded-md border border-slate-200 bg-white p-5"
+    >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-700">Briefing</h2>
         {editing ? null : (
@@ -192,7 +195,10 @@ function BriefingImportPane({
   const toolInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-5">
+    <section
+      aria-label="Briefing"
+      className="rounded-md border border-slate-200 bg-white p-5"
+    >
       <h2 className="text-sm font-semibold text-slate-700">Briefing</h2>
       <p className="mt-1 text-sm text-slate-600">
         Noch kein Briefing übernommen. Den Text des recherchierten Briefings

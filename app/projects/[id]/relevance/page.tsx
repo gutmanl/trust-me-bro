@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { BackendHealthNotice, SubpageHeader } from "@/app/components/ui";
 import {
@@ -11,6 +12,8 @@ import {
   statusBadgeClassName,
 } from "../../status-labels";
 import { RelevancePanel } from "./RelevancePanel";
+
+export const metadata: Metadata = { title: "Einschlägigkeitsprüfung" };
 
 export const dynamic = "force-dynamic";
 

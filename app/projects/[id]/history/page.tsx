@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SubpageHeader } from "@/app/components/ui";
@@ -12,6 +13,8 @@ import type { ClaimStatus } from "@/lib/register";
 import { formatTimestamp, STATUS_LABELS } from "../../status-labels";
 import { COMPLAINT_CATEGORY_LABELS } from "../review/complaint-labels";
 import { ROUTING_LABELS } from "../review/routing-labels";
+
+export const metadata: Metadata = { title: "Verlauf" };
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +100,7 @@ export default async function HistoryPage(
 
   return (
     <div className="space-y-6">
-      <SubpageHeader projectId={id} title="Verlauf" />
+      <SubpageHeader projectId={id} title="Verlauf" current="history" />
 
       <div
         className={`rounded-md border p-4 text-sm ${

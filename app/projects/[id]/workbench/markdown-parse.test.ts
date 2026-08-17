@@ -127,6 +127,39 @@ describe("parseInline", () => {
       { t: "text", v: "." },
     ]);
   });
+
+  it("parses a [^n] footnote marker", () => {
+    expect(parseInline("Ein Satz mit Beleg.[^1]")).toEqual([
+      { t: "text", v: "Ein Satz mit Beleg." },
+      { t: "footnote", v: "1" },
+    ]);
+  });
+
+  it("parses non-numeric footnote labels", () => {
+    expect(parseInline("siehe[^audit-trails] dort")).toEqual([
+      { t: "text", v: "siehe" },
+      { t: "footnote", v: "audit-trails" },
+      { t: "text", v: " dort" },
+    ]);
+  });
+
+  it("keeps [^x](href) a link, not a footnote", () => {
+    expect(parseInline("[^x](https://x.test)")).toEqual([
+      { t: "link", v: "^x", href: "https://x.test" },
+    ]);
+  });
+
+  it("leaves a bracketed caret with whitespace as literal text", () => {
+    // `[^ ]` and `[^a b]` are ordinary prose, not markers; swallowing them
+    // would lose characters the parser promises to account for.
+    expect(parseInline("ein [^a b] Rest")).toEqual([
+      { t: "text", v: "ein [^a b] Rest" },
+    ]);
+  });
+
+  it("leaves an empty caret bracket as literal text", () => {
+    expect(parseInline("[^]")).toEqual([{ t: "text", v: "[^]" }]);
+  });
 });
 
 describe("parseMarkdownBlock", () => {
@@ -258,6 +291,77 @@ describe("parseMarkdownBlock", () => {
     expect(parseMarkdownBlock("[click me](javascript:alert(1))")).toEqual({
       t: "paragraph",
       inline: [{ t: "text", v: "[click me](javascript:alert(1))" }],
+    });
+  });
+
+  it("parses a block of footnote definitions as the reference list", () => {
+    // The shape a briefing's trailing reference block actually has: one
+    // definition per line, in one blank-line-separated block.
+    expect(
+      parseMarkdownBlock(
+        "[^1]: Audit Trails for Accountability. arXiv:2601.20727\n" +
+          "[^2]: Claim-Level Verification. 10.18653/v1/2024.inlg-main.35",
+      ),
+    ).toEqual({
+      t: "footnotes",
+      items: [
+        {
+          label: "1",
+          inline: [
+            {
+              t: "text",
+              v: "Audit Trails for Accountability. arXiv:2601.20727",
+            },
+          ],
+        },
+        {
+          label: "2",
+          inline: [
+            {
+              t: "text",
+              v: "Claim-Level Verification. 10.18653/v1/2024.inlg-main.35",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("inline-parses a footnote definition's text", () => {
+    expect(
+      parseMarkdownBlock("[^1]: **Titel**, [Quelle](https://x.test)"),
+    ).toEqual({
+      t: "footnotes",
+      items: [
+        {
+          label: "1",
+          inline: [
+            { t: "strong", v: "Titel" },
+            { t: "text", v: ", " },
+            { t: "link", v: "Quelle", href: "https://x.test" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps a mixed block a paragraph rather than a reference list", () => {
+    // One definition among prose is not a reference list; treating it as one
+    // would drop the prose line's leading text into a definition label.
+    expect(parseMarkdownBlock("Ein Satz.\n[^1]: Eine Quelle.")).toEqual({
+      t: "paragraph",
+      inline: [
+        { t: "text", v: "Ein Satz.\n" },
+        { t: "footnote", v: "1" },
+        { t: "text", v: ": Eine Quelle." },
+      ],
+    });
+  });
+
+  it("accepts a definition with empty text", () => {
+    expect(parseMarkdownBlock("[^1]:")).toEqual({
+      t: "footnotes",
+      items: [{ label: "1", inline: [] }],
     });
   });
 });

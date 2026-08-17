@@ -144,9 +144,9 @@ export function Workbench({
   };
 
   return (
-    <div className="mx-[calc(50%-50vw)] px-6">
-      <h1 className="sr-only">Arbeitsbereich</h1>
-
+    // Width is the project page's business (see `wideContainerClass`): this
+    // component is one section of it, not the page's layout container.
+    <section aria-label="Arbeitsbereich">
       <ClaimsOverviewBar
         projectId={projectId}
         counts={counts}
@@ -199,6 +199,6 @@ export function Workbench({
           hasBriefing={briefing !== null}
         />
       </div>
-    </div>
+    </section>
   );
 }

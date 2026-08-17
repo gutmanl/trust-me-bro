@@ -2,7 +2,12 @@
 
 import { useActionState, useState } from "react";
 
-import { ErrorBanner, primaryButtonClass } from "@/app/components/ui";
+import {
+  dangerButtonClass,
+  ErrorBanner,
+  inputClass,
+  primaryButtonClass,
+} from "@/app/components/ui";
 import type { Claim, ComplaintCategory } from "@/lib/pipeline";
 import {
   COMPLAINT_CATEGORY_LABELS,
@@ -79,7 +84,7 @@ export function ComplaintDialog({
           type="button"
           disabled={pending}
           onClick={() => setOpen((previous) => !previous)}
-          className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+          className={dangerButtonClass}
         >
           ⚠ Etwas stimmt nicht {open ? "▴" : "▾"}
         </button>
@@ -132,7 +137,7 @@ export function ComplaintDialog({
               name="justification"
               rows={3}
               required={sonstigesChecked}
-              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              className={`mt-1 ${inputClass}`}
             />
           </div>
           <ErrorBanner message={complainState.error} />

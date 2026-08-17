@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { primaryButtonClass, SubpageHeader } from "@/app/components/ui";
 import { ResearchHub } from "@/app/components/ResearchHub";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { getProjectSummary, readProject } from "@/lib/pipeline";
+
+export const metadata: Metadata = { title: "Recherche starten" };
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +28,11 @@ export default async function StartPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Recherche starten" />
+        <SubpageHeader
+          projectId={id}
+          title="Recherche starten"
+          current="start"
+        />
         <p className="mt-1 text-sm text-slate-600">
           {summary.research_question}
         </p>

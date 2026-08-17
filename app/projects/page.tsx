@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
@@ -9,6 +10,8 @@ import { DemoProjectBadge } from "../components/ui";
 import { CreateDemoProjectButton } from "../setup/SetupForm";
 import { ArchiveProjectControl } from "./ArchiveProjectControl";
 import { formatTimestamp, STATUS_LABELS, STATUS_ORDER } from "./status-labels";
+
+export const metadata: Metadata = { title: "Projekte" };
 
 export const dynamic = "force-dynamic";
 

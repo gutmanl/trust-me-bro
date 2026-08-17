@@ -83,8 +83,13 @@ export function ResearchPanel({
   });
 
   const { blockedBy } = useStartGate("research");
-  const canStart =
-    !pending &&
+  // `pending` deliberately does NOT belong here. It used to, and the panel
+  // then rendered nothing at all between the click and the action's reply:
+  // the form had unmounted while `watching` was still false, because that
+  // only flips once the action resolves. Keeping the button mounted and
+  // disabled — the convention every other start control follows — is what
+  // makes the wait for an agent-CLI spawn legible instead of a dead click.
+  const startable =
     !watching &&
     !blockedBy &&
     (state.status === "not_started" ||
@@ -94,12 +99,18 @@ export function ResearchPanel({
   return (
     <div className="space-y-4">
       {blockedBy && !watching ? <StartBlockedNotice label={blockedBy} /> : null}
-      {canStart ? (
+      {startable ? (
         <form action={formAction}>
-          <button type="submit" className={primaryButtonClass}>
-            {state.status === "not_started"
-              ? "Recherche starten"
-              : "Recherche erneut starten"}
+          <button
+            type="submit"
+            disabled={pending}
+            className={primaryButtonClass}
+          >
+            {pending
+              ? "Wird gestartet …"
+              : state.status === "not_started"
+                ? "Recherche starten"
+                : "Recherche erneut starten"}
           </button>
         </form>
       ) : null}

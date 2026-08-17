@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { SubpageHeader } from "@/app/components/ui";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { getTracesAggregate, summarizeTraces } from "@/lib/pipeline";
 import { formatModel, formatTimestamp } from "../../status-labels";
+
+export const metadata: Metadata = { title: "Trace-Log" };
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +47,11 @@ export default async function TracesPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Trace-Log (LLM-Aufrufe)" />
+        <SubpageHeader
+          projectId={id}
+          title="Trace-Log (LLM-Aufrufe)"
+          current="traces"
+        />
         <p className="mt-1 text-sm text-slate-600">
           Ein Eintrag je Backend-Aufruf – auch fehlgeschlagene und wiederholte.
           Dauer und Tokenzahlen sind das, was das jeweilige Backend gemeldet

@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { Modal } from "@/app/components/Modal";
 import {
   ErrorBanner,
+  compactButtonClass,
   fileInputClass,
   inputClass,
   primaryButtonClass,
@@ -251,7 +252,7 @@ export function CaptureSourceButton({ projectId }: { projectId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+        className={compactButtonClass}
       >
         + Quelle erfassen
       </button>

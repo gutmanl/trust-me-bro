@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   getInstallationBackendsHealth,
   isApiBackendEnabled,
@@ -13,6 +14,8 @@ import { CreateProjectForm } from "./CreateProjectForm";
  * (stages 1+2 are a `--version` spawn, the same call the wizard and the
  * settings page already make).
  */
+export const metadata: Metadata = { title: "Projekt anlegen" };
+
 export default async function NewProjectPage() {
   const health = await getInstallationBackendsHealth();
   const usableRealCliIds = usableRealBackends(health).map(

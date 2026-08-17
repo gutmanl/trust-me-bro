@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackendHealthCards } from "@/app/components/BackendHealthCards";
@@ -10,6 +11,8 @@ import {
 } from "@/lib/pipeline";
 
 import { ActorHandleForm, UnpaywallForm } from "./InstallationSettingsForms";
+
+export const metadata: Metadata = { title: "Einstellungen" };
 
 export const dynamic = "force-dynamic";
 

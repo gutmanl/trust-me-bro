@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { ErrorBanner } from "@/app/components/ui";
+import { compactButtonClass, ErrorBanner } from "@/app/components/ui";
 import type { VerificationState } from "@/lib/pipeline";
 import type { ClaimStatus } from "@/lib/register";
 import { STATUS_LABELS, STATUS_ORDER } from "../../status-labels";
@@ -146,7 +146,7 @@ export function ClaimsOverviewBar({
             <button
               type="submit"
               disabled={pending}
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+              className={compactButtonClass}
             >
               {pending
                 ? "Wird gestartet …"

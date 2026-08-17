@@ -3,9 +3,16 @@
  *
  * Scoped to exactly what the briefing's generated Markdown uses: headings,
  * paragraphs, ordered/unordered lists, a single level of blockquote, fenced
- * code, and four inline markers (strong, em, code, link). No nesting beyond
- * that — `InlineNode` is flat, so e.g. bold text inside a link label is not
- * further parsed, matching the type below.
+ * code, Pandoc-style footnotes, and four inline markers (strong, em, code,
+ * link). No nesting beyond that — `InlineNode` is flat, so e.g. bold text
+ * inside a link label is not further parsed, matching the type below.
+ *
+ * Footnotes earn their place because they are how a researched briefing
+ * cites: the deep-research tools this application ingests from write their
+ * sources as `[^1]` markers with a trailing block of `[^1]: …` definitions.
+ * Left unrecognized they fell through as literal text, so the prose showed
+ * raw `[^1]` and the whole reference list collapsed into one run-on
+ * paragraph — the citation apparatus, rendered as noise.
  *
  * `parseMarkdownBlock` operates on ONE blank-line-separated block at a time
  * (see the register's `splitBriefingParagraphs`), not a whole document: the
@@ -18,14 +25,18 @@
 
 export type InlineNode =
   | { t: "text" | "strong" | "em" | "code"; v: string }
-  | { t: "link"; v: string; href: string };
+  | { t: "link"; v: string; href: string }
+  /** `[^label]` reference marker; `v` is the label without the caret. */
+  | { t: "footnote"; v: string };
 
 export type BlockNode =
   | { t: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; inline: InlineNode[] }
   | { t: "paragraph"; inline: InlineNode[] }
   | { t: "list"; ordered: boolean; items: InlineNode[][] }
   | { t: "blockquote"; inline: InlineNode[] }
-  | { t: "codeblock"; v: string };
+  | { t: "codeblock"; v: string }
+  /** Block of `[^label]: text` definitions — the briefing's reference list. */
+  | { t: "footnotes"; items: { label: string; inline: InlineNode[] }[] };
 
 /** Scheme allowlist for `[text](href)`: only http(s) links render as links. */
 const HTTP_HREF_RE = /^https?:\/\//i;
@@ -34,6 +45,8 @@ const HEADING_RE = /^(#{1,6})[ \t]+(.*)$/;
 const ORDERED_ITEM_RE = /^\s*\d+[.)][ \t]+(.*)$/;
 const UNORDERED_ITEM_RE = /^\s*[-*+][ \t]+(.*)$/;
 const BLOCKQUOTE_LINE_RE = /^>[ \t]?(.*)$/;
+/** `[^label]: definition text` — one line of the reference list. */
+const FOOTNOTE_DEF_RE = /^\[\^([^\]\s]+)\]:[ \t]*(.*)$/;
 
 /**
  * Scans `text` left to right, recognizing `` `code` ``, `**strong**`,
@@ -98,6 +111,26 @@ export function parseInline(text: string): InlineNode[] {
 
     if (ch === "[") {
       const closeBracket = text.indexOf("]", i + 1);
+
+      // Footnote marker `[^label]`. Checked before the link branch because
+      // both open with "["; a `[^x](href)` would be a link with an odd
+      // label, so the "(" lookahead keeps that case with the links.
+      if (
+        text[i + 1] === "^" &&
+        closeBracket > i + 2 &&
+        text[closeBracket + 1] !== "("
+      ) {
+        const label = text.slice(i + 2, closeBracket);
+        // No whitespace inside: `[^ ]` and `[^a b]` are not markers, and
+        // treating them as such would swallow ordinary bracketed prose.
+        if (!/\s/.test(label)) {
+          flush();
+          nodes.push({ t: "footnote", v: label });
+          i = closeBracket + 1;
+          continue;
+        }
+      }
+
       if (closeBracket !== -1 && text[closeBracket + 1] === "(") {
         const closeParen = text.indexOf(")", closeBracket + 2);
         if (closeParen !== -1) {
@@ -159,6 +192,21 @@ export function parseMarkdownBlock(block: string): BlockNode {
   }
 
   const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
+
+  // Footnote definitions: every non-empty line is a `[^label]: text` entry.
+  // Checked before the list rules because a definition line matches neither,
+  // and before the paragraph fallback because that is where it used to land.
+  if (
+    nonEmptyLines.length > 0 &&
+    nonEmptyLines.every((line) => FOOTNOTE_DEF_RE.test(line))
+  ) {
+    const items = nonEmptyLines.map((line) => {
+      // Non-null: `every` above already matched this line.
+      const match = line.match(FOOTNOTE_DEF_RE) as RegExpMatchArray;
+      return { label: match[1], inline: parseInline(match[2]) };
+    });
+    return { t: "footnotes", items };
+  }
 
   // List: every non-empty line uses the same marker style (ordered or
   // unordered, decided by the first line).

@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { getProjectSummary, readProject } from "@/lib/pipeline";
 import { WarmRunForm } from "./WarmRunForm";
+
+export const metadata: Metadata = { title: "Folgefrage" };
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +22,11 @@ export default async function WarmRunPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Folgefrage (warmer Lauf)" />
+        <SubpageHeader
+          projectId={id}
+          title="Folgefrage (warmer Lauf)"
+          current="warm-run"
+        />
         <p className="mt-1 text-sm text-slate-600">
           Ein warmer Lauf legt ein Folgeprojekt auf demselben Quellenbestand an:
           abgeschlossene Aussagen werden mit Herkunftsvermerk übernommen, neu

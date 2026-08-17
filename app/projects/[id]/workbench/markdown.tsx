@@ -43,6 +43,18 @@ function InlineNodes({ nodes }: { nodes: InlineNode[] }) {
                 {node.v}
               </a>
             );
+          case "footnote":
+            return (
+              <sup
+                key={index}
+                className="ml-0.5 font-medium text-blue-700"
+                // The bracket form is what the reference list is keyed by,
+                // so a screen reader announces the same handle the list uses.
+                aria-label={`Fußnote ${node.v}`}
+              >
+                {node.v}
+              </sup>
+            );
           case "text":
             return <Fragment key={index}>{node.v}</Fragment>;
         }
@@ -100,6 +112,26 @@ export function MarkdownBlock({ text }: { text: string }) {
         <pre className="overflow-x-auto rounded bg-slate-100 p-3 font-mono text-[13px] text-slate-800">
           <code>{node.v}</code>
         </pre>
+      );
+    case "footnotes":
+      // A description list rather than an ordered one: the labels are the
+      // briefing's own and need not be 1..n, so numbering them again would
+      // invent a second, conflicting set of handles.
+      return (
+        <dl
+          className={`${PROSE_CLASS} grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-slate-200 pt-3`}
+        >
+          {node.items.map((item) => (
+            <Fragment key={item.label}>
+              <dt className="font-medium text-blue-700 tabular-nums">
+                {item.label}
+              </dt>
+              <dd className="min-w-0 break-words">
+                <InlineNodes nodes={item.inline} />
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
       );
   }
 }

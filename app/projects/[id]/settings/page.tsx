@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { loadProjectOrNotFound } from "@/app/lib/load-project";
 import { SubpageHeader } from "@/app/components/ui";
 import { isApiBackendEnabled, readProject } from "@/lib/pipeline";
 import { SettingsForm } from "./SettingsForm";
+
+export const metadata: Metadata = { title: "Einstellungen" };
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +17,11 @@ export default async function SettingsPage(
   return (
     <div className="space-y-6">
       <div>
-        <SubpageHeader projectId={id} title="Einstellungen" />
+        <SubpageHeader
+          projectId={id}
+          title="Einstellungen"
+          current="settings"
+        />
         <p className="mt-1 text-sm text-slate-600">
           Konfiguration des Projekts (config-Block von claims.json). Jede
           Änderung wird als Projektereignis mit vollständigem Vorher/Nachher in

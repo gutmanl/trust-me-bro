@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -17,6 +18,8 @@ import {
   UnpaywallStep,
   WorkspaceStep,
 } from "./SetupForm";
+
+export const metadata: Metadata = { title: "Einrichtung" };
 
 export const dynamic = "force-dynamic";
 
