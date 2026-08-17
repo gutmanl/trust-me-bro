@@ -236,6 +236,11 @@ describe("public surface of lib/pipeline", () => {
     // Original source identity: the sources rail renders the first archived
     // identity of a corrected source, so the projection is public surface.
     expect(surface.deriveOriginalIdentity).toBeDefined();
+    // The item-level citation formatter it uses is an implementation detail of
+    // the projection — app/** goes through formatCitation and
+    // deriveOriginalIdentity only. The barrel comment says so; this is what
+    // makes the claim binding rather than aspirational.
+    expect(surface.formatCitationItem).toBeUndefined();
     expect(surface.applyExtractionOutput).toBeUndefined();
     expect(surface.startVerification).toBeDefined();
     expect(surface.getVerificationState).toBeDefined();
