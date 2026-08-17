@@ -69,11 +69,20 @@ export function deriveOriginalIdentity(
   // whether the original was auto-imported or entered by hand.
   const auto = source.custom.auto_capture;
 
+  // The fallback label only earns its place if it is always renderable, and
+  // `item.id` is schema-unvalidated `unknown`: `??` lets an empty string
+  // through (the row would print "Ursprünglich erfasst als:" and nothing) and
+  // `String()` would render a non-string as "[object Object]". Anything that is
+  // not a usable string falls through to the source's own `SourceId`, which the
+  // schema guarantees non-empty — the same value formatCitation passes.
+  const archivedId = first.item.id;
+  const fallbackLabel =
+    typeof archivedId === "string" && archivedId.length > 0
+      ? archivedId
+      : source.id;
+
   return {
-    citation: formatCitationItem(
-      first.item,
-      String(first.item.id ?? source.id),
-    ),
+    citation: formatCitationItem(first.item, fallbackLabel),
     capturedAt: originalSnapshot.retrieved_at,
     ...(auto !== undefined
       ? { autoCapture: { method: auto.method, rawText: auto.raw_text } }

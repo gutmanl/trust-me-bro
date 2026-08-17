@@ -194,6 +194,22 @@ describe("deriveOriginalIdentity", () => {
     expect(deriveOriginalIdentity(source)?.citation).toBe("src_meyer2025");
   });
 
+  it("ignores an unusable archived id and labels by the source's own", () => {
+    const source = correctedSource();
+    for (const id of ["", 42, { toString: () => "nope" }, null, undefined]) {
+      source.custom.previous_identities = [
+        { replaced_at: "2026-08-14T10:15:00Z", item: { type: "document", id } },
+      ];
+      // An empty string used to slip past `??` and render an EMPTY citation
+      // under "Ursprünglich erfasst als:", and a non-string used to render as
+      // "[object Object]" — both void the fallback's entire reason for
+      // existing. `item.id` is unvalidated `unknown`, so only a non-empty
+      // string may be trusted; everything else falls through to the schema's
+      // own SourceId.
+      expect(deriveOriginalIdentity(source)?.citation).toBe("src_meyer2025");
+    }
+  });
+
   /**
    * The "never throws" contract in the JSDoc, pinned against the shape the
    * archive actually permits: `previous_identities[].item` is a bare
