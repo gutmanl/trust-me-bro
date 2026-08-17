@@ -182,7 +182,7 @@ describe("full project lifecycle", () => {
             evidence: [],
           },
           actor: "system:extraction",
-          reason: "Keine Fundstelle extrahierbar.",
+          reason: "Kein Beleg extrahierbar.",
           at: "2026-08-06T08:10:30Z",
         });
       });
@@ -244,7 +244,8 @@ describe("full project lifecycle", () => {
         tx.transitionClaim("clm_0001", {
           to: "confirmed",
           actor: "human:lg",
-          reason: "Fundstelle und Zahlenwert im Snapshot verifiziert.",
+          reason:
+            "Beleg und Zahlenwert in der eingefrorenen Fassung verifiziert.",
           at: "2026-08-06T10:02:00Z",
           decision: {
             categories: [],
@@ -259,7 +260,7 @@ describe("full project lifecycle", () => {
         tx.transitionClaim("clm_0002", {
           to: "contested",
           actor: "human:lg",
-          reason: "Keine Fundstelle vorhanden.",
+          reason: "Kein Beleg vorhanden.",
           at: "2026-08-06T10:10:00Z",
           decision: {
             categories: ["wording_not_in_source"],
@@ -276,7 +277,7 @@ describe("full project lifecycle", () => {
         tx.transitionClaim("clm_0002", {
           to: "pending_adjudication",
           actor: "system:repair",
-          reason: "Reparatur ohne belastbare Fundstelle, eskaliert.",
+          reason: "Reparatur ohne belastbaren Beleg, eskaliert.",
           at: "2026-08-06T10:12:00Z",
         });
         tx.transitionClaim("clm_0002", {
