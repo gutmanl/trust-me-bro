@@ -1,5 +1,5 @@
 import type { Source } from "../../register";
-import { formatCitationItem } from "./csl";
+import { firstAuthorFamily, formatCitationItem } from "./csl";
 
 /**
  * The very first identity a corrected source ever carried, projected for the
@@ -15,6 +15,10 @@ export interface OriginalIdentityVM {
   /** When the source was originally captured (ISO 8601) — revision 1's
    * snapshot, not the current one. */
   capturedAt: string;
+  /** The archived item's own title. Present only when the citation does not
+   * already carry it — an item without a usable author family is cited BY its
+   * title, so a separate line would print the same string twice. */
+  title?: string;
   /** Present iff the source entered through the reference auto-import flow.
    * `method` stays the English enum value: this layer is label-free, the
    * German wording is mapped in the app tier. */
@@ -37,8 +41,10 @@ export interface OriginalIdentityVM {
  * (`previous_snapshots[].retrieved_at`, `auto_capture.*`) or read through a
  * shape guard: `previous_identities[].item` is a bare
  * `z.record(z.string(), z.unknown())`, so `formatCitationItem` and the
- * `fallbackLabel` derivation must treat its contents as hostile. Adding a read
- * of unvalidated register data here means adding its guard in the same change.
+ * `fallbackLabel` derivation must treat its contents as hostile. `item.title`
+ * is the second such read and carries its own guard for the same reason.
+ * Adding a read of unvalidated register data here means adding its guard in
+ * the same change.
  */
 export function deriveOriginalIdentity(
   source: Source,
@@ -88,9 +94,40 @@ export function deriveOriginalIdentity(
       ? archivedId
       : source.id;
 
+  // The citation names the original by author and YEAR, so where a correction
+  // shares author and venue with the original — the live case this projection
+  // failed on — the year is the only thing telling them apart, which is not
+  // how anyone recognizes a paper. The title is what does (G-01-2).
+  //
+  // Two guards, both load-bearing:
+  //
+  // 1. Shape. `item.title` is schema-unvalidated `unknown` (the item is a bare
+  //    `z.record(z.string(), z.unknown())`, stored verbatim from a third-party
+  //    resolver for a DOI-resolved source), and a CSL title is legally an ARRAY
+  //    in some producers. Only a non-empty string may be trusted; anything else
+  //    degrades to no title. Never coerce and never `String()` it: this runs in
+  //    the server render of `/projects/[id]`, the only page from which a source
+  //    can be corrected, over an append-only register — a throw bricks the row
+  //    permanently and a stringified object renders "[object Object]".
+  // 2. Double print. `formatCitationItem` uses the title AS the citation head
+  //    when it finds no author family, so emitting the line unconditionally
+  //    would print the same string twice. The condition is `firstAuthorFamily`
+  //    itself — the very function that branch reads — rather than a re-derived
+  //    "does the item have an author" check, which would drift from it: an
+  //    `author: [null]` or `author: ["Mayer, A."]` array is truthy and present
+  //    yet yields no family, so a hand-rolled predicate would double-print.
+  const archivedTitle = first.item.title;
+  const title =
+    typeof archivedTitle === "string" &&
+    archivedTitle.length > 0 &&
+    firstAuthorFamily(first.item) !== undefined
+      ? archivedTitle
+      : undefined;
+
   return {
     citation: formatCitationItem(first.item, fallbackLabel),
     capturedAt: originalSnapshot.retrieved_at,
+    ...(title !== undefined ? { title } : {}),
     ...(auto !== undefined
       ? { autoCapture: { method: auto.method, rawText: auto.raw_text } }
       : {}),

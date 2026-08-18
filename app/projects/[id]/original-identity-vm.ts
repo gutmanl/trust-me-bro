@@ -19,6 +19,9 @@ import { originalCaptureProvenanceLabel } from "./auto-capture-labels";
  * the page's assignment — a drift is a compile error, not a silent mismatch. */
 export interface OriginalIdentityRowVM {
   citation: string;
+  /** The ORIGINAL item's own title, absent when its citation already is the
+   * title. The source's own words, so no German is decided for it here. */
+  title?: string;
   capturedAtLabel: string;
   provenanceLabel: string;
   rawText?: string;
@@ -40,6 +43,11 @@ export function buildOriginalIdentityRow(
   return {
     originalIdentity: {
       citation: projected.citation,
+      // Passed through verbatim and untranslated: it is the source's own
+      // title, not UI copy. Absent rather than empty when the projection found
+      // no distinct title, so the row has nothing to render instead of an
+      // empty line.
+      ...(projected.title !== undefined ? { title: projected.title } : {}),
       // The ORIGINAL capture time — the row's own "Stand" date is the current
       // snapshot's, which on a corrected source is the correction's.
       capturedAtLabel: formatTimestamp(projected.capturedAt),

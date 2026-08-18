@@ -64,6 +64,9 @@ export interface SourceRowVM {
     /** Citation of the first archived identity, formatted like the current
      * one. */
     citation: string;
+    /** The ORIGINAL item's own title. Absent when the archived item names no
+     * author, because its citation above then already IS the title. */
+    title?: string;
     /** de-DE label of the original capture time. */
     capturedAtLabel: string;
     /** German clause stating how the source was ORIGINALLY captured, composed
@@ -202,13 +205,22 @@ export function SourceRow({
           correction's snapshot. On no further condition than those two: after a
           revert the original and the current identity coincide, and hiding the
           block then would silently decide that the reader did not mean the one
-          they can already see. */}
+          they can already see. The title gets its own line because the citation
+          names the original by author and year only, so a correction sharing
+          author and venue with the original would be told apart by its year
+          alone — the row's own citation and title stack the same way directly
+          above. It can be absent: an archived item without an author is already
+          cited BY its title, and a title that is not a usable string is not
+          shown at all rather than coerced. */}
       {source.originalIdentity !== undefined ? (
         <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs break-words text-slate-600">
           <p>
             <span className="font-medium">Ursprünglich erfasst als:</span>{" "}
             {source.originalIdentity.citation}
           </p>
+          {source.originalIdentity.title !== undefined ? (
+            <p>{source.originalIdentity.title}</p>
+          ) : null}
           <p>
             Erfasst am {source.originalIdentity.capturedAtLabel} –{" "}
             {source.originalIdentity.provenanceLabel}
