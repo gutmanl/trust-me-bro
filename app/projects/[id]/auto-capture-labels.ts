@@ -52,3 +52,42 @@ export function originalCaptureProvenanceLabel(
   }
   return `automatisch übernommen (${AUTO_CAPTURE_METHOD_LABELS[method]})`;
 }
+
+/**
+ * The row-level auto-import note, or `undefined` when the row must not carry
+ * one. Relocated out of `page.tsx` verbatim — not one byte of German is
+ * changed here; what changed is WHERE the note renders.
+ *
+ * Suppressed on a corrected source, and that is the whole of the fix (WR-04).
+ * `auto_capture` describes the ORIGINAL capture, and on a corrected source the
+ * original-identity block above the note already states that capture's
+ * provenance — accurately, through the three-case
+ * `originalCaptureProvenanceLabel`. Leaving the note there made the row assert
+ * the superseded provenance a second time, and for `unresolved` the two
+ * statements contradicted each other one line apart: the block said the
+ * capture was completed by hand, the note's two-way ternary filed it under
+ * "automatisch übernommen".
+ *
+ * Deliberate consequence: on a corrected fuzzy match the percentage warning
+ * disappears with the note. That is correct — the warning describes how good a
+ * GUESS at the identity was, and after a manual correction the user has
+ * already replaced that guess, so the number no longer says anything about the
+ * identity the row now shows.
+ *
+ * `originalIdentityShown` must be the value the block itself was built from,
+ * never a re-derived predicate: `deriveOriginalIdentity` also returns
+ * `undefined` when the archived snapshot is missing, so an independently
+ * derived "has previous identities" test would disagree with the block on
+ * exactly that state.
+ */
+export function autoCaptureRowNote(
+  auto: { method: AutoCaptureMethod; score?: number } | undefined,
+  { originalIdentityShown }: { originalIdentityShown: boolean },
+): string | undefined {
+  if (auto === undefined || originalIdentityShown) {
+    return undefined;
+  }
+  return auto.method === "crossref_title"
+    ? `⚠ automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.crossref_title} (${Math.round((auto.score ?? 0) * 100)}% Übereinstimmung)`
+    : `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS[auto.method]}`;
+}

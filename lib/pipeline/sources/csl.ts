@@ -90,7 +90,29 @@ export function firstAuthorFamily(
   if (typeof first.family === "string" && first.family.length > 0) {
     return first.family;
   }
-  if (typeof first.literal === "string" && first.literal.length > 0) {
+  // TRIMMED length, not raw length: a whitespace-only literal determines no
+  // name, but the raw-length gate let it through and the trim-split-last-word
+  // extraction below then yielded the EMPTY STRING — a value that is
+  // `!== undefined` and still means "no author". Same shape as `nameOf` in
+  // auto-repair/repair-input.ts.
+  //
+  // Why that mattered. This function has FOUR callers, and each of them asks
+  // "is there an author?" of its result:
+  //   1. formatCitationItem below — `const head = family ? … : …`, truthiness;
+  //   2. deriveOriginalIdentity (sources/original-identity.ts) — which asked
+  //      `!== undefined`;
+  //   3. mintSourceId via sources/capture.ts, guarded in ids.ts by
+  //      `hint.family && hint.family.trim().length > 0`;
+  //   4. reference-scan/identity-crosscheck.ts — `authors: family ? [family] : []`.
+  // One, three and four rejected the empty string exactly as they reject
+  // `undefined`, so they read it as "no author". Caller two did not, so it saw
+  // an author where the other three saw none: it emitted the archived title as
+  // its own line while formatCitationItem was simultaneously using that same
+  // title as the citation head, printing the paper's name twice (G-01-3).
+  // Returning a value that is defined and yet means "no author" makes the
+  // answer depend on which caller asks; returning `undefined` makes it one
+  // answer everywhere.
+  if (typeof first.literal === "string" && first.literal.trim().length > 0) {
     const words = first.literal.trim().split(/\s+/);
     return words[words.length - 1];
   }

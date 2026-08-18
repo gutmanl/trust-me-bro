@@ -38,7 +38,7 @@ import {
 import type { SourceType } from "@/lib/register";
 import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
 import { formatTimestamp, SOURCE_TYPE_LABELS } from "../status-labels";
-import { AUTO_CAPTURE_METHOD_LABELS } from "./auto-capture-labels";
+import { autoCaptureRowNote } from "./auto-capture-labels";
 import { buildOriginalIdentityRow } from "./original-identity-vm";
 import type { ReferenceImportVM } from "./workbench/SourcesRail";
 import type { SourceRowVM } from "./workbench/SourceRow";
@@ -108,6 +108,22 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       return [];
     }
     const auto = source.custom.auto_capture;
+    // Original source identity: the pipeline formats the first archived
+    // identity and dates it, the display module phrases it. Bound ONCE, because
+    // the same value decides both whether the block renders and whether the
+    // row-level auto-capture note is suppressed under it. Gating the note on an
+    // independently derived predicate — the count of previous identities, or
+    // the presence of auto-capture data — would reintroduce the
+    // two-predicates-one-question bug this row has already been fixed for:
+    // `deriveOriginalIdentity` also returns undefined when the archived
+    // snapshot is missing, so a re-derived predicate would disagree with the
+    // block on exactly that state.
+    const originalIdentityRow = buildOriginalIdentityRow(
+      deriveOriginalIdentity(source),
+    );
+    const autoCaptureNote = autoCaptureRowNote(auto, {
+      originalIdentityShown: originalIdentityRow.originalIdentity !== undefined,
+    });
     return [
       {
         id: source.id,
@@ -124,14 +140,9 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
           ? { textExtractionError: snapshot.text_extraction_error }
           : {}),
         previousSnapshots: source.custom.previous_snapshots?.length ?? 0,
-        ...(auto
-          ? {
-              autoCaptureNote:
-                auto.method === "crossref_title"
-                  ? `⚠ automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.crossref_title} (${Math.round((auto.score ?? 0) * 100)}% Übereinstimmung)`
-                  : `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS[auto.method]}`,
-            }
-          : {}),
+        // Absent rather than present-and-undefined: the row renders the note on
+        // the property being defined.
+        ...(autoCaptureNote !== undefined ? { autoCaptureNote } : {}),
         extractionOutcome: extractionOutcomes.get(source.id)?.outcome ?? null,
         ...(extractionOutcomes.get(source.id)?.outcome === "failed"
           ? { extractionMessage: extractionOutcomes.get(source.id)?.message }
@@ -139,12 +150,11 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
         currentKind: identifierKindOf(source as Record<string, unknown>),
         currentSourceType: source.custom.source_type as SourceType,
         previousIdentities: source.custom.previous_identities?.length ?? 0,
-        // Original source identity: the pipeline formats the first archived
-        // identity and dates it, the display module phrases it. Deliberately
-        // without the crossref_title score suffix that autoCaptureNote carries
-        // above — the block answers "what was this originally", not "how good
-        // was the match".
-        ...buildOriginalIdentityRow(deriveOriginalIdentity(source)),
+        // Last in the literal, so the block still wins any future key
+        // collision. Deliberately without the crossref_title score suffix the
+        // note carries — the block answers "what was this originally", not
+        // "how good was the match".
+        ...originalIdentityRow,
       },
     ];
   });

@@ -111,16 +111,32 @@ export function deriveOriginalIdentity(
   //    permanently and a stringified object renders "[object Object]".
   // 2. Double print. `formatCitationItem` uses the title AS the citation head
   //    when it finds no author family, so emitting the line unconditionally
-  //    would print the same string twice. The condition is `firstAuthorFamily`
-  //    itself — the very function that branch reads — rather than a re-derived
-  //    "does the item have an author" check, which would drift from it: an
-  //    `author: [null]` or `author: ["Mayer, A."]` array is truthy and present
-  //    yet yields no family, so a hand-rolled predicate would double-print.
+  //    would print the same string twice. The condition therefore reads
+  //    `firstAuthorFamily` — the very function that branch reads — rather than
+  //    a re-derived "does the item have an author" check, which would drift
+  //    from it: an `author: [null]`, an `author: ["Mayer, A."]` and an
+  //    `author: [{ literal: "   " }]` array are each truthy and present yet
+  //    yield no family, so a hand-rolled predicate would double-print.
+  //
+  //    Sharing the FUNCTION is necessary but not sufficient, and assuming it
+  //    was sufficient is exactly what let G-01-3 through: the two sites must
+  //    also apply the same PREDICATE to its result. This one used to ask
+  //    `!== undefined` while the head branch asked for truthiness, and for a
+  //    whitespace-only literal author `firstAuthorFamily` returned the empty
+  //    string — defined, so the title was emitted as its own line; falsy, so
+  //    the head branch had already made that same title the citation. The test
+  //    below is now the one the head branch asks. After the trimmed-literal
+  //    guard in csl.ts the empty string can no longer be returned at all, so
+  //    this is belt and braces: the suppression stays correct even if
+  //    `firstAuthorFamily` ever regresses, because it no longer asks a strictly
+  //    weaker question than the branch it mirrors.
+  const archivedFamily = firstAuthorFamily(first.item);
   const archivedTitle = first.item.title;
   const title =
     typeof archivedTitle === "string" &&
     archivedTitle.length > 0 &&
-    firstAuthorFamily(first.item) !== undefined
+    archivedFamily !== undefined &&
+    archivedFamily.length > 0
       ? archivedTitle
       : undefined;
 
