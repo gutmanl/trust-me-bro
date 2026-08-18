@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   AUTO_CAPTURE_METHOD_LABELS,
+  autoCaptureRowNote,
   originalCaptureProvenanceLabel,
 } from "../app/projects/[id]/auto-capture-labels";
+import type { AutoCaptureMethod } from "../app/projects/[id]/auto-capture-labels";
 import { buildOriginalIdentityRow } from "../app/projects/[id]/original-identity-vm";
 import type { OriginalIdentityVM } from "../lib/pipeline";
 
@@ -127,5 +129,74 @@ describe("originalCaptureProvenanceLabel", () => {
     expect(originalCaptureProvenanceLabel("crossref_title")).not.toBe(
       originalCaptureProvenanceLabel("doi"),
     );
+  });
+});
+
+const ALL_METHODS: readonly AutoCaptureMethod[] = [
+  "doi",
+  "arxiv",
+  "url",
+  "crossref_title",
+  "unresolved",
+];
+
+describe("autoCaptureRowNote", () => {
+  it("says nothing when the original-identity block already states the provenance", () => {
+    // WR-04. On a corrected source `auto_capture` describes the ORIGINAL
+    // capture, which the block above the note already states — and states
+    // through the three-case originalCaptureProvenanceLabel rather than the
+    // note's two-way ternary, so for `unresolved` the two contradicted each
+    // other one line apart.
+    for (const method of ALL_METHODS) {
+      expect(
+        autoCaptureRowNote({ method }, { originalIdentityShown: true }),
+      ).toBeUndefined();
+    }
+    expect(
+      autoCaptureRowNote(
+        { method: "crossref_title", score: 0.87 },
+        { originalIdentityShown: true },
+      ),
+    ).toBeUndefined();
+  });
+
+  it("leaves an uncorrected row's note byte-identical", () => {
+    // ROADMAP SC5: a row with no block keeps today's wording exactly. Asserted
+    // against a composition over AUTO_CAPTURE_METHOD_LABELS rather than a
+    // hand-typed German literal, so the pin cannot drift away from the map.
+    for (const method of ["doi", "arxiv", "url", "unresolved"] as const) {
+      expect(
+        autoCaptureRowNote({ method }, { originalIdentityShown: false }),
+      ).toBe(`automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS[method]}`);
+    }
+  });
+
+  it("keeps the match-score warning on an uncorrected fuzzy match", () => {
+    const note = autoCaptureRowNote(
+      { method: "crossref_title", score: 0.87 },
+      { originalIdentityShown: false },
+    );
+    expect(note).toContain("⚠");
+    expect(note).toContain(AUTO_CAPTURE_METHOD_LABELS.crossref_title);
+    expect(note).toContain("87");
+    expect(note).toBe(
+      `⚠ automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.crossref_title} (87% Übereinstimmung)`,
+    );
+    // An absent score rounds to 0 today; the relocation must not change that.
+    expect(
+      autoCaptureRowNote(
+        { method: "crossref_title" },
+        { originalIdentityShown: false },
+      ),
+    ).toContain("0%");
+  });
+
+  it("contributes nothing for a source that never went through auto-import", () => {
+    expect(
+      autoCaptureRowNote(undefined, { originalIdentityShown: false }),
+    ).toBeUndefined();
+    expect(
+      autoCaptureRowNote(undefined, { originalIdentityShown: true }),
+    ).toBeUndefined();
   });
 });

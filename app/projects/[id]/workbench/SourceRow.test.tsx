@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import {
+  AUTO_CAPTURE_METHOD_LABELS,
+  autoCaptureRowNote,
+} from "../auto-capture-labels";
 import { buildOriginalIdentityRow } from "../original-identity-vm";
 import { SourceRow, type SourceRowVM } from "./SourceRow";
 
@@ -181,5 +185,91 @@ describe("SourceRow original-identity block", () => {
     expect(html).not.toContain("<a ");
     expect(html).not.toContain("mehr anzeigen");
     expect(html).not.toContain("<details");
+  });
+});
+
+/**
+ * WR-04, end to end. The row is assembled exactly as `page.tsx` assembles it —
+ * the REAL `buildOriginalIdentityRow` decides whether the block renders, and
+ * that same decision gates the REAL `autoCaptureRowNote` — so these assertions
+ * cross the pipeline projection, the display tier and the JSX in one step.
+ * Deciding "does the block render" a second time with an independent predicate
+ * is the bug class this file pins against.
+ */
+describe("SourceRow capture provenance", () => {
+  const RAW = "Alrajeh, D. et al. (2013): Computational alignment, ICSE.";
+
+  /** The row `page.tsx` builds for an auto-imported source. */
+  function autoImportedRow(options: {
+    corrected: boolean;
+    method: "unresolved" | "crossref_title";
+    score?: number;
+  }): SourceRowVM {
+    const fragment = options.corrected
+      ? buildOriginalIdentityRow({
+          citation: "Alrajeh et al. (2013), ICSE",
+          capturedAt: "2026-08-14T16:34:00Z",
+          autoCapture: { method: options.method, rawText: RAW },
+        })
+      : {};
+    const note = autoCaptureRowNote(
+      {
+        method: options.method,
+        ...(options.score ? { score: options.score } : {}),
+      },
+      { originalIdentityShown: fragment.originalIdentity !== undefined },
+    );
+    return {
+      ...BASE,
+      previousIdentities: options.corrected ? 1 : 0,
+      ...(note !== undefined ? { autoCaptureNote: note } : {}),
+      ...fragment,
+    };
+  }
+
+  it("states the capture provenance once, not twice, on a corrected auto-import", () => {
+    const html = render(
+      autoImportedRow({ corrected: true, method: "unresolved" }),
+    );
+    // Read from the map, never hand-typed, so the count cannot drift from the
+    // wording. The block states this clause; the row-level note used to state
+    // it a second time, and for `unresolved` the note wrapped it in
+    // "automatisch übernommen –", contradicting the block one line above.
+    expect(html.split(AUTO_CAPTURE_METHOD_LABELS.unresolved)).toHaveLength(2);
+    expect(html).toContain("Ursprünglich erfasst als:");
+    // Teeth: without the suppression the very same row says it twice. This is
+    // what the assertion above is measuring, and it is what the row did before
+    // WR-04 was fixed.
+    const unsuppressed = render({
+      ...autoImportedRow({ corrected: true, method: "unresolved" }),
+      autoCaptureNote: `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.unresolved}`,
+    });
+    expect(
+      unsuppressed.split(AUTO_CAPTURE_METHOD_LABELS.unresolved),
+    ).toHaveLength(3);
+  });
+
+  it("leaves an uncorrected auto-imported row's note in place", () => {
+    // ROADMAP SC5 — passes before and after WR-04, and is what stops the fix
+    // from being implemented as "delete the note".
+    const html = render(
+      autoImportedRow({ corrected: false, method: "unresolved" }),
+    );
+    expect(html).toContain(
+      `automatisch übernommen – ${AUTO_CAPTURE_METHOD_LABELS.unresolved}`,
+    );
+    expect(html).not.toContain("Ursprünglich erfasst als");
+  });
+
+  it("keeps the match-score warning on an uncorrected fuzzy match", () => {
+    const html = render(
+      autoImportedRow({
+        corrected: false,
+        method: "crossref_title",
+        score: 0.87,
+      }),
+    );
+    expect(html).toContain(AUTO_CAPTURE_METHOD_LABELS.crossref_title);
+    expect(html).toContain("87");
   });
 });

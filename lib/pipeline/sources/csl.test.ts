@@ -172,4 +172,30 @@ describe("issuedYear / firstAuthorFamily edge cases", () => {
       ),
     ).toBe("Titel");
   });
+
+  /**
+   * A whitespace-only literal determines no name at all, yet the pre-fix gate
+   * tested the literal's RAW length and the trim-split-last-word extraction
+   * then yielded the EMPTY STRING — a value that is `!== undefined` and still
+   * means "no author". That made the answer depend on which predicate the
+   * caller applied: `formatCitationItem`'s head branch tested it for
+   * truthiness and saw no author, `deriveOriginalIdentity` tested it for
+   * definedness and saw one, so the archived title was used as the citation
+   * head AND emitted again as its own line (G-01-3 / WR-01).
+   */
+  it("treats a whitespace-only literal author as no author at all", () => {
+    expect(firstAuthorFamily({ author: [{ literal: "   " }] })).toBeUndefined();
+    // Control, holds before and after the narrowing: the head branch already
+    // read "" as "no author", so no formatCitation consumer moves one byte.
+    expect(
+      formatCitationItem(
+        { title: "Ein Titel", author: [{ literal: "   " }] },
+        "src_x",
+      ),
+    ).toBe("Ein Titel");
+    // Control: a real literal still yields its last word.
+    expect(firstAuthorFamily({ author: [{ literal: "Anna Meyer" }] })).toBe(
+      "Meyer",
+    );
+  });
 });

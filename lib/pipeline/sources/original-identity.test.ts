@@ -257,12 +257,19 @@ describe("deriveOriginalIdentity", () => {
   it("suppresses the title when the author array carries nothing usable", () => {
     const source = correctedSource();
     const title = "Effects of AI Assistants on Code Review Time";
-    // Both arrays are present, non-empty and truthy, yet neither yields a
+    // All three arrays are present, non-empty and truthy, yet none yields a
     // family name — so formatCitationItem falls through to the title head just
     // as a missing author array would. A hand-rolled "does the item have an
     // author key" predicate would answer yes here and double-print; sharing
     // firstAuthorFamily with the branch being mirrored is what prevents that.
-    for (const author of [[null], ["Mayer, A."]]) {
+    //
+    // The third entry is why sharing the function was necessary but not
+    // sufficient (G-01-3). The first two return `undefined`, on which a
+    // definedness test and a non-empty test agree, so neither could ever expose
+    // a mismatch between the two predicates. A whitespace-only literal is the
+    // one input that used to be defined-but-unusable — it returned the empty
+    // string — and only such a value can make the two sites disagree.
+    for (const author of [[null], ["Mayer, A."], [{ literal: "   " }]]) {
       source.custom.previous_identities = [
         {
           replaced_at: "2026-08-14T10:15:00Z",
