@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { buildOriginalIdentityRow } from "../original-identity-vm";
 import { SourceRow, type SourceRowVM } from "./SourceRow";
 
 /**
@@ -109,6 +110,37 @@ describe("SourceRow original-identity block", () => {
     expect(html).not.toContain("Referenztext");
     expect(html).not.toContain("„“");
     expect(html.match(/<p>/g) ?? []).toHaveLength(2);
+  });
+
+  /**
+   * G-01-2, end to end. The `originalIdentity` sub-object is built by the REAL
+   * `buildOriginalIdentityRow` rather than hand-written, so this single
+   * assertion crosses the display tier and the JSX together: every hop from the
+   * projection to the paragraph is an OPTIONAL field, so a field added at one
+   * end and not threaded through is a silent no-op rather than a compile error.
+   * Hand-writing the sub-object here would pin the JSX and leave exactly that
+   * gap open.
+   */
+  it("names the original paper by title, not by year alone (G-01-2)", () => {
+    const citation =
+      "Alrajeh et al. (2013), 2013 35th International Conference on " +
+      "Software Engineering (ICSE)";
+    const title =
+      "Computational alignment of goals and scenarios for complex systems";
+    const html = block(
+      render({
+        ...BASE,
+        ...buildOriginalIdentityRow({
+          citation,
+          capturedAt: "2026-08-14T16:34:00Z",
+          title,
+        }),
+      }),
+    );
+    expect(html).toContain(title);
+    // The citation stays: the title is an added line, not a replacement.
+    expect(html).toContain(citation);
+    expect(html.match(/<p>/g) ?? []).toHaveLength(3);
   });
 
   it("presents the block as neutral information, not as an alarm", () => {

@@ -59,10 +59,54 @@ describe("deriveOriginalIdentity", () => {
     expect(deriveOriginalIdentity(source)).toEqual({
       citation: "Mayer (2024), ACM TOSEM",
       capturedAt: "2026-07-20T09:00:00Z",
+      title: "Effects of AI Assistants on Code Review Time",
     });
+    // The citation string being UNCHANGED next to the new title is half the
+    // point of this whole-object assertion: the title is a separate projection,
+    // not a change to formatCitationItem — which also produces the current
+    // identity's citation, the extraction prompt's SourceContext.citation and
+    // the briefing-substitution text, none of which are in scope (T-01-06).
     // The current snapshot's retrieved_at is the correction's revision, not
     // the original capture — asserting the gap keeps that confusion out.
     expect(source.custom.snapshot?.retrieved_at).toBe("2026-07-28T08:05:12Z");
+  });
+
+  /**
+   * The gap this projection's title exists to close (G-01-2). On the live
+   * register the archived identity and the correction share BOTH author and
+   * venue: "Alrajeh et al. (2013), … (ICSE)" against "Alrajeh et al. (2009), …
+   * (ICSE)". Citation alone therefore distinguishes the original from the
+   * correction by its YEAR and nothing else, which is not something a reader
+   * recognizes a paper by. The title is what makes it recognizable.
+   */
+  it("names the original paper by its title, not by its year alone", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T16:34:00Z",
+        item: {
+          id: "src_alrajeh2013",
+          type: "paper-conference",
+          title:
+            "Computational alignment of goals and scenarios for complex systems",
+          author: [
+            { family: "Alrajeh", given: "D." },
+            { family: "Kramer", given: "J." },
+          ],
+          issued: { "date-parts": [[2013]] },
+          "container-title":
+            "2013 35th International Conference on Software Engineering (ICSE)",
+        },
+      },
+    ];
+    const projected = deriveOriginalIdentity(source);
+    expect(projected?.citation).toBe(
+      "Alrajeh et al. (2013), 2013 35th International Conference on " +
+        "Software Engineering (ICSE)",
+    );
+    expect(projected?.title).toBe(
+      "Computational alignment of goals and scenarios for complex systems",
+    );
   });
 
   it("omits the auto-capture block entirely when the source was captured manually", () => {
