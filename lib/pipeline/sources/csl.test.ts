@@ -198,4 +198,39 @@ describe("issuedYear / firstAuthorFamily edge cases", () => {
       "Meyer",
     );
   });
+
+  /**
+   * WR-02. The head's fallback arm accepted any value of TYPE string, so an
+   * empty title was preferred over `fallbackLabel` — the very parameter this
+   * function was split out of `formatCitation` to introduce. The block's one
+   * job is saying what the source originally claimed to be, and it answered
+   * with nothing at all, or with a string starting in a comma. `item.id` one
+   * layer up in original-identity.ts already carried this exact guard; the
+   * title did not.
+   */
+  it("falls back past an empty or whitespace-only title to the fallback label", () => {
+    expect(formatCitationItem({ title: "" }, "src_x")).toBe("src_x");
+    expect(formatCitationItem({ title: "   " }, "src_x")).toBe("src_x");
+    // Without the guard this was a comma-leading string with nothing in front.
+    expect(
+      formatCitationItem(
+        { title: "", "container-title": "ACM TOSEM" },
+        "src_x",
+      ),
+    ).toBe("src_x, ACM TOSEM");
+    // Controls that must NOT move.
+    expect(formatCitationItem({ title: "Nur Titel" }, "src_x")).toBe(
+      "Nur Titel",
+    );
+    // A padded but non-empty title comes back WITH its padding: the guard
+    // decides whether to show the source's own words, it never edits them.
+    expect(formatCitationItem({ title: " Nur Titel " }, "src_x")).toBe(
+      " Nur Titel ",
+    );
+    // An author family still wins the head, so no consumer of formatCitation
+    // moves for any item that names an author.
+    expect(
+      formatCitationItem({ title: "", author: [{ family: "Meyer" }] }, "src_x"),
+    ).toBe("Meyer");
+  });
 });

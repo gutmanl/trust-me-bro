@@ -318,6 +318,24 @@ describe("deriveOriginalIdentity", () => {
     }
   });
 
+  it("labels an archived identity whose title is an empty string by its id", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "src_meyer2025", type: "document", title: "" },
+      },
+    ];
+    const projected = deriveOriginalIdentity(source);
+    // Distinct from the degradation loop above: every item there carries a
+    // family name, so the citation head is the family and the empty-title path
+    // is never reached. Only an item with NO author at all falls through to the
+    // title head — and with an unusable title, on to the fallback label. Before
+    // WR-02 the row printed "Ursprünglich erfasst als:" followed by nothing.
+    expect(projected?.citation).toBe("src_meyer2025");
+    expect(Object.hasOwn(projected as object, "title")).toBe(false);
+  });
+
   it("takes the title from the FIRST archived identity, never a later one", () => {
     const source = correctedSource();
     source.custom.previous_identities = [
