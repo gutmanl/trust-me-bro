@@ -238,6 +238,102 @@ describe("deriveOriginalIdentity", () => {
     expect(deriveOriginalIdentity(source)?.citation).toBe("Nur ein Titel");
   });
 
+  it("prints the title once when the citation already IS the title", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "src_meyer2025", type: "document", title: "Nur ein Titel" },
+      },
+    ];
+    const projected = deriveOriginalIdentity(source);
+    // With no author family, formatCitationItem uses the title as the citation
+    // HEAD. Emitting the title line unconditionally would therefore print the
+    // very same string twice, one line under the other.
+    expect(projected?.citation).toBe("Nur ein Titel");
+    expect(Object.hasOwn(projected as object, "title")).toBe(false);
+  });
+
+  it("suppresses the title when the author array carries nothing usable", () => {
+    const source = correctedSource();
+    const title = "Effects of AI Assistants on Code Review Time";
+    // Both arrays are present, non-empty and truthy, yet neither yields a
+    // family name — so formatCitationItem falls through to the title head just
+    // as a missing author array would. A hand-rolled "does the item have an
+    // author key" predicate would answer yes here and double-print; sharing
+    // firstAuthorFamily with the branch being mirrored is what prevents that.
+    for (const author of [[null], ["Mayer, A."]]) {
+      source.custom.previous_identities = [
+        {
+          replaced_at: "2026-08-14T10:15:00Z",
+          item: { id: "src_meyer2025", type: "document", title, author },
+        },
+      ];
+      const projected = deriveOriginalIdentity(source);
+      expect(projected?.citation).toBe(title);
+      expect(Object.hasOwn(projected as object, "title")).toBe(false);
+    }
+  });
+
+  it("degrades an archived title that is not a usable string to no title at all", () => {
+    const source = correctedSource();
+    for (const title of [
+      ["Computational alignment of goals and scenarios for complex systems"],
+      42,
+      {},
+      null,
+      undefined,
+      "",
+    ]) {
+      source.custom.previous_identities = [
+        {
+          replaced_at: "2026-08-14T10:15:00Z",
+          item: {
+            id: "src_meyer2025",
+            type: "article-journal",
+            title,
+            author: [{ family: "Mayer", given: "A." }],
+            issued: { "date-parts": [[2024]] },
+            "container-title": "ACM TOSEM",
+          },
+        },
+      ];
+      // A CSL title is legally an ARRAY in some producers, and the whole item
+      // is schema-unvalidated `unknown` stored verbatim from a third-party
+      // resolver. Coercing would render "[object Object]" and dereferencing
+      // would throw — inside the server render of `/projects/[id]`, the only
+      // page from which a source can be corrected, over an append-only
+      // register, so the offending row could never be removed afterwards.
+      expect(() => deriveOriginalIdentity(source)).not.toThrow();
+      const projected = deriveOriginalIdentity(source);
+      expect(projected?.citation).toBe("Mayer (2024), ACM TOSEM");
+      expect(Object.hasOwn(projected as object, "title")).toBe(false);
+    }
+  });
+
+  it("takes the title from the FIRST archived identity, never a later one", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      { replaced_at: "2026-08-14T10:15:00Z", item: { ...ORIGINAL_ITEM } },
+      {
+        replaced_at: "2026-08-15T11:00:00Z",
+        item: {
+          id: "src_meyer2025",
+          type: "article-journal",
+          title: "Zwischenstand einer Korrektur",
+          author: [{ family: "Schulz" }],
+        },
+      },
+    ];
+    // Same [0]-and-nothing-else rule the citation already follows. Reading the
+    // title off a different entry than the citation would be worse than reading
+    // neither: the block would name one paper by an intermediate correction's
+    // title under the original's citation.
+    const projected = deriveOriginalIdentity(source);
+    expect(projected?.title).toBe("Effects of AI Assistants on Code Review Time");
+    expect(projected?.title).not.toContain("Zwischenstand");
+  });
+
   it("labels an archived identity without author or title by its id", () => {
     const source = correctedSource();
     source.custom.previous_identities = [

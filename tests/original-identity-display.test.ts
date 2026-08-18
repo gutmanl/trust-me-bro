@@ -62,6 +62,23 @@ describe("buildOriginalIdentityRow", () => {
     ).toBe(false);
   });
 
+  it("carries the original title through to the row", () => {
+    const title =
+      "Computational alignment of goals and scenarios for complex systems";
+    const row = buildOriginalIdentityRow({ ...PROJECTED, title })
+      .originalIdentity;
+    // Verbatim and untranslated: this is the source's own title, not UI copy,
+    // so the German display tier does not touch it.
+    expect(row?.title).toBe(title);
+  });
+
+  it("leaves the title property absent when the projection found no distinct title", () => {
+    const row = buildOriginalIdentityRow(PROJECTED).originalIdentity;
+    // Absent, not present-and-empty: the row renders the line on the property
+    // being defined, so an empty string would put a blank line in the block.
+    expect(Object.hasOwn(row as object, "title")).toBe(false);
+  });
+
   it("carries the raw reference text of an auto-imported source through", () => {
     const raw = "Mayer, A. (2024): „Effects of AI Assistants“, ACM TOSEM.";
     const row = buildOriginalIdentityRow({

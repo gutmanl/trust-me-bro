@@ -143,6 +143,25 @@ describe("SourceRow original-identity block", () => {
     expect(html.match(/<p>/g) ?? []).toHaveLength(3);
   });
 
+  it("prints the original title exactly once", () => {
+    const title =
+      "Computational alignment of goals and scenarios for complex systems";
+    const html = block(
+      render({
+        ...BASE,
+        ...buildOriginalIdentityRow({
+          citation: "Alrajeh et al. (2013), ICSE",
+          capturedAt: "2026-08-14T16:34:00Z",
+          title,
+        }),
+      }),
+    );
+    // The failure this guards is the block naming the paper twice: the
+    // projection suppresses the field where formatCitationItem already used
+    // the title as the citation head, and this counts what reaches the DOM.
+    expect(html.split(title)).toHaveLength(2);
+  });
+
   it("presents the block as neutral information, not as an alarm", () => {
     const html = block(render(CORRECTED));
     // The exact neutral surface UI-SPEC pins (D-01).
