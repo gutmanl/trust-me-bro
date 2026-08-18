@@ -330,7 +330,9 @@ describe("deriveOriginalIdentity", () => {
     // neither: the block would name one paper by an intermediate correction's
     // title under the original's citation.
     const projected = deriveOriginalIdentity(source);
-    expect(projected?.title).toBe("Effects of AI Assistants on Code Review Time");
+    expect(projected?.title).toBe(
+      "Effects of AI Assistants on Code Review Time",
+    );
     expect(projected?.title).not.toContain("Zwischenstand");
   });
 

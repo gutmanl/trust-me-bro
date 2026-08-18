@@ -65,8 +65,10 @@ describe("buildOriginalIdentityRow", () => {
   it("carries the original title through to the row", () => {
     const title =
       "Computational alignment of goals and scenarios for complex systems";
-    const row = buildOriginalIdentityRow({ ...PROJECTED, title })
-      .originalIdentity;
+    const row = buildOriginalIdentityRow({
+      ...PROJECTED,
+      title,
+    }).originalIdentity;
     // Verbatim and untranslated: this is the source's own title, not UI copy,
     // so the German display tier does not touch it.
     expect(row?.title).toBe(title);
