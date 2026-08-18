@@ -6,6 +6,7 @@ import {
   autoCaptureRowNote,
 } from "../auto-capture-labels";
 import { buildOriginalIdentityRow } from "../original-identity-vm";
+import type { OriginalIdentityRowVM } from "../original-identity-vm";
 import { SourceRow, type SourceRowVM } from "./SourceRow";
 
 /**
@@ -119,11 +120,18 @@ describe("SourceRow original-identity block", () => {
   /**
    * G-01-2, end to end. The `originalIdentity` sub-object is built by the REAL
    * `buildOriginalIdentityRow` rather than hand-written, so this single
-   * assertion crosses the display tier and the JSX together: every hop from the
-   * projection to the paragraph is an OPTIONAL field, so a field added at one
-   * end and not threaded through is a silent no-op rather than a compile error.
-   * Hand-writing the sub-object here would pin the JSX and leave exactly that
-   * gap open.
+   * assertion crosses the display tier and the JSX together.
+   *
+   * TWO of the three hops from the projection to the paragraph are unchecked,
+   * and this is what covers them: the pipeline VM to the row VM is a
+   * hand-written copy inside `buildOriginalIdentityRow`, and a field present on
+   * the type but never rendered in the JSX is not a type error at all — a field
+   * added at either end and not threaded through is a silent no-op. The third
+   * hop, the page's assignment into `SourceRowVM`, IS type-unified since WR-03:
+   * `SourceRowVM.originalIdentity` refers to `OriginalIdentityRowVM` rather
+   * than restating its shape, pinned by the declaration case at the foot of
+   * this file. Hand-writing the sub-object here would pin the JSX and leave
+   * both remaining gaps open.
    */
   it("names the original paper by title, not by year alone (G-01-2)", () => {
     const citation =
@@ -271,5 +279,44 @@ describe("SourceRow capture provenance", () => {
     );
     expect(html).toContain(AUTO_CAPTURE_METHOD_LABELS.crossref_title);
     expect(html).toContain("87");
+  });
+});
+
+/**
+ * Mutual assignability, both directions. The single-element tuples stop a union
+ * from distributing, so `Exact` is true only when each type is assignable to
+ * the other as a whole.
+ */
+type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+describe("SourceRowVM declaration", () => {
+  /**
+   * WR-03. The doc on `OriginalIdentityRowVM` used to claim that a drift
+   * between it and `SourceRowVM.originalIdentity` was a compile error. It was
+   * not: the two were structurally identical declarations, and TypeScript is
+   * structural, so either could grow a field the other lacked and every
+   * existing assignment would still check. The claim is now made TRUE by
+   * unifying the declarations, and this case is what pins it — `tsconfig.json`
+   * includes every `.tsx` file under the repo, this one among them, so it runs
+   * inside `npm run typecheck`, the binding gate. Drift again and the literal
+   * below stops being assignable.
+   */
+  it("keeps SourceRowVM.originalIdentity and OriginalIdentityRowVM one declaration", () => {
+    const oneDeclaration: Exact<
+      SourceRowVM["originalIdentity"],
+      OriginalIdentityRowVM | undefined
+    > = true;
+    // Mutual assignability alone cannot see an OPTIONAL field go missing:
+    // `{ a; b? }` and `{ a }` are assignable to each other in both directions,
+    // and two of this shape's five fields are optional. Measured, not assumed —
+    // the first teeth probe for this case narrowed `rawText` away and typecheck
+    // still exited 0. The key sets are what closes that hole.
+    const sameFields: Exact<
+      keyof NonNullable<SourceRowVM["originalIdentity"]>,
+      keyof OriginalIdentityRowVM
+    > = true;
+    // Asserted at runtime too, so neither binding is dead code.
+    expect(oneDeclaration).toBe(true);
+    expect(sameFields).toBe(true);
   });
 });

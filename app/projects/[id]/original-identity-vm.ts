@@ -14,16 +14,43 @@ import { originalCaptureProvenanceLabel } from "./auto-capture-labels";
  * of this phase lived in exactly that gap.
  */
 
-/** The row's original-identity sub-object: display-ready strings only, no
- * register data. Structurally pinned against `SourceRowVM.originalIdentity` by
- * the page's assignment — a drift is a compile error, not a silent mismatch. */
+/**
+ * The row's original-identity sub-object: display-ready strings only, no
+ * register data crosses into the client component.
+ *
+ * The SINGLE declaration of this shape. `SourceRowVM.originalIdentity` refers
+ * to this type rather than restating it, so a field added here reaches the row
+ * VM and the component's props by construction and cannot be silently dropped
+ * at the page's assignment. That is pinned inside `npm run typecheck` by the
+ * mutual-assignability case in `workbench/SourceRow.test.tsx`.
+ *
+ * Two hops on this path are NOT type-checked, and no comment here may claim
+ * otherwise (WR-03 is what happens when one does):
+ *
+ * 1. `OriginalIdentityVM` → `OriginalIdentityRowVM` is a hand-written copy
+ *    inside `buildOriginalIdentityRow` below, so a field added to the pipeline
+ *    projection and not threaded through here is a silent no-op.
+ *    Covered by `tests/original-identity-display.test.ts`.
+ * 2. A field present on this type but never rendered in the JSX is not a type
+ *    error at all. Covered by the content and paragraph-count assertions in
+ *    `workbench/SourceRow.test.tsx`.
+ */
 export interface OriginalIdentityRowVM {
+  /** Citation of the first archived identity, formatted server-side through
+   * the same code path as the current one so both read identically. */
   citation: string;
-  /** The ORIGINAL item's own title, absent when its citation already is the
-   * title. The source's own words, so no German is decided for it here. */
+  /** The ORIGINAL item's own title. Absent when the archived item names no
+   * usable author, because its citation above then already IS the title. The
+   * source's own words, so no German is decided for it here. */
   title?: string;
+  /** de-DE label of the ORIGINAL capture time. */
   capturedAtLabel: string;
+  /** German clause stating how the source was ORIGINALLY captured, composed
+   * server-side: the component must not decide it, because "auto-import method
+   * present" does not mean "captured automatically" for every method value
+   * (see `originalCaptureProvenanceLabel`). */
   provenanceLabel: string;
+  /** Raw reference text the auto-import matched, shown in full. */
   rawText?: string;
 }
 

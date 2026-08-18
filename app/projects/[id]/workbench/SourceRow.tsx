@@ -10,6 +10,11 @@ import type {
 } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
+// Type-only on purpose: a value import would pull `formatTimestamp` and
+// `originalCaptureProvenanceLabel` into this client component for no reason.
+// Erased at build time, and a relative specifier inside `app/**` besides, so
+// the architecture test's `@/lib/*` runtime-import rule is untouched.
+import type { OriginalIdentityRowVM } from "../original-identity-vm";
 import { useStartGate } from "../RunStatusProvider";
 import type { RetryCaptureState } from "../sources/actions";
 import { revertSourceIdentityAction } from "../sources/actions";
@@ -59,24 +64,11 @@ export interface SourceRowVM {
   previousIdentities: number;
   /** The source's VERY FIRST identity, present iff it was ever corrected.
    * Display-ready strings only — the citation and the timestamp are formatted
-   * server-side, no register data crosses into this component. */
-  originalIdentity?: {
-    /** Citation of the first archived identity, formatted like the current
-     * one. */
-    citation: string;
-    /** The ORIGINAL item's own title. Absent when the archived item names no
-     * author, because its citation above then already IS the title. */
-    title?: string;
-    /** de-DE label of the original capture time. */
-    capturedAtLabel: string;
-    /** German clause stating how the source was ORIGINALLY captured, composed
-     * server-side: this component must not decide it, because "auto-import
-     * method present" does not mean "captured automatically" for every method
-     * value (see originalCaptureProvenanceLabel). */
-    provenanceLabel: string;
-    /** Raw reference text the auto-import matched, shown in full. */
-    rawText?: string;
-  };
+   * server-side, no register data crosses into this component. Declared by
+   * REFERENCE, not restated: `OriginalIdentityRowVM` is the single declaration
+   * of this shape, so a field added there reaches this component's props
+   * instead of drifting from them. The per-field docs live with it. */
+  originalIdentity?: OriginalIdentityRowVM;
 }
 
 const initialState: RunFormState = { error: null };
