@@ -87,7 +87,21 @@ export function firstAuthorFamily(
   if (first === null || typeof first !== "object") {
     return undefined;
   }
-  if (typeof first.family === "string" && first.family.length > 0) {
+  // TRIMMED non-empty, matching the `literal` sibling below and this path's
+  // single definition of "usable string". A whitespace-only family names no
+  // author, but the raw-length gate called it one, so it became the citation
+  // head and the row read "    (2013)" (G-01-4). The `typeof` narrowing stays
+  // FIRST — `.trim()` on a non-string throws, and this runs inside the server
+  // render of the only page from which a source can be corrected.
+  //
+  // Unlike the `literal` narrowing this one DOES move `formatCitationItem`'s
+  // output, for exactly one input class: an item whose first author entry is
+  // `{ family: <whitespace-only> }` now heads on the title, or on the fallback
+  // label. That delta is characterized per consumer in 01-04-SUMMARY.md.
+  //
+  // The value RETURNED is `first.family` itself, never the trimmed one: a
+  // guard decides whether to show the source's own words, it never edits them.
+  if (typeof first.family === "string" && first.family.trim().length > 0) {
     return first.family;
   }
   // TRIMMED length, not raw length: a whitespace-only literal determines no
