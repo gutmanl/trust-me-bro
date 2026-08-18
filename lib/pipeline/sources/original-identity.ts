@@ -88,9 +88,23 @@ export function deriveOriginalIdentity(
   // `String()` would render a non-string as "[object Object]". Anything that is
   // not a usable string falls through to the source's own `SourceId`, which the
   // schema guarantees non-empty — the same value formatCitation passes.
+  //
+  // TRIMMED non-empty, this path's single definition of "usable string" — the
+  // same test `formatCitationItem`'s title head applies, and the one the
+  // comment above that head cites as parity. Raw length was not that test: a
+  // whitespace-only archived id passed it and became the fallback LABEL, so the
+  // row printed the German label followed by nothing, or ", ICSE" with a comma
+  // and whitespace in front of it (G-01-4). The `typeof` narrowing stays FIRST
+  // — `.trim()` on a non-string throws inside this server render — and the
+  // value assigned is `archivedId` itself, never the trimmed one.
+  //
+  // Reachable only from a hand-edited or foreign `.tmb` bundle: in-app the
+  // archived item is `toPlainCsl(existing)` carrying a regex-validated
+  // `SourceId`. That is the hostile-input threat model this module's JSDoc
+  // names, which is why the guard is repaired rather than dismissed.
   const archivedId = first.item.id;
   const fallbackLabel =
-    typeof archivedId === "string" && archivedId.length > 0
+    typeof archivedId === "string" && archivedId.trim().length > 0
       ? archivedId
       : source.id;
 

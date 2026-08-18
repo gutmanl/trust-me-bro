@@ -19,10 +19,13 @@ import type { OriginalIdentityVM } from "../lib/pipeline";
  * `lib/**` and `cli/**`, so nothing under `app/**` is visible to it. Four
  * findings of this phase's first code review lived entirely in that gap.
  *
- * What this does NOT cover: the JSX itself (`SourceRow` is a client component
- * behind the `useStartGate` context, so a plain SSR assertion is not available
- * here). The rendered branch that remains unpinned is the `rawText` paragraph;
- * everything that decides ITS input is pinned below.
+ * What this does NOT cover: the JSX. That is
+ * `app/projects/[id]/workbench/SourceRow.test.tsx`, which server-renders the
+ * REAL component with `renderToStaticMarkup` and no provider, and asserts on
+ * the emitted markup — including the `rawText` paragraph. The division of
+ * labour is therefore: this file pins what the block SAYS, that file pins what
+ * the row EMITS, and `lib/pipeline/sources/original-identity.test.ts` pins what
+ * the projection decides.
  */
 
 const PROJECTED: OriginalIdentityVM = {

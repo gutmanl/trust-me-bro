@@ -167,9 +167,15 @@ export function formatCitationItem(
   // title used to be preferred over `fallbackLabel` — the very parameter this
   // function was split out of `formatCitation` to introduce — so the citation
   // came out empty, or, with a container, as a string beginning in a comma. The
-  // same guard `original-identity.ts` already applies to `item.id` one layer up;
-  // both read the same schema-unvalidated record, so both must mean the same
-  // thing by "usable string" (WR-02).
+  // same guard `original-identity.ts` applies to `item.id` one layer up; both
+  // read the same schema-unvalidated record, so both must mean the same thing
+  // by "usable string" (WR-02).
+  //
+  // That parity was ASSERTED here before it held — the `item.id` guard tested
+  // raw length until G-01-4 — so it is now stated only because it is pinned:
+  // `original-identity.test.ts`'s case "falls through a whitespace-only
+  // archived id to the source's own id" fails if that guard stops trimming. A
+  // corrected claim nobody checks is the same defect one step later.
   //
   // The title is returned UNCHANGED when the guard passes. A guard decides
   // whether to show the source's own words; it never rewrites them — the
