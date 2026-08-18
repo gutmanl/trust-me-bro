@@ -149,9 +149,20 @@ export function formatCitationItem(
 
   const authors = item.author;
   const etAl = Array.isArray(authors) && authors.length > 1 ? " et al." : "";
+  // TRIMMED non-empty, not merely "of type string": an empty or whitespace-only
+  // title used to be preferred over `fallbackLabel` — the very parameter this
+  // function was split out of `formatCitation` to introduce — so the citation
+  // came out empty, or, with a container, as a string beginning in a comma. The
+  // same guard `original-identity.ts` already applies to `item.id` one layer up;
+  // both read the same schema-unvalidated record, so both must mean the same
+  // thing by "usable string" (WR-02).
+  //
+  // The title is returned UNCHANGED when the guard passes. A guard decides
+  // whether to show the source's own words; it never rewrites them — the
+  // archived title is evidence, not UI copy.
   const head = family
     ? `${family}${etAl}${year ? ` (${year})` : ""}`
-    : typeof title === "string"
+    : typeof title === "string" && title.trim().length > 0
       ? title
       : fallbackLabel;
   const tail =
