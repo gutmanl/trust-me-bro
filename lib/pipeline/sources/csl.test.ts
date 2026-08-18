@@ -185,6 +185,31 @@ describe("issuedYear / firstAuthorFamily edge cases", () => {
    */
   it("treats a whitespace-only literal author as no author at all", () => {
     expect(firstAuthorFamily({ author: [{ literal: "   " }] })).toBeUndefined();
+    // G-01-4: the `family` branch is the sibling that never got the same
+    // narrowing. It tested RAW length, so a whitespace-only family WAS a
+    // family, and the citation head came out as whitespace plus a year.
+    // Unlike the `literal` case above this one DOES move formatCitationItem's
+    // output — that movement is the defect being fixed, and it is
+    // characterized per consumer in 01-04-SUMMARY.md.
+    expect(firstAuthorFamily({ author: [{ family: "   " }] })).toBeUndefined();
+    expect(
+      formatCitationItem(
+        { title: "Ein Titel", author: [{ family: "   " }] },
+        "src_x",
+      ),
+    ).toBe("Ein Titel");
+    // Neither a usable family nor a title: the fallback label is the only
+    // thing left to say, and it is better than a head made of whitespace.
+    expect(formatCitationItem({ author: [{ family: "   " }] }, "src_x")).toBe(
+      "src_x",
+    );
+    // Control: a real family still wins the head.
+    expect(firstAuthorFamily({ author: [{ family: "Mayer" }] })).toBe("Mayer");
+    // Control: a padded but real family comes back WITH its padding. The
+    // guard decides whether the string is usable; it never rewrites it (D-06).
+    expect(firstAuthorFamily({ author: [{ family: " Mayer " }] })).toBe(
+      " Mayer ",
+    );
     // Control, holds before and after the narrowing: the head branch already
     // read "" as "no author", so no formatCitation consumer moves one byte.
     expect(
