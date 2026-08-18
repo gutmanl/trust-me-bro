@@ -366,6 +366,59 @@ describe("deriveOriginalIdentity", () => {
     expect(Object.hasOwn(projected as object, "title")).toBe(false);
   });
 
+  /**
+   * G-01-4, the hostile-input half. This shape cannot arrive through any
+   * in-app write path: the archived item is `toPlainCsl(existing)` and
+   * `Source.id` is SourceId-regex-validated (`/^src_[a-z0-9][a-z0-9_-]*$/`), so
+   * a whitespace-only archived `item.id` needs a hand-edited or foreign `.tmb`
+   * bundle — whose `previous_identities[].item` is a bare
+   * `z.record(z.string(), z.unknown())` and is never re-validated on read. That
+   * is precisely the threat model this module's own JSDoc names, which is why
+   * the guard is repaired rather than dismissed as unreachable.
+   *
+   * This case is also what makes csl.ts's parity claim about the `item.id`
+   * guard "one layer up" a pinned claim rather than merely a true one.
+   */
+  it("falls through a whitespace-only archived id to the source's own id", () => {
+    const source = correctedSource();
+    // Deliberately NOT the fixture's own id (`src_meyer2025`): an archived id
+    // equal to the source's own id makes the control below unable to tell the
+    // two apart, so the fallback is measured against a distinguishable value.
+    const ownId = source.id;
+    expect(ownId).toBe("src_meyer2025");
+
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "   ", type: "document", title: "   " },
+      },
+    ];
+    // Before the narrowing this was the German label followed by nothing:
+    // `formatCitationItem` received "   " as its fallback label and returned it.
+    expect(deriveOriginalIdentity(source)?.citation).toBe(ownId);
+
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "   ", type: "document", "container-title": "ICSE" },
+      },
+    ];
+    // And with a container it was "   , ICSE" — a comma with whitespace in
+    // front of it, which reads as a truncation rather than as a missing name.
+    expect(deriveOriginalIdentity(source)?.citation).toBe(`${ownId}, ICSE`);
+
+    // Control that must NOT move: a real archived id still wins over the
+    // source's current one. The whole point of the block is naming what the
+    // source ORIGINALLY claimed to be.
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: { id: "src_original2020", type: "document" },
+      },
+    ];
+    expect(deriveOriginalIdentity(source)?.citation).toBe("src_original2020");
+  });
+
   it("takes the title from the FIRST archived identity, never a later one", () => {
     const source = correctedSource();
     source.custom.previous_identities = [
