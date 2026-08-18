@@ -291,6 +291,14 @@ describe("deriveOriginalIdentity", () => {
       null,
       undefined,
       "",
+      // The one entry that is not about SHAPE but about the definition of
+      // "usable string" (G-01-4). A whitespace-only title is a string of
+      // non-zero raw length, so the suppression accepted it while
+      // formatCitationItem's head branch — which trims — had already rejected
+      // it, and the two sites disagreed on a single input. Reachable through a
+      // live write path: resolveDoi stores the registrant's CSL record
+      // unfiltered, with no title filter.
+      "   ",
     ]) {
       source.custom.previous_identities = [
         {
@@ -316,6 +324,28 @@ describe("deriveOriginalIdentity", () => {
       expect(projected?.citation).toBe("Mayer (2024), ACM TOSEM");
       expect(Object.hasOwn(projected as object, "title")).toBe(false);
     }
+  });
+
+  it("keeps a padded but real archived title exactly as the source wrote it", () => {
+    const source = correctedSource();
+    source.custom.previous_identities = [
+      {
+        replaced_at: "2026-08-14T10:15:00Z",
+        item: {
+          id: "src_meyer2025",
+          type: "article-journal",
+          title: " Echter Titel ",
+          author: [{ family: "Mayer", given: "A." }],
+          issued: { "date-parts": [[2024]] },
+          "container-title": "ACM TOSEM",
+        },
+      },
+    ];
+    // The control on the guard directly above: a guard decides WHETHER to show
+    // the source's own words, it never edits them. The trimmed test must not
+    // leak a trimmed VALUE into the projection — the archived title is
+    // evidence, not UI copy (D-06).
+    expect(deriveOriginalIdentity(source)?.title).toBe(" Echter Titel ");
   });
 
   it("labels an archived identity whose title is an empty string by its id", () => {

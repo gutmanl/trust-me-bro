@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { deriveOriginalIdentity } from "@/lib/pipeline";
+import type { Source } from "@/lib/register";
 import {
   AUTO_CAPTURE_METHOD_LABELS,
   autoCaptureRowNote,
@@ -172,6 +174,71 @@ describe("SourceRow original-identity block", () => {
     // projection suppresses the field where formatCitationItem already used
     // the title as the citation head, and this counts what reaches the DOM.
     expect(html.split(title)).toHaveLength(2);
+  });
+
+  /**
+   * G-01-4, from a register-shaped `Source` all the way to the emitted markup.
+   * A whitespace-only archived title satisfied `deriveOriginalIdentity`'s
+   * RAW-length guard while `formatCitationItem`'s head branch — which trims —
+   * had already read the same value as unusable, so the two sites disagreed on
+   * one input and the block came out with a blank paragraph between the
+   * citation line and the capture line. Reachable through a live write path:
+   * `resolveDoi` stores the registrant's CSL record unfiltered.
+   *
+   * Composed through the REAL projection and the REAL row builder rather than a
+   * hand-written VM, because the defect lived in the projection and only became
+   * VISIBLE in the JSX; pinning either end alone would have missed it.
+   * `deriveOriginalIdentity` comes from the `@/lib/pipeline` barrel — the one
+   * runtime specifier the web-layer boundary rule permits here.
+   */
+  it("renders no blank line for a whitespace-only archived title (G-01-4)", () => {
+    const source: Source = {
+      id: "src_mayer2024",
+      type: "article-journal",
+      custom: {
+        source_type: "peer_reviewed_publication",
+        previous_identities: [
+          {
+            replaced_at: "2026-08-14T10:15:00Z",
+            item: {
+              id: "src_mayer2024",
+              type: "article-journal",
+              title: "   ",
+              author: [{ family: "Mayer", given: "A." }],
+              issued: { "date-parts": [[2024]] },
+            },
+          },
+        ],
+        previous_snapshots: [
+          {
+            retrieved_at: "2026-07-20T09:00:00Z",
+            sha256: "a".repeat(64),
+            blob_path: `blobs/aa/${"a".repeat(64)}.pdf`,
+            revision: 1,
+          },
+        ],
+      },
+    };
+    const html = block(
+      render({
+        ...BASE,
+        ...buildOriginalIdentityRow(deriveOriginalIdentity(source)),
+      }),
+    );
+    // Read paragraph-wise rather than grepping for one hard-coded blank
+    // paragraph string, so the pin survives a class or tag change in
+    // SourceRow.tsx. Inner tags are stripped because the first paragraph wraps
+    // its label in a <span>.
+    const paragraphs = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(
+      (match) => match[1].replace(/<[^>]*>/g, ""),
+    );
+    expect(paragraphs.length).toBeGreaterThan(0);
+    for (const paragraph of paragraphs) {
+      expect(paragraph.trim().length).toBeGreaterThan(0);
+    }
+    // The block still names the original: the citation head is the author, so
+    // suppressing the title removes a blank line and nothing else.
+    expect(html).toContain("Mayer (2024)");
   });
 
   it("presents the block as neutral information, not as an alarm", () => {
