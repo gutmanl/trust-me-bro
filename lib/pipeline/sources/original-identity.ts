@@ -130,11 +130,27 @@ export function deriveOriginalIdentity(
   //    this is belt and braces: the suppression stays correct even if
   //    `firstAuthorFamily` ever regresses, because it no longer asks a strictly
   //    weaker question than the branch it mirrors.
+  //
+  // The two halves of the expression below ask DIFFERENT questions on purpose.
+  //
+  //  * The TITLE half applies this path's single definition of "usable string"
+  //    — type `string` with `.trim().length > 0` — because that is the very
+  //    question `formatCitationItem`'s title head asks. Testing raw length here
+  //    made the two disagree on `title: "   "`: the head called it unusable and
+  //    cited the author, this half called it usable and emitted it, so the
+  //    block rendered a blank paragraph between two real lines (G-01-4).
+  //  * The FAMILY half stays a RAW non-empty test, and is the single deliberate
+  //    exception to that definition. It mirrors the head branch's TRUTHINESS
+  //    test (`family ? … : …`), not a usability test. If `firstAuthorFamily`
+  //    ever regressed to returning a whitespace-only family, the head branch
+  //    would consume it as the citation head while a trimmed test here would
+  //    discard the title — losing the title entirely instead of printing it
+  //    twice. Mirroring the weaker test is what keeps this fail-safe.
   const archivedFamily = firstAuthorFamily(first.item);
   const archivedTitle = first.item.title;
   const title =
     typeof archivedTitle === "string" &&
-    archivedTitle.length > 0 &&
+    archivedTitle.trim().length > 0 &&
     archivedFamily !== undefined &&
     archivedFamily.length > 0
       ? archivedTitle
