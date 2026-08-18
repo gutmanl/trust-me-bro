@@ -217,8 +217,17 @@ export function SourceRow({
             Erfasst am {source.originalIdentity.capturedAtLabel} –{" "}
             {source.originalIdentity.provenanceLabel}
           </p>
+          {/* Clamped to three lines, label line included. The raw text is a
+              whole briefing paragraph and measured ~62% of this block on a real
+              row, which buries the three lines above it — the ones that name the
+              original source. It could stay unclamped only while it was the sole
+              recognition anchor; the title line above ended that. The full text
+              stays reachable through the native `title` tooltip: no handler and
+              nothing focusable, so the block is still interaction-free. Do not
+              give the label its own paragraph to win back a line — the block's
+              line count is what the user signed off on. */}
           {source.originalIdentity.rawText !== undefined ? (
-            <p>
+            <p className="line-clamp-3" title={source.originalIdentity.rawText}>
               <span className="font-medium">Referenztext:</span>{" "}
               {`„${source.originalIdentity.rawText}“`}
             </p>

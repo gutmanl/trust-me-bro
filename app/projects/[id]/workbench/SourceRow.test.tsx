@@ -104,9 +104,43 @@ describe("SourceRow original-identity block", () => {
       },
     });
     expect(html).toContain("Referenztext:");
-    // Full text, no truncation and no ellipsis (D-06).
+    // The text reaches the DOM whole: the clamp added for G-01-5 is CSS, so it
+    // bounds the paragraph's HEIGHT and never truncates the string. Nothing is
+    // dropped server-side and no ellipsis is ever written into the markup.
     expect(html).toContain(`„${raw}“`);
     expect(html).toContain("automatisch übernommen (DOI im Text gefunden)");
+  });
+
+  /**
+   * G-01-5, and the reason it is a test rather than a line of CSS trusted to
+   * stay: this clamp was asked for once already as code review finding WR-06
+   * and correctly DECLINED, because 01-UI-SPEC.md D-06 then forbade it in three
+   * approved places. The UAT decision flipped D-06. Without an assertion, the
+   * next reader of a stale D-06 quote has every reason to take the clamp back
+   * out, and no test would stop them.
+   */
+  it("clamps the Referenztext to three lines and keeps the full text reachable (G-01-5)", () => {
+    const raw =
+      "Neumann, A. et al. (2025): „Assistants in Code Review“, IEEE TSE 51(4), " +
+      "S. 1–24, doi:10.1109/TSE.2025.1234567";
+    const html = block(
+      render({
+        ...CORRECTED,
+        originalIdentity: {
+          ...CORRECTED.originalIdentity!,
+          provenanceLabel: "automatisch übernommen (DOI im Text gefunden)",
+          rawText: raw,
+        },
+      }),
+    );
+    expect(html).toContain("line-clamp-3");
+    // The clamped-away tail stays readable without any handler or focusable
+    // element: a native title tooltip, which is the whole of the D-05
+    // interaction ban that this amendment spends.
+    expect(html).toContain(`title="${raw}"`);
+    // The clamp belongs to the Referenztext ALONE. The three lines above it
+    // name the original source — clamping those would defeat the block.
+    expect(html.match(/line-clamp-3/g) ?? []).toHaveLength(1);
   });
 
   it("shows a two-line block ending in the manual-capture wording", () => {
