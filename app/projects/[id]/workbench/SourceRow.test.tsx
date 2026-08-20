@@ -421,3 +421,30 @@ describe("SourceRowVM declaration", () => {
     expect(sameFields).toBe(true);
   });
 });
+
+/**
+ * The "zurücknehmen" control's visibility (three-way source correction).
+ * `lib/pipeline/sources/revert-identity.test.ts` pins what the undo DOES;
+ * this pins whether the row offers it at all.
+ */
+describe("SourceRow revert control", () => {
+  it("offers the revert after a correction that archived no document", () => {
+    // A metadata-only correction archives an identity and deliberately leaves
+    // the frozen document alone, so previousSnapshots stays 0.
+    // revertSourceIdentity handles exactly that shape; gating the control on
+    // an archived document would hide the undo for it.
+    const html = render({
+      ...BASE,
+      previousIdentities: 1,
+      previousSnapshots: 0,
+    });
+    expect(html).toContain("Kennung korrigiert");
+    expect(html).toContain("zurücknehmen");
+  });
+
+  it("offers no revert on a source that was never corrected", () => {
+    const html = render({ ...BASE, previousIdentities: 0 });
+    expect(html).not.toContain("zurücknehmen");
+    expect(html).not.toContain("Ursprünglich erfasst als");
+  });
+});

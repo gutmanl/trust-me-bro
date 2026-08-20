@@ -158,7 +158,7 @@ export function SourceRow({
         {source.previousIdentities > 0 ? (
           <span className="flex items-center gap-1.5">
             Kennung korrigiert
-            {source.previousSnapshots > 0 && !correctionInFlight ? (
+            {!correctionInFlight ? (
               <RevertIdentityButton
                 projectId={projectId}
                 sourceId={source.id}
@@ -309,13 +309,18 @@ export function SourceRow({
 
 /**
  * "Korrektur zurücknehmen" on a source that carries an archived identity
- * (source correction): restores the previous bibliographic core and its
- * previous document in one audited step.
+ * (source correction): restores the previous bibliographic core in one
+ * audited step, together with the document that correction replaced — if it
+ * replaced one.
  *
- * Behind a confirmation because it moves the frozen corpus — the same
- * reason applying a weak suggestion is. Only rendered when BOTH an archived
- * identity and an archived document exist; restoring metadata without its
- * document would leave the source describing one work and quoting another.
+ * Behind a confirmation because it may move the frozen corpus — the same
+ * reason applying a weak suggestion is. Rendered on the strength of the
+ * archived IDENTITY alone: a metadata-only correction leaves
+ * `previousSnapshots` at 0 and is still perfectly revertable, and
+ * `revertSourceIdentity` reads the correction's recorded
+ * `snapshot_revision` to decide whether a document has to come back. Gating
+ * this on an archived document would hide the undo for exactly the
+ * corrections that need it most.
  */
 function RevertIdentityButton({
   projectId,
@@ -345,7 +350,7 @@ function RevertIdentityButton({
   return (
     <form action={action} className="flex items-center gap-1.5">
       <span className="text-xs text-amber-800">
-        Frühere Kennung und deren Dokument wiederherstellen?
+        Letzte Kennungskorrektur zurücknehmen?
       </span>
       <button
         type="submit"
