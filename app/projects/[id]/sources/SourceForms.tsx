@@ -11,10 +11,19 @@ import {
   primaryButtonClass,
   SuccessBanner,
 } from "@/app/components/ui";
+import type { DerivedMetadataCandidate } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { SOURCE_TYPE_LABELS } from "../../status-labels";
-import type { CorrectSourceFormState, SourceFormState } from "./actions";
-import { correctSourceAction, enqueueCaptureSourceAction } from "./actions";
+import type {
+  CorrectSourceFormState,
+  DeriveMetadataFormState,
+  SourceFormState,
+} from "./actions";
+import {
+  correctSourceAction,
+  deriveMetadataAction,
+  enqueueCaptureSourceAction,
+} from "./actions";
 
 const initialState: SourceFormState = { error: null };
 
@@ -58,7 +67,22 @@ function SegmentedTabs<Value extends string>({
   );
 }
 
-function ManualFields({ required }: { required: boolean }) {
+/** Pre-fill for the manual fields — what a derivation worked out before the
+ * user rejected it, so the fallback starts filled rather than empty (D-10). */
+interface ManualFieldDefaults {
+  title?: string;
+  authors?: string;
+  year?: string;
+  container_title?: string;
+}
+
+function ManualFields({
+  required,
+  defaults,
+}: {
+  required: boolean;
+  defaults?: ManualFieldDefaults;
+}) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
@@ -69,6 +93,7 @@ function ManualFields({ required }: { required: boolean }) {
           id="title"
           name="title"
           required={required}
+          defaultValue={defaults?.title}
           className={inputClass}
         />
       </div>
@@ -80,6 +105,7 @@ function ManualFields({ required }: { required: boolean }) {
           id="authors"
           name="authors"
           placeholder="Nachname, Vorname; Nachname, Vorname"
+          defaultValue={defaults?.authors}
           className={inputClass}
         />
       </div>
@@ -91,6 +117,7 @@ function ManualFields({ required }: { required: boolean }) {
           id="year"
           name="year"
           placeholder="2026"
+          defaultValue={defaults?.year}
           className={inputClass}
         />
       </div>
@@ -105,6 +132,7 @@ function ManualFields({ required }: { required: boolean }) {
           id="container_title"
           name="container_title"
           placeholder="Zeitschrift, Konferenz, Reihe …"
+          defaultValue={defaults?.container_title}
           className={inputClass}
         />
       </div>
@@ -323,6 +351,68 @@ function CaptureSourceModal({
   );
 }
 
+const initialDeriveState: DeriveMetadataFormState = { error: null };
+
+/**
+ * The ONE German result line a derived candidate gets (D-17). Four
+ * outcomes, four sentences: what was found, whether it can be trusted, and
+ * what the user's next move is. Nothing here has entered the register —
+ * this is a proposal.
+ */
+function CandidateSummary({
+  candidate,
+}: {
+  candidate: DerivedMetadataCandidate;
+}) {
+  if (candidate.status === "verified") {
+    return (
+      <p className="text-xs break-words text-emerald-700">
+        Im Dokument gefunden: {candidate.citation} –{" "}
+        {candidate.kind === "doi" ? "DOI" : "arXiv-Id"} {candidate.identifier}.
+        Fundstelle: „{candidate.matchedLine}“.
+      </p>
+    );
+  }
+  if (candidate.status === "unverified") {
+    return (
+      <p className="text-xs break-words text-amber-700">
+        Im Dokument wurde eine Kennung gefunden ({candidate.identifier}), doch
+        die aufgelösten Metadaten stimmen nicht sicher mit dem Dokumenttext
+        überein – bitte prüfen und bei Bedarf korrigieren.
+      </p>
+    );
+  }
+  if (candidate.status === "unresolved") {
+    return (
+      <p className="text-xs break-words text-amber-700">
+        Im Dokument wurde eine Kennung gefunden ({candidate.identifier}), sie
+        ließ sich aber gerade nicht auflösen – bitte die Metadaten prüfen oder
+        von Hand eingeben.
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs break-words text-amber-700">
+      Im Dokument wurde keine Kennung (DOI/arXiv) gefunden – bitte die Metadaten
+      von Hand eingeben.
+      {candidate.reason === "no_text"
+        ? " (aus dem Dokument ließ sich kein Text lesen)"
+        : ""}
+    </p>
+  );
+}
+
+/** The manual pre-fill a candidate carries, if it carries one — `not_found`
+ * resolved nothing, so it has nothing to pre-fill with. */
+function candidateDefaults(
+  candidate: DerivedMetadataCandidate | undefined,
+): ManualFieldDefaults | undefined {
+  return candidate !== undefined &&
+    (candidate.status === "verified" || candidate.status === "unverified")
+    ? candidate.manual
+    : undefined;
+}
+
 const initialCorrectState: CorrectSourceFormState = { error: null };
 
 /** The correction modal's three modes. `both` is the historical `identity`
@@ -370,7 +460,11 @@ function correctionSucceeded(state: CorrectSourceFormState): boolean {
  * - metadata — replaces a wrong — typically hallucinated — bibliographic
  *   identity and leaves the frozen document exactly as it is, synchronously;
  * - both — re-captures identity AND document on the same source id, queued
- *   as a work item whose progress the row shows.
+ *   as a work item whose progress the row shows. For the file and URL kinds
+ *   it is a two-step wizard: "Metadaten aus Dokument ableiten" reads the
+ *   document and PROPOSES the identity it states about itself, and only the
+ *   confirmation writes anything (D-09). The confirmation carries the blob
+ *   the derive step already froze, so the document is uploaded exactly once.
  *
  * The outcome banners render under the trigger, where the row shows them
  * after the modal closed.
@@ -391,9 +485,19 @@ export function CorrectSourceForm({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<CorrectionMode>("document");
   const [kind, setKind] = useState<Kind>(currentKind);
+  // The "both" mode is a two-step wizard: derive what the document says it
+  // is, then confirm it. Everything else is a single step.
+  const [step, setStep] = useState<"input" | "confirm">("input");
+  // Whether the confirm step shows the manual fields instead of adopting the
+  // candidate's identifier.
+  const [manualFallback, setManualFallback] = useState(false);
   const [state, formAction, pending] = useActionState(
     correctSourceAction.bind(null, projectId, sourceId),
     initialCorrectState,
+  );
+  const [deriveState, deriveAction, derivePending] = useActionState(
+    deriveMetadataAction.bind(null, projectId),
+    initialDeriveState,
   );
   // Close on a successful submit (state identity change), like the capture
   // modal — any mode's success marker counts.
@@ -404,6 +508,54 @@ export function CorrectSourceForm({
       setOpen(false);
     }
   }, [state]);
+  // Advance to the confirm step once per derivation, same adopted-ref idiom.
+  const adoptedDerive = useRef<DeriveMetadataFormState | undefined>(undefined);
+  useEffect(() => {
+    if (
+      deriveState.candidate !== undefined &&
+      adoptedDerive.current !== deriveState
+    ) {
+      adoptedDerive.current = deriveState;
+      setStep("confirm");
+      // A verified candidate is the one-click case the whole flow exists
+      // for; every other outcome asked the user to check or type something,
+      // so the fields it needs are open already rather than one click away
+      // behind a button whose label repeats the instruction.
+      setManualFallback(deriveState.candidate.status !== "verified");
+    }
+  }, [deriveState]);
+
+  const candidate = deriveState.candidate;
+  const inBothConfirm = mode === "both" && step === "confirm";
+  // Derivation only makes sense where a document is actually supplied: the
+  // doi and arxiv kinds already carry an identifier that determines the
+  // metadata outright.
+  const canDerive =
+    mode === "both" &&
+    step === "input" &&
+    (kind === "upload" || kind === "url");
+  // Which identity the confirm submit sends. Adopting the candidate means
+  // sending its kind and identifier and letting correctSource re-resolve
+  // them; the manual fallback sends the tab's own kind and the fields the
+  // user typed.
+  const adoptsCandidate =
+    !manualFallback &&
+    candidate !== undefined &&
+    candidate.status !== "not_found";
+  const confirmKind: Kind = adoptsCandidate ? candidate.kind : kind;
+  const confirmIdentifier = adoptsCandidate
+    ? candidate.identifier
+    : // The "url" kind's identifier IS its URL, and the input that held it
+      // belongs to the previous step's form body — see
+      // DeriveMetadataFormState.documentUrl.
+      kind === "url"
+      ? deriveState.documentUrl
+      : undefined;
+
+  function leaveConfirmStep() {
+    setStep("input");
+    setManualFallback(false);
+  }
 
   return (
     <div className="mt-2">
@@ -438,7 +590,12 @@ export function CorrectSourceForm({
             <SegmentedTabs
               tabs={CORRECTION_MODE_TABS}
               value={mode}
-              onChange={setMode}
+              onChange={(next) => {
+                setMode(next);
+                // Switching away abandons a half-finished wizard; coming
+                // back must start at its input step, not mid-confirm.
+                leaveConfirmStep();
+              }}
             />
 
             {mode === "metadata" ? (
@@ -456,6 +613,39 @@ export function CorrectSourceForm({
                 />
                 <SourceTypeSelect defaultValue={currentSourceType} />
               </>
+            ) : inBothConfirm && candidate !== undefined ? (
+              <>
+                <CandidateSummary candidate={candidate} />
+                {/* The document is NOT re-uploaded here: the derive step
+                    already froze these bytes, so the confirmation carries a
+                    blob reference (D-15). There is deliberately no file
+                    input on this step. */}
+                <input type="hidden" name="kind" value={confirmKind} />
+                {confirmIdentifier !== undefined ? (
+                  <input
+                    type="hidden"
+                    name="identifier"
+                    value={confirmIdentifier}
+                  />
+                ) : null}
+                <input
+                  type="hidden"
+                  name="upload_blob_path"
+                  value={candidate.document.blob_path}
+                />
+                <input
+                  type="hidden"
+                  name="upload_filename"
+                  value={candidate.document.filename}
+                />
+                {manualFallback ? (
+                  <ManualFields
+                    required
+                    defaults={candidateDefaults(candidate)}
+                  />
+                ) : null}
+                <SourceTypeSelect defaultValue={currentSourceType} />
+              </>
             ) : mode === "both" ? (
               <>
                 <p className="text-xs text-amber-700">
@@ -470,6 +660,7 @@ export function CorrectSourceForm({
                 <input type="hidden" name="kind" value={kind} />
                 <IdentityFields kind={kind} onKindChange={setKind} />
                 <SourceTypeSelect defaultValue={currentSourceType} />
+                <ErrorBanner message={deriveState.error} />
               </>
             ) : (
               <>
@@ -511,24 +702,77 @@ export function CorrectSourceForm({
               </>
             )}
             <ErrorBanner message={state.error} />
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={pending}
-                className={primaryButtonClass}
-              >
-                {pending
-                  ? CORRECTION_SUBMIT_LABELS[mode].pending
-                  : CORRECTION_SUBMIT_LABELS[mode].idle}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
-              >
-                Abbrechen
-              </button>
-            </div>
+            {inBothConfirm ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className={primaryButtonClass}
+                >
+                  {pending
+                    ? CORRECTION_SUBMIT_LABELS.both.pending
+                    : "Übernehmen und Korrektur starten"}
+                </button>
+                {manualFallback ? null : (
+                  <button
+                    type="button"
+                    onClick={() => setManualFallback(true)}
+                    className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
+                  >
+                    Stattdessen von Hand eingeben
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={leaveConfirmStep}
+                  className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Zurück
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className={primaryButtonClass}
+                >
+                  {pending
+                    ? CORRECTION_SUBMIT_LABELS[mode].pending
+                    : CORRECTION_SUBMIT_LABELS[mode].idle}
+                </button>
+                {canDerive ? (
+                  // Reads the document and PROPOSES an identity. It writes
+                  // nothing to the register — despite standing next to a
+                  // button labelled "korrigieren", nothing is corrected
+                  // until the confirm step is submitted (D-09).
+                  //
+                  // formNoValidate on purpose: the url/upload kinds mark
+                  // their title field required for a CORRECTION, but a
+                  // derivation is what answers what the title is. The
+                  // action validates what it actually needs and reports a
+                  // German banner if the document is missing.
+                  <button
+                    type="submit"
+                    formAction={deriveAction}
+                    formNoValidate
+                    disabled={derivePending}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    {derivePending
+                      ? "Wird ermittelt …"
+                      : "Metadaten aus Dokument ableiten"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-md px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            )}
           </form>
         </Modal>
       ) : null}

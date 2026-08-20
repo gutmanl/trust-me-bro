@@ -6,6 +6,7 @@ import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
   applySuggestedRepair,
   correctSourceMetadata,
+  deriveMetadataFromDocument,
   dismissCaptureFailure,
   dismissRepairAction,
   enqueueExistenceCheck,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/pipeline";
 import type {
   CaptureKind,
+  DerivedMetadataCandidate,
   ManualCaptureInput,
   SourceCorrectionInput,
 } from "@/lib/pipeline";
@@ -215,6 +217,64 @@ export async function dismissRepairSuggestionAction(
   return { error: null };
 }
 
+export interface DeriveMetadataFormState {
+  error: string | null;
+  /** What the document says it is, for the confirm step to render. Absent
+   * until a derivation has run. */
+  candidate?: DerivedMetadataCandidate;
+  /** The document URL the derivation actually used, echoed back.
+   *
+   * Needed because the confirm step is a DIFFERENT form body than the input
+   * step: once the user falls back to typing the metadata by hand on the
+   * "url" kind, `correctSource` still needs that URL as the kind's
+   * identifier, and the input the user typed it into is no longer mounted.
+   * Echoing it is cheaper and less fragile than mirroring the input into
+   * component state.
+   */
+  documentUrl?: string;
+}
+
+/**
+ * Reads a document and reports the bibliographic identity it states about
+ * ITSELF (source correction, "both" mode).
+ *
+ * Writes NOTHING to the register — and therefore deliberately does not
+ * revalidate: nothing on the page changed, and a revalidation would
+ * re-render the whole project underneath an open modal for no reason.
+ */
+export async function deriveMetadataAction(
+  projectId: string,
+  _previous: DeriveMetadataFormState,
+  formData: FormData,
+): Promise<DeriveMetadataFormState> {
+  const upload = await parseUploadFile(formData);
+  // The "url" kind puts the document URL in `identifier`; the DOI kind has a
+  // `document_url` field of its own. Only url/upload offer derivation, but
+  // reading both keeps this honest if that ever widens.
+  const documentUrl =
+    optional(formData.get("document_url")) ??
+    optional(formData.get("identifier"));
+  const result = await runPipelineAction(() =>
+    deriveMetadataFromDocument({
+      projectId,
+      ...(upload !== undefined ? { upload } : {}),
+      ...(upload === undefined && documentUrl !== undefined
+        ? { documentUrl }
+        : {}),
+    }),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  return {
+    error: null,
+    candidate: result.value,
+    ...(upload === undefined && documentUrl !== undefined
+      ? { documentUrl }
+      : {}),
+  };
+}
+
 export interface CorrectSourceFormState {
   error: string | null;
   /** Document mode, after a successful submit: whether a new revision was
@@ -310,12 +370,33 @@ export async function correctSourceAction(
     ) {
       return { error: "Bitte einen Quellentyp wählen." };
     }
+    // The derive→confirm round trip (D-15): the confirm submit carries the
+    // blob the derive step already froze, instead of the file again.
+    //
+    // TRUST BOUNDARY — this is where the untrusted value enters. The browser
+    // sends back only a blob reference and, for doi/arxiv, the identifier
+    // string; it never sends resolved CSL fields, because `correctSource`
+    // re-resolves the identifier server-side and that re-resolution is what
+    // makes the frozen identity trustworthy. The reference itself is
+    // validated in `freezeUpload` (blobs().exists + filename shape), which
+    // converts a malformed or absent path into a German
+    // InvalidSourceInputError rather than an unhandled ENOENT.
+    const uploadBlobPath = optional(formData.get("upload_blob_path"));
+    const uploadFilename = optional(formData.get("upload_filename"));
     const input: SourceCorrectionInput = {
       kind: kind as CaptureKind,
       ...(sourceType !== undefined
         ? { sourceType: sourceType as SourceType }
         : {}),
       ...(await parseIdentityFormData(formData)),
+      ...(uploadBlobPath !== undefined && uploadFilename !== undefined
+        ? {
+            uploadBlob: {
+              blob_path: uploadBlobPath,
+              filename: uploadFilename,
+            },
+          }
+        : {}),
     };
     const result = await runPipelineAction(() =>
       enqueueSourceCorrection(projectId, sourceId, input),
