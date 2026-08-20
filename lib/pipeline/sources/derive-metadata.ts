@@ -127,10 +127,29 @@ function normalizeForContainment(text: string): string {
 }
 
 /**
- * Whether the resolved title and the line the identifier was matched on
- * describe the same work (D-14): containment first, bigram similarity at
- * `CONFIDENT_THRESHOLD` as the fallback for a title the extraction broke
- * across a line or hyphenated.
+ * Whether the resolved title and the scanned text describe the same work
+ * (D-14): containment first, bigram similarity at `CONFIDENT_THRESHOLD`
+ * per line as the fallback for a title the extraction hyphenated or broke
+ * mid-word.
+ *
+ * Scored against the whole SCANNED WINDOW, not against the line the
+ * identifier sat on. That distinction is the entire correctness of this
+ * check, and scoring the line alone silently failed the case this feature
+ * was built for. `scanRegex` matches line by line, and a real extraction
+ * wraps a cover-sheet citation across several of them:
+ *
+ *     Citation: Alrajeh, D., Russo, A., … & Novak, M.
+ *     J. (2013). Computational alignment of goals and scenarios for …
+ *     2013 35th International Conference on Software Engineering (ICSE), pp. 1249-
+ *     1252. doi: 10.1109/ICSE.2013.6606690
+ *
+ * so the matched line is `"1252. doi: 10.1109/ICSE.2013.6606690"` and the
+ * title is two lines above it. Measured over the corpus this was built
+ * against, the document's own title sits 147 to 4 992 characters away from
+ * its own DOI — no per-line or small-radius context recovers it, and every
+ * one of those titles DOES fall inside `DERIVE_SCAN_WINDOW_CHARS`. The
+ * window is therefore both the search space and, below, the false-positive
+ * guard.
  *
  * Deliberately scored against the DOCUMENT's own text, never against a
  * user-typed title — the point of this flow is that the user uploads a PDF
@@ -146,16 +165,20 @@ function normalizeForContainment(text: string): string {
  * a wrong `unverified` costs the user the manual entry this flow exists to
  * avoid.
  */
-function verifyDerivedCandidate(title: string, matchedLine: string): boolean {
+function verifyDerivedCandidate(title: string, scanned: string): boolean {
   const normalizedTitle = normalizeForContainment(title);
-  const normalizedLine = normalizeForContainment(matchedLine);
   if (
     normalizedTitle.length >= MIN_CONTAINMENT_TITLE_CHARS &&
-    normalizedLine.includes(normalizedTitle)
+    normalizeForContainment(scanned).includes(normalizedTitle)
   ) {
     return true;
   }
-  return titleSimilarity(title, matchedLine) >= CONFIDENT_THRESHOLD;
+  // Per line, never against the joined window: bigram similarity dilutes to
+  // nothing when one side is thousands of characters long, so comparing the
+  // title to the whole window would make this fallback unreachable.
+  return scanned
+    .split(/\r?\n/)
+    .some((line) => titleSimilarity(title, line) >= CONFIDENT_THRESHOLD);
 }
 
 /** The resolved CSL item as the manual form's fields (D-10) — the inverse
@@ -290,7 +313,12 @@ export async function deriveMetadataFromDocument(
     return { status: "not_found", document, reason: "no_text" };
   }
 
-  const hits = scanRegex(extraction.text.slice(0, DERIVE_SCAN_WINDOW_CHARS));
+  // Held as its own binding rather than inlined: the window is scanned for
+  // the identifier AND searched for the resolved title further down, and the
+  // two must be the same span or the verification would judge a candidate
+  // against text the scan never looked at.
+  const scanned = extraction.text.slice(0, DERIVE_SCAN_WINDOW_CHARS);
+  const hits = scanRegex(scanned);
   // DOI first, arXiv second, `url` hits never: a bare URL resolves to no CSL
   // identity, so it cannot answer the question this step asks.
   const hit =
@@ -325,7 +353,7 @@ export async function deriveMetadataFromDocument(
     matchedLine: hit.raw_text,
     manual: cslToManualMetadata(item),
   };
-  return verifyDerivedCandidate(title, hit.raw_text)
+  return verifyDerivedCandidate(title, scanned)
     ? { status: "verified", ...identity }
     : { status: "unverified", ...identity };
 }

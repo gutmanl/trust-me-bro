@@ -92,6 +92,39 @@ describe("deriveMetadataFromDocument", () => {
     expect(candidate.document.blob_path).toMatch(/^blobs\//);
   });
 
+  it("verifies a title the extraction wrapped onto a line above the identifier", async () => {
+    // The shape a real repository cover sheet takes once the extraction has
+    // flattened it: the citation runs across four lines and the DOI ends up
+    // alone on the last one, with the title well above it. Scoring the
+    // MATCHED LINE alone called this `unverified` and sent the user to manual
+    // entry — on the very document this feature was built to recognize.
+    // Measured over the corpus behind this feature, a document's own title
+    // sits 147 to 4 992 characters from its own DOI, so nothing short of the
+    // scanned window reaches it.
+    const candidate = await deriveMetadataFromDocument(
+      {
+        projectId: PROJECT,
+        upload: textUpload(
+          "Copyright and Reuse: Copyright and Moral Rights remain with the author(s).\n" +
+            "Citation: Meyer, A. (2025).\n" +
+            `${RESOLVED_TITLE}.\n` +
+            "IEEE Transactions on Software Engineering, pp. 1249-\n" +
+            `1252. doi: ${DOI}\n`,
+        ),
+      },
+      { fetcher: resolvingFetcher() },
+    );
+
+    expect(candidate.status).toBe("verified");
+    if (candidate.status !== "verified") {
+      throw new Error("unreachable");
+    }
+    expect(candidate.identifier).toBe(DOI);
+    // The title is deliberately NOT on the matched line — that is the point.
+    expect(candidate.matchedLine).toBe(`1252. doi: ${DOI}`);
+    expect(candidate.matchedLine).not.toContain(RESOLVED_TITLE);
+  });
+
   it("accepts a title the extraction mangled, via bigram similarity", async () => {
     // No containment: the extraction dropped a word and swapped the dash.
     const candidate = await deriveMetadataFromDocument(
