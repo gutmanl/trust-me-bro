@@ -94,6 +94,15 @@ export { dismissCaptureFailure } from "./sources/work-items/failures";
 export { deriveInterruptedCaptureAttempts } from "./sources/work-items/failures";
 export { deriveOpenChainTriggers } from "./runs/derive-brackets";
 export type { OpenChainTrigger } from "./runs/derive-brackets";
+// Metadata-only correction (source correction): app-facing on its own,
+// unlike correctSource — like revertSourceIdentity it queues no work item
+// and freezes no document, it only replaces the bibliographic core in the
+// register directly.
+export { correctSourceMetadata } from "./sources/correction";
+export type {
+  CorrectSourceMetadataInput,
+  CorrectSourceMetadataResult,
+} from "./sources/correction";
 // Undo of an identity correction (source correction): app-facing on its
 // own, unlike correctSource — it queues nothing and does no network work,
 // it only restores what the register already archived.

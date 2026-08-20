@@ -179,6 +179,9 @@ describe("public surface of lib/pipeline", () => {
     // use-case itself runs exclusively inside the queued work item.
     expect(surface.enqueueSourceCorrection).toBeDefined();
     expect(surface.correctSource).toBeUndefined();
+    // …except the metadata-only mode, which queues nothing and freezes no
+    // document, so it is called straight from the server action.
+    expect(surface.correctSourceMetadata).toBeDefined();
     expect(surface.sweepSourceRecheck).toBeUndefined();
     // The undo is app-facing where the correction itself is not: it queues
     // no work item and touches no network, restoring only what the register

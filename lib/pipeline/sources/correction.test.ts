@@ -7,14 +7,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RegisterStore } from "../../register";
 import type { ClaimStatus } from "../../register";
 import {
+  RunActiveError,
   SourceCorrectionPreconditionError,
   UnknownSourceError,
 } from "../errors";
 import { createProject } from "../projects";
+import type { JobRunner } from "../runs/job-runner";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
 import { CSL_JSON_RESPONSE, fakeFetcher } from "./__fixtures__/fake-fetcher";
 import { captureSource } from "./capture";
-import { correctSource } from "./correction";
+import { correctSource, correctSourceMetadata } from "./correction";
 
 const PROJECT = "proj_correction";
 const WRONG_DOC = Buffer.from("Volltext des falschen Papers.");
@@ -321,6 +323,226 @@ describe("correctSource", () => {
           manual: { title: "Egal" },
           upload: { content: RIGHT_DOC, filename: "r.txt" },
           correctionAttemptId: "wi_test",
+        },
+        { fetcher: fakeFetcher({}) },
+      ),
+    ).rejects.toBeInstanceOf(SourceCorrectionPreconditionError);
+  });
+});
+
+describe("correctSourceMetadata", () => {
+  /** The corrected identity only — this path resolves metadata and never
+   * fetches a document, so the fetcher needs no document route. */
+  function metadataFetcher() {
+    return fakeFetcher({
+      "https://doi.org/": {
+        contentType: "application/vnd.citationstyles.csl+json",
+        body: Buffer.from(CSL_JSON_RESPONSE),
+      },
+    });
+  }
+
+  /** A runner reporting the project busy. `isRunning` is the only member
+   * this use-case consults; the rest exist to satisfy the port. */
+  function busyRunner(): JobRunner {
+    return {
+      isRunning: () => true,
+      currentRun: () => undefined,
+      submit: () => {
+        throw new Error("submit is not reachable from this guard test");
+      },
+      subscribeRunStarts: () => () => {},
+    };
+  }
+
+  it("replaces the identity without touching the frozen document", async () => {
+    const confirmed = await addClaimAt("confirmed");
+    const stranded = await addClaimStrandedByExistenceCheck();
+    const spotChecked = await addClaimAt("pending_adjudication");
+    const captured = await addClaimAt("captured");
+
+    const store = RegisterStore.forProject(PROJECT);
+    const before = (await store.read()).sources.find(
+      (candidate) => candidate.id === sourceId,
+    );
+    const beforeSnapshot = before?.custom.snapshot;
+
+    const result = await correctSourceMetadata(
+      {
+        projectId: PROJECT,
+        sourceId,
+        kind: "doi",
+        identifier: "10.1109/TSE.2025.3489012",
+      },
+      { fetcher: metadataFetcher() },
+    );
+
+    expect(result.source.id).toBe(sourceId);
+    expect(result.revision).toBe(1);
+    expect(result.recheckedClaimIds.sort()).toEqual(
+      [confirmed, stranded].sort(),
+    );
+
+    const register = await store.read();
+    const source = register.sources.find(
+      (candidate) => candidate.id === sourceId,
+    );
+
+    // The corrected bibliographic core, freshly verified.
+    expect(source?.DOI).toBe("10.1109/TSE.2025.3489012");
+    expect(source?.title).toBe(
+      "Effects of AI Assistants on Code Review Duration",
+    );
+    expect(source?.custom.identifier_verified?.status).toBe(true);
+
+    // Exactly one archived identity, and no archived document at all.
+    expect(source?.custom.previous_identities).toHaveLength(1);
+    expect(source?.custom.previous_identities?.[0].item.title).toBe(
+      "Falsches Paper",
+    );
+    expect(source?.custom.previous_snapshots ?? []).toHaveLength(0);
+
+    // The frozen document is byte-identical: same blob, same revision.
+    expect(source?.custom.snapshot?.sha256).toBe(beforeSnapshot?.sha256);
+    expect(source?.custom.snapshot?.blob_path).toBe(beforeSnapshot?.blob_path);
+    expect(source?.custom.snapshot?.revision).toBe(beforeSnapshot?.revision);
+    expect(
+      store.blobs().read(source?.custom.snapshot?.blob_path as string),
+    ).toEqual(WRONG_DOC);
+
+    // Nothing rotated, so the project-wide source set did not move either.
+    expect(register.project.source_set_revision).toBe(1);
+
+    // Exactly one correction event, recording an unmoved revision pair.
+    const events = register.project_events.filter(
+      (candidate) => candidate.event === "source_identity_corrected",
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].identity_change?.snapshot_revision).toEqual({
+      from: 1,
+      to: 1,
+    });
+    expect(events[0].identity_change?.previous_item.title).toBe(
+      "Falsches Paper",
+    );
+    expect(events[0].identity_change?.new_item.DOI).toBe(
+      "10.1109/TSE.2025.3489012",
+    );
+    expect(source?.custom.correction_attempt_id).toMatch(/^wi_/);
+
+    // Settled and existence-check-stranded claims are readmitted; the
+    // spot-check adjudication case and the unchecked claim stay put.
+    const statusOf = (id: string) =>
+      register.claims.find((claim) => claim.id === id)?.status;
+    expect(statusOf(confirmed)).toBe("recheck_required");
+    expect(statusOf(stranded)).toBe("recheck_required");
+    expect(statusOf(spotChecked)).toBe("pending_adjudication");
+    expect(statusOf(captured)).toBe("captured");
+
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("reclassifies the source type alongside the identity", async () => {
+    await correctSourceMetadata(
+      {
+        projectId: PROJECT,
+        sourceId,
+        kind: "doi",
+        identifier: "10.1109/TSE.2025.3489012",
+        sourceType: "peer_reviewed_publication",
+      },
+      { fetcher: metadataFetcher() },
+    );
+    const register = await RegisterStore.forProject(PROJECT).read();
+    const source = register.sources.find(
+      (candidate) => candidate.id === sourceId,
+    );
+    expect(source?.custom.source_type).toBe("peer_reviewed_publication");
+  });
+
+  it("refuses while the project is busy, and writes nothing", async () => {
+    const store = RegisterStore.forProject(PROJECT);
+    const before = await store.read();
+    await expect(
+      correctSourceMetadata(
+        {
+          projectId: PROJECT,
+          sourceId,
+          kind: "doi",
+          identifier: "10.1109/TSE.2025.3489012",
+        },
+        { fetcher: metadataFetcher(), runner: busyRunner() },
+      ),
+    ).rejects.toBeInstanceOf(RunActiveError);
+    const after = await store.read();
+    expect(after.project_events).toHaveLength(before.project_events.length);
+    expect(
+      after.sources.find((candidate) => candidate.id === sourceId)?.title,
+    ).toBe("Falsches Paper");
+  });
+
+  it("refuses while a correction of the same source is in flight", async () => {
+    const store = RegisterStore.forProject(PROJECT);
+    const before = await store.read();
+    const chain = {
+      enqueueSourceCapture: () => {},
+      pendingCaptureItems: () => [],
+      activeCaptureItem: () => ({
+        workItemId: "wi_laufend",
+        origin: "correction" as const,
+        label: "Korrektur",
+        targetSourceId: sourceId,
+      }),
+    };
+    await expect(
+      correctSourceMetadata(
+        {
+          projectId: PROJECT,
+          sourceId,
+          kind: "doi",
+          identifier: "10.1109/TSE.2025.3489012",
+        },
+        { fetcher: metadataFetcher(), chain },
+      ),
+    ).rejects.toBeInstanceOf(SourceCorrectionPreconditionError);
+    const after = await store.read();
+    expect(after.project_events).toHaveLength(before.project_events.length);
+    expect(
+      after.sources.find((candidate) => candidate.id === sourceId)?.title,
+    ).toBe("Falsches Paper");
+  });
+
+  it("rejects unknown sources", async () => {
+    await expect(
+      correctSourceMetadata(
+        {
+          projectId: PROJECT,
+          sourceId: "src_gibtsnicht",
+          kind: "doi",
+          identifier: "10.1109/TSE.2025.3489012",
+        },
+        { fetcher: metadataFetcher() },
+      ),
+    ).rejects.toBeInstanceOf(UnknownSourceError);
+  });
+
+  it("requires a frozen snapshot", async () => {
+    const store = RegisterStore.forProject(PROJECT);
+    await store.transaction((tx) => {
+      tx.addSource({
+        id: "src_ohne_snapshot",
+        type: "document",
+        title: "Ohne Snapshot",
+        custom: { source_type: "grey_literature" },
+      });
+    });
+    await expect(
+      correctSourceMetadata(
+        {
+          projectId: PROJECT,
+          sourceId: "src_ohne_snapshot",
+          kind: "upload",
+          manual: { title: "Egal" },
         },
         { fetcher: fakeFetcher({}) },
       ),
