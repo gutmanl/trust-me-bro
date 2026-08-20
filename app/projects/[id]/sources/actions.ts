@@ -304,10 +304,11 @@ export async function correctSourceAction(
 
 /**
  * Takes back the last identity correction of a source (source correction):
- * restores the archived bibliographic core AND its archived document. The
- * case it exists for is an accepted repair suggestion that turned out to
- * name a different work — the source then carries both wrong metadata and a
- * wrong frozen document, and every claim citing it fails stage 1.
+ * restores the archived bibliographic core, together with the document that
+ * correction replaced — if it replaced one. The case it exists for is an
+ * accepted repair suggestion that turned out to name a different work — the
+ * source then carries both wrong metadata and a wrong frozen document, and
+ * every claim citing it fails stage 1.
  */
 export async function revertSourceIdentityAction(
   projectId: string,
