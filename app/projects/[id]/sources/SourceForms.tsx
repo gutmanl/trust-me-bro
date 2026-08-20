@@ -69,14 +69,18 @@ function SegmentedTabs<Value extends string>({
 
 /** Pre-fill for the manual fields — what a derivation worked out before the
  * user rejected it, so the fallback starts filled rather than empty (D-10). */
-interface ManualFieldDefaults {
+export interface ManualFieldDefaults {
   title?: string;
   authors?: string;
   year?: string;
   container_title?: string;
 }
 
-function ManualFields({
+// Exported for the test tier only (SourceForms.test.tsx), together with
+// IdentityFields below. `app/**` modules are not pinned by
+// tests/architecture.test.ts, so this widens no enforced surface and is
+// part of no barrel contract.
+export function ManualFields({
   required,
   defaults,
 }: {
@@ -152,7 +156,7 @@ function ManualFields({
  * metadata-only mode correct a bibliographic identity without asking for
  * the document again.
  */
-function IdentityFields({
+export function IdentityFields({
   kind,
   onKindChange,
   withDocument = true,
