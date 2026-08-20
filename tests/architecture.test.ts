@@ -183,6 +183,13 @@ describe("public surface of lib/pipeline", () => {
     // document, so it is called straight from the server action.
     expect(surface.correctSourceMetadata).toBeDefined();
     expect(surface.sweepSourceRecheck).toBeUndefined();
+    // Metadata derivation from the uploaded document, one step before the
+    // correction it proposes: app-facing because the modal calls it
+    // directly. Its verification predicate and its CSL→manual pre-fill
+    // mapper are details of that derivation and stay off the barrel.
+    expect(surface.deriveMetadataFromDocument).toBeDefined();
+    expect(surface.verifyDerivedCandidate).toBeUndefined();
+    expect(surface.cslToManualMetadata).toBeUndefined();
     // The undo is app-facing where the correction itself is not: it queues
     // no work item and touches no network, restoring only what the register
     // already archived.

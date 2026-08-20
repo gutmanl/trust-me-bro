@@ -103,6 +103,18 @@ export type {
   CorrectSourceMetadataInput,
   CorrectSourceMetadataResult,
 } from "./sources/correction";
+// Metadata derivation from the document itself (source correction, "both"
+// mode): app-facing because the modal calls it directly, one step before
+// the correction it proposes. It writes nothing to the register — the
+// candidate is confirmed by a human and only then applied through
+// enqueueSourceCorrection. The verification predicate and the CSL→manual
+// pre-fill mapper stay internal to the module.
+export { deriveMetadataFromDocument } from "./sources/derive-metadata";
+export type {
+  DeriveMetadataInput,
+  DerivedDocumentRef,
+  DerivedMetadataCandidate,
+} from "./sources/derive-metadata";
 // Undo of an identity correction (source correction): app-facing on its
 // own, unlike correctSource — it queues nothing and does no network work,
 // it only restores what the register already archived.
