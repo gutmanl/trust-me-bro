@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { RegisterStore } from "../../../register";
+import { createBlobStore, RegisterStore } from "../../../register";
 import {
   DocumentFetchError,
   InvalidSourceInputError,
@@ -266,6 +266,120 @@ describe("enqueueSourceCorrection", () => {
         .read(request.uploadBlob?.blob_path ?? "")
         .equals(content),
     ).toBe(true);
+  });
+
+  // The confirm half of the derive→confirm wizard (D-15): the derive step
+  // already froze the bytes to answer "what document is this?", so the
+  // confirmation sends a reference back, not the file again.
+  describe("with an already frozen upload", () => {
+    it("reuses the blob verbatim and freezes nothing a second time", async () => {
+      await addSource("src_falsch");
+      const frozen = RegisterStore.forProject(PROJECT_ID)
+        .blobs()
+        .put(Buffer.from("%PDF-1.7 das richtige Paper"), "pdf");
+
+      // Spied on the PROTOTYPE, not on one `blobs()` result: `blobs()`
+      // builds a fresh BlobStore per call, so a spy on an instance the
+      // production code never sees would pass no matter what freezeUpload
+      // did.
+      const puts: string[] = [];
+      const blobsSpy = vi
+        .spyOn(RegisterStore.prototype, "blobs")
+        .mockImplementation(function (this: RegisterStore) {
+          const real = createBlobStore(this.projectDir);
+          return {
+            ...real,
+            put(content, ext) {
+              puts.push(ext);
+              return real.put(content, ext);
+            },
+          };
+        });
+      const chain = fakeChain();
+
+      try {
+        await enqueueSourceCorrection(
+          PROJECT_ID,
+          "src_falsch",
+          {
+            kind: "doi",
+            identifier: "10.1109/ICSE.2013.6606690",
+            uploadBlob: { blob_path: frozen.blobPath, filename: "alrajeh.pdf" },
+          },
+          { chain },
+        );
+      } finally {
+        blobsSpy.mockRestore();
+      }
+
+      expect(chain.enqueued[0].request.uploadBlob).toEqual({
+        blob_path: frozen.blobPath,
+        filename: "alrajeh.pdf",
+      });
+      expect(puts).toEqual([]);
+    });
+
+    it("rejects a blob path that addresses nothing in the store", async () => {
+      await addSource("src_falsch");
+      await expect(
+        enqueueSourceCorrection(
+          PROJECT_ID,
+          "src_falsch",
+          {
+            kind: "doi",
+            identifier: "10.1109/ICSE.2013.6606690",
+            uploadBlob: {
+              blob_path: `blobs/ab/${"a".repeat(64)}.pdf`,
+              filename: "alrajeh.pdf",
+            },
+          },
+          { chain: fakeChain() },
+        ),
+      ).rejects.toThrow(InvalidSourceInputError);
+    });
+
+    it("rejects a malformed blob path as a German banner, not an unhandled Error", async () => {
+      await addSource("src_falsch");
+      // resolveBlobPath answers a malformed path with a plain Error, which
+      // runPipelineAction would treat as a programming error and rethrow.
+      await expect(
+        enqueueSourceCorrection(
+          PROJECT_ID,
+          "src_falsch",
+          {
+            kind: "doi",
+            identifier: "10.1109/ICSE.2013.6606690",
+            uploadBlob: {
+              blob_path: "../../etc/passwd",
+              filename: "alrajeh.pdf",
+            },
+          },
+          { chain: fakeChain() },
+        ),
+      ).rejects.toThrow(InvalidSourceInputError);
+    });
+
+    it("rejects a filename carrying a path separator", async () => {
+      await addSource("src_falsch");
+      const frozen = RegisterStore.forProject(PROJECT_ID)
+        .blobs()
+        .put(Buffer.from("%PDF-1.7 das richtige Paper"), "pdf");
+      await expect(
+        enqueueSourceCorrection(
+          PROJECT_ID,
+          "src_falsch",
+          {
+            kind: "doi",
+            identifier: "10.1109/ICSE.2013.6606690",
+            uploadBlob: {
+              blob_path: frozen.blobPath,
+              filename: "../../alrajeh.pdf",
+            },
+          },
+          { chain: fakeChain() },
+        ),
+      ).rejects.toThrow(InvalidSourceInputError);
+    });
   });
 });
 

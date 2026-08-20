@@ -40,6 +40,12 @@ export interface ManualCaptureInput {
   documentUrl?: string;
   manual?: ManualMetadata;
   upload?: { content: Buffer; filename: string };
+  /** An upload that is ALREADY frozen in the blob store — the confirm half
+   * of the derive→confirm correction wizard (D-15). The derive step froze
+   * the bytes to answer "what document is this?", so the confirm submit
+   * sends a reference instead of the file again. Takes precedence over
+   * `upload`; see freezeUpload. */
+  uploadBlob?: { blob_path: string; filename: string };
 }
 
 /** Injectable chain accessors, for tests; production uses the globals. */
@@ -107,6 +113,50 @@ function displayLabel(input: {
 }
 
 /**
+ * Validates a blob reference the BROWSER supplied (threat T-l0f-01).
+ *
+ * Traversal is already ruled out by `BlobPath` inside `resolveBlobPath`,
+ * and the project id comes from the route, so the reachable set is this
+ * project's own blobs — but `resolveBlobPath` signals a mismatch with a
+ * plain `Error`, and a plain Error is a PROGRAMMING error to
+ * `runPipelineAction`: it would escape the server action unhandled instead
+ * of rendering the German banner every other bad input renders. Both a
+ * throw and an honest `false` therefore become an `InvalidSourceInputError`
+ * here, before the reference is trusted anywhere downstream.
+ *
+ * The filename is checked with the same seriousness because it is
+ * load-bearing rather than decorative: `toCaptureSourceInput` hands it to
+ * `acquireDocument`, which re-derives the document's extension from it via
+ * `extFromFilename` — so the filename decides whether the bytes meet the
+ * `%PDF-` signature check.
+ */
+function assertFrozenUpload(
+  store: ReturnType<typeof requireProjectStore>,
+  uploadBlob: { blob_path: string; filename: string },
+): { blob_path: string; filename: string } {
+  const filename = uploadBlob.filename.trim();
+  if (filename.length === 0 || /[/\\]/.test(filename)) {
+    throw new InvalidSourceInputError(
+      "Der Dateiname des vorbereiteten Dokuments ist ungültig – " +
+        "bitte das Dokument erneut hochladen.",
+    );
+  }
+  let exists: boolean;
+  try {
+    exists = store.blobs().exists(uploadBlob.blob_path);
+  } catch {
+    exists = false;
+  }
+  if (!exists) {
+    throw new InvalidSourceInputError(
+      "Das vorbereitete Dokument ist nicht mehr auffindbar – " +
+        "bitte das Dokument erneut hochladen.",
+    );
+  }
+  return { blob_path: uploadBlob.blob_path, filename };
+}
+
+/**
  * Freezes an uploaded document into the blob store so the queue never
  * holds bytes, and enforces that an upload-kind input actually carries
  * one — the shared front half of every enqueue path.
@@ -115,6 +165,13 @@ function freezeUpload(
   store: ReturnType<typeof requireProjectStore>,
   input: Omit<ManualCaptureInput, "sourceType">,
 ): { blob_path: string; filename: string } | undefined {
+  // Already frozen by the derive step (D-15): reuse the reference and put
+  // NOTHING, so the bytes travel from the browser exactly once. The
+  // `kind === "upload"` requirement below is satisfied by construction on
+  // this path — a pre-frozen reference IS the document it asks for.
+  if (input.uploadBlob !== undefined) {
+    return assertFrozenUpload(store, input.uploadBlob);
+  }
   let uploadBlob: { blob_path: string; filename: string } | undefined;
   if (input.upload !== undefined) {
     const blob = store
@@ -177,7 +234,7 @@ export async function enqueueManualCapture(
     label: displayLabel({
       manual: input.manual,
       identifier: input.identifier,
-      uploadFilename: input.upload?.filename,
+      uploadFilename: input.upload?.filename ?? input.uploadBlob?.filename,
       kind: input.kind,
     }),
     request,
@@ -250,7 +307,7 @@ export async function enqueueSourceCorrection(
     label: displayLabel({
       manual: input.manual,
       identifier: input.identifier,
-      uploadFilename: input.upload?.filename,
+      uploadFilename: input.upload?.filename ?? input.uploadBlob?.filename,
       kind: input.kind,
     }),
     request,
@@ -434,6 +491,10 @@ function itemFromDurableInput(
     label: displayLabel({
       manual: input.manual,
       identifier: input.identifier,
+      // The DURABLE input (CaptureFailureInput, a strictObject) carries a
+      // frozen upload under `upload` and has no `uploadBlob` member — the
+      // register schema is deliberately untouched by the derive→confirm
+      // round trip.
       uploadFilename: input.upload?.filename,
       kind: input.kind,
     }),
