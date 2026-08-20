@@ -376,7 +376,7 @@ export function CorrectSourceForm({
       ) : null}
       {state.revised === false ? (
         <SuccessBanner>
-          Inhalt unverändert (Prüfsumme identisch) – keine neue Fevision.
+          Inhalt unverändert (Prüfsumme identisch) – keine neue Revision.
         </SuccessBanner>
       ) : null}
       {open ? (
