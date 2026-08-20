@@ -281,7 +281,18 @@ export async function correctSourceAction(
   }
   // A revision pulls affected claims back to recheck_required — auto-chain
   // an existence check so they don't sit unchecked until someone notices.
-  enqueueExistenceCheck(projectId);
+  // Only when it actually pulled some back, though: a checksum-identical
+  // re-upload writes nothing at all, and an existence_check trigger fans
+  // repair evaluation out across the WHOLE project through
+  // runs/auto-chain.ts and sources/auto-repair/candidates.ts. That fan-out
+  // is how a no-op re-upload produced a junk 37 %-confidence repair
+  // suggestion in the live project. The queued correction path already
+  // gates the same call this way in sources/work-items/run-item.ts.
+  if (result.value.recheckedClaimIds.length > 0) {
+    enqueueExistenceCheck(projectId);
+  }
+  // Unconditional by contrast: the form state changes either way, so the
+  // page has to re-render even for the no-op.
   revalidatePath(`/projects/${projectId}`);
   return {
     error: null,
