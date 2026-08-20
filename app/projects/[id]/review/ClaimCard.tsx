@@ -23,7 +23,7 @@ import {
 } from "../../verdict-labels";
 import { ComplaintDialog } from "./ComplaintDialog";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
-import { ROUTING_LABELS } from "./routing-labels";
+import { ROUTING_LABELS, routingSupersededByVerdict } from "./routing-labels";
 
 /**
  * A claim as a margin card beside its anchor paragraph. Collapsed: identity,
@@ -112,7 +112,7 @@ export function ClaimCard({
             {verdict.phrase}
           </span>
         ) : null}
-        {routing ? (
+        {routing && !routingSupersededByVerdict(routing, verdict) ? (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
             {ROUTING_LABELS[routing]}
           </span>
