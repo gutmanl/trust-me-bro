@@ -113,17 +113,25 @@ function ManualFields({ required }: { required: boolean }) {
 }
 
 /**
- * The identity half both modals share (source correction): kind tabs plus
- * the identifier/document-URL/metadata/file inputs of that kind. Renders
- * INSIDE the caller's form — the caller owns the hidden `kind` input, the
- * submit button and whatever else its use-case needs around this.
+ * The identity half every modal mode shares (source correction): kind tabs
+ * plus the identifier/document-URL/metadata/file inputs of that kind.
+ * Renders INSIDE the caller's form — the caller owns the hidden `kind`
+ * input, the submit button and whatever else its use-case needs around this.
+ *
+ * `withDocument={false}` keeps the full kind tabs but drops every input
+ * that would acquire a document — the document-URL field and the file
+ * picker, for EVERY kind including `upload`. That is what lets the
+ * metadata-only mode correct a bibliographic identity without asking for
+ * the document again.
  */
 function IdentityFields({
   kind,
   onKindChange,
+  withDocument = true,
 }: {
   kind: Kind;
   onKindChange: (kind: Kind) => void;
+  withDocument?: boolean;
 }) {
   return (
     <>
@@ -177,7 +185,7 @@ function IdentityFields({
         </div>
       ) : null}
 
-      {kind === "doi" ? (
+      {kind === "doi" && withDocument ? (
         <div>
           <label
             htmlFor="document_url"
@@ -197,7 +205,7 @@ function IdentityFields({
 
       {kind === "url" || kind === "upload" ? <ManualFields required /> : null}
 
-      {kind !== "url" ? (
+      {kind !== "url" && withDocument ? (
         <div>
           <label htmlFor="file" className="mb-1 block text-sm font-medium">
             {kind === "upload"
@@ -317,14 +325,55 @@ function CaptureSourceModal({
 
 const initialCorrectState: CorrectSourceFormState = { error: null };
 
+/** The correction modal's three modes. `both` is the historical `identity`
+ * mode — renamed once metadata-only existed, because "identity" no longer
+ * says which of the two it is. */
+type CorrectionMode = "document" | "metadata" | "both";
+
+const CORRECTION_MODE_TABS: readonly {
+  value: CorrectionMode;
+  label: string;
+}[] = [
+  { value: "document", label: "Dokument aktualisieren" },
+  { value: "metadata", label: "Nur Metadaten korrigieren" },
+  { value: "both", label: "Kennung und Dokument korrigieren" },
+];
+
+/** Submit labels per mode, idle and pending — a lookup rather than nested
+ * ternaries, so a fourth mode cannot be half-labelled. */
+const CORRECTION_SUBMIT_LABELS: Record<
+  CorrectionMode,
+  { idle: string; pending: string }
+> = {
+  document: { idle: "Neue Fassung erstellen", pending: "Wird revidiert …" },
+  metadata: { idle: "Metadaten korrigieren", pending: "Wird korrigiert …" },
+  both: { idle: "Korrektur starten", pending: "Wird eingereiht …" },
+};
+
+/** Every success discriminant of correctSourceAction, in ONE place: each
+ * mode reports its outcome under its own field, and a mode missing from
+ * this predicate would silently leave the modal open on success. */
+function correctionSucceeded(state: CorrectSourceFormState): boolean {
+  return (
+    state.revised !== undefined ||
+    state.metadataCorrected !== undefined ||
+    state.queuedCorrection !== undefined
+  );
+}
+
 /**
  * Per-source "Quelle korrigieren" (TMB-44 revision + source correction),
- * behind one modal with two modes: document mode re-freezes the current
- * document (identical content is recognized via checksum and changes
- * nothing); identity mode replaces a wrong — typically hallucinated —
- * DOI/URL by re-capturing the identity on the same source id, queued as a
- * work item whose progress the row shows. The outcome banners render under
- * the trigger, where the row shows them after the modal closed.
+ * behind one modal with three modes:
+ *
+ * - document — re-freezes the current document (identical content is
+ *   recognized via checksum and changes nothing), identity untouched;
+ * - metadata — replaces a wrong — typically hallucinated — bibliographic
+ *   identity and leaves the frozen document exactly as it is, synchronously;
+ * - both — re-captures identity AND document on the same source id, queued
+ *   as a work item whose progress the row shows.
+ *
+ * The outcome banners render under the trigger, where the row shows them
+ * after the modal closed.
  */
 export function CorrectSourceForm({
   projectId,
@@ -340,20 +389,17 @@ export function CorrectSourceForm({
   currentSourceType: SourceType;
 }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"document" | "identity">("document");
+  const [mode, setMode] = useState<CorrectionMode>("document");
   const [kind, setKind] = useState<Kind>(currentKind);
   const [state, formAction, pending] = useActionState(
     correctSourceAction.bind(null, projectId, sourceId),
     initialCorrectState,
   );
   // Close on a successful submit (state identity change), like the capture
-  // modal — either mode's success marker counts.
+  // modal — any mode's success marker counts.
   const adopted = useRef<CorrectSourceFormState | undefined>(undefined);
   useEffect(() => {
-    if (
-      (state.revised !== undefined || state.queuedCorrection !== undefined) &&
-      adopted.current !== state
-    ) {
+    if (correctionSucceeded(state) && adopted.current !== state) {
       adopted.current = state;
       setOpen(false);
     }
@@ -379,20 +425,38 @@ export function CorrectSourceForm({
           Inhalt unverändert (Prüfsumme identisch) – keine neue Revision.
         </SuccessBanner>
       ) : null}
+      {state.metadataCorrected === true ? (
+        <SuccessBanner>
+          Metadaten korrigiert – {state.recheckedCount} Aussage(n) zur
+          Nachprüfung markiert.
+        </SuccessBanner>
+      ) : null}
       {open ? (
         <Modal title="Quelle korrigieren" onClose={() => setOpen(false)}>
           <form action={formAction} className="space-y-4">
             <input type="hidden" name="mode" value={mode} />
             <SegmentedTabs
-              tabs={[
-                { value: "document", label: "Dokument aktualisieren" },
-                { value: "identity", label: "Kennung korrigieren" },
-              ]}
+              tabs={CORRECTION_MODE_TABS}
               value={mode}
               onChange={setMode}
             />
 
-            {mode === "identity" ? (
+            {mode === "metadata" ? (
+              <>
+                <p className="text-xs text-amber-700">
+                  Nur die bibliografischen Angaben werden ersetzt – das
+                  eingefrorene Dokument bleibt unverändert. Betroffene Aussagen
+                  wandern zur Nachprüfung.
+                </p>
+                <input type="hidden" name="kind" value={kind} />
+                <IdentityFields
+                  kind={kind}
+                  onKindChange={setKind}
+                  withDocument={false}
+                />
+                <SourceTypeSelect defaultValue={currentSourceType} />
+              </>
+            ) : mode === "both" ? (
               <>
                 <p className="text-xs text-amber-700">
                   Für eine falsch aufgelöste Kennung (z.&nbsp;B. eine
@@ -454,12 +518,8 @@ export function CorrectSourceForm({
                 className={primaryButtonClass}
               >
                 {pending
-                  ? mode === "identity"
-                    ? "Wird eingereiht …"
-                    : "Wird revidiert …"
-                  : mode === "identity"
-                    ? "Korrektur starten"
-                    : "Neue Fassung erstellen"}
+                  ? CORRECTION_SUBMIT_LABELS[mode].pending
+                  : CORRECTION_SUBMIT_LABELS[mode].idle}
               </button>
               <button
                 type="button"

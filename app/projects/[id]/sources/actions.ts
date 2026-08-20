@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { runPipelineAction } from "@/app/lib/pipeline-action";
 import {
   applySuggestedRepair,
+  correctSourceMetadata,
   dismissCaptureFailure,
   dismissRepairAction,
   enqueueExistenceCheck,
@@ -221,16 +222,24 @@ export interface CorrectSourceFormState {
   revised?: boolean;
   newRevision?: number;
   recheckedCount?: number;
-  /** Identity mode: work-item id of the queued correction — the modal
-   * closes on it; progress arrives through the source row's live state. */
+  /** Metadata mode, after a successful submit: the bibliographic core was
+   * replaced and the frozen document left alone. The count of readmitted
+   * claims rides on `recheckedCount`, shared with document mode. */
+  metadataCorrected?: true;
+  /** "Both" mode: work-item id of the queued correction — the modal closes
+   * on it; progress arrives through the source row's live state. */
   queuedCorrection?: string;
 }
 
 /**
- * The combined "Quelle korrigieren" action: document mode re-freezes the
- * current document synchronously (TMB-44 revision, unchanged semantics);
- * identity mode queues an asynchronous identity correction work item
- * (source correction) whose per-source status the row shows live.
+ * The combined "Quelle korrigieren" action, one per modal mode:
+ *
+ * - document — re-freezes the current document synchronously (TMB-44
+ *   revision, unchanged semantics), identity untouched;
+ * - metadata — replaces the bibliographic core synchronously and leaves the
+ *   frozen document exactly as it is (source correction, metadata mode);
+ * - both — queues an asynchronous identity correction work item whose
+ *   per-source status the row shows live.
  */
 export async function correctSourceAction(
   projectId: string,
@@ -240,7 +249,56 @@ export async function correctSourceAction(
 ): Promise<CorrectSourceFormState> {
   const mode = String(formData.get("mode") ?? "document");
 
-  if (mode === "identity") {
+  if (mode === "metadata") {
+    const kind = String(formData.get("kind") ?? "");
+    if (!CAPTURE_KINDS.includes(kind as CaptureKind)) {
+      return { error: "Unbekannte Erfassungsart." };
+    }
+    const sourceType = optional(formData.get("source_type"));
+    if (
+      sourceType !== undefined &&
+      !SOURCE_TYPES.includes(sourceType as SourceType)
+    ) {
+      return { error: "Bitte einen Quellentyp wählen." };
+    }
+    // Picked field by field from the shared parser, deliberately NOT spread
+    // wholesale: CorrectSourceMetadataInput has no upload and no documentUrl
+    // member, so a spread would be a type error — and that type error is the
+    // design working. This mode must not carry a document even if a stray
+    // field ever appears in the FormData.
+    const identity = await parseIdentityFormData(formData);
+    const result = await runPipelineAction(() =>
+      correctSourceMetadata({
+        projectId,
+        sourceId,
+        kind: kind as CaptureKind,
+        ...(identity.identifier !== undefined
+          ? { identifier: identity.identifier }
+          : {}),
+        ...(identity.manual !== undefined ? { manual: identity.manual } : {}),
+        ...(sourceType !== undefined
+          ? { sourceType: sourceType as SourceType }
+          : {}),
+      }),
+    );
+    if (result.error !== null) {
+      return { error: result.error };
+    }
+    // Same gate as the document branch: only chain an existence check when
+    // claims actually came back, or the trigger fans repair evaluation out
+    // across the whole project for nothing.
+    if (result.value.recheckedClaimIds.length > 0) {
+      enqueueExistenceCheck(projectId);
+    }
+    revalidatePath(`/projects/${projectId}`);
+    return {
+      error: null,
+      metadataCorrected: true,
+      recheckedCount: result.value.recheckedClaimIds.length,
+    };
+  }
+
+  if (mode === "both") {
     const kind = String(formData.get("kind") ?? "");
     if (!CAPTURE_KINDS.includes(kind as CaptureKind)) {
       return { error: "Unbekannte Erfassungsart." };
