@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ClaimsRegister, Source } from "../../register";
+import type { ClaimsRegister, Source, SourceSnapshot } from "../../register";
 import exampleProject from "../../register/schema/__fixtures__/example-project.json";
 import { formatCitation } from "./csl";
 import { deriveOriginalIdentity } from "./original-identity";
@@ -213,11 +213,37 @@ describe("deriveOriginalIdentity", () => {
   it("returns undefined rather than dating the original by the correction's snapshot", () => {
     const source = correctedSource();
     delete source.custom.previous_snapshots;
+    // Revision 2 on THIS test's source only, so the fixture matches the case
+    // the test describes: a snapshot rotated BY the correction is revision 2 or
+    // higher, and only then is its retrieved_at the correction's date rather
+    // than the original capture's. The shared example-project fixture is
+    // ajv-validated across many suites and stays untouched.
+    const rotated = source.custom.snapshot as SourceSnapshot;
+    source.custom.snapshot = { ...rotated, revision: 2 };
     // Reachable without a corrupt register: correctSourceIdentity and
     // reviseSource are independent transaction capabilities, and a
     // foreign-authored .tmb bundle satisfies the schema in this state.
     expect(source.custom.snapshot?.retrieved_at).toBe("2026-07-28T08:05:12Z");
     expect(deriveOriginalIdentity(source)).toBeUndefined();
+  });
+
+  /**
+   * The metadata-only correction of the three-way correction modal archives an
+   * identity WITHOUT archiving a snapshot, because it never rotates the
+   * document. The current snapshot is then still revision 1, so its
+   * retrieved_at genuinely IS the original capture date and the block must
+   * keep rendering — without this the milestone's core value silently
+   * disappears for exactly the sources it was built for.
+   */
+  it("dates the original by the current snapshot while that is still revision 1", () => {
+    const source = correctedSource();
+    delete source.custom.previous_snapshots;
+    expect(source.custom.snapshot?.revision).toBe(1);
+
+    const projected = deriveOriginalIdentity(source);
+
+    expect(projected?.capturedAt).toBe("2026-07-28T08:05:12Z");
+    expect(projected?.citation).toBe("Mayer (2024), ACM TOSEM");
   });
 
   it("returns undefined when the source carries no snapshot at all", () => {

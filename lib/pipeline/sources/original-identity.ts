@@ -12,8 +12,9 @@ export interface OriginalIdentityVM {
   /** Citation label of `previous_identities[0].item`, formatted through the
    * same code path as the current identity so both read identically. */
   citation: string;
-  /** When the source was originally captured (ISO 8601) — revision 1's
-   * snapshot, not the current one. */
+  /** When the source was originally captured (ISO 8601) — always revision 1's
+   * snapshot, which is the CURRENT snapshot only when no correction and no
+   * revision ever rotated the document. */
   capturedAt: string;
   /** The archived item's own title. Present only when the citation does not
    * already carry it — an item without a usable author family is cited BY its
@@ -38,7 +39,8 @@ export interface OriginalIdentityVM {
  * `/projects/[id]` — the only place from which a source can be corrected — and
  * the register is append-only, so the offending row could not be deleted.
  * It holds because every value read below is either schema-validated
- * (`previous_snapshots[].retrieved_at`, `auto_capture.*`) or read through a
+ * (`previous_snapshots[].retrieved_at`, `snapshot.retrieved_at`,
+ * `auto_capture.*`) or read through a
  * shape guard: `previous_identities[].item` is a bare
  * `z.record(z.string(), z.unknown())`, so `formatCitationItem` and the
  * `fallbackLabel` derivation must treat its contents as hostile. `item.title`
@@ -59,20 +61,34 @@ export function deriveOriginalIdentity(
   }
 
   // The original capture date is revision 1's snapshot, NOT the current one:
-  // every identity correction revises the snapshot before archiving the
-  // identity, so on a corrected source `custom.snapshot.retrieved_at` is the
-  // correction date. `previous_snapshots` is append-only in revision order and
-  // revisions start at 1, so [0] — and only [0] — is the original capture.
+  // an identity correction that ROTATES the document revises the snapshot
+  // before archiving the identity, so on such a source
+  // `custom.snapshot.retrieved_at` is the correction date.
+  // `previous_snapshots` is append-only in revision order and revisions start
+  // at 1, so [0] — and only [0] — is the original capture.
   //
-  // No fallback to `custom.snapshot`: that value is the correction's date, and
-  // the app renders this field under the label "Erfasst am", so falling back
-  // would assert the one thing this projection exists to disprove. The state is
-  // reachable — `tx.correctSourceIdentity` and `tx.reviseSource` are
-  // independent transaction capabilities, and a hand-edited or
-  // foreign-authored .tmb bundle satisfies the schema with an archived identity
-  // and no archived snapshot — so it fails closed, like the no-snapshot-at-all
-  // case always has: with no original date to state, there is nothing to state.
-  const originalSnapshot = source.custom.previous_snapshots?.[0];
+  // With nothing archived, `custom.snapshot` may stand in ONLY while it is
+  // still revision 1. Revision 1 means no correction and no revision ever
+  // rotated the document, so that snapshot IS the original capture and its
+  // `retrieved_at` is honest under the app's "Erfasst am" label. That is the
+  // metadata-only correction of the three-way correction modal: it archives an
+  // identity and deliberately leaves the document alone, and without this the
+  // "Ursprünglich erfasst als:" block would silently vanish for exactly the
+  // sources this projection exists for.
+  //
+  // NARROWED, never removed: for revision > 1 the refusal stays exactly as it
+  // was written. That value is then the date of whichever revision rotated the
+  // document, and falling back to it would assert the one thing this
+  // projection exists to disprove. The state is reachable —
+  // `tx.correctSourceIdentity` and `tx.reviseSource` are independent
+  // transaction capabilities, and a hand-edited or foreign-authored .tmb
+  // bundle satisfies the schema with an archived identity and a rotated
+  // snapshot — so it fails closed, like the no-snapshot-at-all case always
+  // has: with no original date to state, there is nothing to state.
+  const currentSnapshot = source.custom.snapshot;
+  const originalSnapshot =
+    source.custom.previous_snapshots?.[0] ??
+    (currentSnapshot?.revision === 1 ? currentSnapshot : undefined);
   if (!originalSnapshot) {
     return undefined;
   }
