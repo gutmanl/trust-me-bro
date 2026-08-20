@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import type { Source } from "../../register";
-import { PipelineError, UnknownSourceError } from "../errors";
+import { PipelineError, RunActiveError, UnknownSourceError } from "../errors";
 import { requireProjectStore } from "../projects";
 import { hasCaptureInFlight } from "../runs/auto-chain";
 import type { CaptureChainAccess } from "../runs/auto-chain";
+import { describeBlockingActivity } from "../runs/control";
+import { getGlobalJobRunner } from "../runs/job-runner";
+import type { JobRunner } from "../runs/job-runner";
 import { CORRECTION_ACTOR } from "./correction";
 import { sweepSourceRecheck } from "./recheck";
 
@@ -44,8 +47,21 @@ export interface RevertSourceIdentityResult {
 export async function revertSourceIdentity(
   projectId: string,
   sourceId: string,
-  deps: { chain?: CaptureChainAccess } = {},
+  deps: { chain?: CaptureChainAccess; runner?: JobRunner } = {},
 ): Promise<RevertSourceIdentityResult> {
+  // The same guard, and for the same reason, as reviseSource and
+  // correctSourceMetadata: a revert can rotate the frozen document back to
+  // an archived revision, and a verification/relevance run caches the
+  // sources once at its start — so a revert landing mid-run would let that
+  // run keep settling claims against a document the register has just
+  // disowned, contradicting the recheck marking this very function writes.
+  // hasCaptureInFlight below is NOT a substitute: it sees queued capture and
+  // correction work items for this source, not a run already in progress.
+  const runner = deps.runner ?? getGlobalJobRunner();
+  const blocking = describeBlockingActivity(projectId);
+  if (blocking || runner.isRunning(projectId)) {
+    throw new RunActiveError(projectId, blocking);
+  }
   const store = requireProjectStore(projectId);
   const register = await store.read();
   const source = register.sources.find((entry) => entry.id === sourceId);

@@ -6,9 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RegisterStore } from "../../register";
 import type { SourceSnapshot } from "../../register";
-import { PipelineError } from "../errors";
+import { PipelineError, RunActiveError } from "../errors";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
 import { createProject } from "../projects";
+import type { JobRunner } from "../runs/job-runner";
 import { captureSource } from "./capture";
 import { correctSource } from "./correction";
 import { fakeFetcher, CSL_JSON_RESPONSE } from "./__fixtures__/fake-fetcher";
@@ -98,6 +99,19 @@ async function reviseDocument(sourceId: string, text: string): Promise<void> {
       revision: current.revision + 1,
     });
   });
+}
+
+/** A runner that reports a run in progress, so the guard is reached without
+ * standing up a real one — same stub shape correction.test.ts uses. */
+function busyRunner(): JobRunner {
+  return {
+    isRunning: () => true,
+    currentRun: () => undefined,
+    submit: () => {
+      throw new Error("submit is not reachable from this guard test");
+    },
+    subscribeRunStarts: () => () => {},
+  };
 }
 
 describe("revertSourceIdentity", () => {
@@ -207,6 +221,29 @@ describe("revertSourceIdentity", () => {
     await expect(
       revertSourceIdentity(PROJECT, sourceId, { chain }),
     ).rejects.toThrow(/läuft bereits eine Korrektur/);
+  });
+
+  it("refuses while a run of the same project is active", async () => {
+    // The in-flight-correction guard above does NOT cover this: it sees
+    // queued capture/correction work items, not a verification run already
+    // under way. A revert rotates the frozen document, and a run caches the
+    // sources once at its start, so without this guard the run would keep
+    // settling claims against a document the revert has just replaced.
+    const sourceId = await captureOriginal();
+    await applyWrongCorrection(sourceId);
+    const store = RegisterStore.forProject(PROJECT);
+    const before = await store.read();
+    await expect(
+      revertSourceIdentity(PROJECT, sourceId, { runner: busyRunner() }),
+    ).rejects.toBeInstanceOf(RunActiveError);
+    const after = await store.read();
+    expect(after.project_events).toHaveLength(before.project_events.length);
+    expect(
+      after.sources.find((candidate) => candidate.id === sourceId)?.custom
+        .snapshot?.revision,
+    ).toBe(
+      before.sources.find((c) => c.id === sourceId)?.custom.snapshot?.revision,
+    );
   });
 
   it("restores the snapshot the correction replaced, not the newest archived one", async () => {
