@@ -3,7 +3,8 @@
 import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
 import type { RoutingReason } from "@/lib/register";
 import {
-  isCaveatParagraph,
+  classifyReasoningParagraph,
+  reasoningRoleClassName,
   splitReasoningParagraphs,
 } from "../../reasoning-paragraphs";
 import {
@@ -194,11 +195,9 @@ export function ClaimCard({
                     (paragraph, index) => (
                       <p
                         key={index}
-                        className={
-                          isCaveatParagraph(paragraph)
-                            ? "border-l-2 border-amber-300 pl-2 text-amber-800"
-                            : undefined
-                        }
+                        className={reasoningRoleClassName(
+                          classifyReasoningParagraph(paragraph),
+                        )}
                       >
                         {paragraph}
                       </p>
@@ -381,11 +380,9 @@ function EvidenceCard({
                     (paragraph, paragraphIndex) => (
                       <p
                         key={paragraphIndex}
-                        className={
-                          isCaveatParagraph(paragraph)
-                            ? "border-l-2 border-amber-300 pl-2 text-amber-800"
-                            : undefined
-                        }
+                        className={reasoningRoleClassName(
+                          classifyReasoningParagraph(paragraph),
+                        )}
                       >
                         {paragraph}
                       </p>
