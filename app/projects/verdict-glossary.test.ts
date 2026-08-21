@@ -140,3 +140,105 @@ describe("substituteVerdictProse — quote safety", () => {
     idempotent(stored, evidence);
   });
 });
+
+describe("substituteVerdictProse — evidence-id referents", () => {
+  const MEYER = "Meyer et al. (2025), IEEE TSE";
+  const evidenceOf = (
+    overrides: Partial<VerdictProseEvidence> = {},
+  ): VerdictProseEvidence[] => [
+    {
+      id: "ev_0001",
+      number: 7,
+      citation: MEYER,
+      verbatimExcerpt: "the tool builds incrementally",
+      ...overrides,
+    },
+  ];
+
+  it("resolves an id through THIS claim's evidence", () => {
+    expect(
+      substituteVerdictProse("Wie in ev_0001 gezeigt.", evidenceOf()),
+    ).toBe(`Wie in [7] (${MEYER}) gezeigt.`);
+  });
+
+  it("leaves an id that is not this claim's verbatim", () => {
+    // A wrong bracket number is worse than a raw token: it would point the
+    // reviewer at another claim's evidence.
+    expect(
+      substituteVerdictProse("Wie in ev_0042 gezeigt.", evidenceOf()),
+    ).toBe("Wie in ev_0042 gezeigt.");
+  });
+
+  it("renders the bracket alone when no citation is known", () => {
+    expect(
+      substituteVerdictProse(
+        "Wie in ev_0001 gezeigt.",
+        evidenceOf({ citation: undefined }),
+      ),
+    ).toBe("Wie in [7] gezeigt.");
+  });
+
+  it("renders the citation alone when no number is known", () => {
+    // Losing the bracket loses only the affordance; the citation carries
+    // the meaning.
+    expect(
+      substituteVerdictProse(
+        "Wie in ev_0001 gezeigt.",
+        evidenceOf({ number: undefined }),
+      ),
+    ).toBe(`Wie in (${MEYER}) gezeigt.`);
+  });
+
+  it("leaves the id verbatim when neither is known", () => {
+    expect(
+      substituteVerdictProse(
+        "Wie in ev_0001 gezeigt.",
+        evidenceOf({ number: undefined, citation: undefined }),
+      ),
+    ).toBe("Wie in ev_0001 gezeigt.");
+  });
+
+  it("keeps the referent stable when an earlier claim is inserted", () => {
+    // buildBriefingViewModel numbers evidence GLOBALLY in deterministic
+    // claim order, so inserting a claim earlier in that order shifts every
+    // later bracket. An immutable, hash-chained sentence written in March
+    // must not name a different source today, and two exports taken at
+    // different times must not disagree. This case fails by construction if
+    // bare bracket numbers are ever chosen as the referent.
+    const before = substituteVerdictProse(
+      "Wie in ev_0001 gezeigt.",
+      evidenceOf({ number: 7 }),
+    );
+    const after = substituteVerdictProse(
+      "Wie in ev_0001 gezeigt.",
+      evidenceOf({ number: 24 }),
+    );
+    expect(before).toContain(MEYER);
+    expect(after).toContain(MEYER);
+    expect(before.replace("[7]", "")).toBe(after.replace("[24]", ""));
+  });
+
+  it("does not resolve an id inside a quoted run", () => {
+    const stored = "Der Autor schreibt „siehe ev_0001“ dazu.";
+    expect(substituteVerdictProse(stored, evidenceOf())).toBe(stored);
+  });
+
+  it("does not resolve any id when the quote structure is refused", () => {
+    const stored = "Der Autor schreibt „siehe ev_0001 dazu.";
+    expect(substituteVerdictProse(stored, evidenceOf())).toBe(stored);
+  });
+
+  it("stays idempotent when the citation carries quote marks", () => {
+    // Substitution happens only OUTSIDE protected runs, so an inserted
+    // citation lands at a run boundary. An EVEN number of inserted marks
+    // forms a self-contained pair and leaves every later pairing unchanged;
+    // an ODD number makes some run unterminated on the second pass, and
+    // refusal returns the input unchanged. Either way pass two is identity.
+    for (const citation of [
+      "Meyer, „Belege“ (2025)",
+      "Meyer, „Belege (2025)",
+    ]) {
+      idempotent("Wie in ev_0001 gezeigt.", evidenceOf({ citation }));
+    }
+  });
+});
