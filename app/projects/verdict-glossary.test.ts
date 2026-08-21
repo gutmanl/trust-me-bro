@@ -1,7 +1,21 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
+import type {
+  CalibrationResult,
+  ClaimType,
+  RelationType,
+  SourceType,
+  SupportDegree,
+} from "@/lib/register";
+import { CALIBRATION_LABELS } from "./status-labels";
 import {
   substituteVerdictProse,
+  VERDICT_PROSE,
+  type RubricRuleKey,
   type VerdictProseEvidence,
 } from "./verdict-glossary";
 
@@ -241,4 +255,136 @@ describe("substituteVerdictProse — evidence-id referents", () => {
       idempotent("Wie in ev_0001 gezeigt.", evidenceOf({ citation }));
     }
   });
+});
+
+// Enumerated as typed const arrays, exactly like verdict-labels.test.ts: a
+// new enum member fails to COMPILE here instead of slipping through as an
+// unsubstituted token. `app/**` sits outside `coverage.include`, so this is
+// the only exhaustiveness pressure this module will ever get.
+const CLAIM_TYPES: ClaimType[] = [
+  "quantitative_finding",
+  "comparative_statement",
+  "effectiveness_statement",
+  "recommendation",
+];
+const RELATIONS: RelationType[] = [
+  "supports",
+  "partially_supports",
+  "contradicts",
+  "not_relevant",
+];
+const SUPPORT_DEGREES: SupportDegree[] = [
+  "supported",
+  "partially_supported",
+  "unsupported",
+  "uncertain",
+];
+const CALIBRATIONS: CalibrationResult[] = [
+  "licensed",
+  "weakened",
+  "pending_adjudication",
+];
+const SOURCE_TYPES: SourceType[] = [
+  "peer_reviewed_publication",
+  "preprint",
+  "grey_literature",
+  "vendor_documentation",
+];
+const RUBRIC_RULE_KEYS: RubricRuleKey[] = [
+  "min_pertinent_sources",
+  "required_source_types_any",
+  "min_source_type_diversity",
+  "insufficient_if_only",
+];
+
+describe("VERDICT_PROSE", () => {
+  it("covers the closed-vocabulary union exactly", () => {
+    const union = [
+      ...CLAIM_TYPES,
+      ...RELATIONS,
+      ...SUPPORT_DEGREES,
+      ...CALIBRATIONS,
+      ...SOURCE_TYPES,
+      ...RUBRIC_RULE_KEYS,
+    ];
+    // pending_adjudication is a member of BOTH ClaimStatus and
+    // CalibrationResult (enums.ts documents that as deliberate); it enters
+    // this map through CalibrationResult alone, once.
+    expect(Object.keys(VERDICT_PROSE).sort()).toEqual([...union].sort());
+    expect(union).toHaveLength(23);
+  });
+
+  it("labels every key in non-empty German", () => {
+    for (const value of Object.values(VERDICT_PROSE)) {
+      expect(value.trim()).toBe(value);
+      expect(value.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("has no value that is itself a key", () => {
+    // The second half of the idempotency guarantee — the first half is the
+    // single-pass alternation. If a German value were a key, a second pass
+    // over already-rendered prose would substitute it again.
+    for (const value of Object.values(VERDICT_PROSE)) {
+      expect(value in VERDICT_PROSE).toBe(false);
+    }
+  });
+
+  it("is not the badge label map", () => {
+    // The grammar reason, which is the whole reason two maps exist:
+    // "abgeschwächt" is a participle that sits in a sentence, "abschwächen"
+    // is an infinitive that cannot ("Das Ergebnis ist abschwächen."). This
+    // assertion is what a future "DRY these two maps" refactor trips over,
+    // which is exactly what it is for.
+    expect(VERDICT_PROSE.weakened).toBe("abgeschwächt");
+    expect(CALIBRATION_LABELS.weakened).toBe("abschwächen");
+    expect(VERDICT_PROSE.weakened).not.toBe(CALIBRATION_LABELS.weakened);
+  });
+});
+
+describe("placement", () => {
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+  );
+
+  function sourceFiles(dir: string): string[] {
+    const absolute = path.join(repoRoot, dir);
+    return fs
+      .readdirSync(absolute, { recursive: true, encoding: "utf8" })
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => path.join(absolute, name));
+  }
+
+  it("is unreachable from the domain core", () => {
+    // v1.0's Key Decisions record: never touch formatCitationItem globally
+    // for display needs, because it also feeds LLM prompt input and the
+    // persisted briefing footnote. The glossary is the same hazard with a
+    // new name — proposeRepair builds claim_json/evidence_json from register
+    // data that must stay machine-shaped, and a .tmb bundle must reproduce
+    // the register byte for byte. Placement in app/ makes the leak
+    // structurally impossible; this asserts nobody moved it.
+    for (const file of [...sourceFiles("lib"), ...sourceFiles("cli")]) {
+      expect(
+        fs.readFileSync(file, "utf8"),
+        `${file} references the display glossary`,
+      ).not.toContain("verdict-glossary");
+    }
+  });
+
+  it("is absent from the pipeline barrel", () => {
+    // The barrel is where a display-only export would first become
+    // reachable from lib/ and from the export path.
+    expect(
+      fs.readFileSync(path.join(repoRoot, "lib/pipeline/index.ts"), "utf8"),
+    ).not.toContain("verdict-glossary");
+  });
+
+  // No export round-trip assertion here on purpose: render-briefing.ts
+  // renders status, relation and evidence numbers and NO reasoning at all,
+  // so there is no rendered prose in briefing.md or a .tmb bundle for the
+  // glossary to leak into. Unreachability from lib/** is the assertion that
+  // actually holds — and it keeps holding if render-briefing.ts ever grows a
+  // reasoning section.
 });
