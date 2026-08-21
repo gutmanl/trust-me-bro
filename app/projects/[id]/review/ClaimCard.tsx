@@ -165,13 +165,6 @@ export function ClaimCard({
             <details className="rounded-md border border-slate-200">
               <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600">
                 Automatische Vorprüfung der Aussage
-                {verdict ? (
-                  <span
-                    className={`ml-2 rounded-full px-2 py-0.5 ${verdictBadgeClassName(verdict.severity)}`}
-                  >
-                    {verdict.phrase}
-                  </span>
-                ) : null}
               </summary>
               <dl className="space-y-1 px-3 pb-3 text-xs text-slate-700">
                 {claim.support_degree ? (
