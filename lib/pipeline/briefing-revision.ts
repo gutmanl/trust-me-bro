@@ -4,6 +4,9 @@ import type { BriefingDraft, BriefingImport } from "../register";
 import { sha256Hex, splitBriefingParagraphs } from "../register";
 import { computeReanchorUpdates } from "./briefing-reanchor";
 import { importBriefing } from "./briefing";
+import type { BriefingImportOutcome } from "./briefing";
+import { desugarBriefingCitations } from "./sources/reference-scan/desugar-citations";
+import type { BriefingCitationRewrite } from "./sources/reference-scan/desugar-citations";
 import {
   BriefingRevisionPreconditionError,
   InvalidBriefingInputError,
@@ -75,6 +78,12 @@ export interface PublishBriefingRevisionInput {
    * system token, so a mechanical revision is never misattributed to a
    * person. Ignored on the initial-import path. */
   actor?: ActorId;
+  /** OPTIONAL companion BibTeX file (BibTeX support). Its citations are
+   * desugared into footnotes BEFORE anything is hashed or frozen, so this
+   * works the same way on the initial-import path and on a later revision:
+   * what the register stores is always the rewritten, self-contained text.
+   * The `.bib` is not persisted. */
+  bibliography?: string;
 }
 
 /**
@@ -107,15 +116,15 @@ export interface PublishBriefingRevisionInput {
 export async function publishBriefingRevision(
   projectId: string,
   input: PublishBriefingRevisionInput,
-): Promise<BriefingImport> {
+): Promise<BriefingImportOutcome> {
   if (getGlobalJobRunner().isRunning(projectId)) {
     const blocking = describeBlockingActivity(projectId);
     throw new RunActiveError(projectId, blocking);
   }
   const store = requireProjectStore(projectId);
   const draft = store.readDraft();
-  const text = input.text ?? draft?.text;
-  if (text === undefined || text.trim().length === 0) {
+  const submitted = input.text ?? draft?.text;
+  if (submitted === undefined || submitted.trim().length === 0) {
     throw new BriefingRevisionPreconditionError(
       "Die überarbeitete Fassung darf nicht leer sein.",
     );
@@ -123,6 +132,7 @@ export async function publishBriefingRevision(
 
   const register = await store.read();
   const current = register.project.briefing_import;
+  const bibliography = input.bibliography?.trim();
 
   if (!current) {
     const tool = input.tool?.trim();
@@ -131,17 +141,37 @@ export async function publishBriefingRevision(
         "Bitte das erzeugende Werkzeug angeben (z. B. den Namen des Deep-Research-Tools).",
       );
     }
-    const result = await importBriefing({ projectId, content: text, tool });
+    // The initial-import path hands the bibliography down rather than
+    // desugaring here: importBriefing owns that rewrite (and the reserved
+    // tool-prefix guard), so there is exactly one place where a briefing's
+    // first frozen text is decided.
+    const result = await importBriefing({
+      projectId,
+      content: submitted,
+      tool,
+      ...(bibliography ? { bibliography } : {}),
+    });
     store.clearDraft();
     return result;
   }
 
+  // A revision may bring its own bibliography too, and the rewrite has to
+  // happen BEFORE the checksum comparison below — otherwise re-publishing
+  // the same Pandoc text with the same .bib would look like a change on the
+  // first publish and like a no-op on the second, or vice versa.
+  const rewrite = bibliography
+    ? desugarBriefingCitations(submitted, bibliography)
+    : null;
+  const text = rewrite?.text ?? submitted;
+
   const sha256 = sha256Hex(text);
   if (sha256 === current.sha256) {
     // Recognized via checksum, deliberately a total no-op: no revision
-    // bump, no event, no re-anchor pass, no register write at all.
+    // bump, no event, no re-anchor pass, no register write at all. The
+    // rewrite report still travels back — the user asked what the .bib did
+    // to their text, and "nothing changed" is part of that answer.
     store.clearDraft();
-    return current;
+    return withRewriteReport(current, rewrite);
   }
 
   const blob = store.blobs().put(text, "md");
@@ -174,5 +204,17 @@ export async function publishBriefingRevision(
 
   await store.renderBriefingFile(briefingRenderContext(await store.read()));
   store.clearDraft();
-  return briefingImport;
+  return withRewriteReport(briefingImport, rewrite);
+}
+
+/** Attaches the citation-rewrite report to the returned briefing, if there
+ * was one. Separate from the register value on purpose: nothing here is
+ * persisted, it only rides back to the UI that asked for the rewrite. */
+function withRewriteReport(
+  briefing: BriefingImport,
+  rewrite: BriefingCitationRewrite | null,
+): BriefingImportOutcome {
+  return rewrite === null
+    ? briefing
+    : { ...briefing, citationRewrite: rewrite.report };
 }

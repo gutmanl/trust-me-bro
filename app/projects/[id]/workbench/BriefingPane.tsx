@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { ResearchHub } from "@/app/components/ResearchHub";
 import {
@@ -12,6 +12,7 @@ import {
 import type {
   BriefingDraft,
   BriefingViewModel,
+  CitationRewriteReport,
   EvidenceDisplay,
   QueueEntry,
 } from "@/lib/pipeline";
@@ -68,6 +69,13 @@ export function BriefingPane({
   onHoverParagraph: (index: number | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // BibTeX support: the citation-rewrite report lives HERE, not in the
+  // import pane that produced it — publishing makes the briefing exist,
+  // which unmounts that pane on the very next render. Held one level up, the
+  // notice survives the switch into the reading view, which is the only
+  // moment the user can actually read it.
+  const [citationReport, setCitationReport] =
+    useState<CitationRewriteReport | null>(null);
 
   if (briefing === null || briefingText === null || briefingMeta === null) {
     return (
@@ -75,6 +83,7 @@ export function BriefingPane({
         projectId={projectId}
         researchQuestion={researchQuestion}
         draft={draft}
+        onCitationReport={setCitationReport}
       />
     );
   }
@@ -84,6 +93,10 @@ export function BriefingPane({
       aria-label="Briefing"
       className="rounded-md border border-slate-200 bg-white p-5"
     >
+      <CitationReportNotice
+        report={citationReport}
+        onDismiss={() => setCitationReport(null)}
+      />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-700">Briefing</h2>
         {editing ? null : (
@@ -172,6 +185,56 @@ function BriefingProvenance({ meta }: { meta: BriefingImport }) {
   );
 }
 
+/**
+ * What the companion BibTeX file did to the briefing (BibTeX support).
+ *
+ * Shown even when everything resolved cleanly: the import rewrote the user's
+ * text, and a silent rewrite of the one artefact this application calls "die
+ * Originalfassung" would be exactly the wrong kind of quiet. The detail
+ * lines — skipped entries, keys with no entry — are the part that needs
+ * acting on, so they are not hidden behind a disclosure.
+ */
+function CitationReportNotice({
+  report,
+  onDismiss,
+}: {
+  report: CitationRewriteReport | null;
+  onDismiss: () => void;
+}) {
+  if (report === null) {
+    return null;
+  }
+  const clean = report.notes.length === 0;
+  return (
+    <div
+      role="status"
+      className={`mb-4 rounded-md border px-3 py-2 text-sm ${
+        clean
+          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+          : "border-amber-200 bg-amber-50 text-amber-900"
+      }`}
+    >
+      <div className="flex flex-wrap items-start gap-3">
+        <p className="font-medium">Literaturdatei: {report.summary}</p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="ml-auto rounded-md border border-current/30 bg-white/60 px-2 py-0.5 text-xs font-medium hover:bg-white"
+        >
+          Schließen
+        </button>
+      </div>
+      {clean ? null : (
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+          {report.notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 const importInitial: BriefingFormState = { error: null };
 
 /**
@@ -183,16 +246,28 @@ function BriefingImportPane({
   projectId,
   researchQuestion,
   draft,
+  onCitationReport,
 }: {
   projectId: string;
   researchQuestion: string;
   draft: BriefingDraft | null;
+  onCitationReport: (report: CitationRewriteReport) => void;
 }) {
   const [state, formAction, pending] = useActionState(
     publishBriefingRevisionAction.bind(null, projectId),
     importInitial,
   );
   const toolInputRef = useRef<HTMLInputElement>(null);
+  // Hand the rewrite report up as soon as it arrives; this pane is about to
+  // be replaced by the reading view, which is where the notice is rendered.
+  // In an effect, not during render: raising a parent's state mid-render is
+  // the one way this could warn instead of working.
+  const report = state.citationReport;
+  useEffect(() => {
+    if (report) {
+      onCitationReport(report);
+    }
+  }, [report, onCitationReport]);
 
   return (
     <section
@@ -236,6 +311,26 @@ function BriefingImportPane({
             placeholder="Inhalt des generierten Briefings"
             className={`${inputClass} font-mono text-xs`}
           />
+        </div>
+        <div>
+          <label
+            htmlFor="bibliography"
+            className="mb-1 block text-sm font-medium"
+          >
+            Literaturdatei (BibTeX, optional)
+          </label>
+          <input
+            id="bibliography"
+            name="bibliography"
+            type="file"
+            accept=".bib,text/x-bibtex,text/plain"
+            className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-100"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Für Briefings, die im Pandoc-Format zitieren ([@schlüssel]). Die
+            Zitationen werden vor dem Einfrieren in Fußnoten mit Titel und
+            Kennung umgeschrieben; die Datei selbst wird nicht gespeichert.
+          </p>
         </div>
         <ErrorBanner message={state.error} />
         <button type="submit" disabled={pending} className={primaryButtonClass}>

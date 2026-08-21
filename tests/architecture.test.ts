@@ -282,6 +282,15 @@ describe("public surface of lib/pipeline", () => {
     // The automatic post-publish captures are reached only through the
     // auto-chain: the item-building policy is not app-facing.
     expect(surface.buildAutoCaptureItems).toBeUndefined();
+    // BibTeX support: a companion .bib is desugared into the footnote
+    // convention at import. The rewrite runs INSIDE importBriefing /
+    // publishBriefingRevision — the reader and the transform are not
+    // app-facing, only the German report they produce is (and that is a
+    // type, so it leaves no runtime surface here to assert).
+    expect(surface.parseBibtex).toBeUndefined();
+    expect(surface.bestIdentifier).toBeUndefined();
+    expect(surface.desugarCitations).toBeUndefined();
+    expect(surface.desugarBriefingCitations).toBeUndefined();
     expect(surface.scanRegex).toBeUndefined();
     expect(surface.mergeCandidates).toBeUndefined();
     expect(surface.candidateId).toBeUndefined();

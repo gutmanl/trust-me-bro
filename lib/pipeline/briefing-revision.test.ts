@@ -304,3 +304,56 @@ describe("publishBriefingRevision — revision of an existing briefing", () => {
     ).resolves.toBeDefined();
   });
 });
+
+describe("publishBriefingRevision — companion BibTeX file", () => {
+  const BIB = [
+    "@online{aris2026,",
+    "  title = {ARIS: Autonomous Research via Adversarial Collaboration},",
+    "  eprint = {2605.03042},",
+    "  eprinttype = {arxiv},",
+    "}",
+  ].join("\n");
+  const PANDOC = "Ein Multi-Agenten-System prüft sich selbst [@aris2026].";
+
+  it("desugars on the initial-import path and reports it", async () => {
+    const result = await publishBriefingRevision(PROJECT, {
+      text: PANDOC,
+      tool: "pandoc",
+      bibliography: BIB,
+    });
+    expect(result.citationRewrite?.rewrittenCitationCount).toBe(1);
+    const store = RegisterStore.forProject(PROJECT);
+    const frozen = store.blobs().readText(result.blob_path);
+    expect(frozen).toContain("prüft sich selbst [^aris2026].");
+    expect(frozen).toContain("[^aris2026]: ARIS");
+    expect(frozen).toContain("arXiv:2605.03042");
+  });
+
+  it("desugars a later revision too, before the checksum is taken", async () => {
+    await importBriefing({ projectId: PROJECT, content: V1, tool: "you.com" });
+    const result = await publishBriefingRevision(PROJECT, {
+      text: PANDOC,
+      bibliography: BIB,
+    });
+    expect(result.revision).toBe(2);
+    expect(result.citationRewrite?.footnoteKeys).toEqual(["aris2026"]);
+    const store = RegisterStore.forProject(PROJECT);
+    expect(store.blobs().readText(result.blob_path)).toContain("[^aris2026]");
+  });
+
+  it("recognizes republished-with-the-same-.bib text as the no-op it is", async () => {
+    const first = await publishBriefingRevision(PROJECT, {
+      text: PANDOC,
+      tool: "pandoc",
+      bibliography: BIB,
+    });
+    const again = await publishBriefingRevision(PROJECT, {
+      text: PANDOC,
+      bibliography: BIB,
+    });
+    expect(again.sha256).toBe(first.sha256);
+    expect(again.revision ?? 1).toBe(first.revision ?? 1);
+    // The report still comes back — "nothing changed" is an answer too.
+    expect(again.citationRewrite?.rewrittenCitationCount).toBe(1);
+  });
+});

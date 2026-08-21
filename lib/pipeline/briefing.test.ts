@@ -133,3 +133,107 @@ describe("importBriefing", () => {
     ).rejects.toBeInstanceOf(UnknownProjectError);
   });
 });
+
+describe("importBriefing — companion BibTeX file", () => {
+  const BIB = [
+    "@online{deepfact2026,",
+    "  author = {Huang, Yukun},",
+    "  title  = {DeepFact: Co-Evolving Benchmarks and Agents},",
+    "  eprint = {2603.05912},",
+    "  eprinttype = {arxiv},",
+    "}",
+    "",
+    "@misc{mata2023avianca,",
+    "  title = {Mata v. Avianca, Inc.},",
+    "  year  = {2023},",
+    "}",
+  ].join("\n");
+
+  const PANDOC = [
+    "Agentische Recherchesysteme fabrizieren Belege [@deepfact2026].",
+    "Ein Gericht sanktionierte eine solche Fabrikation [@mata2023avianca].",
+  ].join("\n\n");
+
+  it("freezes the DESUGARED text, not the Pandoc original", async () => {
+    const meta = await importBriefing({
+      projectId: "proj_briefing",
+      content: PANDOC,
+      tool: "pandoc",
+      bibliography: BIB,
+    });
+
+    const store = RegisterStore.forProject("proj_briefing");
+    const frozen = store.blobs().readText(meta.blob_path);
+    expect(frozen).not.toContain("[@deepfact2026]");
+    expect(frozen).toContain("fabrizieren Belege [^deepfact2026].");
+    expect(frozen).toContain(
+      "[^deepfact2026]: DeepFact: Co-Evolving Benchmarks and Agents. arXiv:2603.05912",
+    );
+    expect(frozen).toContain("[^mata2023avianca]: Mata v. Avianca, Inc.");
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("never persists the .bib itself", async () => {
+    await importBriefing({
+      projectId: "proj_briefing",
+      content: PANDOC,
+      tool: "pandoc",
+      bibliography: BIB,
+    });
+    const store = RegisterStore.forProject("proj_briefing");
+    const files = fs.readdirSync(store.projectDir, { recursive: true });
+    expect(
+      files.filter((entry) => String(entry).endsWith(".bib")),
+    ).toHaveLength(0);
+  });
+
+  it("returns the German rewrite report alongside the briefing", async () => {
+    const meta = await importBriefing({
+      projectId: "proj_briefing",
+      content: PANDOC,
+      tool: "pandoc",
+      bibliography: BIB,
+    });
+    expect(meta.citationRewrite?.summary).toBe(
+      "2 Zitationen aus 2 Einträgen in 2 Fußnoten überführt.",
+    );
+    expect(meta.citationRewrite?.footnoteKeys).toEqual([
+      "deepfact2026",
+      "mata2023avianca",
+    ]);
+    expect(meta.citationRewrite?.notes).toEqual([]);
+  });
+
+  it("reports a cited key the .bib does not know and leaves it in the text", async () => {
+    const meta = await importBriefing({
+      projectId: "proj_briefing",
+      content: `${PANDOC}\n\nEin dritter Befund [@fehlt2026].`,
+      tool: "pandoc",
+      bibliography: BIB,
+    });
+    expect(meta.citationRewrite?.unresolvedKeys).toEqual(["fehlt2026"]);
+    const store = RegisterStore.forProject("proj_briefing");
+    expect(store.blobs().readText(meta.blob_path)).toContain("[@fehlt2026]");
+  });
+
+  it("carries no report at all when no bibliography was given", async () => {
+    const meta = await importBriefing({
+      projectId: "proj_briefing",
+      content: BRIEFING,
+      tool: "you.com Research",
+    });
+    expect(meta.citationRewrite).toBeUndefined();
+  });
+
+  it("treats a blank bibliography as none given", async () => {
+    const meta = await importBriefing({
+      projectId: "proj_briefing",
+      content: PANDOC,
+      tool: "pandoc",
+      bibliography: "   \n  ",
+    });
+    expect(meta.citationRewrite).toBeUndefined();
+    const store = RegisterStore.forProject("proj_briefing");
+    expect(store.blobs().readText(meta.blob_path)).toBe(PANDOC);
+  });
+});
