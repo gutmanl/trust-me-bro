@@ -22,6 +22,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: actions/cache@v4
+        id: corpus-cache
+        with:
+          path: tests/corpus/documents
+          key: corpus-docs-${{ runner.os }}-${{ hashFiles('tests/corpus/documents.json') }}
+      - name: Fetch corpus documents
+        if: steps.corpus-cache.outputs.cache-hit != 'true'
+        run: npm run corpus:fetch
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
@@ -43,6 +51,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: actions/cache@v4
+        id: corpus-cache
+        with:
+          path: tests/corpus/documents
+          key: corpus-docs-${{ runner.os }}-${{ hashFiles('tests/corpus/documents.json') }}
+      - name: Fetch corpus documents
+        if: steps.corpus-cache.outputs.cache-hit != 'true'
+        run: npm run corpus:fetch
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       # Drives the built app rather than `next dev`, so what CI checks is
