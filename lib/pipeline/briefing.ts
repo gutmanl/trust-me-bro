@@ -8,6 +8,8 @@ import {
 import { requireProjectStore } from "./projects";
 import { briefingRenderContext } from "./research/independence";
 import { RESEARCH_TOOL_PREFIX } from "./research/provenance";
+import { desugarBriefingCitations } from "./sources/reference-scan/desugar-citations";
+import type { CitationRewriteReport } from "./sources/reference-scan/desugar-citations";
 
 export interface ImportBriefingInput {
   projectId: string;
@@ -16,6 +18,26 @@ export interface ImportBriefingInput {
   content: string;
   /** Name of the generating tool, recorded in briefing_import.tool. */
   tool: string;
+  /** OPTIONAL companion BibTeX file (BibTeX support), for a briefing that
+   * cites Pandoc-style — a thesis chapter, typically. Its citations are
+   * desugared into the Markdown footnote convention BEFORE the briefing is
+   * frozen; the `.bib` itself is deliberately NOT persisted, so the frozen
+   * briefing stays self-contained and no register schema moves. */
+  bibliography?: string;
+}
+
+/**
+ * The frozen briefing, plus — when a bibliography came with it — the German
+ * report of the citation rewrite.
+ *
+ * Structurally a `BriefingImport`, so every existing caller is unaffected.
+ * `citationRewrite` is camelCase precisely BECAUSE it is not a register
+ * field: the snake_case convention in this codebase marks what the persisted
+ * schema owns, and this report is import-time knowledge that is never
+ * written anywhere.
+ */
+export interface BriefingImportOutcome extends BriefingImport {
+  readonly citationRewrite?: CitationRewriteReport;
 }
 
 /**
@@ -69,6 +91,12 @@ export async function freezeBriefing(
  * a user-supplied tool name must not be able to forge it. The research
  * pipeline writes that prefix through freezeBriefing directly.
  *
+ * It is also where a companion `.bib` is consumed (BibTeX support). The
+ * rewrite happens HERE rather than in freezeBriefing because it is a
+ * property of importing someone else's text, not of freezing: what gets
+ * frozen — and hashed, and shown as "die Originalfassung" — is the rewritten,
+ * self-contained briefing. Nothing downstream ever sees the `.bib`.
+ *
  * This closes the local-forgery path only. A briefing inside an imported
  * .tmb bundle can still name any tool it likes — the register binds no chain
  * to a specific installation, so that provenance claim is not authentic:
@@ -77,7 +105,7 @@ export async function freezeBriefing(
  */
 export async function importBriefing(
   input: ImportBriefingInput,
-): Promise<BriefingImport> {
+): Promise<BriefingImportOutcome> {
   if (input.tool.trim().startsWith(RESEARCH_TOOL_PREFIX)) {
     throw new InvalidBriefingInputError(
       `Der Präfix „${RESEARCH_TOOL_PREFIX}" ist für in der Anwendung ` +
@@ -85,7 +113,16 @@ export async function importBriefing(
         "angegeben werden.",
     );
   }
-  return freezeBriefing(input);
+  const rewrite =
+    input.bibliography && input.bibliography.trim().length > 0
+      ? desugarBriefingCitations(input.content, input.bibliography)
+      : null;
+  const briefing = await freezeBriefing(
+    rewrite === null ? input : { ...input, content: rewrite.text },
+  );
+  return rewrite === null
+    ? briefing
+    : { ...briefing, citationRewrite: rewrite.report };
 }
 
 /**

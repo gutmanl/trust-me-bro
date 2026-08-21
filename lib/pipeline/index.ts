@@ -41,7 +41,13 @@ export {
   resolveEvidenceRelation,
 } from "../register";
 export { getBriefing, getBriefingViewModel, importBriefing } from "./briefing";
-export type { ImportBriefingInput } from "./briefing";
+export type { BriefingImportOutcome, ImportBriefingInput } from "./briefing";
+// BibTeX support: the citation rewrite an optional companion `.bib` triggers
+// at import. Only its REPORT is app-facing — the workbench renders which
+// entries were skipped and which keys stayed unresolved. The parser and the
+// transform themselves stay internal, reachable only through the import
+// use-cases, exactly like scanRegex.
+export type { CitationRewriteReport } from "./sources/reference-scan/desugar-citations";
 // Workbench epic: briefing drafts (scratch, outside the register) and the
 // revision publish path (append-only, with a silent re-anchor pass); the
 // pure re-anchor computation stays internal, reachable only through publish.
@@ -51,7 +57,10 @@ export {
   publishBriefingRevision,
   saveBriefingDraft,
 } from "./briefing-revision";
-export type { BriefingDraft } from "./briefing-revision";
+export type {
+  BriefingDraft,
+  PublishBriefingRevisionInput,
+} from "./briefing-revision";
 export type {
   BriefingParagraphVM,
   BriefingViewModel,
