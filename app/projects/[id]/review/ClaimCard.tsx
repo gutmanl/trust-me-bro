@@ -9,6 +9,7 @@ import {
 } from "../../reasoning-paragraphs";
 import {
   CALIBRATION_LABELS,
+  CLAIM_TYPE_LABELS,
   formatModel,
   formatTimestamp,
   RELATION_LABELS,
@@ -27,6 +28,7 @@ import {
   verdictBadgeClassName,
 } from "../../verdict-labels";
 import { ComplaintDialog } from "./ComplaintDialog";
+import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
 import { ROUTING_LABELS, routingSupersededByVerdict } from "./routing-labels";
 
@@ -193,6 +195,20 @@ export function ClaimCard({
                 Wie hat die KI diese Aussage vorgeprüft?
               </summary>
               <dl className="space-y-1 px-3 pb-3 text-xs text-slate-700">
+                {/* First, because the rubric rule that decided the verdict is
+                    keyed on exactly this value (se-evidence-rubric-v1.json
+                    `claim_types`) — the two rows below therefore read as its
+                    consequences rather than as unrelated verdicts. It sits
+                    inside the disclosure, so a claim that has not been
+                    pre-checked shows no type: that is deliberate, and a fifth
+                    always-visible chip would work against the subordination
+                    the component's header comment describes. */}
+                <div>
+                  <dt className="inline text-slate-500">Aussagetyp: </dt>
+                  <dd className="inline">
+                    {CLAIM_TYPE_LABELS[claim.claim_type]}
+                  </dd>
+                </div>
                 {claim.support_degree ? (
                   <div>
                     <dt className="inline text-slate-500">
@@ -427,6 +443,23 @@ function EvidenceCard({
               </span>
             ) : null}
           </summary>
+          {/* A backend revising ITSELF. Cross-backend disagreement is
+              divergence and is already reported by the chip above; this note
+              must not duplicate it. It states what changed and when, and
+              nothing about which of the two judgments is better — that is the
+              reviewer's call, and it is the call this tool exists to support.
+              No disclosure around it: the surrounding details already is the
+              card's one disclosure level. */}
+          {deriveSupersededJudgments(evidence.judgments).map((superseded) => (
+            <p
+              key={`${superseded.backend}-${superseded.previousAt}`}
+              className="mt-2 border-l-2 border-slate-200 pl-2 text-xs text-slate-500"
+            >
+              {superseded.backend} hat das Urteil geändert – zuvor „
+              {RELATION_LABELS[superseded.previousRelation]}“ am{" "}
+              {formatTimestamp(superseded.previousAt)}.
+            </p>
+          ))}
           <ul className="mt-2 space-y-2">
             {evidence.judgments.map((judgment, index) => (
               <li
