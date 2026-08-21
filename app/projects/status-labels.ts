@@ -1,6 +1,7 @@
 import type {
   CalibrationResult,
   ClaimStatus,
+  ClaimType,
   RelationType,
   SourceType,
   SupportDegree,
@@ -33,6 +34,29 @@ export const STATUS_ORDER: ClaimStatus[] = [
   "discarded",
   "recheck_required",
 ];
+
+/**
+ * German display labels of the claim classification that steers the SE
+ * evidence rubric. Displayed in the pre-check disclosure: the rubric rule
+ * that decided the verdict is keyed on exactly this value
+ * (`se-evidence-rubric-v1.json` `claim_types`), so naming the type is what
+ * makes the two rows below it read as consequences rather than as unrelated
+ * verdicts.
+ *
+ * Deliberately separate from `VERDICT_PROSE` in `verdict-glossary.ts`, which
+ * carries the same four German strings today: this map labels a `dd`
+ * element, that one supplies sentence-insertable prose. They are two maps
+ * for the same reason `CALIBRATION_LABELS.weakened` („abschwächen",
+ * infinitive) and the glossary's `weakened` („abgeschwächt", participle)
+ * must be two — the claim-type values merely happen to coincide because a
+ * noun phrase works in both positions. Do not spread one into the other.
+ */
+export const CLAIM_TYPE_LABELS: Record<ClaimType, string> = {
+  quantitative_finding: "quantitativer Befund",
+  comparative_statement: "Vergleichsaussage",
+  effectiveness_statement: "Wirksamkeitsaussage",
+  recommendation: "Empfehlung",
+};
 
 export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   peer_reviewed_publication: "begutachtete Publikation",
