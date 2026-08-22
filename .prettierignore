@@ -8,3 +8,9 @@ schema/claims.schema.json
 dist/
 # git-ignored agent-session scratch (plans, ledgers, reports)
 .superpowers/
+# generated run output of the PROMPT-05 ship gate, owned by
+# scripts/compare-prompt-verdicts.ts. The NDJSON is append-only and REPORT.md
+# carries machine-read GATE_RESULT lines — reformatting either would edit a
+# measurement. The directory's README is written by hand and stays formatted.
+tests/corpus/verdict-comparison/*.ndjson
+tests/corpus/verdict-comparison/REPORT.md

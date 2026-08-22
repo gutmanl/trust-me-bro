@@ -23,6 +23,54 @@ with the real services, replayed deterministically.
 | `scenarios.ts`          | What the specs test against — the briefing and its citations |
 | `llm-seed.ts`           | Authored LLM answers, used until real ones are recorded      |
 | `harness.ts`            | Workspace, orchestrator and project setup for the specs      |
+| `verdict-fixtures.json` | Real claims frozen out of the real registers — see below     |
+| `verdict-comparison/`   | Output of the PROMPT-05 ship gate — see its own README       |
+
+## `verdict-fixtures.json` — real claims, not authored ones
+
+This is the fixture corpus the PROMPT-05 ship gate runs against: at least 30
+claims with their claim type, their briefing anchor, and per evidence the source
+id, source type, locator and verbatim excerpt — exactly the fields a job input
+needs, and nothing else.
+
+**It is real run output, not authored data.** Every claim in it was extracted,
+attributed and calibrated by real `claude` / `codex` runs against real papers, and
+each one carries the verdict those runs actually recorded as its v1.1.0 ground
+truth. It exists for the same reason the rest of this directory does: authoring 30
+claims to test the code that judges claims is the closed loop the first paragraph
+of this README describes.
+
+**Which machine it came from:** it cannot be produced anywhere else. It is frozen
+out of the gitignored, machine-local `workspace/` directory on the operator's own
+machine by `scripts/extract-verdict-fixtures.ts`, which takes that directory as
+its first argument. A fresh clone, CI and a cloud session have no registers to
+freeze, so re-generating it there is neither possible nor attempted.
+
+The extraction emits only the enumerated job-input fields — no actor handles, no
+chain hashes, no blob paths, no history entries, no complaint text. Redaction is
+by construction rather than by review, and a human read the excerpts before the
+file was first committed.
+
+**The frozen source blobs those excerpts came from are deliberately not in the
+repo.** That is fine rather than a gap: attribution judges strictly against the
+`verbatim_excerpt`, which travels in the fixture; the optional read of the frozen
+document is a bonus, not a requirement.
+
+Three borderline proxies are recorded per claim as explicit booleans — a
+`weakened` or `pending_adjudication` calibration result, a mechanical rubric
+evaluation of not-met (so the cap fired), and evidence carrying more than one
+judgment (so the second-opinion rule fired). "Borderline cases are included" is
+therefore a checkable fact about the file rather than a claim in a comment.
+
+Re-generate with:
+
+```bash
+npx tsx scripts/extract-verdict-fixtures.ts <workspace-root>
+```
+
+It sorts by claim id, so a re-extraction produces a readable diff. It refuses to
+write a corpus below 30 claims or one with no borderline claim — do not lower N
+and do not author substitute claims to reach it.
 
 ## Two provenance states
 
