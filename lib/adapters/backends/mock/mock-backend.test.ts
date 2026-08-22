@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { jobFor } from "../../__fixtures__/jobs";
+import { attributionOutputSchemaFor } from "../../schema/attribution";
 import { rubricOutputSchemaFor } from "../../schema/rubric";
 import {
   AttributionOutput,
@@ -32,12 +33,16 @@ describe("createMockBackend", () => {
       const backend = createMockBackend();
       const job = jobFor(kind);
       const result = await backend.invoke(job);
-      // The rubric contract is selected by the job's prompt version, so the
-      // schema this default is judged against must be too.
+      // Both prose contracts are selected by the job's prompt version, so
+      // the schema each default is judged against must be too. Judging the
+      // attribution default against the go-forward value alone would assert
+      // that the mock answers a shape its own v1.1.0 job never asked for.
       const schema =
         kind === "rubric"
           ? rubricOutputSchemaFor(job.prompt.version)
-          : outputSchemas[kind];
+          : kind === "attribution"
+            ? attributionOutputSchemaFor(job.prompt.version)
+            : outputSchemas[kind];
       expect(schema.safeParse(result.output).success).toBe(true);
       expect(result.model).toBe("mock-1");
     },

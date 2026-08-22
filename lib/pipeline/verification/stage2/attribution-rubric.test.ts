@@ -403,3 +403,105 @@ describe("two-layer rubric prose — end to end, both prompt vintages", () => {
     ).toThrow(AdapterValidationError);
   });
 });
+
+/**
+ * The SECOND join site (03-02): the attribution half of the same crossing.
+ *
+ * One asymmetry against the rubric block above, and it is deliberate rather
+ * than an omission. The rubric call site already selects its template version
+ * from the rule set, so a v1.2.0 rubric generation can be driven through the
+ * pipeline today. The ATTRIBUTION call site still renders
+ * `CURRENT_PROMPT_VERSION.attribution` (v1.1.0) with two arguments — the
+ * per-project pin is 03-03's task, and moving it here would change which
+ * template every existing project renders. So the two-layer half is proven as
+ * the boundary-to-join COMPOSITION, and the pipeline half is proven where it
+ * can be: that a legacy generation still persists the model's own string.
+ */
+describe("two-layer attribution prose — the second join site", () => {
+  const twoLayerResponse = {
+    relation_type: "partially_supports",
+    confidence: 0.6,
+    reasoning_plain:
+      "Der Auszug trägt die Aussage nur zum Teil. Er belegt die Richtung, " +
+      "aber nicht die Allgemeinheit der Formulierung.",
+    caveat: "der Auszug betrachtet nur ein einzelnes Team.",
+    reasoning_technical:
+      "Der Auszug nennt einen Rückgang der medianen Reviewzeit von 42 auf " +
+      "19 Minuten für ein Team; die Aussage verallgemeinert darüber hinaus.",
+  };
+
+  it("v1.2.0: the response validates, joins and carries the three role markers", () => {
+    const validated = validateJobOutput(
+      "mock",
+      "attribution",
+      "1.2.0",
+      twoLayerResponse,
+    );
+    const persisted = resolvePersistedReasoning(validated);
+    expect(
+      persisted.split("\n\n").map((p) => p.split(" ").slice(0, 2)),
+    ).toEqual([
+      ["Einfach", "gesagt:"],
+      ["Jedoch:", "der"],
+      ["Technisch:", "Der"],
+    ]);
+  });
+
+  it("v1.2.0: a null caveat omits the paragraph entirely", () => {
+    const withoutCaveat = validateJobOutput("mock", "attribution", "1.2.0", {
+      ...twoLayerResponse,
+      caveat: null,
+    });
+    const paragraphs = resolvePersistedReasoning(withoutCaveat).split("\n\n");
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[0].startsWith("Einfach gesagt: ")).toBe(true);
+    expect(paragraphs[1].startsWith("Technisch: ")).toBe(true);
+  });
+
+  // ROADMAP Success Criterion 4, attribution half: the shapes are
+  // PARTITIONED by version, so a model cannot escape the two-layer contract
+  // by answering in the vintage every existing project still uses.
+  it("rejects each shape under the other's prompt version", () => {
+    expect(() =>
+      validateJobOutput("mock", "attribution", "1.2.0", {
+        relation_type: "supports",
+        confidence: 0.9,
+        reasoning: "Passt.",
+      }),
+    ).toThrow(AdapterValidationError);
+    expect(() =>
+      validateJobOutput("mock", "attribution", "1.1.0", twoLayerResponse),
+    ).toThrow(AdapterValidationError);
+  });
+
+  it("v1.1.0: runAttribution still persists the model's OWN string, byte-for-byte", async () => {
+    // The behaviour-preservation claim, asserted through the REAL pipeline
+    // path rather than through the join function alone: every existing
+    // project renders attribution v1.1.0, and this is what they keep getting.
+    const modelString =
+      "Der Auszug nennt exakt die berichtete Reduktion.\n\n" +
+      "Jedoch: die Stichprobe ist klein.";
+    const { deps } = makeDeps({
+      primary: {
+        attribution: {
+          relation_type: "supports",
+          confidence: 0.9,
+          reasoning: modelString,
+        },
+      },
+      secondaryConfigured: false,
+    });
+    const result = await runAttributionAndRubric(
+      makeClaim(["src_a"], "quantitative_finding"),
+      new Map([["src_a", makeSource("src_a", "peer_reviewed_publication")]]),
+      deps,
+    );
+    if (result.status !== "ok") throw new Error(`unexpected ${result.status}`);
+    const judgment = result.perEvidence[0].newJudgments[0];
+    expect(judgment.reasoning).toBe(modelString);
+    // Provenance is still stamped from code, never self-reported.
+    expect(judgment.backend).toBe("claude");
+    expect(judgment.model).toBe("claude-sonnet-5");
+    expect(judgment.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});

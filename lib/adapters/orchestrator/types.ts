@@ -1,14 +1,29 @@
-import type { Judgment } from "../../register";
 import type { AdapterError } from "../core/errors";
 import type { JobIO, JobKind } from "../core/jobs";
+import type { AttributionOutput } from "../schema/attribution";
 
 /**
- * What the orchestrator resolves per job kind: attribution outputs are
- * stamped with backend/model/at into a register-ready Judgment; the other
- * kinds pass through the backend's validated output unchanged.
+ * What the orchestrator resolves per job kind: an attribution output is
+ * stamped with backend/model/at, the other kinds pass the backend's validated
+ * output through unchanged.
+ *
+ * The orchestrator stamps PROVENANCE and stops there. Turning a stamped
+ * attribution output into the register's judgment shape — which since the
+ * two-layer contract means JOINING three prose fields into the one persisted
+ * string — is the PIPELINE's job, at `verification/stage2`. That split is
+ * what keeps the adapter layer free of any opinion about how a reasoning is
+ * assembled for storage.
+ *
+ * Because `AttributionOutput` is itself an alternation while two prompt
+ * vintages are live, the intersection distributes over both arms — which is
+ * exactly what lets the pipeline's join accept either.
  */
 export type StampedOutput<K extends JobKind> = K extends "attribution"
-  ? Judgment
+  ? AttributionOutput & {
+      readonly backend: string;
+      readonly model: string;
+      readonly at: string;
+    }
   : JobIO[K]["output"];
 
 /**

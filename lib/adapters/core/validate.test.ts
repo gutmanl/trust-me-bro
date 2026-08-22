@@ -25,6 +25,31 @@ const VALID_SINGLE_REASONING_RUBRIC = {
   reasoning: "Eine begutachtete Studie mit passendem Kontext liegt vor.",
 };
 
+/** A valid two-layer attribution response, perturbed one field at a time. */
+const VALID_TWO_LAYER_ATTRIBUTION = {
+  relation_type: "supports",
+  confidence: 0.92,
+  reasoning_plain: `${PLAIN_VERDICT_PHRASE.supports} Die berichtete Zeitersparnis steht so im Abschnitt.`,
+  caveat: null as string | null,
+  reasoning_technical:
+    "Der zitierte Abschnitt nennt einen Rückgang der medianen Reviewzeit " +
+    "von 42 auf 19 Minuten und deckt die Aussage in ihrem Kontext ab.",
+};
+
+function twoLayerAttribution(
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  return { ...VALID_TWO_LAYER_ATTRIBUTION, ...patch };
+}
+
+/** The three-key shape attribution prompts v1.0.0 and v1.1.0 ask for — and
+ * the shape EVERY existing project's model answers in today. */
+const VALID_SINGLE_REASONING_ATTRIBUTION = {
+  relation_type: "supports",
+  confidence: 0.92,
+  reasoning: "Zahlenwert und Richtung stimmen mit dem Auszug überein.",
+};
+
 /**
  * TMB-19 acceptance: invalid outputs never reach the register. Every path
  * from a backend to the register runs through validateJobOutput (backends
@@ -57,11 +82,14 @@ const invalidByKind: Array<[JobKind, string, string, unknown]> = [
   [
     "attribution",
     "spoofed provenance fields",
-    "1.1.0",
+    "1.2.0",
+    // Threat T-03-10's control, carried across the widening. The payload is
+    // otherwise FULLY contract-valid — the verdict phrase included — so this
+    // row provably rejects for the three provenance keys and not for a
+    // length or phrase violation it acquired by accident. Its positive twin
+    // (the same payload with the keys removed) lives in schema.test.ts.
     {
-      relation_type: "supports",
-      confidence: 0.5,
-      reasoning: "x",
+      ...VALID_TWO_LAYER_ATTRIBUTION,
       backend: "claude",
       model: "spoofed",
       at: "2026-08-06T09:00:00Z",
@@ -193,6 +221,81 @@ const invalidByKind: Array<[JobKind, string, string, unknown]> = [
       reasoning_plain: `${PLAIN_VERDICT_PHRASE.weakened} Die Belege tragen die Aussage.`,
     }),
   ],
+  // The SAME contract on the second job kind (03-02). The rows mirror the
+  // rubric ones above clause for clause, minus the rule-name anchor, which
+  // attribution does not carry: it anchors on the job's own excerpt instead,
+  // and that clause is input-dependent and therefore lives in
+  // `core/output-contract.test.ts`.
+  [
+    "attribution",
+    "English enum token in the plain layer",
+    "1.2.0",
+    twoLayerAttribution({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.supports} Die Quelle ist ein preprint.`,
+    }),
+  ],
+  [
+    "attribution",
+    "plain layer over the character cap",
+    "1.2.0",
+    twoLayerAttribution({
+      reasoning_plain:
+        `${PLAIN_VERDICT_PHRASE.supports} ` + "sehr lang. ".repeat(60),
+    }),
+  ],
+  [
+    "attribution",
+    "plain layer longer than the technical layer",
+    "1.2.0",
+    twoLayerAttribution({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.supports} ${"Der Abschnitt deckt die Aussage ab. ".repeat(5)}`,
+      reasoning_technical: "Kurz.",
+    }),
+  ],
+  [
+    "attribution",
+    "blank line inside a prose field",
+    "1.2.0",
+    twoLayerAttribution({ caveat: "die Stichprobe ist klein.\n\nUnd alt." }),
+  ],
+  [
+    "attribution",
+    "number in the plain layer absent from the technical layer",
+    "1.2.0",
+    twoLayerAttribution({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.supports} Die Zeit sank um 73 Prozent.`,
+    }),
+  ],
+  [
+    "attribution",
+    "role marker at the start of a prose field",
+    "1.2.0",
+    twoLayerAttribution({ caveat: "Jedoch: die Stichprobe ist klein." }),
+  ],
+  [
+    "attribution",
+    "empty-string caveat",
+    "1.2.0",
+    twoLayerAttribution({ caveat: "" }),
+  ],
+  [
+    "attribution",
+    "plain layer opening with another verdict's phrase",
+    "1.2.0",
+    twoLayerAttribution({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.contradicts} Der Abschnitt deckt die Aussage ab.`,
+    }),
+  ],
+  [
+    "attribution",
+    "missing caveat key — absence of a caveat must be stated, never implied",
+    "1.2.0",
+    (() => {
+      const { caveat, ...withoutCaveat } = VALID_TWO_LAYER_ATTRIBUTION;
+      void caveat;
+      return withoutCaveat;
+    })(),
+  ],
 ];
 
 describe("validateJobOutput", () => {
@@ -294,6 +397,84 @@ describe("validateJobOutput — the accepted shape is selected by prompt version
     expect(
       validateJobOutput("mock", "rubric", "9.9.9", VALID_TWO_LAYER_RUBRIC),
     ).toEqual(VALID_TWO_LAYER_RUBRIC);
+  });
+
+  /**
+   * The attribution half of the same property (03-02), and the load-bearing
+   * one: the rubric default is v1.0.0, but EVERY existing project renders
+   * attribution v1.1.0. If the widening had replaced the three-key shape
+   * instead of standing beside it, every judgment in every existing project
+   * would fail validation three times and escalate to adjudication — with no
+   * attacker involved, reached purely by omission. These four rows are what
+   * stands between this plan and that outcome.
+   */
+  it.each(["1.0.0", "1.1.0"])(
+    "accepts the three-key attribution shape at prompt version %s",
+    (promptVersion) => {
+      expect(
+        validateJobOutput(
+          "mock",
+          "attribution",
+          promptVersion,
+          VALID_SINGLE_REASONING_ATTRIBUTION,
+        ),
+      ).toEqual(VALID_SINGLE_REASONING_ATTRIBUTION);
+    },
+  );
+
+  it("rejects the three-key attribution shape at a two-layer prompt version", () => {
+    // Without this the two-layer contract is optional: a model could escape
+    // it entirely by answering in the previous vintage's shape.
+    expect(() =>
+      validateJobOutput(
+        "mock",
+        "attribution",
+        "1.2.0",
+        VALID_SINGLE_REASONING_ATTRIBUTION,
+      ),
+    ).toThrow(AdapterValidationError);
+  });
+
+  it("accepts the three-field attribution shape at prompt version 1.2.0", () => {
+    expect(
+      validateJobOutput(
+        "mock",
+        "attribution",
+        "1.2.0",
+        VALID_TWO_LAYER_ATTRIBUTION,
+      ),
+    ).toEqual(VALID_TWO_LAYER_ATTRIBUTION);
+  });
+
+  it.each(["1.0.0", "1.1.0"])(
+    "rejects the three-field attribution shape at prompt version %s",
+    (promptVersion) => {
+      expect(() =>
+        validateJobOutput(
+          "mock",
+          "attribution",
+          promptVersion,
+          VALID_TWO_LAYER_ATTRIBUTION,
+        ),
+      ).toThrow(AdapterValidationError);
+    },
+  );
+
+  it("attaches NO plain-language clause to the frozen three-key ATTRIBUTION shape", () => {
+    // The same assertion as the rubric one below, on the kind where it
+    // actually protects live projects. A reasoning breaching several
+    // plain-layer clauses at once — an English enum token, an internal id, a
+    // bracket citation and a blank line — must still validate at v1.1.0.
+    const wouldViolate = {
+      relation_type: "supports",
+      confidence: 0.5,
+      reasoning:
+        "Der Beleg ist ein preprint; siehe ev_0001 und [3].\n\n" +
+        "Jedoch: nur eine Quelle.",
+    };
+    expect(
+      validateJobOutput("mock", "attribution", "1.1.0", wouldViolate),
+    ).toEqual(wouldViolate);
   });
 
   it("attaches NO plain-language clause to the frozen two-key shape", () => {

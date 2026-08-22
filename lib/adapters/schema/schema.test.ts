@@ -7,12 +7,20 @@ import {
   RepairOutput,
   RubricOutput,
 } from "./index";
+import { SingleReasoningAttributionOutput } from "./attribution";
 import { SingleReasoningRubricOutput } from "./rubric";
 
+/** The go-forward (attribution prompt v1.2.0) three-field shape. */
 const validAttribution = {
   relation_type: "supports",
   confidence: 0.92,
-  reasoning: "Zahlenwert und Richtung stimmen mit dem Auszug überein.",
+  reasoning_plain:
+    "Der Auszug trägt die Aussage. Die berichtete Zeitersparnis steht so " +
+    "im zitierten Abschnitt.",
+  caveat: null,
+  reasoning_technical:
+    "Der zitierte Abschnitt nennt einen Rückgang der medianen Reviewzeit " +
+    "von 42 auf 19 Minuten und deckt die Aussage in ihrem Kontext ab.",
 };
 
 const validExtraction = {
@@ -78,6 +86,13 @@ describe("AttributionOutput", () => {
     expect(AttributionOutput.parse(validAttribution)).toEqual(validAttribution);
   });
 
+  it("keeps the verdict enum as the first key of the shape", () => {
+    // Under left-to-right decoding, prose emitted after the verdict token
+    // cannot mechanically change it. The property dies the moment someone
+    // applies the classic "let it reason before it answers" refactor.
+    expect(Object.keys(AttributionOutput.shape)[0]).toBe("relation_type");
+  });
+
   it("rejects provenance fields — backend, model and at are stamped by code, never by the LLM", () => {
     for (const field of ["backend", "model", "at"]) {
       const result = AttributionOutput.safeParse({
@@ -86,6 +101,14 @@ describe("AttributionOutput", () => {
       });
       expect(result.success, `field ${field} must be rejected`).toBe(false);
     }
+  });
+
+  it("accepts the SAME payload once the provenance keys are removed", () => {
+    // The positive twin of the row above, and the reason that row is still a
+    // Spoofing control after the widening: without it, a payload that had
+    // started failing for a length or phrase violation would look exactly
+    // like a payload rejected for carrying provenance.
+    expect(AttributionOutput.safeParse(validAttribution).success).toBe(true);
   });
 
   it("rejects out-of-range confidence", () => {
@@ -100,6 +123,147 @@ describe("AttributionOutput", () => {
       AttributionOutput.safeParse({
         ...validAttribution,
         relation_type: "agrees",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects empty prose in any of the three fields", () => {
+    for (const field of [
+      "reasoning_plain",
+      "caveat",
+      "reasoning_technical",
+    ] as const) {
+      expect(
+        AttributionOutput.safeParse({ ...validAttribution, [field]: "" })
+          .success,
+        `${field} must reject the empty string`,
+      ).toBe(false);
+    }
+  });
+
+  it("rejects the single `reasoning` key the previous vintage asked for", () => {
+    const { reasoning_plain, caveat, reasoning_technical, ...rest } =
+      validAttribution;
+    void reasoning_plain;
+    void caveat;
+    void reasoning_technical;
+    expect(
+      AttributionOutput.safeParse({ ...rest, reasoning: "Passt schon." })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("AttributionOutput — the plain-language contract's positive counterparts", () => {
+  // The clause-by-clause rejecting rows live in `plain-contract.test.ts`;
+  // these are the acceptances the same clauses must NOT swallow. A contract
+  // with only rejection tests is a contract nobody has shown to be
+  // satisfiable — and attribution runs it with `requireRuleName: false`, so
+  // the parameterisation needs its own acceptances.
+  const OPENER = "Der Auszug trägt die Aussage.";
+  const filler = "Der Abschnitt deckt die Aussage ab. ";
+
+  it("accepts a plain layer of exactly the 320-character cap", () => {
+    const plain = `${OPENER} ${filler.repeat(20)}`.slice(0, 320);
+    expect(
+      AttributionOutput.safeParse({
+        ...validAttribution,
+        reasoning_plain: plain,
+        reasoning_technical: `Der Abschnitt stützt sie. ${filler.repeat(20)}`,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a plain layer exactly as long as the technical layer", () => {
+    const both = `${OPENER} ${filler.repeat(5)}`.slice(0, 200);
+    expect(
+      AttributionOutput.safeParse({
+        ...validAttribution,
+        reasoning_plain: both,
+        reasoning_technical:
+          `Der Abschnitt stützt sie. ${filler.repeat(5)}`.slice(0, 200),
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a technical layer carrying numbers the plain layer omits", () => {
+    expect(
+      AttributionOutput.safeParse({
+        ...validAttribution,
+        reasoning_plain: `${OPENER} Die Zeit sank deutlich.`,
+        reasoning_technical:
+          "Der Abschnitt nennt 55 Prozent bei 1.000 Fällen aus 2025 " +
+          "und deckt die Aussage im selben Kontext ab.",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a null caveat and a non-empty one alike", () => {
+    for (const caveat of [null, "die Stichprobe ist klein."]) {
+      expect(
+        AttributionOutput.safeParse({ ...validAttribution, caveat }).success,
+        `caveat ${String(caveat)} must be accepted`,
+      ).toBe(true);
+    }
+  });
+
+  it("requires the plain layer to open with the phrase mapped from its OWN relation_type", () => {
+    // The whole point of the slot-frame: naming a verdict the object does not
+    // carry is what "the plain layer overstates" looks like mechanically.
+    expect(
+      AttributionOutput.safeParse({
+        ...validAttribution,
+        relation_type: "contradicts",
+      }).success,
+    ).toBe(false);
+    expect(
+      AttributionOutput.safeParse({
+        ...validAttribution,
+        relation_type: "contradicts",
+        reasoning_plain:
+          "Der Auszug widerspricht der Aussage. Die Richtung stimmt nicht.",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("does NOT require a German rule name — attribution jobs carry no rubric rule", () => {
+    // `requireRuleName: false` is the attribution arm of the shared contract
+    // module. Attribution anchors its technical layer on the job's own
+    // excerpt instead, in `core/output-contract.ts`.
+    expect(AttributionOutput.safeParse(validAttribution).success).toBe(true);
+  });
+});
+
+describe("SingleReasoningAttributionOutput (frozen: attribution prompts v1.0.0 and v1.1.0)", () => {
+  const validSingleReasoning = {
+    relation_type: "supports",
+    confidence: 0.92,
+    reasoning: "Zahlenwert und Richtung stimmen mit dem Auszug überein.",
+  };
+
+  it("accepts the three-key shape those two templates describe", () => {
+    expect(
+      SingleReasoningAttributionOutput.parse(validSingleReasoning),
+    ).toEqual(validSingleReasoning);
+  });
+
+  it("still rejects spoofed provenance", () => {
+    for (const field of ["backend", "model", "at"]) {
+      expect(
+        SingleReasoningAttributionOutput.safeParse({
+          ...validSingleReasoning,
+          [field]: "spoofed",
+        }).success,
+        `field ${field} must be rejected`,
+      ).toBe(false);
+    }
+  });
+
+  it("rejects empty reasoning", () => {
+    expect(
+      SingleReasoningAttributionOutput.safeParse({
+        ...validSingleReasoning,
+        reasoning: "",
       }).success,
     ).toBe(false);
   });

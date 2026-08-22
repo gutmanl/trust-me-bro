@@ -5,6 +5,7 @@ import type {
   EvidenceContext,
   JobRequest,
   RubricInput,
+  StampedOutput,
 } from "../../../adapters";
 import type {
   CalibrationResult,
@@ -230,7 +231,31 @@ async function runAttribution(
         `erschöpft: ${outcome.lastError.message}`,
     };
   }
-  return { status: "ok", judgment: outcome.output };
+  return { status: "ok", judgment: toJudgment(outcome.output) };
+}
+
+/**
+ * Turns a stamped attribution output into the register's `Judgment`.
+ *
+ * The orchestrator stamps provenance; the PIPELINE owns the persisted
+ * reasoning string. `resolvePersistedReasoning` is the codebase's single
+ * branch on prose vintage — it hands a v1.0.0/v1.1.0 answer's own string back
+ * byte-for-byte and joins a v1.2.0 answer's three fields. Re-deriving that
+ * branch here would make it two, and two branches on the same question is how
+ * the two drift.
+ *
+ * Module-local on purpose: the same category of internal as
+ * `joinReasoningRoles` itself, and it belongs on no barrel.
+ */
+function toJudgment(output: StampedOutput<"attribution">): Judgment {
+  return {
+    backend: output.backend,
+    model: output.model,
+    relation_type: output.relation_type,
+    confidence: output.confidence,
+    reasoning: resolvePersistedReasoning(output),
+    at: output.at,
+  };
 }
 
 /** Types of the distinct sources whose resolved relation supports the claim

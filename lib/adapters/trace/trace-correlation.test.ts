@@ -111,8 +111,24 @@ describe("judgment ↔ trace correlation", () => {
       const outcome = await orchestrator.run("mock", job);
       if (outcome.status !== "ok")
         throw new Error(`unexpected ${outcome.status}`);
+      // Since the two-layer prose contract the orchestrator stamps
+      // PROVENANCE but no longer hands back a register-ready Judgment:
+      // assembling the persisted `reasoning` is the pipeline's job
+      // (`verification/stage2`'s toJudgment), so the stamped attribution
+      // output is an alternation over the two live prompt vintages. This
+      // job renders the CURRENT attribution template (v1.1.0), which is a
+      // single-reasoning one, so the answer really does carry `reasoning`.
+      // Narrowed here rather than joined, because lib/adapters may not
+      // import lib/pipeline — and this test's subject is trace
+      // correlation, not prose assembly.
+      const stamped = outcome.output;
+      if (!("reasoning" in stamped)) {
+        throw new Error(
+          "expected the single-reasoning attribution shape at prompt v1.1.0",
+        );
+      }
       await store.transaction((tx) => {
-        tx.appendJudgment("clm_0001", "ev_0001", outcome.output);
+        tx.appendJudgment("clm_0001", "ev_0001", stamped);
       });
     }
 
