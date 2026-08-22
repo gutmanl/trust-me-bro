@@ -200,6 +200,68 @@ describe("RubricOutput", () => {
   });
 });
 
+describe("RubricOutput — the plain-language contract's positive counterparts", () => {
+  // The rejecting rows live in `plain-contract.test.ts`; these are the
+  // acceptances the same clauses must NOT swallow. A contract with only
+  // rejection tests is a contract nobody has shown to be satisfiable.
+  const RULE_NAME = "Regel für Zahlenbefunde";
+  const OPENER = "Die Formulierung passt zu den Belegen.";
+  const filler = "Die Aussage bleibt im Rahmen der Belege. ";
+
+  it("accepts a plain layer of exactly the 320-character cap", () => {
+    const plain = `${OPENER} ${filler.repeat(20)}`.slice(0, 320);
+    expect(
+      RubricOutput.safeParse({
+        ...validRubric,
+        reasoning_plain: plain,
+        reasoning_technical: `${RULE_NAME} ist erfüllt. ${filler.repeat(20)}`,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a plain layer exactly as long as the technical layer", () => {
+    const both = `${OPENER} ${filler.repeat(5)}`.slice(0, 200);
+    expect(
+      RubricOutput.safeParse({
+        ...validRubric,
+        reasoning_plain: both,
+        reasoning_technical:
+          `${RULE_NAME} ist erfüllt. ${filler.repeat(5)}`.slice(0, 200),
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a plain layer with no numbers at all (vacuous containment)", () => {
+    expect(
+      RubricOutput.safeParse({
+        ...validRubric,
+        reasoning_technical:
+          `${RULE_NAME} ist erfüllt; 2 Quellen aus 2025 liegen vor, ` +
+          "decken denselben Kontext ab und tragen die Aussage vollständig.",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a technical layer carrying numbers the plain layer omits", () => {
+    expect(
+      RubricOutput.safeParse({
+        ...validRubric,
+        reasoning_plain: `${OPENER} Die Zeit sank deutlich.`,
+        reasoning_technical: `${RULE_NAME} ist erfüllt; 55 Prozent bei 1.000 Fällen aus 2025 im Kontext.`,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a null caveat and a non-empty one alike", () => {
+    for (const caveat of [null, "die Stichprobe ist klein."]) {
+      expect(
+        RubricOutput.safeParse({ ...validRubric, caveat }).success,
+        `caveat ${String(caveat)} must be accepted`,
+      ).toBe(true);
+    }
+  });
+});
+
 describe("SingleReasoningRubricOutput (frozen: rubric prompts v1.0.0 and v1.1.0)", () => {
   const validSingleReasoning = {
     calibration_result: "licensed",

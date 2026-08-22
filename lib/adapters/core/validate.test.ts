@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest";
 
+import { PLAIN_VERDICT_PHRASE } from "../schema/plain-contract";
 import { AdapterValidationError } from "./errors";
 import type { JobKind } from "./jobs";
 import { validateJobOutput } from "./validate";
+
+/** A valid two-layer rubric response, perturbed one field at a time. */
+const VALID_TWO_LAYER_RUBRIC = {
+  calibration_result: "licensed",
+  reasoning_plain: `${PLAIN_VERDICT_PHRASE.licensed} Eine begutachtete Studie deckt die Aussage ab.`,
+  caveat: null as string | null,
+  reasoning_technical:
+    "Die Regel für Zahlenbefunde verlangt eine begutachtete Studie mit " +
+    "passendem Kontext; eine solche liegt vor und traegt die Aussage.",
+};
+
+function twoLayer(patch: Record<string, unknown>): Record<string, unknown> {
+  return { ...VALID_TWO_LAYER_RUBRIC, ...patch };
+}
+
+/** The two-key shape rubric prompts v1.0.0 and v1.1.0 ask for. */
+const VALID_SINGLE_REASONING_RUBRIC = {
+  calibration_result: "licensed",
+  reasoning: "Eine begutachtete Studie mit passendem Kontext liegt vor.",
+};
 
 /**
  * TMB-19 acceptance: invalid outputs never reach the register. Every path
@@ -111,6 +132,67 @@ const invalidByKind: Array<[JobKind, string, string, unknown]> = [
       references: [{ raw_text: "x", authors: [], title: "y", reasoning: "z" }],
     },
   ],
+  // The two-layer contract, at the BOUNDARY: every clause must reach
+  // validateJobOutput as an AdapterValidationError, not merely fail a schema
+  // in isolation. The clause-by-clause table lives in
+  // schema/plain-contract.test.ts.
+  [
+    "rubric",
+    "English enum token in the plain layer",
+    "1.2.0",
+    twoLayer({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.licensed} Die Quelle ist ein preprint.`,
+    }),
+  ],
+  [
+    "rubric",
+    "plain layer over the character cap",
+    "1.2.0",
+    twoLayer({
+      reasoning_plain:
+        `${PLAIN_VERDICT_PHRASE.licensed} ` + "sehr lang. ".repeat(60),
+    }),
+  ],
+  [
+    "rubric",
+    "technical layer without the German rule-name anchor",
+    "1.2.0",
+    twoLayer({
+      reasoning_technical:
+        "Die Belege genuegen dem Bewertungsschema in diesem Kontext.",
+    }),
+  ],
+  [
+    "rubric",
+    "blank line inside a prose field",
+    "1.2.0",
+    twoLayer({
+      caveat: "die Studie ist klein.\n\nUnd alt.",
+    }),
+  ],
+  [
+    "rubric",
+    "number in the plain layer absent from the technical layer",
+    "1.2.0",
+    twoLayer({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.licensed} Die Zeit sank um 55 Prozent.`,
+    }),
+  ],
+  [
+    "rubric",
+    "role marker at the start of a prose field",
+    "1.2.0",
+    twoLayer({ caveat: "Jedoch: die Studie ist klein." }),
+  ],
+  ["rubric", "empty-string caveat", "1.2.0", twoLayer({ caveat: "" })],
+  [
+    "rubric",
+    "plain layer opening with another verdict's phrase",
+    "1.2.0",
+    twoLayer({
+      reasoning_plain: `${PLAIN_VERDICT_PHRASE.weakened} Die Belege tragen die Aussage.`,
+    }),
+  ],
 ];
 
 describe("validateJobOutput", () => {
@@ -131,6 +213,104 @@ describe("validateJobOutput", () => {
     };
     expect(validateJobOutput("mock", "attribution", "1.1.0", valid)).toEqual(
       valid,
+    );
+  });
+});
+
+/**
+ * The VERSION dimension — a property of the boundary, not of the contract,
+ * which is why it lives here and not in `schema/plain-contract.test.ts`.
+ *
+ * The dispatch table used to be keyed on job kind alone. Widening a shape in
+ * place therefore invalidated every response from every project pinned to an
+ * older template: three failed attempts and an escalated claim per
+ * generation, reached by omission rather than by an attacker, and presenting
+ * as a model-compliance problem. These rows are what keep the two halves —
+ * what a template asks for and what the boundary accepts — the same
+ * statement.
+ */
+describe("validateJobOutput — the accepted shape is selected by prompt version", () => {
+  it.each(["1.0.0", "1.1.0"])(
+    "accepts the two-key rubric shape at prompt version %s",
+    (promptVersion) => {
+      expect(
+        validateJobOutput(
+          "mock",
+          "rubric",
+          promptVersion,
+          VALID_SINGLE_REASONING_RUBRIC,
+        ),
+      ).toEqual(VALID_SINGLE_REASONING_RUBRIC);
+    },
+  );
+
+  it("accepts the three-field rubric shape at prompt version 1.2.0", () => {
+    expect(
+      validateJobOutput("mock", "rubric", "1.2.0", VALID_TWO_LAYER_RUBRIC),
+    ).toEqual(VALID_TWO_LAYER_RUBRIC);
+  });
+
+  it("rejects the two-key shape at prompt version 1.2.0", () => {
+    // Without this the two-layer contract is optional: a model could escape
+    // it entirely by answering in the previous vintage's shape.
+    expect(() =>
+      validateJobOutput(
+        "mock",
+        "rubric",
+        "1.2.0",
+        VALID_SINGLE_REASONING_RUBRIC,
+      ),
+    ).toThrow(AdapterValidationError);
+  });
+
+  it.each(["1.0.0", "1.1.0"])(
+    "rejects the three-field shape at prompt version %s",
+    (promptVersion) => {
+      expect(() =>
+        validateJobOutput(
+          "mock",
+          "rubric",
+          promptVersion,
+          VALID_TWO_LAYER_RUBRIC,
+        ),
+      ).toThrow(AdapterValidationError);
+    },
+  );
+
+  it("selects the two-layer contract for a version naming no known template", () => {
+    // The defaulting direction: an unrecognised version resolves to the
+    // CURRENT contract, so a fixture carrying an invented version string
+    // fails loudly instead of silently skipping the contract. Fix such a
+    // fixture by naming a real template version, never by widening the
+    // frozen legacy table.
+    expect(() =>
+      validateJobOutput(
+        "mock",
+        "rubric",
+        "9.9.9",
+        VALID_SINGLE_REASONING_RUBRIC,
+      ),
+    ).toThrow(AdapterValidationError);
+    expect(
+      validateJobOutput("mock", "rubric", "9.9.9", VALID_TWO_LAYER_RUBRIC),
+    ).toEqual(VALID_TWO_LAYER_RUBRIC);
+  });
+
+  it("attaches NO plain-language clause to the frozen two-key shape", () => {
+    // A reasoning that would violate several plain-layer clauses if they
+    // applied: an English enum token, an internal id, a bracket citation and
+    // a blank line. It must still validate at a legacy version — this is the
+    // assertion that stops a later reader "improving" the frozen shape by
+    // attaching the contract to it and silently breaking every existing
+    // project.
+    const wouldViolate = {
+      calibration_result: "licensed",
+      reasoning:
+        "Die Regel effectiveness_statement ist erfüllt; siehe ev_0001 " +
+        "und [3].\n\nJedoch: nur eine Quelle.",
+    };
+    expect(validateJobOutput("mock", "rubric", "1.1.0", wouldViolate)).toEqual(
+      wouldViolate,
     );
   });
 });
