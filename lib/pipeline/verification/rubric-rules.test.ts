@@ -74,6 +74,33 @@ describe("loadRubricRuleSet (v1.1, verdict redesign)", () => {
   });
 });
 
+describe("loadRubricRuleSet (v1.2, two-layer prose)", () => {
+  it("loads v1.2 with the same mechanical rules and the new template version", () => {
+    const v11 = loadRubricRuleSet("se-evidence-rubric-v1.1");
+    const v12 = loadRubricRuleSet("se-evidence-rubric-v1.2");
+    expect(v12.rubric_version).toBe("se-evidence-rubric-v1.2");
+    expect(v12.prompt_template_version).toBe("1.2.0");
+    // Copied byte-identically on purpose: if the mechanical rules moved too,
+    // PROMPT-05's verdict-distribution comparison would measure two
+    // variables at once and its result would be uninterpretable.
+    expect(v12.claim_types).toEqual(v11.claim_types);
+  });
+
+  it("pins the v1.2.0 prose prompt template", () => {
+    // The pin is written AFTER `npm run format` runs over the template —
+    // Prettier owns lib/adapters/prompts/**, so hashing first and formatting
+    // afterwards would silently invalidate the pin. A red row here means the
+    // template was edited in place, which the versioning rule forbids: the
+    // pin is the signal, not the bug.
+    const rules = loadRubricRuleSet("se-evidence-rubric-v1.2");
+    const template = fs.readFileSync(
+      path.join(repoRoot, "lib", "adapters", "prompts", "rubric", "v1.2.0.md"),
+    );
+    const actual = createHash("sha256").update(template).digest("hex");
+    expect(actual).toBe(rules.prompt_template_sha256);
+  });
+});
+
 describe("evaluateMechanicalRubric (rubric v1)", () => {
   const rules = loadRubricRuleSet("se-evidence-rubric-v1");
   const rule = (claimType: keyof typeof rules.claim_types) => {
