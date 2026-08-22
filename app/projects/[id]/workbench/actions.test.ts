@@ -293,3 +293,57 @@ describe("publishBriefingRevisionAction — reference scan", () => {
     expect(enqueueScan).not.toHaveBeenCalled();
   });
 });
+
+describe("publishBriefingRevisionAction — companion BibTeX file", () => {
+  const BIB = [
+    "@online{coaudit2023,",
+    "  title = {Co-audit: tools to help humans double-check AI content},",
+    "  eprint = {2310.01297},",
+    "  eprinttype = {arxiv},",
+    "}",
+  ].join("\n");
+  const PANDOC =
+    "Werkzeuge zum Gegenlesen von KI-Ausgaben sind ein eigenes Feld [@coaudit2023].";
+
+  function bibForm(text: string, bib: string, tool?: string): FormData {
+    const form = publishForm(text, tool);
+    form.set("bibliography", new File([bib], "bibliography.bib"));
+    return form;
+  }
+
+  it("freezes the desugared text and returns the German report", async () => {
+    const { publishBriefingRevisionAction } = await import("./actions");
+
+    const state = await publishBriefingRevisionAction(
+      PROJECT,
+      { error: null },
+      bibForm(PANDOC, BIB, "pandoc"),
+    );
+
+    expect(state.error).toBeNull();
+    expect(state.citationReport?.summary).toBe(
+      "1 Zitation aus 1 Eintrag in 1 Fußnote überführt.",
+    );
+
+    const register = await RegisterStore.forProject(PROJECT).read();
+    const meta = register.project.briefing_import;
+    const frozen = RegisterStore.forProject(PROJECT)
+      .blobs()
+      .readText(meta!.blob_path);
+    expect(frozen).toContain("eigenes Feld [^coaudit2023].");
+    expect(frozen).toContain("arXiv:2310.01297");
+  });
+
+  it("ignores an empty file input", async () => {
+    const { publishBriefingRevisionAction } = await import("./actions");
+    const form = publishForm(BRIEFING, "you.com");
+    form.set("bibliography", new File([], "bibliography.bib"));
+
+    const state = await publishBriefingRevisionAction(
+      PROJECT,
+      { error: null },
+      form,
+    );
+    expect(state).toEqual({ error: null, published: true });
+  });
+});

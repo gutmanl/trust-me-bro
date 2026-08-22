@@ -16,6 +16,7 @@ import {
   startUnevidencedExtraction,
   startVerification,
 } from "@/lib/pipeline";
+import type { CitationRewriteReport } from "@/lib/pipeline";
 
 /**
  * Server actions of the unified workbench. Everything the page mutates goes
@@ -64,6 +65,22 @@ export interface BriefingFormState {
   error: string | null;
   published?: boolean;
   discarded?: boolean;
+  /** BibTeX support: what the companion `.bib` did to the submitted text —
+   * present only when one was uploaded. */
+  citationReport?: CitationRewriteReport;
+}
+
+/** The companion BibTeX file of a briefing submit, if one was chosen. An
+ * empty file input still arrives as a zero-byte File, which is why the size
+ * is checked rather than mere presence. */
+async function parseBibliography(
+  formData: FormData,
+): Promise<string | undefined> {
+  const file = formData.get("bibliography");
+  if (file instanceof File && file.size > 0) {
+    return file.text();
+  }
+  return undefined;
 }
 
 /**
@@ -114,6 +131,7 @@ export async function publishBriefingRevisionAction(
 ): Promise<BriefingFormState> {
   const text = String(formData.get("text") ?? "");
   const tool = String(formData.get("tool") ?? "").trim();
+  const bibliography = await parseBibliography(formData);
   const result = await runPipelineAction(async () => {
     // Asked BEFORE publishing, inside the same error policy: afterwards a
     // briefing always exists. The published revision cannot answer it
@@ -123,6 +141,7 @@ export async function publishBriefingRevisionAction(
     const published = await publishBriefingRevision(projectId, {
       text,
       ...(tool.length > 0 ? { tool } : {}),
+      ...(bibliography !== undefined ? { bibliography } : {}),
     });
     const initialImport = before === null;
     // Republishing checksum-identical text is a total no-op inside the
@@ -130,7 +149,11 @@ export async function publishBriefingRevisionAction(
     // would read is then the text the last scan already read, so re-running
     // it would only spend Crossref and LLM quota on the same answer.
     const changed = initialImport || published.sha256 !== before.meta.sha256;
-    return { initialImport, changed };
+    return {
+      initialImport,
+      changed,
+      citationReport: published.citationRewrite,
+    };
   });
   if (result.error !== null) {
     return { error: result.error };
@@ -145,7 +168,13 @@ export async function publishBriefingRevisionAction(
     enqueueAnchorRepair(projectId);
   }
   revalidateWorkbench(projectId);
-  return { error: null, published: true };
+  return {
+    error: null,
+    published: true,
+    ...(result.value.citationReport
+      ? { citationReport: result.value.citationReport }
+      : {}),
+  };
 }
 
 /** Throws the draft away; the frozen briefing is untouched by it anyway. */
