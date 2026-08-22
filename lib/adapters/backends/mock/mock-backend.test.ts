@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { jobFor } from "../../__fixtures__/jobs";
+import { assertOutputMatchesInput } from "../../core/output-contract";
 import { attributionOutputSchemaFor } from "../../schema/attribution";
 import { rubricOutputSchemaFor } from "../../schema/rubric";
 import {
@@ -12,7 +13,7 @@ import {
   ResearchOutput,
   RubricOutput,
 } from "../../schema";
-import type { JobKind } from "../../core/jobs";
+import type { JobKind, JobRequest } from "../../core/jobs";
 import { AdapterTimeoutError } from "../../core/errors";
 import { createMockBackend } from "./mock-backend";
 
@@ -65,6 +66,57 @@ describe("createMockBackend", () => {
         .success,
     ).toBe(true);
   });
+
+  it("answers a legacy-version attribution job with the three-key default", async () => {
+    const backend = createMockBackend();
+    const result = await backend.invoke(
+      jobFor("attribution", undefined, "1.1.0"),
+    );
+    expect(result.output).toHaveProperty("reasoning");
+    expect(result.output).not.toHaveProperty("reasoning_plain");
+  });
+
+  it("answers a two-layer attribution job with a default that satisfies BOTH contract halves", async () => {
+    // The static half (`schema/attribution.ts`) and the input-dependent half
+    // (`core/output-contract.ts`) are asserted together on purpose: a mock
+    // default that clears only the schema would let every future pipeline
+    // test at a two-layer version pass while the real backend's answer, held
+    // to both, would escalate.
+    const backend = createMockBackend();
+    const base = jobFor("attribution");
+    const job = { ...base, prompt: { ...base.prompt, version: "1.2.0" } };
+    const result = await backend.invoke(job);
+
+    expect(result.output).not.toHaveProperty("reasoning");
+    expect(
+      attributionOutputSchemaFor(job.prompt.version).safeParse(result.output)
+        .success,
+    ).toBe(true);
+    expect(() =>
+      assertOutputMatchesInput("mock", job, result.output),
+    ).not.toThrow();
+  });
+
+  it.each(["quantitative_finding", "recommendation"] as const)(
+    "names the rule of the job's OWN claim_type (%s) in a two-layer rubric answer",
+    async (claimType) => {
+      // A canned rule name would satisfy the input-dependent clause only for
+      // the one claim type it was written against.
+      const backend = createMockBackend();
+      const base = jobFor("rubric", undefined, "1.2.0");
+      const job: JobRequest<"rubric"> = {
+        ...base,
+        input: {
+          ...base.input,
+          claim: { ...base.input.claim, claim_type: claimType },
+        },
+      };
+      const result = await backend.invoke(job);
+      expect(() =>
+        assertOutputMatchesInput("mock", job, result.output),
+      ).not.toThrow();
+    },
+  );
 
   it("lets a per-kind override beat both version defaults", async () => {
     const override = {

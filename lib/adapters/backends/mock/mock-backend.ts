@@ -1,5 +1,12 @@
 import type { Backend, InvokeResult } from "../../core/contracts";
-import type { JobIO, JobKind, JobRequest } from "../../core/jobs";
+import type {
+  AttributionInput,
+  JobIO,
+  JobKind,
+  JobRequest,
+  RubricInput,
+} from "../../core/jobs";
+import { GERMAN_RULE_NAMES } from "../../schema/plain-contract";
 import { usesTwoLayerProse } from "../../schema/prose-contract-version";
 
 /**
@@ -88,17 +95,39 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
  * surfaces as a failing run rather than as a type error, which is precisely
  * how it would surface in production.
  */
-const TWO_LAYER_OUTPUTS: Partial<{ [K in JobKind]: JobIO[K]["output"] }> = {
-  rubric: {
+const TWO_LAYER_OUTPUTS: Partial<{
+  [K in JobKind]: (job: JobRequest<K>) => JobIO[K]["output"];
+}> = {
+  // Both answers are built FROM THE JOB rather than canned, because since
+  // 03-02 two clauses of the contract are input-dependent
+  // (`core/output-contract.ts`): the rubric answer must name the rule mapped
+  // from THIS claim's type, and the attribution answer must quote THIS
+  // evidence's excerpt. A canned string satisfies neither for any job but
+  // the one it was written against — and a mock that cannot satisfy the
+  // contract the real backend must satisfy is a mock that hides the
+  // contract.
+  rubric: (job) => ({
     calibration_result: "licensed",
     reasoning_technical:
-      "Die Regel für Zahlenbefunde verlangt eine begutachtete Studie mit " +
-      "passendem Kontext; eine solche liegt vor.",
+      `Die ${GERMAN_RULE_NAMES[(job.input as RubricInput).claim.claim_type]} ` +
+      "verlangt eine begutachtete Studie mit passendem Kontext; eine solche " +
+      "liegt vor.",
     caveat: null,
     reasoning_plain:
       "Die Formulierung passt zu den Belegen. Die herangezogene Studie " +
       "deckt die Aussage in ihrem Kontext ab.",
-  },
+  }),
+  attribution: (job) => ({
+    relation_type: "supports",
+    confidence: 0.9,
+    reasoning_plain:
+      "Der Auszug trägt die Aussage. Der zitierte Abschnitt nennt sie " +
+      "unmittelbar.",
+    caveat: null,
+    reasoning_technical:
+      `Der Auszug lautet "${(job.input as AttributionInput).evidence.verbatim_excerpt.trim()}" ` +
+      "und deckt die Aussage in ihrem Kontext ab.",
+  }),
 };
 
 export interface MockBackendOptions {
@@ -140,9 +169,11 @@ export function createMockBackend(
       if (step instanceof Error) {
         throw step;
       }
-      const twoLayerDefault = usesTwoLayerProse(job.kind, job.prompt.version)
-        ? (TWO_LAYER_OUTPUTS[job.kind] as JobIO[K]["output"] | undefined)
+      const buildTwoLayer = usesTwoLayerProse(job.kind, job.prompt.version)
+        ? (TWO_LAYER_OUTPUTS[job.kind] as
+            ((request: JobRequest<K>) => JobIO[K]["output"]) | undefined)
         : undefined;
+      const twoLayerDefault = buildTwoLayer?.(job);
       const output =
         (overrides[job.kind] as JobIO[K]["output"] | undefined) ??
         twoLayerDefault ??
