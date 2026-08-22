@@ -37,6 +37,12 @@ export type ReasoningRole = "plain" | "caveat" | "technical" | "unmarked";
  * The three literal markers, in display rank order. `verdict-glossary.test.ts`
  * asserts the prose glossary is a no-op on these same literals, so a fourth
  * marker added here without checking the glossary side fails on both sides.
+ *
+ * The EMITTING side duplicates these literals in
+ * `lib/pipeline/verification/reasoning-join.ts`, because `lib/**` may not
+ * import `app/**`. The round-trip test at the bottom of this file's test
+ * module is what makes that duplication a contract: it joins over there and
+ * classifies over here, so the two copies cannot drift apart silently.
  */
 export const REASONING_ROLE_MARKERS = [
   "Einfach gesagt:",

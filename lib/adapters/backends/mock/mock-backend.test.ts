@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { jobFor } from "../../__fixtures__/jobs";
+import { rubricOutputSchemaFor } from "../../schema/rubric";
 import {
   AttributionOutput,
   ExtractionOutput,
@@ -29,11 +30,48 @@ describe("createMockBackend", () => {
     "answers a %s job with a schema-valid default output",
     async (kind) => {
       const backend = createMockBackend();
-      const result = await backend.invoke(jobFor(kind));
-      expect(outputSchemas[kind].safeParse(result.output).success).toBe(true);
+      const job = jobFor(kind);
+      const result = await backend.invoke(job);
+      // The rubric contract is selected by the job's prompt version, so the
+      // schema this default is judged against must be too.
+      const schema =
+        kind === "rubric"
+          ? rubricOutputSchemaFor(job.prompt.version)
+          : outputSchemas[kind];
+      expect(schema.safeParse(result.output).success).toBe(true);
       expect(result.model).toBe("mock-1");
     },
   );
+
+  it("answers a legacy-version rubric job with the two-key default", async () => {
+    const backend = createMockBackend();
+    const result = await backend.invoke(jobFor("rubric", undefined, "1.1.0"));
+    expect(result.output).toHaveProperty("reasoning");
+    expect(result.output).not.toHaveProperty("reasoning_plain");
+  });
+
+  it("answers a v1.2.0 rubric job with the two-layer default", async () => {
+    const backend = createMockBackend();
+    const job = jobFor("rubric", undefined, "1.2.0");
+    const result = await backend.invoke(job);
+    expect(result.output).not.toHaveProperty("reasoning");
+    expect(
+      rubricOutputSchemaFor(job.prompt.version).safeParse(result.output)
+        .success,
+    ).toBe(true);
+  });
+
+  it("lets a per-kind override beat both version defaults", async () => {
+    const override = {
+      calibration_result: "weakened",
+      reasoning: "Überschrieben.",
+    } as const;
+    const backend = createMockBackend({ overrides: { rubric: override } });
+    for (const version of ["1.1.0", "1.2.0"]) {
+      const result = await backend.invoke(jobFor("rubric", undefined, version));
+      expect(result.output).toEqual(override);
+    }
+  });
 
   it("honors per-kind output overrides", async () => {
     const override = {

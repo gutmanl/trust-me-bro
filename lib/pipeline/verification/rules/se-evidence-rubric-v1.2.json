@@ -1,0 +1,23 @@
+{
+  "rubric_version": "se-evidence-rubric-v1.2",
+  "prompt_template_version": "1.2.0",
+  "prompt_template_sha256": "c2ae446bdc4ea9209a69b6c71d0ff99b6f4bc5f6ac04164aa3363519f09fe8da",
+  "claim_types": {
+    "quantitative_finding": {
+      "min_pertinent_sources": 1,
+      "required_source_types_any": ["peer_reviewed_publication"]
+    },
+    "comparative_statement": {
+      "min_pertinent_sources": 2,
+      "insufficient_if_only": ["vendor_documentation"]
+    },
+    "effectiveness_statement": {
+      "min_pertinent_sources": 1
+    },
+    "recommendation": {
+      "min_pertinent_sources": 2,
+      "min_source_type_diversity": 2,
+      "insufficient_if_only": ["vendor_documentation"]
+    }
+  }
+}

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  joinReasoningRoles,
+  resolvePersistedReasoning,
+} from "@/lib/pipeline/verification/reasoning-join";
+
+import {
   classifyReasoningParagraph,
   REASONING_ROLE_MARKERS,
   reasoningRoleClassName,
@@ -142,5 +147,64 @@ describe("reasoning role markers and styling", () => {
     const technical = reasoningRoleClassName("technical") ?? "";
     expect(technical).toContain("text-[11px]");
     expect(technical).toContain("text-slate-500");
+  });
+});
+
+/**
+ * The emitting-side round trip — the test that turns the marker seam from a
+ * coincidence into a contract.
+ *
+ * `verdict-glossary.test.ts` already asserts the prose glossary is a no-op on
+ * each role-marker literal, from the display side. This is the mirror: the
+ * PIPELINE's join (`lib/pipeline/verification/reasoning-join.ts`) duplicates
+ * these three literals by construction, because `lib/**` may not import
+ * `app/**` — enforced both by `tests/architecture.test.ts` and by the ESLint
+ * `no-restricted-imports` rule. The reverse direction, `app` → `lib`, is
+ * allowed, so the assertion lives here and the two copies cannot drift apart
+ * without going red.
+ *
+ * The deep import is legal in an app TEST file: the architecture test's
+ * app-source scan filters out `*.test.ts` before applying the runtime-import
+ * allowlist (`tests/architecture.test.ts`, the `appSourceFiles()` helper).
+ * Do NOT add a fourth entry to that allowlist for it.
+ */
+describe("round trip against the pipeline's join", () => {
+  const roles = {
+    plain: "Die Formulierung passt zu den Belegen.",
+    caveat: "die Studie betrachtet nur ein einzelnes Team.",
+    technical: "Die Regel für Zahlenbefunde ist erfüllt.",
+  };
+
+  it("classifies a joined three-role reasoning as plain, caveat, technical", () => {
+    expect(rolesOf(joinReasoningRoles(roles))).toEqual([
+      "plain",
+      "caveat",
+      "technical",
+    ]);
+  });
+
+  it("classifies a joined reasoning without a caveat as plain, technical", () => {
+    expect(rolesOf(joinReasoningRoles({ ...roles, caveat: null }))).toEqual([
+      "plain",
+      "technical",
+    ]);
+  });
+
+  it("carries a validated two-layer model answer all the way to the tiers", () => {
+    // The last step of the phase's end-to-end crossing: what
+    // `resolvePersistedReasoning` hands the register is what the card reads.
+    const persisted = resolvePersistedReasoning({
+      reasoning_plain: roles.plain,
+      caveat: roles.caveat,
+      reasoning_technical: roles.technical,
+    });
+    expect(rolesOf(persisted)).toEqual(["plain", "caveat", "technical"]);
+  });
+
+  it("leaves a single-reasoning (pre-v1.2.0) answer unmarked, as it renders today", () => {
+    const persisted = resolvePersistedReasoning({
+      reasoning: "Eine begutachtete Studie mit passendem Kontext liegt vor.",
+    });
+    expect(rolesOf(persisted)).toEqual(["unmarked"]);
   });
 });

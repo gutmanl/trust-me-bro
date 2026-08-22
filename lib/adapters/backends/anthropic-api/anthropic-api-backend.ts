@@ -167,7 +167,12 @@ export function createAnthropicApiBackend(
 
       const usage = usageOf(envelope);
       return {
-        output: validateJobOutput(BACKEND_ID, job.kind, candidate),
+        output: validateJobOutput(
+          BACKEND_ID,
+          job.kind,
+          job.prompt.version,
+          candidate,
+        ),
         model: typeof envelope.model === "string" ? envelope.model : model,
         ...(usage !== undefined ? { usage } : {}),
       };

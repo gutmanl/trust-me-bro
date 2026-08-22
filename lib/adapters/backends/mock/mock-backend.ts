@@ -1,5 +1,6 @@
 import type { Backend, InvokeResult } from "../../core/contracts";
 import type { JobIO, JobKind, JobRequest } from "../../core/jobs";
+import { usesTwoLayerProse } from "../../schema/prose-contract-version";
 
 /**
  * In-memory backend for tests: covers every job kind with schema-valid
@@ -74,6 +75,32 @@ const DEFAULT_OUTPUTS: { [K in JobKind]: JobIO[K]["output"] } = {
   },
 };
 
+/**
+ * The two-layer prose answers, for jobs whose prompt version asks for them.
+ *
+ * The mock stands in for a model that follows the template it was handed. A
+ * mock answering identically whatever the prompt asked would let every
+ * v1.2.0 pipeline test validate a shape no v1.2.0 prompt ever requested —
+ * the exact blind spot the version dimension exists to remove.
+ *
+ * Note that the mock does NOT call `validateJobOutput` itself; the
+ * orchestrator's re-validation judges its output. A mismatch therefore
+ * surfaces as a failing run rather than as a type error, which is precisely
+ * how it would surface in production.
+ */
+const TWO_LAYER_OUTPUTS: Partial<{ [K in JobKind]: JobIO[K]["output"] }> = {
+  rubric: {
+    calibration_result: "licensed",
+    reasoning_technical:
+      "Die Regel für Zahlenbefunde verlangt eine begutachtete Studie mit " +
+      "passendem Kontext; eine solche liegt vor.",
+    caveat: null,
+    reasoning_plain:
+      "Die Formulierung passt zu den Belegen. Die herangezogene Studie " +
+      "deckt die Aussage in ihrem Kontext ab.",
+  },
+};
+
 export interface MockBackendOptions {
   readonly id?: string;
   readonly model?: string;
@@ -113,8 +140,12 @@ export function createMockBackend(
       if (step instanceof Error) {
         throw step;
       }
+      const twoLayerDefault = usesTwoLayerProse(job.kind, job.prompt.version)
+        ? (TWO_LAYER_OUTPUTS[job.kind] as JobIO[K]["output"] | undefined)
+        : undefined;
       const output =
         (overrides[job.kind] as JobIO[K]["output"] | undefined) ??
+        twoLayerDefault ??
         DEFAULT_OUTPUTS[job.kind];
       // Canned usage so the demo pipeline shows non-empty token accounting
       // (finding 6); deterministic, not derived from the prompt.

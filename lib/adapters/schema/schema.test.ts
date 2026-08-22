@@ -7,6 +7,7 @@ import {
   RepairOutput,
   RubricOutput,
 } from "./index";
+import { SingleReasoningRubricOutput } from "./rubric";
 
 const validAttribution = {
   relation_type: "supports",
@@ -42,9 +43,16 @@ const validExtraction = {
   ],
 };
 
+/** The go-forward (rubric prompt v1.2.0) three-field shape. */
 const validRubric = {
   calibration_result: "licensed",
-  reasoning: "Eine begutachtete Studie mit passendem Kontext liegt vor.",
+  reasoning_plain:
+    "Die Formulierung passt zu den Belegen. Eine begutachtete Studie deckt " +
+    "die Aussage in ihrem Kontext ab.",
+  caveat: null,
+  reasoning_technical:
+    "Die Regel für Zahlenbefunde verlangt eine begutachtete Studie mit " +
+    "passendem Kontext; eine solche liegt vor.",
 };
 
 const validRepair = {
@@ -164,6 +172,13 @@ describe("RubricOutput", () => {
     expect(RubricOutput.parse(validRubric)).toEqual(validRubric);
   });
 
+  it("keeps the verdict enum as the first key of the shape", () => {
+    // Under left-to-right decoding, prose emitted after the verdict token
+    // cannot mechanically change it. The property dies the moment someone
+    // applies the classic "let it reason before it answers" refactor.
+    expect(Object.keys(RubricOutput.shape)[0]).toBe("calibration_result");
+  });
+
   it("rejects a calibration result outside the closed enumeration", () => {
     expect(
       RubricOutput.safeParse({ ...validRubric, calibration_result: "ok" })
@@ -171,9 +186,38 @@ describe("RubricOutput", () => {
     ).toBe(false);
   });
 
+  it("rejects empty prose in any of the three fields", () => {
+    for (const field of [
+      "reasoning_plain",
+      "caveat",
+      "reasoning_technical",
+    ] as const) {
+      expect(
+        RubricOutput.safeParse({ ...validRubric, [field]: "" }).success,
+        `${field} must reject the empty string`,
+      ).toBe(false);
+    }
+  });
+});
+
+describe("SingleReasoningRubricOutput (frozen: rubric prompts v1.0.0 and v1.1.0)", () => {
+  const validSingleReasoning = {
+    calibration_result: "licensed",
+    reasoning: "Eine begutachtete Studie mit passendem Kontext liegt vor.",
+  };
+
+  it("accepts the two-key shape those two templates describe", () => {
+    expect(SingleReasoningRubricOutput.parse(validSingleReasoning)).toEqual(
+      validSingleReasoning,
+    );
+  });
+
   it("rejects empty reasoning", () => {
     expect(
-      RubricOutput.safeParse({ ...validRubric, reasoning: "" }).success,
+      SingleReasoningRubricOutput.safeParse({
+        ...validSingleReasoning,
+        reasoning: "",
+      }).success,
     ).toBe(false);
   });
 });

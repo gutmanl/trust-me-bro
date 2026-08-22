@@ -23,6 +23,7 @@ import {
   combineCalibrationResult,
   evaluateMechanicalRubric,
 } from "../rubric-rules";
+import { resolvePersistedReasoning } from "../reasoning-join";
 import { needsSecondOpinion } from "../second-opinion";
 
 /**
@@ -192,7 +193,10 @@ export async function runAttributionAndRubric(
         mechanical,
         outcome.output.calibration_result,
       ),
-      reasoning: outcome.output.reasoning,
+      // The PIPELINE owns the persisted string, not the model: a v1.2.0
+      // rubric answer is joined here, a v1.0.0/v1.1.0 one is handed back
+      // byte-for-byte. Same line, both vintages.
+      reasoning: resolvePersistedReasoning(outcome.output),
       mechanical,
     },
   };

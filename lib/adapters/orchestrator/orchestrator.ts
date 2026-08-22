@@ -71,7 +71,12 @@ export class Orchestrator {
       const startedAt = this.clock.now();
       try {
         const invoked = await this.options.gate.run(() => backend.invoke(job));
-        const output = validateJobOutput(backend.id, job.kind, invoked.output);
+        const output = validateJobOutput(
+          backend.id,
+          job.kind,
+          job.prompt.version,
+          invoked.output,
+        );
         const finishedAt = this.clock.now();
         const stamped = stampOutput(
           job.kind,

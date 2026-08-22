@@ -90,16 +90,23 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
   } satisfies ReferenceParseInput,
 };
 
+/**
+ * `promptVersion` is optional and has NO default of its own: omitting it
+ * resolves `CURRENT_PROMPT_VERSION[kind]` exactly as before, so every
+ * existing fixture keeps the version — and therefore the output contract —
+ * it already had. Pass it only where the test's subject IS a newer contract.
+ */
 export function jobFor<K extends JobKind>(
   kind: K,
   projectDir = "C:/tmp/proj_x",
+  promptVersion?: string,
 ): JobRequest<K> {
   const input = exampleInputs[kind];
   return {
     kind,
     projectDir,
     input,
-    prompt: renderPromptForJob(kind, input),
+    prompt: renderPromptForJob(kind, input, promptVersion),
     timeoutMs: 90_000,
   };
 }

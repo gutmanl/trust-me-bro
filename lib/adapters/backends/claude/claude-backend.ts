@@ -179,7 +179,12 @@ export function createClaudeBackend(
 
       const usage = usageOf(envelope);
       return {
-        output: validateJobOutput(BACKEND_ID, job.kind, candidate),
+        output: validateJobOutput(
+          BACKEND_ID,
+          job.kind,
+          job.prompt.version,
+          candidate,
+        ),
         model,
         ...(usage !== undefined ? { usage } : {}),
       };

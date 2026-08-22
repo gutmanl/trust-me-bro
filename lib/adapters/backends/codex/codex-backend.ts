@@ -96,6 +96,7 @@ export function createCodexBackend(options: CodexBackendOptions = {}): Backend {
         output: validateJobOutput(
           BACKEND_ID,
           job.kind,
+          job.prompt.version,
           parsePayload(job.kind, payload),
         ),
         // S-11: an honest gap beats the backend id posing as a model.

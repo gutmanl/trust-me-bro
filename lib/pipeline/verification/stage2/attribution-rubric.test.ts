@@ -3,11 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   AdapterProcessError,
   AdapterRateLimitError,
+  AdapterValidationError,
   createMockBackend,
   Orchestrator,
+  renderPromptForJob,
 } from "../../../adapters";
 import type { AttributionOutput, RubricOutput } from "../../../adapters";
+import { exampleInputs } from "../../../adapters/__fixtures__/jobs";
+import { validateJobOutput } from "../../../adapters/core/validate";
 import type { Claim, Source } from "../../../register";
+import { resolvePersistedReasoning } from "../reasoning-join";
 import { loadRubricRuleSet } from "../rubric-rules";
 import { runAttributionAndRubric } from "./attribution-rubric";
 import type { Stage23Dependencies } from "./attribution-rubric";
@@ -290,5 +295,111 @@ describe("runAttributionAndRubric", () => {
       status: "exhausted",
       message: expect.stringContaining("ev_0001"),
     });
+  });
+});
+
+/**
+ * The tracer's end-to-end proof: ONE rubric generation crossing every layer
+ * this phase touches, for BOTH live prompt vintages.
+ *
+ * The DISPLAY-tier half of the crossing — that the persisted string
+ * classifies as plain / caveat / technical — is asserted in
+ * `app/projects/reasoning-paragraphs.test.ts`, not here. The architecture
+ * test's app-source scan would tolerate a deep import from a `lib` test
+ * file, but the ESLint `no-restricted-imports` rule is stricter and binding:
+ * `lib/**` may not import `app/**` at all, test files included. So this file
+ * proves the crossing up to the persisted BYTES, and the app-tier test
+ * carries it the last step — legally, because `app` → `lib` is the allowed
+ * direction.
+ */
+describe("two-layer rubric prose — end to end, both prompt vintages", () => {
+  const twoLayerResponse = {
+    calibration_result: "weakened",
+    reasoning_plain:
+      "Die Formulierung geht über die Belege hinaus. Es liegt nur eine " +
+      "Studie vor, die Aussage klingt aber allgemein.",
+    caveat: "die Studie betrachtet nur ein einzelnes Team.",
+    reasoning_technical:
+      "Die Regel für Zahlenbefunde verlangt eine begutachtete Studie mit " +
+      "passendem Kontext; der Kontext weicht ab, daher ist die " +
+      "unqualifizierte Formulierung nicht gedeckt.",
+  };
+
+  const singleReasoningResponse = {
+    calibration_result: "licensed",
+    reasoning:
+      "Eine begutachtete Studie mit passendem Kontext liegt vor.\n\n" +
+      "Jedoch: die Stichprobe ist klein.",
+  };
+
+  it("v1.2.0: template renders, response validates, joins and classifies", () => {
+    const ruleSet = loadRubricRuleSet("se-evidence-rubric-v1.2");
+    expect(ruleSet.prompt_template_version).toBe("1.2.0");
+
+    const rendered = renderPromptForJob(
+      "rubric",
+      exampleInputs.rubric,
+      ruleSet.prompt_template_version,
+    );
+    expect(rendered.version).toBe("1.2.0");
+    expect(rendered.text.length).toBeGreaterThan(0);
+
+    const validated = validateJobOutput(
+      "mock",
+      "rubric",
+      ruleSet.prompt_template_version,
+      twoLayerResponse,
+    );
+    const persisted = resolvePersistedReasoning(validated);
+    expect(
+      persisted.split("\n\n").map((p) => p.split(" ").slice(0, 2)),
+    ).toEqual([
+      ["Einfach", "gesagt:"],
+      ["Jedoch:", "die"],
+      ["Technisch:", "Die"],
+    ]);
+
+    const withoutCaveat = validateJobOutput("mock", "rubric", "1.2.0", {
+      ...twoLayerResponse,
+      caveat: null,
+    });
+    const twoParagraphs =
+      resolvePersistedReasoning(withoutCaveat).split("\n\n");
+    expect(twoParagraphs).toHaveLength(2);
+    expect(twoParagraphs[0].startsWith("Einfach gesagt: ")).toBe(true);
+    expect(twoParagraphs[1].startsWith("Technisch: ")).toBe(true);
+  });
+
+  it("v1.1.0: the shape every existing project answers in still validates and still persists byte-for-byte", () => {
+    const ruleSet = loadRubricRuleSet("se-evidence-rubric-v1.1");
+    expect(ruleSet.prompt_template_version).toBe("1.1.0");
+    expect(
+      renderPromptForJob(
+        "rubric",
+        exampleInputs.rubric,
+        ruleSet.prompt_template_version,
+      ).version,
+    ).toBe("1.1.0");
+
+    const validated = validateJobOutput(
+      "mock",
+      "rubric",
+      ruleSet.prompt_template_version,
+      singleReasoningResponse,
+    );
+    expect(resolvePersistedReasoning(validated)).toBe(
+      singleReasoningResponse.reasoning,
+    );
+  });
+
+  // ROADMAP Success Criterion 4: the shapes are PARTITIONED by version, so a
+  // model cannot escape the two-layer contract by answering in the old shape.
+  it("rejects each shape under the other's prompt version", () => {
+    expect(() =>
+      validateJobOutput("mock", "rubric", "1.2.0", singleReasoningResponse),
+    ).toThrow(AdapterValidationError);
+    expect(() =>
+      validateJobOutput("mock", "rubric", "1.1.0", twoLayerResponse),
+    ).toThrow(AdapterValidationError);
   });
 });
