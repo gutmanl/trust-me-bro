@@ -29,6 +29,15 @@ export const ClaimTypeRule = z.strictObject({
 export type ClaimTypeRule = z.infer<typeof ClaimTypeRule>;
 
 export const RubricRuleSet = z.strictObject({
+  /** The project's whole prose vintage, in one string: this selects the
+   * mechanical rule table below, the rubric prompt template AND — since the
+   * attribution fields were added — the attribution prompt template. The name
+   * is under-descriptive by history rather than by design; renaming it would
+   * be a change to `ProjectConfig.rubric_version`, i.e. a register schema
+   * change with a normative thesis-appendix entry, which the prompt-contract
+   * work must not make. Revisit when a THIRD pinnable job kind appears: at
+   * that point the six fields want to become one nested `prompt_templates`
+   * object and the config field has earned its rename. */
   rubric_version: z.string().min(1),
   /** Which rubric prompt TEMPLATE file this rule set pairs with
    * (lib/adapters/prompts/rubric/v<version>.md). Coupling the template
@@ -41,6 +50,31 @@ export const RubricRuleSet = z.strictObject({
    * consistency test hashes the template and compares — prose and rules
    * describe the SAME rubric and may only change together. */
   prompt_template_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  /** Which ATTRIBUTION prompt template file this rule set pairs with
+   * (lib/adapters/prompts/attribution/v<version>.md). Attribution used to
+   * resolve its version from the global `CURRENT_PROMPT_VERSION` while rubric
+   * resolved it from here, so one settings field moved only half a project's
+   * prose vintage and a re-run could mix judgment prose of one vintage with
+   * calibration prose of another.
+   *
+   * The default is "1.1.0" and NOT "1.0.0" — deliberately asymmetric with
+   * `prompt_template_version` above. A default must describe what a project
+   * carrying a rule file that predates the field resolves TODAY: for rubric
+   * that is 1.0.0 (the rubric path already read the rule file), for
+   * attribution it is the global constant, which is 1.1.0. Defaulting to
+   * 1.0.0 here would silently change the prompt of every existing project
+   * while claiming to be a compatibility default. */
+  attribution_template_version: z.string().min(1).default("1.1.0"),
+  /** Pins the attribution prose template the same way `prompt_template_sha256`
+   * pins the rubric one. Optional ONLY because the two pre-existing rule files
+   * (v1, v1.1) have no attribution pin to declare; from v1.2 onward the
+   * consistency test in rubric-rules.test.ts requires it present and matching.
+   * A red pin means the template was edited in place, which the versioning
+   * rule forbids — the fix is a new version file, never an updated pin. */
+  attribution_template_sha256: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
   claim_types: z.record(ClaimType, ClaimTypeRule),
 });
 export type RubricRuleSet = z.infer<typeof RubricRuleSet>;

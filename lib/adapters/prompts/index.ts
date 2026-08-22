@@ -30,6 +30,17 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   extraction: "2.0.0",
   // 1.1.0 (verdict redesign): reasoning in up to two German paragraphs, a
   // caveat paragraph starting "Jedoch:" — the UI splits on the blank line.
+  // Like rubric below, the attribution template version is NOT selected from
+  // here in production anymore: the rule set's own
+  // `attribution_template_version` (rubric-rules.ts) decides. This constant
+  // therefore stays at 1.1.0 rather than following the newest template — that
+  // is what makes "no unpinned production path" true by construction, and it
+  // keeps the login probe (whose output is discarded), the fixtures and
+  // scripts/adapter-smoke.ts on a template that has been exercised in
+  // production. Bumping it would re-create the global flip for any future
+  // call site that forgets the version argument, which is exactly the defect
+  // the per-project pin exists to remove. Same reasoning, same precedent:
+  // rubric stayed at 1.0.0 when v1.1.0 shipped.
   attribution: "1.1.0",
   // The rubric template version is NOT selected from here in production:
   // the rule set's own `prompt_template_version` (rubric-rules.ts) decides,

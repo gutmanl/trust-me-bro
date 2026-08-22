@@ -216,7 +216,17 @@ async function runAttribution(
     kind: "attribution",
     projectDir: deps.projectDir,
     input,
-    prompt: renderPromptForJob("attribution", input),
+    // The rule set decides which prompt template version renders, exactly as
+    // it does for the rubric job above — read through `deps.ruleSet` rather
+    // than hoisted onto Stage23Dependencies, because a second field would be
+    // a second thing to wire and to forget. What it prevents: a project
+    // pinned to an older rule set keeps the judgment prose it was verified
+    // with, so a re-run reproduces its vintage instead of mixing two.
+    prompt: renderPromptForJob(
+      "attribution",
+      input,
+      deps.ruleSet.attribution_template_version,
+    ),
     timeoutMs: deps.timeoutMs,
   };
   const outcome = await deps.orchestrator.run(backendId, job);

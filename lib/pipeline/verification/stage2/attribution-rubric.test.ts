@@ -8,12 +8,18 @@ import {
   Orchestrator,
   renderPromptForJob,
 } from "../../../adapters";
-import type { AttributionOutput, RubricOutput } from "../../../adapters";
+import type {
+  AttributionInput,
+  AttributionOutput,
+  JobRequest,
+  RubricOutput,
+} from "../../../adapters";
 import { exampleInputs } from "../../../adapters/__fixtures__/jobs";
 import { validateJobOutput } from "../../../adapters/core/validate";
 import type { Claim, Source } from "../../../register";
 import { resolvePersistedReasoning } from "../reasoning-join";
 import { loadRubricRuleSet } from "../rubric-rules";
+import type { RubricRuleSet } from "../rubric-rules";
 import { runAttributionAndRubric } from "./attribution-rubric";
 import type { Stage23Dependencies } from "./attribution-rubric";
 
@@ -83,9 +89,13 @@ interface Backends {
   secondaryConfigured?: boolean;
 }
 
-function makeDeps(backends: Backends = {}): {
+function makeDeps(
+  backends: Backends = {},
+  ruleSet: RubricRuleSet = RULE_SET,
+): {
   deps: Stage23Dependencies;
   primaryCalls: () => string[];
+  primaryJobs: () => ReadonlyArray<JobRequest>;
   secondaryCalls: () => string[];
 } {
   const primary = createMockBackend({
@@ -124,9 +134,10 @@ function makeDeps(backends: Backends = {}): {
         on_relation_not_supports: true,
       },
       rubricVersion: "se-evidence-rubric-v1",
-      ruleSet: RULE_SET,
+      ruleSet,
     },
     primaryCalls: () => primary.calls.map((job) => job.kind),
+    primaryJobs: () => primary.calls,
     secondaryCalls: () => secondary.calls.map((job) => job.kind),
   };
 }
@@ -503,5 +514,75 @@ describe("two-layer attribution prose — the second join site", () => {
     expect(judgment.backend).toBe("claude");
     expect(judgment.model).toBe("claude-sonnet-5");
     expect(judgment.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe("the attribution job renders the version the RULE SET names", () => {
+  // P-17, closed. Attribution used to render through the global
+  // `CURRENT_PROMPT_VERSION`, so a project pinned to an older rule set got
+  // its original calibration prose and somebody else's judgment prose — 33
+  // of 57 stored judgments in the real registers carry the caveat marker
+  // that only attribution v1.1.0 asks for, in projects whose rule set
+  // resolves rubric v1.0.0.
+
+  const claim = makeClaim(["src_a"], "quantitative_finding");
+  const sources = new Map([
+    ["src_a", makeSource("src_a", "peer_reviewed_publication")],
+  ]);
+  /** The input `runAttributionAndRubric` builds internally for that claim. */
+  const input: AttributionInput = {
+    claim: {
+      id: claim.id,
+      text: claim.text,
+      claim_type: claim.claim_type,
+      briefing_anchor: claim.briefing_anchor,
+    },
+    evidence: {
+      id: "ev_0001",
+      source_id: "src_a",
+      source_type: "peer_reviewed_publication",
+      locator: { page: 1 },
+      verbatim_excerpt: "Auszug",
+    },
+  };
+
+  it("renders at the rule set's version when it DISAGREES with the global constant", async () => {
+    // The rule set deliberately names 1.0.0 while
+    // CURRENT_PROMPT_VERSION.attribution is 1.1.0. Asserting only that SOME
+    // version reached the render would pass with the wrong one, so this
+    // compares the whole rendered prompt against both candidates.
+    const { deps, primaryJobs } = makeDeps(
+      {},
+      { ...RULE_SET, attribution_template_version: "1.0.0" },
+    );
+    const outcome = await runAttributionAndRubric(claim, sources, deps);
+    expect(outcome.status).toBe("ok");
+
+    const attributionJob = primaryJobs().find(
+      (job) => job.kind === "attribution",
+    );
+    if (!attributionJob) throw new Error("no attribution job was run");
+    expect(attributionJob.prompt).toEqual(
+      renderPromptForJob("attribution", input, "1.0.0"),
+    );
+    expect(attributionJob.prompt.text).not.toBe(
+      renderPromptForJob("attribution", input).text,
+    );
+  });
+
+  it("renders exactly what it rendered before when the two AGREE", async () => {
+    // Behaviour preservation, from the pipeline side: the v1 rule set
+    // defaults to 1.1.0, which is what the global constant resolves, so
+    // every existing project's prompt is byte-identical after this change.
+    const { deps, primaryJobs } = makeDeps();
+    await runAttributionAndRubric(claim, sources, deps);
+    const attributionJob = primaryJobs().find(
+      (job) => job.kind === "attribution",
+    );
+    if (!attributionJob) throw new Error("no attribution job was run");
+    expect(attributionJob.prompt).toEqual(
+      renderPromptForJob("attribution", input),
+    );
+    expect(attributionJob.prompt.version).toBe("1.1.0");
   });
 });

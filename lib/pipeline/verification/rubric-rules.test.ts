@@ -10,6 +10,7 @@ import {
   combineCalibrationResult,
   evaluateMechanicalRubric,
   loadRubricRuleSet,
+  RubricRuleSet,
 } from "./rubric-rules";
 
 const repoRoot = path.resolve(
@@ -178,5 +179,69 @@ describe("combineCalibrationResult", () => {
     expect(combineCalibrationResult("not_met", "pending_adjudication")).toBe(
       "pending_adjudication",
     );
+  });
+});
+
+describe("the rule set is the per-project vintage carrier for BOTH job kinds", () => {
+  // PROMPT-04/PROMPT-06. Attribution used to resolve its template version
+  // from the global `CURRENT_PROMPT_VERSION` while rubric resolved it from
+  // the project's rule file — so one settings field moved half the project's
+  // prose vintage and a re-run could mix a v1.2.0 judgment with a v1.1.0
+  // calibration. One field now selects both.
+
+  it("defaults the v1 rule file's attribution template version to 1.1.0", () => {
+    // 1.1.0, NOT 1.0.0: the default must describe what a project pinned to
+    // this pre-field rule file resolves TODAY, and today every project
+    // resolves the global constant, which is 1.1.0. A 1.0.0 default would be
+    // a behaviour change for every existing project wearing a compatibility
+    // default's clothes.
+    const v1 = loadRubricRuleSet("se-evidence-rubric-v1");
+    expect(v1.attribution_template_version).toBe("1.1.0");
+    expect(v1.attribution_template_sha256).toBeUndefined();
+  });
+
+  it("defaults the v1.1 rule file the same way and leaves its rubric version alone", () => {
+    const v11 = loadRubricRuleSet("se-evidence-rubric-v1.1");
+    expect(v11.attribution_template_version).toBe("1.1.0");
+    expect(v11.attribution_template_sha256).toBeUndefined();
+    expect(v11.prompt_template_version).toBe("1.1.0");
+  });
+
+  // `z.record(ClaimType, …)` demands a rule for every claim type, so the
+  // synthetic rule files below borrow the shipped table rather than invent one.
+  const CLAIM_TYPES = loadRubricRuleSet("se-evidence-rubric-v1").claim_types;
+
+  it("returns an explicitly declared attribution version rather than the default", () => {
+    const parsed = RubricRuleSet.parse({
+      rubric_version: "se-evidence-rubric-vX",
+      prompt_template_sha256: "a".repeat(64),
+      attribution_template_version: "9.9.9",
+      claim_types: CLAIM_TYPES,
+    });
+    expect(parsed.attribution_template_version).toBe("9.9.9");
+  });
+
+  it("rejects a malformed attribution template pin", () => {
+    const withBadPin = (sha: string) =>
+      RubricRuleSet.safeParse({
+        rubric_version: "se-evidence-rubric-vX",
+        prompt_template_sha256: "a".repeat(64),
+        attribution_template_sha256: sha,
+        claim_types: CLAIM_TYPES,
+      }).success;
+    expect(withBadPin("a".repeat(64))).toBe(true);
+    expect(withBadPin("A".repeat(64))).toBe(false); // uppercase hex
+    expect(withBadPin("a".repeat(63))).toBe(false); // too short
+    expect(withBadPin("not-a-digest")).toBe(false);
+  });
+
+  it("preserves the v1 project's vintage PAIR — rubric 1.0.0 with attribution 1.1.0", () => {
+    // The point of the whole plan, in one expectation: asserting the two
+    // halves separately would let them drift while both rows stay green.
+    const v1 = loadRubricRuleSet("se-evidence-rubric-v1");
+    expect({
+      rubric: v1.prompt_template_version,
+      attribution: v1.attribution_template_version,
+    }).toEqual({ rubric: "1.0.0", attribution: "1.1.0" });
   });
 });
