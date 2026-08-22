@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { renderPromptForJob } from "../../adapters";
+import { exampleInputs } from "../../adapters/__fixtures__/jobs";
+import { ProjectConfig } from "../../register";
 import type { SourceType } from "../../register";
+import { DEFAULT_RUBRIC_VERSION } from "../projects";
 import {
   combineCalibrationResult,
   evaluateMechanicalRubric,
@@ -265,5 +269,155 @@ describe("the rule set is the per-project vintage carrier for BOTH job kinds", (
       rubric: v1.prompt_template_version,
       attribution: v1.attribution_template_version,
     }).toEqual({ rubric: "1.0.0", attribution: "1.1.0" });
+  });
+});
+
+describe("every rule file on disk resolves BOTH of its declared templates", () => {
+  /**
+   * The generalized-pinning invariant: every job kind whose prompt is
+   * pinnable resolves its template version through the project's rule set.
+   *
+   * Iterating the directory rather than naming the three versions is the
+   * whole point — a rule file added later is covered without anyone
+   * remembering to add a row. The failure this catches is a rule file naming
+   * a template that does not exist: the template loader raises a plain
+   * `Error`, which is NOT an `AdapterError`, so the orchestrator rethrows it
+   * as a programming error and the run DIES rather than escalating a claim.
+   * Before this suite that class of failure was discovered by a dead run.
+   */
+  const rulesDir = path.join(
+    repoRoot,
+    "lib",
+    "pipeline",
+    "verification",
+    "rules",
+  );
+  const ruleVersions = fs
+    .readdirSync(rulesDir)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => name.slice(0, -".json".length))
+    .sort();
+
+  it("finds every shipped rule file", () => {
+    expect(ruleVersions.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(ruleVersions)(
+    "%s: both declared templates exist on disk",
+    (version) => {
+      const ruleSet = loadRubricRuleSet(version);
+      const templatePath = (kind: string, templateVersion: string) =>
+        path.join(
+          repoRoot,
+          "lib",
+          "adapters",
+          "prompts",
+          kind,
+          `v${templateVersion}.md`,
+        );
+      expect(
+        fs.existsSync(templatePath("rubric", ruleSet.prompt_template_version)),
+      ).toBe(true);
+      expect(
+        fs.existsSync(
+          templatePath("attribution", ruleSet.attribution_template_version),
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it.each(ruleVersions)("%s: both declared templates render", (version) => {
+    const ruleSet = loadRubricRuleSet(version);
+    const rubric = renderPromptForJob(
+      "rubric",
+      exampleInputs.rubric,
+      ruleSet.prompt_template_version,
+    );
+    const attribution = renderPromptForJob(
+      "attribution",
+      exampleInputs.attribution,
+      ruleSet.attribution_template_version,
+    );
+    expect(rubric.text.length).toBeGreaterThan(0);
+    expect(attribution.text.length).toBeGreaterThan(0);
+    expect(rubric.text).not.toMatch(/\{\{[a-z_]+\}\}/);
+    expect(attribution.text).not.toMatch(/\{\{[a-z_]+\}\}/);
+  });
+});
+
+describe("the vintage table — what an existing project resolves", () => {
+  // The table a reviewer reads to answer "what does an existing project
+  // get". Both kinds in the same expectation per row: checked separately,
+  // the two halves could drift while both rows stayed green.
+  it.each([
+    ["se-evidence-rubric-v1", "1.0.0", "1.1.0"],
+    ["se-evidence-rubric-v1.1", "1.1.0", "1.1.0"],
+    ["se-evidence-rubric-v1.2", "1.2.0", "1.2.0"],
+  ])(
+    "%s resolves rubric %s with attribution %s",
+    (version, rubric, attribution) => {
+      const ruleSet = loadRubricRuleSet(version);
+      expect({
+        rubric: ruleSet.prompt_template_version,
+        attribution: ruleSet.attribution_template_version,
+      }).toEqual({ rubric, attribution });
+    },
+  );
+});
+
+describe("adjacency: the rule set and the global constant still agree at 1.1.0", () => {
+  // What this pins: TODAY a rule set declaring 1.1.0 and the global
+  // `CURRENT_PROMPT_VERSION.attribution` resolve the same file and render a
+  // byte-identical prompt, so nothing observable changed for any existing
+  // project when the third argument started being passed. The moment the two
+  // DISAGREE the rule set must win — asserted from the other side in
+  // stage2/attribution-rubric.test.ts, where the two are made to disagree.
+  it("renders byte-identically through the rule set, an explicit 1.1.0 and the default", () => {
+    const ruleSet = loadRubricRuleSet("se-evidence-rubric-v1.1");
+    expect(ruleSet.attribution_template_version).toBe("1.1.0");
+    const throughRuleSet = renderPromptForJob(
+      "attribution",
+      exampleInputs.attribution,
+      ruleSet.attribution_template_version,
+    );
+    const explicit = renderPromptForJob(
+      "attribution",
+      exampleInputs.attribution,
+      "1.1.0",
+    );
+    const throughGlobalConstant = renderPromptForJob(
+      "attribution",
+      exampleInputs.attribution,
+    );
+    expect(throughRuleSet).toEqual(explicit);
+    expect(throughRuleSet).toEqual(throughGlobalConstant);
+  });
+});
+
+describe("there is no project without a pin", () => {
+  // Why the schema needs no fallback for "a project with no pinned version":
+  // that state is not reachable. `buildProjectConfig` always writes
+  // DEFAULT_RUBRIC_VERSION and `ProjectConfig.rubric_version` is a required
+  // non-empty string. The REACHABLE failure is a pin whose rule file is
+  // missing, which the German precondition error in run-verification.ts
+  // already surfaces loudly.
+  it("the default a freshly created project is given resolves a rule file", () => {
+    expect(() => loadRubricRuleSet(DEFAULT_RUBRIC_VERSION)).not.toThrow();
+  });
+
+  it("a project config cannot omit or empty its rubric version", () => {
+    const base = {
+      rubric_version: DEFAULT_RUBRIC_VERSION,
+      adjudication_sample_rate: 0.1,
+      backends: {
+        primary: { cli: "claude", model_family: "anthropic" },
+      },
+    };
+    expect(ProjectConfig.safeParse(base).success).toBe(true);
+    expect(
+      ProjectConfig.safeParse({ ...base, rubric_version: "" }).success,
+    ).toBe(false);
+    const { rubric_version: _omitted, ...withoutPin } = base;
+    expect(ProjectConfig.safeParse(withoutPin).success).toBe(false);
   });
 });
