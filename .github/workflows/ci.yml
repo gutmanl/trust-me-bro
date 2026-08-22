@@ -16,13 +16,13 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: corpus-cache
         with:
           path: tests/corpus/documents
@@ -45,13 +45,13 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: corpus-cache
         with:
           path: tests/corpus/documents
@@ -67,7 +67,7 @@ jobs:
         run: npm run test:browser
         env:
           TMB_E2E_SERVER_CMD: npx next start --port 3123
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
@@ -82,8 +82,8 @@ jobs:
   first-contact:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -91,7 +91,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: First contact (cold start, no agent CLI)
         run: npm run test:browser:cold-start
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-first-contact
