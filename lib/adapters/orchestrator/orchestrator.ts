@@ -9,6 +9,7 @@ import type {
 } from "../core/contracts";
 import { AdapterError, UnknownBackendError } from "../core/errors";
 import type { JobIO, JobKind, JobRequest } from "../core/jobs";
+import { assertOutputMatchesInput } from "../core/output-contract";
 import { decideNextAttempt, type RetryPolicy } from "../core/retry";
 import { validateJobOutput } from "../core/validate";
 import { systemClock } from "../runtime/system-clock";
@@ -77,6 +78,14 @@ export class Orchestrator {
           job.prompt.version,
           invoked.output,
         );
+        // The semantic clauses, strictly ADDITIONAL to the schema validation
+        // above: the backend contract — a resolved invoke carries a
+        // schema-valid output — is unchanged, this only narrows it further.
+        // It runs once, here, so idempotency is moot. And it raises an
+        // AdapterError subclass deliberately: the catch below rethrows
+        // anything else as a programming error and kills the run, which is
+        // the opposite of the retry this boundary exists to produce.
+        assertOutputMatchesInput(backend.id, job, output);
         const finishedAt = this.clock.now();
         const stamped = stampOutput(
           job.kind,

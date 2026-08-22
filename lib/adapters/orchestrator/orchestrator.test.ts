@@ -8,6 +8,7 @@ import {
   AdapterProcessError,
   AdapterRateLimitError,
   AdapterTimeoutError,
+  AdapterValidationError,
   UnknownBackendError,
 } from "../core/errors";
 import { TraceEnvelope } from "../trace/envelope";
@@ -211,5 +212,85 @@ describe("Orchestrator.run", () => {
     if (outcome.status !== "ok") throw new Error("unreachable");
     expect(outcome.attempts).toBe(2);
     warn.mockRestore();
+  });
+});
+
+/**
+ * The INPUT-DEPENDENT half of the boundary (03-02), at the orchestrator.
+ *
+ * This is what makes PROMPT-01's word "retryable" true for a clause that
+ * `validateJobOutput` structurally cannot decide: it must reach the SAME
+ * catch, consume the SAME retry budget and end in the SAME `exhausted`
+ * outcome as any other schema failure — no new error class, no new row in
+ * the taxonomy, no rejected promise.
+ */
+describe("Orchestrator.run — assertOutputMatchesInput", () => {
+  /** There is no attribution v1.2.0 template yet (03-03 authors it); the
+   * version gate reads `job.prompt.version` and nothing else. */
+  function twoLayerAttributionJob() {
+    const base = jobFor("attribution");
+    return { ...base, prompt: { ...base.prompt, version: "1.2.0" } };
+  }
+
+  it("retries a persistently anchorless attribution output to exhausted, carrying an AdapterValidationError", async () => {
+    const backend = createMockBackend({
+      overrides: {
+        attribution: {
+          relation_type: "supports",
+          confidence: 0.9,
+          reasoning_plain: "Der Auszug trägt die Aussage. Die Richtung passt.",
+          caveat: null,
+          reasoning_technical:
+            "Der Abschnitt deckt die Aussage in ihrem Kontext vollständig ab.",
+        },
+      },
+    });
+    const { orchestrator, sink } = orchestratorWith(backend);
+
+    const outcome = await orchestrator.run("mock", twoLayerAttributionJob());
+
+    expect(outcome.status).toBe("exhausted");
+    if (outcome.status !== "exhausted") throw new Error("unreachable");
+    expect(outcome.attempts).toBe(3);
+    expect(outcome.lastError).toBeInstanceOf(AdapterValidationError);
+    expect(outcome.lastError.kind).toBe("invalid_output");
+    // Every failed attempt is still traced — the escalation is auditable.
+    expect(sink.envelopes).toHaveLength(3);
+  });
+
+  it("lets an anchored attribution output through on the first attempt", async () => {
+    const backend = createMockBackend({
+      overrides: {
+        attribution: {
+          relation_type: "supports",
+          confidence: 0.9,
+          reasoning_plain: "Der Auszug trägt die Aussage. Die Richtung passt.",
+          caveat: null,
+          reasoning_technical:
+            'Der Abschnitt sagt "median review time dropped from 42 to 19 ' +
+            'minutes" und deckt die Aussage ab.',
+        },
+      },
+    });
+    const { orchestrator } = orchestratorWith(backend);
+
+    const outcome = await orchestrator.run("mock", twoLayerAttributionJob());
+
+    expect(outcome.status).toBe("ok");
+    if (outcome.status !== "ok") throw new Error("unreachable");
+    expect(outcome.attempts).toBe(1);
+    // Provenance is still stamped from code, and the pipeline — not the
+    // orchestrator — will join the three prose fields into the register's
+    // Judgment.
+    expect(outcome.output.backend).toBe("mock");
+    expect(outcome.output).not.toHaveProperty("reasoning");
+  });
+
+  it("leaves a legacy-version attribution job entirely untouched", async () => {
+    // Every existing project renders attribution v1.1.0. If the clause ran
+    // there, every judgment they produce would escalate.
+    const { orchestrator } = orchestratorWith();
+    const outcome = await orchestrator.run("mock", jobFor("attribution"));
+    expect(outcome.status).toBe("ok");
   });
 });
