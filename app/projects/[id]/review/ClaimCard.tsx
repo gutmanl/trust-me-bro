@@ -3,11 +3,13 @@
 import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
 import type { RoutingReason } from "@/lib/register";
 import {
-  isCaveatParagraph,
+  classifyReasoningParagraph,
+  reasoningRoleClassName,
   splitReasoningParagraphs,
 } from "../../reasoning-paragraphs";
 import {
   CALIBRATION_LABELS,
+  CLAIM_TYPE_LABELS,
   formatModel,
   formatTimestamp,
   RELATION_LABELS,
@@ -17,11 +19,16 @@ import {
   SUPPORT_LABELS,
 } from "../../status-labels";
 import {
+  substituteVerdictProse,
+  type VerdictProseEvidence,
+} from "../../verdict-glossary";
+import {
   deriveVerdict,
   relationBadgeClassName,
   verdictBadgeClassName,
 } from "../../verdict-labels";
 import { ComplaintDialog } from "./ComplaintDialog";
+import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
 import { ROUTING_LABELS, routingSupersededByVerdict } from "./routing-labels";
 
@@ -82,6 +89,22 @@ export function ClaimCard({
     claim.calibration_result,
     divergent,
   );
+  // Referents for the display-tier glossary, built here rather than passed
+  // in from the server: `marker.evidenceNumbers` is positionally aligned
+  // with `claim.evidence` by buildBriefingViewModel, and `evidenceDisplay`
+  // is already keyed `${claimId}/${evidenceId}` — all three are already on
+  // the card, so this costs no new prop, no new server computation and no
+  // new barrel export. It lists ONLY this claim's evidence, which is what
+  // makes an id belonging to another claim structurally unresolvable.
+  const proseEvidence: VerdictProseEvidence[] = claim.evidence.map(
+    (evidence, index) => ({
+      id: evidence.id,
+      number: marker.evidenceNumbers[index],
+      citation: evidenceDisplay[`${claim.id}/${evidence.id}`]?.citation,
+      verbatimExcerpt: evidence.verbatim_excerpt,
+    }),
+  );
+  const lastReason = claim.history.at(-1)?.reason;
   return (
     <div
       id={`claim-card-${claim.id}`}
@@ -157,16 +180,35 @@ export function ClaimCard({
                 number={marker.evidenceNumbers[index]}
                 display={evidenceDisplay[`${claim.id}/${evidence.id}`]}
                 highlighted={evidence.id === selectedEvidenceId}
+                proseEvidence={proseEvidence}
               />
             ))
           )}
 
           {claim.support_degree || claim.calibration_result ? (
             <details className="rounded-md border border-slate-200">
+              {/* A summary labelled „Details" tells the reviewer nothing
+                  about what they will find. A question tells them what the
+                  disclosure answers, and it frames the content as the
+                  machine's account rather than as the fact of the matter. */}
               <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600">
-                Automatische Vorprüfung der Aussage
+                Wie hat die KI diese Aussage vorgeprüft?
               </summary>
               <dl className="space-y-1 px-3 pb-3 text-xs text-slate-700">
+                {/* First, because the rubric rule that decided the verdict is
+                    keyed on exactly this value (se-evidence-rubric-v1.json
+                    `claim_types`) — the two rows below therefore read as its
+                    consequences rather than as unrelated verdicts. It sits
+                    inside the disclosure, so a claim that has not been
+                    pre-checked shows no type: that is deliberate, and a fifth
+                    always-visible chip would work against the subordination
+                    the component's header comment describes. */}
+                <div>
+                  <dt className="inline text-slate-500">Aussagetyp: </dt>
+                  <dd className="inline">
+                    {CLAIM_TYPE_LABELS[claim.claim_type]}
+                  </dd>
+                </div>
                 {claim.support_degree ? (
                   <div>
                     <dt className="inline text-slate-500">
@@ -190,30 +232,27 @@ export function ClaimCard({
               </dl>
               {claim.calibration_reasoning ? (
                 <div className="space-y-1 border-t border-slate-100 px-3 py-2 text-xs text-slate-600">
-                  {splitReasoningParagraphs(claim.calibration_reasoning).map(
-                    (paragraph, index) => (
-                      <p
-                        key={index}
-                        className={
-                          isCaveatParagraph(paragraph)
-                            ? "border-l-2 border-amber-300 pl-2 text-amber-800"
-                            : undefined
-                        }
-                      >
-                        {paragraph}
-                      </p>
-                    ),
-                  )}
+                  <ReasoningProse
+                    reasoning={claim.calibration_reasoning}
+                    evidence={proseEvidence}
+                  />
                 </div>
               ) : null}
             </details>
           ) : null}
 
+          {/* The reason string is glossed too: run-verification.ts added its
+              SUPPORT_DEGREE_DE / CALIBRATION_RESULT_DE maps only later, so
+              historical entries in existing registers still carry a raw
+              support-degree token inside their German prose. Same
+              remediation, same corpus. */}
           <p className="text-xs break-words text-slate-400">
             {queuedAt
               ? `In der Warteschlange seit ${formatTimestamp(queuedAt)}. `
               : ""}
-            {claim.history.at(-1)?.reason}
+            {lastReason === undefined
+              ? null
+              : substituteVerdictProse(lastReason, proseEvidence)}
           </p>
 
           {claim.status === "pending_adjudication" ? (
@@ -270,16 +309,60 @@ export function ClaimCard({
   );
 }
 
+/**
+ * The one place stored verdict prose is transformed for display.
+ *
+ * Order is load-bearing: substitute FIRST, split second. One pass over the
+ * whole string means the quote-run segmentation sees the complete quote
+ * structure, so a refusal is a whole-string refusal rather than a
+ * per-paragraph lottery. Role markers are German words at paragraph start
+ * and cannot collide with snake_case keys or evidence ids, which is what
+ * makes rewriting-before-splitting safe.
+ *
+ * This is also the LAST place the text may be transformed. `claim` is handed
+ * to `RepairPanel` a few lines above, whose form posts text into
+ * `applyRepair` and the append-only chain — Germanizing anything upstream of
+ * this component would persist display copy into the register. Prose is
+ * rendered as React text children, never as markup: no
+ * `dangerouslySetInnerHTML`, no Markdown renderer, no sanitizer.
+ */
+function ReasoningProse({
+  reasoning,
+  evidence,
+}: {
+  reasoning: string;
+  evidence: readonly VerdictProseEvidence[];
+}) {
+  return (
+    <>
+      {splitReasoningParagraphs(
+        substituteVerdictProse(reasoning, evidence),
+      ).map((paragraph, index) => (
+        <p
+          key={index}
+          className={reasoningRoleClassName(
+            classifyReasoningParagraph(paragraph),
+          )}
+        >
+          {paragraph}
+        </p>
+      ))}
+    </>
+  );
+}
+
 function EvidenceCard({
   evidence,
   number,
   display,
   highlighted,
+  proseEvidence,
 }: {
   evidence: Evidence;
   number: number | undefined;
   display: EvidenceDisplay | undefined;
   highlighted: boolean;
+  proseEvidence: readonly VerdictProseEvidence[];
 }) {
   const sourceTypeLabel =
     display &&
@@ -346,7 +429,8 @@ function EvidenceCard({
       {evidence.judgments.length > 0 ? (
         <details className="mt-2" open={display?.divergent}>
           <summary className="cursor-pointer text-xs font-medium text-slate-600">
-            Automatische Vorprüfung ({evidence.judgments.length} Urteil(e))
+            Wie hat die KI diesen Beleg bewertet? ({evidence.judgments.length}{" "}
+            Urteil(e))
             {display?.divergent ? (
               <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-red-800">
                 Divergenz
@@ -359,6 +443,23 @@ function EvidenceCard({
               </span>
             ) : null}
           </summary>
+          {/* A backend revising ITSELF. Cross-backend disagreement is
+              divergence and is already reported by the chip above; this note
+              must not duplicate it. It states what changed and when, and
+              nothing about which of the two judgments is better — that is the
+              reviewer's call, and it is the call this tool exists to support.
+              No disclosure around it: the surrounding details already is the
+              card's one disclosure level. */}
+          {deriveSupersededJudgments(evidence.judgments).map((superseded) => (
+            <p
+              key={`${superseded.backend}-${superseded.previousAt}`}
+              className="mt-2 border-l-2 border-slate-200 pl-2 text-xs text-slate-500"
+            >
+              {superseded.backend} hat das Urteil geändert – zuvor „
+              {RELATION_LABELS[superseded.previousRelation]}“ am{" "}
+              {formatTimestamp(superseded.previousAt)}.
+            </p>
+          ))}
           <ul className="mt-2 space-y-2">
             {evidence.judgments.map((judgment, index) => (
               <li
@@ -377,20 +478,10 @@ function EvidenceCard({
                   </span>
                 </p>
                 <div className="mt-1 space-y-1 text-slate-600">
-                  {splitReasoningParagraphs(judgment.reasoning).map(
-                    (paragraph, paragraphIndex) => (
-                      <p
-                        key={paragraphIndex}
-                        className={
-                          isCaveatParagraph(paragraph)
-                            ? "border-l-2 border-amber-300 pl-2 text-amber-800"
-                            : undefined
-                        }
-                      >
-                        {paragraph}
-                      </p>
-                    ),
-                  )}
+                  <ReasoningProse
+                    reasoning={judgment.reasoning}
+                    evidence={proseEvidence}
+                  />
                 </div>
               </li>
             ))}
