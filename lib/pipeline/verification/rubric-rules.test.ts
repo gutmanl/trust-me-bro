@@ -100,6 +100,28 @@ describe("loadRubricRuleSet (v1.2, two-layer prose)", () => {
     const actual = createHash("sha256").update(template).digest("hex");
     expect(actual).toBe(rules.prompt_template_sha256);
   });
+
+  it("pins the v1.2.0 ATTRIBUTION prose template too", () => {
+    // `attribution_template_sha256` is optional in the schema ONLY so the two
+    // pre-existing rule files parse unchanged. From v1.2 onward it is
+    // mandatory-by-test: optional-in-schema, required-here is the same shape
+    // the rubric pin's default already uses. Same binding order as above —
+    // format, then hash, then pin.
+    const rules = loadRubricRuleSet("se-evidence-rubric-v1.2");
+    expect(rules.attribution_template_version).toBe("1.2.0");
+    const template = fs.readFileSync(
+      path.join(
+        repoRoot,
+        "lib",
+        "adapters",
+        "prompts",
+        "attribution",
+        "v1.2.0.md",
+      ),
+    );
+    const actual = createHash("sha256").update(template).digest("hex");
+    expect(actual).toBe(rules.attribution_template_sha256);
+  });
 });
 
 describe("evaluateMechanicalRubric (rubric v1)", () => {
