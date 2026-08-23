@@ -602,15 +602,22 @@ function selectClaims(
   if (sampleSize === null || sampleSize >= corpus.claims.length) {
     return corpus.claims;
   }
+  // Pairable claims (a recorded calibration_result) rank BEFORE borderline
+  // ones. A capped run exists to measure the noise floor cheaply, and the
+  // floor and baseline arms pair against the fixture's recorded verdict — a
+  // borderline claim with no recorded verdict costs the same calls and
+  // contributes nothing to the paired count. The first real run drew ten
+  // such claims and produced a 0/0 "measurement".
   const rank = (claim: FixtureClaim): number => {
     const borderline =
       claim.borderline.weakened_or_parked ||
       claim.borderline.mechanical_not_met ||
       claim.borderline.second_opinion_fired;
-    if (borderline) {
-      return 0;
+    const pairable = claim.ground_truth.calibration_result !== null;
+    if (pairable) {
+      return borderline ? 0 : 1;
     }
-    return claim.ground_truth.calibration_result !== null ? 1 : 2;
+    return borderline ? 2 : 3;
   };
   return [...corpus.claims]
     .sort(
@@ -1660,6 +1667,19 @@ async function main(): Promise<number> {
 
       if (arm.name === "noise-floor") {
         const analysis = analyseArm(arm, readRecords(resultsFile));
+        if (analysis !== null && analysis.paired === 0) {
+          // Not a breach and not a pass: nothing could be compared. Spending
+          // the other arms against an unmeasured floor is the waste the halt
+          // exists to prevent, but the report must not call this a FAIL of
+          // the rule — the note beside the gate table says so.
+          console.error(
+            "\nthe noise-floor arm produced NO paired claims — the selected " +
+              "claims carry no recorded calibration_result. The floor is " +
+              "unmeasured, not breached. Stopping before the remaining arms; " +
+              "re-run with claims that carry a recorded verdict.",
+          );
+          break;
+        }
         if (analysis !== null && !analysis.passed) {
           haltedAfterFloor = true;
           console.error(
