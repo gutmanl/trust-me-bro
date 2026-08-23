@@ -129,10 +129,14 @@ const GATE_MARKER = "GATE_RESULT:";
 // ---------------------------------------------------------------------------
 
 type ArmName =
-  "noise-floor" | "v1.1.0-baseline" | "v1.2.0-ordering-a" | "v1.2.0-ordering-b";
+  | "noise-floor"
+  | "v1.1.0-baseline"
+  | "v1.2.0-ordering-a"
+  | "v1.2.0-ordering-b"
+  | "v1.2.0-noise-floor";
 
 /** Which recorded verdicts an arm's paired flip count is measured against. */
-type Reference = "fixture" | "v1.1.0-baseline";
+type Reference = "fixture" | "v1.1.0-baseline" | "v1.2.0-ordering-a";
 
 interface Arm {
   readonly name: ArmName;
@@ -145,10 +149,25 @@ interface Arm {
 }
 
 /**
- * The four arms, in run order. The noise floor is FIRST on purpose: if a
+ * The arms, in run order. The v1.1.0 noise floor is FIRST on purpose: if a
  * v1.1.0 generation alone flips more verdicts than the rule allows, the
- * remaining three arms cannot distinguish "the prompt moved it" from "the
- * model is nondeterministic", and spending them would be waste.
+ * remaining arms cannot distinguish "the prompt moved it" from "the model is
+ * nondeterministic", and spending them would be waste.
+ *
+ * `v1.2.0-noise-floor` is LAST and was added after the 2026-08-23 re-run,
+ * which exposed a gap in the original four-arm design: the floor measured
+ * v1.1.0 nondeterminism, so nothing ever measured how much two IDENTICAL
+ * v1.2.0 runs disagree. Ordering A came in at 3 flips of 47 (6.4 %) against a
+ * 6.67 % tolerance — a margin of one claim — so whether that figure reflects
+ * the prompt change or the contract's own run-to-run variance is undecidable
+ * from the arms that exist. This arm decides it: same templates, same rule
+ * set, same corpus, paired against ordering A's recorded run. A high reading
+ * here means the gate is largely measuring noise and no template edit fixes
+ * it; a low reading means the flips are a real prompt effect.
+ *
+ * It deliberately does NOT halt the run the way `noise-floor` does (that
+ * branch is keyed on the arm name): it runs last, so there is nothing left to
+ * protect from a wasted spend.
  *
  * Ordering B carries no pin — it is addressed by naming its version string,
  * which is how `loadPromptTemplate` resolves `v1.2.0-plain-first.md`. Its
@@ -188,6 +207,14 @@ const ARMS: readonly Arm[] = [
     attributionPromptVersion: "1.2.0-plain-first",
     reference: "v1.1.0-baseline",
     why: "two-layer prose, plain layer first (the unpinned variant)",
+  },
+  {
+    name: "v1.2.0-noise-floor",
+    ruleSetVersion: "se-evidence-rubric-v1.2",
+    rubricPromptVersion: "1.2.0",
+    attributionPromptVersion: "1.2.0",
+    reference: "v1.2.0-ordering-a",
+    why: "ordering A generated a SECOND time and paired against its own first run — the two-layer contract's own nondeterminism, with no prompt change in it",
   },
 ];
 
