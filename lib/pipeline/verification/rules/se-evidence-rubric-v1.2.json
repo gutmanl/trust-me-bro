@@ -1,9 +1,9 @@
 {
   "rubric_version": "se-evidence-rubric-v1.2",
   "prompt_template_version": "1.2.0",
-  "prompt_template_sha256": "c2ae446bdc4ea9209a69b6c71d0ff99b6f4bc5f6ac04164aa3363519f09fe8da",
+  "prompt_template_sha256": "15ad1ff0bd6260d91c9083805618ff33ac08fc030364762e52fa9ad3a6fc0f50",
   "attribution_template_version": "1.2.0",
-  "attribution_template_sha256": "159b6c93928bd2489c8d3c454bd412cbaab616440d4fb137f5026761914bb583",
+  "attribution_template_sha256": "a43910c7cc54edabb86736454ad445dfbd938376f2f3948ae38cc24889d92213",
   "claim_types": {
     "quantitative_finding": {
       "min_pertinent_sources": 1,

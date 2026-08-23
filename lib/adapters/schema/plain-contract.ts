@@ -39,24 +39,51 @@ import type { ClaimType as ClaimTypeValue } from "../../register";
  * as the technical layer the reviewer reads one of the two and the two-layer
  * design has bought nothing. Sizing evidence, measured over the 57 real
  * stored judgment reasonings in the local registers: min 369, median ≈ 750,
- * max 912 characters. At 320 the plain layer is at most ≈ 43 % of a median
- * whole reasoning — comfortably a compression, and still enough room in
- * German (which compounds) for a fixed verdict phrase, one rule name and one
- * limiting fact.
+ * max 912 characters. At 360 the plain layer is at most ≈ 48 % of a median
+ * whole reasoning — still a compression, and enough room in German (which
+ * compounds) for a fixed verdict phrase, one rule name and one limiting
+ * fact.
+ *
+ * CALIBRATED, not guessed. 03-01 sized this at 320 and recorded an explicit
+ * hook to re-examine it against a real run; the 03-04 comparison run
+ * (2026-08-23, `claude-haiku-4-5-20251001`, recorded in
+ * `tests/corpus/verdict-comparison/results.ndjson`) is that run. Of 30 failed
+ * contract clauses in the v1.2.0 ordering-A arm, exactly two were this cap,
+ * at 323 and 329 characters — both marginal overruns rather than second
+ * essays. 03-05 raised the number to 360 to admit them with headroom.
+ *
+ * The direction is not free: this cap may only ever move UP after a
+ * measurement. A raised cap can turn a rejected generation into an accepted
+ * one and therefore cannot change a verdict a run already recorded, whereas
+ * a tightened one would ship a contract stricter than the one that was
+ * measured.
  *
  * The RELATIVE guard below (plain no longer than technical) does the
- * load-bearing work; 320 is the absolute backstop. Re-examined in 03-05
- * against the first-attempt contract pass rate the 03-04 harness reports.
+ * load-bearing work; 360 is the absolute backstop.
  */
-export const PLAIN_MAX_CHARS = 320;
+export const PLAIN_MAX_CHARS = 360;
 
 /**
  * Upper bound on the three prose fields together, so the joined string
  * cannot outgrow what a claim card can hold. Counts the prose only — the
  * role markers add a fixed ≈ 40 characters the model does not write and
  * therefore cannot be asked to budget for.
+ *
+ * CALIBRATED against the same 03-04 run as the plain cap above, and this is
+ * the number that run existed to find. At 1400 this clause fired on 27 of
+ * the arm's 30 failed clauses and drove the first-attempt contract pass rate
+ * to 10 %, which made both v1.2.0 arms unmeasurable. The original 1400 was
+ * sized against SINGLE-reasoning strings of median ≈ 750; a two-layer answer
+ * plus a caveat is three prose fields, and the run measured the sum at min
+ * 1414, median 1837, max 2342. The old number was not a limit the model was
+ * failing to respect — it was a limit the shape could not fit.
+ *
+ * 2600 admits every joined length that run recorded, with headroom for the
+ * 89 ordering-A units and 99 ordering-B units that were never generated
+ * under it. Same direction rule as the plain cap: up only, after a
+ * measurement, never down.
  */
-export const JOINED_MAX_CHARS = 1400;
+export const JOINED_MAX_CHARS = 2600;
 
 /**
  * The closed English vocabulary that must never appear in a generated plain
