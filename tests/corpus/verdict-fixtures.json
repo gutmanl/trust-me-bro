@@ -1,0 +1,1554 @@
+{
+  "generated_at": "2026-08-23T11:22:09.321Z",
+  "source_project_count": 3,
+  "claims_with_ground_truth": 29,
+  "claims": [
+    {
+      "id": "r1.clm_0001",
+      "text": "Neue Verhaltensmodule sollen als zusätzliche, relativ eigenständige Anforderungen ergänzt werden können, ohne vorhandenen Code umfassend umzubauen.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p3",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_harel-et-al-2011-a-review-of-research-in",
+          "source_type": "grey_literature",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "This approach allows for natural incremental development and maintenance where new modules are aligned with new requirements and are added with little or no changes to existing code"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0002",
+      "text": "Die Literatur verbindet diese Anforderungsausrichtung mit einer szenariobasierten Repräsentation, weil Anforderungen häufig bereits als Use Cases und Szenarien formuliert werden.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p4",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_harel-et-al-a-novel-paradigm-for-program",
+          "source_type": "grey_literature",
+          "locator": {
+            "section": "Introduction"
+          },
+          "verbatim_excerpt": "One widely accepted practice is to formalize requirements in the form of use cases and scenarios"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0003",
+      "text": "Ein zweiter Mechanismus ist die getrennte Spezifikation mehrerer Verhaltensszenarien, die nicht vorab in eine einzige Kontrollflussstruktur integriert werden müssen.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p5",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "multi-modal behaviors can be specified separately, and are integrated only at run time"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0004",
+      "text": "Diese Laufzeitintegration erzeugt zugleich eine Verständnishürde, weil die Wechselwirkungen zwischen Szenarien indirekt und dynamisch werden.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p6",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Introduction"
+          },
+          "verbatim_excerpt": "enhance understanding of executions by best illustrating the flow of each behavior module as well as the indirect interaction between behaviors"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0005",
+      "text": "„Inter-scenario coupling“ lässt sich in der gefundenen Literatur am präzisesten als Nachvollziehbarkeit von Ursache-Wirkungs-Beziehungen und indirekten Abhängigkeiten zwischen relativ unabhängigen Verhaltenseinheiten fassen, nicht als nachgewiesener eigenständiger kognitionspsychologischer Prozess.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p7",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "comprehending cause and effect relationships between relatively independent behavior components of a single application"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0006",
+      "text": "Verständlichkeit soll steigen, wenn sichtbar wird, welche Threads ein Ereignis angefordert, auf es gewartet oder es blockiert haben und weshalb die kollektive Ausführung eine bestimmte Alternative gewählt hat.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p8",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Introduction"
+          },
+          "verbatim_excerpt": "why certain events were chosen but also why others were not (e.g., due to selection order or blocking)"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0007",
+      "text": "Für das Verstehen reicht nicht nur die beobachtete Ereignisfolge, sondern auch die Information über verworfene, verzögerte oder blockierte Alternativen ist erforderlich.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p9",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "It shows the behaviors and events that were executed at each point in time, and those that were delayed or abandoned, as well as the causes and reasons behind these run-time choices"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0008",
+      "text": "Ein vierter Mechanismus ist die Reduktion der Informationsmenge durch Gruppierung ähnlicher Verhaltensthreads, wodurch die Person den Gesamtablauf auf einer höheren Abstraktionsebene verfolgen kann.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p10",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 3,
+            "section": "Example"
+          },
+          "verbatim_excerpt": "Grouping these instances together reduces the cognitive load by removing some information, and helps in understanding the overall run"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0009",
+      "text": "Die Gestaltung der Darstellung soll außerdem zeitliche Ordnung, Thread-Zustände und Synchronisationspunkte gleichzeitig sichtbar machen, damit lokale Entscheidungen in den globalen Ablauf eingeordnet werden können.",
+      "claim_type": "recommendation",
+      "briefing_anchor": "p11",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 2,
+            "section": "Visualizing BPJ Traces"
+          },
+          "verbatim_excerpt": "B-threads are depicted in columns ordered by priorities, and syncpoints are represented by rows ordered by time"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0010",
+      "text": "Eine 2025 veröffentlichte kontrollierte Studie prüfte die Verständlichkeit zweier BP-Varianten und operationalisierte sie als Verständnis der Ausführungssemantik sowie als Identifikation von Anforderungen aus Implementierungen.",
+      "claim_type": "quantitative_finding",
+      "briefing_anchor": "p12",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_ashrov2025",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Through a controlled experiment with 109 participants, we evaluated both variants across two dimensions: comprehension of execution semantics and identification of requirements from implementations"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0011",
+      "text": "Klassisches BP zeigte insgesamt bessere Verständlichkeit und höheres Vertrauen, während Context-Oriented BP bei komplexem, kontextabhängigem Verhalten Vorteile hatte.",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p13",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_ashrov2025",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "The results indicate that BP generally leads to better comprehension and higher confidence; while COBP demonstrates advantages in complex, context-dependent behaviors"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r1.clm_0012",
+      "text": "Der Befund stützt eine Abhängigkeit des Verständniseffekts von der strukturellen Komplexität und Kontextabhängigkeit des Szenarios.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p13",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_ashrov2025",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "The results indicate that BP generally leads to better comprehension and higher confidence; while COBP demonstrates advantages in complex, context-dependent behaviors"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0001",
+      "text": "In einer fMRI-Studie mit 11 Personen fanden Siegmund et al. „evidence of semantic chunking during bottom-up comprehension“",
+      "claim_type": "quantitative_finding",
+      "briefing_anchor": "p3",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_siegmund2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "In this paper, we report on a study using functional magnetic resonance imaging (fMRI) with 11 participants who performed program comprehension tasks. We manipulated experimental conditions related to beacons and layout to isolate specific cognitive processes related to bottom-up comprehension and comprehension based on semantic cues. We found evidence of semantic chunking during bottom-up comprehension"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "licensed",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0002",
+      "text": "Siegmund et al. fanden eine geringere Aktivierung bei „comprehension based on semantic cues“",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p3",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_siegmund2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "We found evidence of semantic chunking during bottom-up comprehension and lower activation of brain areas during comprehension based on semantic cues, confirming that beacons ease comprehension."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0003",
+      "text": "Die Autoren interpretieren dies als Bestätigung dafür, dass „beacons ease comprehension“",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p3",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_siegmund2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "We found evidence of semantic chunking during bottom-up comprehension and lower activation of brain areas during comprehension based on semantic cues, confirming that beacons ease comprehension."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "licensed",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0004",
+      "text": "Beacons wirken als auffällige semantische Anker, über die relevante Code- oder Verhaltensabschnitte schneller gefunden und zu funktionalen Einheiten gebündelt werden",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p4",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_siegmund2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Several theories have been proposed to explain these processes, such as “beacons,” for locating relevant code, and “plans,” for encoding cognitive models."
+        },
+        {
+          "id": "ev_0002",
+          "source_id": "src_siegmund2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "1 Introduction"
+          },
+          "verbatim_excerpt": "Expert programmers are especially adept at program comprehension of familiar code—their eyes dance around, finding points of interest, called beacons (or semantic cues) that provide hints about a program’s purpose, such as method signatures, and common programming idioms."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports",
+          "ev_0002": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0005",
+      "text": "Lin et al. fanden bei leistungsstärkeren Studierenden bei komplexen Konstrukten höhere EEG-Marker für Arbeitsgedächtnis",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p5",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_lin2021",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Experimental results show that the high-performance participants displayed higher performance for working memory (theta power), attention resource allocation (lower alpha power), and interaction between working memory and semantic memory (upper alpha power) in program comprehension tasks of complex constructs"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0006",
+      "text": "Lin et al. fanden bei leistungsstärkeren Studierenden bei komplexen Konstrukten höhere EEG-Marker für Aufmerksamkeitsressourcenzuweisung",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p5",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_lin2021",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "the high-performance participants displayed higher performance for working memory (theta power), attention resource allocation (lower alpha power), and interaction between working memory and semantic memory (upper alpha power) in program comprehension tasks of complex constructs"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0007",
+      "text": "Lin et al. fanden bei leistungsstärkeren Studierenden bei komplexen Konstrukten höhere EEG-Marker für die Interaktion von Arbeits- und semantischem Gedächtnis",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p5",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_lin2021",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "the high-performance participants displayed higher performance for working memory (theta power), attention resource allocation (lower alpha power), and interaction between working memory and semantic memory (upper alpha power) in program comprehension tasks of complex constructs, which proves related theories proposed in the existing research on programming and cognition"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0008",
+      "text": "Die Ausrichtung an Anforderungen beziehungsweise Zielen wird als Mechanismus der Verständlichkeits- und Validierungsarbeit beschrieben, allerdings primär als analytische Unterstützung für menschliche Analysten und nicht als direkt gemessener kognitiver Prozess",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p6",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_alrajeh2013",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "I. The Requirements Validation Challenge"
+          },
+          "verbatim_excerpt": "We argue that requirements projects increasingly need integrated tools with which to quickly generate large scenario sets, accurately compute future system behaviours from specified functions and systematically analyze goal achievement. Moreover, the tools need to be interactive so that analysts can explore the impact of different requirements configurations on goal achievement under different conditions."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0009",
+      "text": "Alrajeh et al. fordern Werkzeuge, die „scenario, system specification and goal analysis tools“ verbinden, und begründen dies mit der Notwendigkeit, Verhalten unter verschiedenen Bedingungen auf Zielerreichung zu prüfen",
+      "claim_type": "recommendation",
+      "briefing_anchor": "p6",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_alrajeh2013",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "The purpose of requirements validation is to determine whether a large requirements set will lead to the achievement of system-related goals under different conditions – a task that needs automation if it is to be performed quickly and accurately. One reason for the current lack of software tools to undertake such validation is the absence of the computational mechanisms needed to associate scenario, system specification and goal analysis tools."
+        },
+        {
+          "id": "ev_0002",
+          "source_id": "src_alrajeh2013",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "I. The Requirements Validation Challenge"
+          },
+          "verbatim_excerpt": "New software capabilities are needed to integrate existing scenario, system specification and goal analysis tools and techniques to enable such validation to take place."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports",
+          "ev_0002": "supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0010",
+      "text": "Für die konkrete Formulierung „alignment with requirements“ fehlt in den gefundenen DOI-Publikationen ein direkter experimenteller Nachweis als isolierter kognitiver Mechanismus",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p11",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_alrajeh2013",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Therefore, in this paper, we report first research results to develop these new capabilities, and demonstrate them with a non-trivial example associated with a Rolls Royce aircraft engine software component."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0011",
+      "text": "die gefundene Arbeit zu Ziel-Szenario-Ausrichtung untersucht vor allem rechnergestützte Validierung und Szenarioanalyse, nicht die Veränderung menschlicher Verständnismesswerte",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p11",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_alrajeh2013",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Index Terms—Requirements validation, scenarios, operational requirements, goal achievement."
+        },
+        {
+          "id": "ev_0002",
+          "source_id": "src_alrajeh2013",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "II. Related Work"
+          },
+          "verbatim_excerpt": "What we need are new applications of artificial intelligence to analyse more complete sets of system behaviours and qualities, as well as enable human understanding of those behaviours and qualities."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports",
+          "ev_0002": "partially_supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0012",
+      "text": "Inter-Szenario-Kopplung erscheint in der DOI-Literatur als Notwendigkeit, Ursache-Wirkungs-Beziehungen zwischen relativ unabhängigen Verhaltenskomponenten zu rekonstruieren",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p7",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "We address the problem of comprehending cause and effect relationships between relatively independent behavior components of a single application."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0013",
+      "text": "Eitan et al. schreiben, dass ihr Gegenstand „comprehending cause and effect relationships between relatively independent behavior components“ sei",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p7",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "We address the problem of comprehending cause and effect relationships between relatively independent behavior components of a single application. Our focus is on the paradigm of behavioral, scenario-based, programming, as captured by the language of live sequence charts (LSC) or its Java-based counterpart, BPJ."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "pending_adjudication",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0014",
+      "text": "multimodale Verhaltensanteile werden separat spezifiziert, aber „integrated only at run time“",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p7",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "In this programming paradigm, multi-modal behaviors can be specified separately, and are integrated only at run time."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0015",
+      "text": "Die Verständnishilfe bei szenarioübergreifender Kopplung besteht in der Rekonstruktion von Laufzeitentscheidungen, weil ein Visualisierungswerkzeug ausgeführte, verzögerte oder verworfene Ereignisse samt „causes and reasons behind these run-time choices“ sichtbar macht",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p8",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "We present a tool, with which the user can easily follow the decisions of the collective execution mechanism. It shows the behaviors and events that were executed at each point in time, and those that were delayed or abandoned, as well as the causes and reasons behind these run-time choices."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0016",
+      "text": "Für „inter-scenario coupling“ fehlt ebenfalls ein direkter Nachweis, dass Kopplung als eigenständige kognitive Variable einen Verständniseffekt verursacht",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p12",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "We present a tool, with which the user can easily follow the decisions of the collective execution mechanism. It shows the behaviors and events that were executed at each point in time, and those that were delayed or abandoned, as well as the causes and reasons behind these run-time choices. The dynamic effects of such decisions on the system’s behavior can be seen easily too."
+        },
+        {
+          "id": "ev_0002",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 5,
+            "section": "Related and future work"
+          },
+          "verbatim_excerpt": "In addition to further evaluation, future directions of research for behavioral trace visualization include trace compression based on event-sequence patterns as in [14], trace comparison, and integration with the development environment."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "pending_adjudication",
+        "relation_types": {
+          "ev_0001": "not_relevant",
+          "ev_0002": "not_relevant"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0017",
+      "text": "die gefundene DOI-Publikation beschreibt stattdessen die zu verstehende Laufzeitintegration unabhängiger Verhaltenskomponenten und ein Werkzeug zu ihrer Visualisierung",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p12",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "In this programming paradigm, multi-modal behaviors can be specified separately, and are integrated only at run time. We present a tool, with which the user can easily follow the decisions of the collective execution mechanism."
+        },
+        {
+          "id": "ev_0002",
+          "source_id": "src_eitan2011",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "page": 1,
+            "section": "I. Introduction"
+          },
+          "verbatim_excerpt": "We propose a tool for visualizing traces of behavioral programs in support of comprehension."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {
+          "ev_0002": "partially_supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0018",
+      "text": "Top-down- und bottom-up-Verarbeitung werden als komplementäre Strategien beschrieben",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p9",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_wang2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "II. Related Work, A. Program Comprehension"
+          },
+          "verbatim_excerpt": "Researchers have proposed some influential theories about different ways of program comprehension in the past, including top-down [10], bottom-up [11], and a combination of the two [12]."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0019",
+      "text": "Wang und Liu fassen die theoretische Literatur so zusammen, dass bottom-up-Verstehen Aussagen hierarchisch zu funktionalen Einheiten bündelt",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p9",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_wang2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "II. Related Work, A. Program Comprehension"
+          },
+          "verbatim_excerpt": "In the bottom-up model, Shneiderman et al. [11] theorized that programmers first read source code line-by-line and that the program comprehension is accomplished by a hierarchical chunking process that organizes several statements into a functional unit. These units can then be organized into still higher-level units which convey the overall operation of the program."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "pending_adjudication",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r2.clm_0020",
+      "text": "integrierte Modelle sehen einen flexiblen Wechsel zwischen top-down- und bottom-up-Strategien vor",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p9",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_wang2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "II. Related Work, A. Program Comprehension"
+          },
+          "verbatim_excerpt": "An integrated metamodel of program comprehension have also been proposed [12], where programmers switch flexibly from top-down to bottom-up comprehension strategies depending on the situation."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0021",
+      "text": "Topic Modeling kann einen Teil dieser kognitiven Strukturierungsarbeit nach außen verlagern, indem es aus Textartefakten „features and structures“ automatisch entdeckt und daraus eine Projektübersicht sowie semantische Suche erzeugt",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p10",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_wang2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Using topic modeling, features and structures can be discovered automatically from textual software assets. We also developed JSEA, a tool that provides semi-automatic program comprehension assistance. JSEA utilizes essential information automatically generated from Java projects to construct a project overview and give developers search capability."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0022",
+      "text": "Das ist ein berichteter Unterstützungsmechanismus für Verständlichkeit, aber kein Nachweis, dass Topic Modeling selbst einen menschlichen kognitiven Mechanismus erklärt",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p10",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_wang2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Experiments with 12 volunteers on two open source Java projects suggest that JSEA can support Java developers in comprehending programs in the Program Users Scenario."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r2.clm_0023",
+      "text": "die Studie berichtet eine vorläufige Evaluation mit 12 Freiwilligen in zwei Open-Source-Java-Projekten",
+      "claim_type": "quantitative_finding",
+      "briefing_anchor": "p10",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_wang2017",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Experiments with 12 volunteers on two open source Java projects suggest that JSEA can support Java developers in comprehending programs in the Program Users Scenario."
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "licensed",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0001",
+      "text": "Neue Verhaltensmodule sollen als zusätzliche, relativ eigenständige Anforderungen ergänzt werden können, ohne vorhandenen Code umfassend umzubauen.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p3",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_harel-et-al-2011-a-review-of-research-in",
+          "source_type": "grey_literature",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "This approach allows for natural incremental development and maintenance where new modules are aligned with new requirements and are added with little or no changes to existing code"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0002",
+      "text": "Die Literatur verbindet diese Anforderungsausrichtung mit einer szenariobasierten Repräsentation, weil Anforderungen häufig bereits als Use Cases und Szenarien formuliert werden.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p4",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_harel-et-al-a-novel-paradigm-for-program",
+          "source_type": "grey_literature",
+          "locator": {
+            "section": "Introduction"
+          },
+          "verbatim_excerpt": "One widely accepted practice is to formalize requirements in the form of use cases and scenarios"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": null,
+        "relation_types": {},
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0003",
+      "text": "Ein zweiter Mechanismus ist die getrennte Spezifikation von Verhaltensszenarien: Für das Paradigma der verhaltensbasierten, szenariobasierten Programmierung (LSC/BPJ) berichten Eitan et al., dass multimodale Verhaltensweisen getrennt spezifiziert und erst zur Laufzeit integriert werden.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p5",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "multi-modal behaviors can be specified separately, and are integrated only at run time"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": true
+      }
+    },
+    {
+      "id": "r3.clm_0004",
+      "text": "Diese Laufzeitintegration erzeugt zugleich eine Verständnishürde, weil die Wechselwirkungen zwischen Szenarien indirekt und dynamisch werden.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p6",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Introduction"
+          },
+          "verbatim_excerpt": "enhance understanding of executions by best illustrating the flow of each behavior module as well as the indirect interaction between behaviors"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0005",
+      "text": "„Inter-scenario coupling“ lässt sich in der gefundenen Literatur daher am präzisesten als Nachvollziehbarkeit von Ursache-Wirkungs-Beziehungen und indirekten Abhängigkeiten zwischen relativ unabhängigen Verhaltenseinheiten fassen, nicht als nachgewiesener eigenständiger kognitionspsychologischer Prozess.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p7",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "comprehending cause and effect relationships between relatively independent behavior components of a single application"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0006",
+      "text": "Verständlichkeit soll steigen, wenn sichtbar wird, welche Threads ein Ereignis angefordert, auf es gewartet oder es blockiert haben und weshalb die kollektive Ausführung eine bestimmte Alternative gewählt hat.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p8",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 1,
+            "section": "Introduction"
+          },
+          "verbatim_excerpt": "why certain events were chosen but also why others were not (e.g., due to selection order or blocking)"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0007",
+      "text": "Für das Verstehen reicht nicht nur die beobachtete Ereignisfolge, sondern auch die Information über verworfene, verzögerte oder blockierte Alternativen.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p9",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "It shows the behaviors and events that were executed at each point in time, and those that were delayed or abandoned, as well as the causes and reasons behind these run-time choices"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0008",
+      "text": "Ein vierter Mechanismus ist die Reduktion der Informationsmenge durch Gruppierung ähnlicher Verhaltensthreads, wodurch die Person den Gesamtablauf auf einer höheren Abstraktionsebene verfolgen kann.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p10",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 3,
+            "section": "Example"
+          },
+          "verbatim_excerpt": "Grouping these instances together reduces the cognitive load by removing some information, and helps in understanding the overall run"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0009",
+      "text": "Die Gestaltung der Darstellung soll außerdem zeitliche Ordnung, Thread-Zustände und Synchronisationspunkte gleichzeitig sichtbar machen, damit lokale Entscheidungen in den globalen Ablauf eingeordnet werden können.",
+      "claim_type": "recommendation",
+      "briefing_anchor": "p11",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_on-visualization-and-comprehension-of-sc",
+          "source_type": "grey_literature",
+          "locator": {
+            "page": 2,
+            "section": "Visualizing BPJ Traces"
+          },
+          "verbatim_excerpt": "B-threads are depicted in columns ordered by priorities, and syncpoints are represented by rows ordered by time"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0010",
+      "text": "Eine 2025 veröffentlichte kontrollierte Studie prüfte die Verständlichkeit zweier BP-Varianten und operationalisierte sie als Verständnis der Ausführungssemantik sowie als Identifikation von Anforderungen aus Implementierungen.",
+      "claim_type": "quantitative_finding",
+      "briefing_anchor": "p12",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_ashrov2025",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "Through a controlled experiment with 109 participants, we evaluated both variants across two dimensions: comprehension of execution semantics and identification of requirements from implementations"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "licensed",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0011",
+      "text": "Dieselbe Studie berichtet, dass klassisches BP insgesamt bessere Verständlichkeit und höheres Vertrauen zeigte, während Context-Oriented BP bei komplexem, kontextabhängigem Verhalten Vorteile hatte.",
+      "claim_type": "comparative_statement",
+      "briefing_anchor": "p13",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_ashrov2025",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "The results indicate that BP generally leads to better comprehension and higher confidence; while COBP demonstrates advantages in complex, context-dependent behaviors"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "weakened",
+        "relation_types": {
+          "ev_0001": "supports"
+        },
+        "mechanical": "not_met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": true,
+        "mechanical_not_met": true,
+        "second_opinion_fired": false
+      }
+    },
+    {
+      "id": "r3.clm_0012",
+      "text": "Der Befund stützt somit eine Abhängigkeit des Verständniseffekts von der strukturellen Komplexität und Kontextabhängigkeit des Szenarios.",
+      "claim_type": "effectiveness_statement",
+      "briefing_anchor": "p13",
+      "evidence": [
+        {
+          "id": "ev_0001",
+          "source_id": "src_ashrov2025",
+          "source_type": "peer_reviewed_publication",
+          "locator": {
+            "section": "Abstract"
+          },
+          "verbatim_excerpt": "The results indicate that BP generally leads to better comprehension and higher confidence; while COBP demonstrates advantages in complex, context-dependent behaviors"
+        }
+      ],
+      "ground_truth": {
+        "calibration_result": "licensed",
+        "relation_types": {
+          "ev_0001": "partially_supports"
+        },
+        "mechanical": "met",
+        "rubric_version": "se-evidence-rubric-v1",
+        "rubric_template_version": "1.0.0",
+        "attribution_template_version": "1.1.0"
+      },
+      "borderline": {
+        "weakened_or_parked": false,
+        "mechanical_not_met": false,
+        "second_opinion_fired": false
+      }
+    }
+  ]
+}
