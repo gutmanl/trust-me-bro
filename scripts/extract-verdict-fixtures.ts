@@ -26,6 +26,15 @@
  * excerpt, so they are load-bearing, and they are exactly what the human
  * content review before the commit is for.
  *
+ * Claim ids are NAMESPACED per register (`r1.clm_0001`, `r2.clm_0001`, …).
+ * Every register numbers its claims from `clm_0001`, so three registers of
+ * the same briefing collide on every id — and the comparison harness keys
+ * its resume skip-list and its ground-truth pairing on the claim id alone.
+ * Without the prefix a resumed run would skip the wrong register's claims
+ * and pair one register's verdict against another's ground truth, silently.
+ * The prefix is the register's ordinal in sorted directory order, never the
+ * directory name, so no project id reaches the file.
+ *
  * Run it from the `software/` directory: `loadRubricRuleSet` resolves the
  * rule files from the process working directory.
  */
@@ -155,7 +164,10 @@ function registerFiles(workspaceRoot: string): string[] {
     .sort();
 }
 
-function extractFromRegister(file: string): FixtureClaim[] {
+function extractFromRegister(
+  file: string,
+  registerOrdinal: number,
+): FixtureClaim[] {
   const register = ClaimsRegister.parse(
     JSON.parse(fs.readFileSync(file, "utf8")),
   );
@@ -218,7 +230,7 @@ function extractFromRegister(file: string): FixtureClaim[] {
 
     const calibrationResult = claim.calibration_result ?? null;
     claims.push({
-      id: claim.id,
+      id: `r${registerOrdinal}.${claim.id}`,
       text: claim.text,
       claim_type: claim.claim_type,
       briefing_anchor: claim.briefing_anchor,
@@ -282,7 +294,7 @@ function main(): number {
   console.log(`registers: ${files.length}`);
 
   const claims = files
-    .flatMap((file) => extractFromRegister(file))
+    .flatMap((file, index) => extractFromRegister(file, index + 1))
     // Sorted by claim id so a re-extraction produces a readable diff rather
     // than a reshuffled file.
     .sort((left, right) => left.id.localeCompare(right.id));
