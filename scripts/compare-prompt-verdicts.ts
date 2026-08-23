@@ -1047,6 +1047,17 @@ function analyseArm(
   // Attribution relation flips: reported, never gating — four values plus a
   // confidence float, and the divergence rule makes the effect on a claim's
   // fate non-linear.
+  //
+  // Keyed on claim AND evidence, never on evidence alone. Evidence ids are
+  // per-claim (`ev_0001`, `ev_0002`, …) and are NOT unique across the corpus:
+  // every claim has an `ev_0001`. Keying on the bare evidence id let each
+  // claim's entry overwrite the previous one, so an arm's evidence was paired
+  // against whatever unrelated claim happened to be written last — which
+  // reported 46 % flips where the true figure is 10 %. Same defect class as
+  // the duplicate `clm_0001` ids the extractor fixed in 09696f1; that fix
+  // namespaced claim ids and missed this second keying site.
+  const relationKey = (claimId: string, evidenceId: string): string =>
+    `${claimId}|${evidenceId}`;
   const relationReference = new Map<string, RelationType>();
   if (arm.reference !== "fixture") {
     for (const record of records) {
@@ -1056,7 +1067,10 @@ function analyseArm(
         record.relation_type != null &&
         record.evidence_id !== null
       ) {
-        relationReference.set(record.evidence_id, record.relation_type);
+        relationReference.set(
+          relationKey(record.claim_id, record.evidence_id),
+          record.relation_type,
+        );
       }
     }
   }
@@ -1070,7 +1084,9 @@ function analyseArm(
     const reference =
       arm.reference === "fixture"
         ? (record.ground_truth_relation_type ?? undefined)
-        : relationReference.get(record.evidence_id);
+        : relationReference.get(
+            relationKey(record.claim_id, record.evidence_id),
+          );
     if (reference === undefined || reference === null) {
       continue;
     }

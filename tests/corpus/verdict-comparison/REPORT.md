@@ -8,10 +8,10 @@ Why those lines exist: everything else in this ship gate is already mechanical �
 
 | Field | Value |
 | --- | --- |
-| Report written | 2026-08-23T16:39:49.835Z |
-| Backend | claude |
+| Report written | 2026-08-23T18:06:22.731Z |
+| Backend | (dry run — no backend) |
 | Models reported | claude-haiku-4-5-20251001, claude-opus-5[1m] |
-| Pre-run smoke check | attribution ok, rubric ok, extraction ok, repair ok, relevance ok, reference_parse ok; research FAILED (unused job kind) — cloud session 2026-08-23 |
+| Pre-run smoke check | not recorded — pass --smoke-result |
 | Corpus | 47 claims, 29 with a recorded calibration_result, frozen 2026-08-23T11:22:09.321Z |
 | Records in NDJSON | 340 |
 | Sample cap for this invocation | none |
@@ -33,45 +33,52 @@ the run's record and is re-added by hand if the report is regenerated. It does *
 | --- | --- |
 | Run date | 2026-08-23, two sittings |
 | Sitting 1 | dev box, 13:25–15:50 CEST — noise floor (N=10) and v1.1.0 baseline (full N); ordering A stopped after 10/99 units at a 10 % contract pass rate |
-| Sitting 2 | cloud session (claude.ai/code), ~14:40–16:20 UTC — both v1.2.0 arms re-run in full after the cap recalibration |
+| Sitting 2 | cloud session, ~14:40–16:20 UTC — both v1.2.0 arms re-run in full after the cap recalibration |
 | Backend / model | `claude` CLI 2.1.241, `claude-haiku-4-5-20251001`; pre-run adapter smoke: attribution ok, rubric ok, extraction ok, repair ok, relevance ok, reference_parse ok, `research` FAILED (unused job kind, fails identically on the dev box) |
 | Cadence | 0.66 min/unit, zero rate-limit pauses across 198 units |
 | Caps in force | `JOINED_MAX_CHARS = 2600`, `PLAIN_MAX_CHARS = 360` (raised from 1400 / 320 by user decision before this sitting; commit `91d0bc0`) |
-| Template digests measured | rubric `15ad1ff0…`, attribution `a43910c7…` — both pins recomputed after the cap text moved in the v1.2.0 templates |
+| Template digests measured | rubric `15ad1ff0…`, attribution `a43910c7…` |
 
-**Why the arms were re-run.** The 03-04 sitting could not measure either v1.2.0 arm: `JOINED_MAX_CHARS
-= 1400` was sized against single-reasoning strings (median ≈ 750) and could not fit three prose
-fields, so 27 of 30 failed clauses were that one cap and the arm produced almost no pairable records.
-The cap was raised **before** this sitting and never during it. The 10 ordering-A records generated
-under the 1400 contract were moved out of the active NDJSON to
+**Why the arms were re-run.** 03-04 could not measure either v1.2.0 arm: `JOINED_MAX_CHARS = 1400`
+was sized against single-reasoning strings (median ≈ 750) and could not fit three prose fields, so 27
+of 30 failed clauses were that one cap. The cap was raised **before** this sitting and never during
+it. The 10 ordering-A records generated under the 1400 contract were moved to
 `results-1400-contract.ndjson` so they could not be paired against new-contract records; those units
 were regenerated here.
 
 **The recalibration worked; the gate still failed.** Contract achievability is no longer the problem —
-ordering A completed 99/99 units with zero exhaustions and the 2600 joined cap was never reached
-(measured max 1775). Both arms nevertheless **FAIL** the pre-registered tolerance, and
+ordering A completed 99/99 with zero exhaustions at 90.9 % first-attempt, and the 2600 joined cap was
+never reached (measured max 1775). Both arms nevertheless **FAIL** the pre-registered tolerance and
 `DEFAULT_RUBRIC_VERSION` has **not** moved.
 
-**Ordering A fails on one claim.** Its flip count is 3 of 47 — exactly at the allowance of ≤ 3 — so it
-satisfies the ratio clause and fails solely on the absolute prohibition against a
-`licensed` ↔ `pending_adjudication` move. That move is `r2.clm_0019`, `pending_adjudication →
-licensed`. Its other two flips are `weakened → pending_adjudication`, i.e. toward more human review,
-not less.
+**Ordering A fails on one claim.** 3 flips of 47 is exactly the allowance (≤ 3), so it satisfies the
+ratio clause and fails solely on the absolute prohibition against a `licensed` ↔
+`pending_adjudication` move. That move is `r2.clm_0019`, `pending_adjudication → licensed`. Its other
+two flips are `weakened → pending_adjudication`, toward more human review rather than less.
 
-**`r2.clm_0019` fails in both arms, in the same direction.** It is therefore evidence about the
-v1.2.0 prompts generally rather than about field ordering, and it moves in the one direction that
-matters most: a claim the baseline parked for human adjudication becomes automatically licensed.
+**`r2.clm_0019` is the phase's real finding, and it is not about field ordering.** It flips the same
+way in BOTH arms. The claim is typed `effectiveness_statement` but is actually an attributed
+literature summary, and `mechanical: met` means `combineCalibrationResult` never caps it — the model's
+judgment passes straight through. The v1.1.0 baseline detected the type ambiguity and **escalated**:
+"Diese Typ-Unklarheit lässt die Regel nicht sauber anwenden und erfordert eine menschliche
+Entscheidung." Both v1.2.0 arms **resolved the ambiguity themselves and licensed it** — while their
+`Jedoch:` layer still records the doubt in prose. The hypothesis this run cannot settle: giving the
+model a caveat field gives it somewhere to put uncertainty, so it stops parking the claim. The caveat
+absorbs what previously forced adjudication. That is a property of the two-layer contract, not of
+ordering A or B, and it is what a follow-up must test.
 
-**The largest number in this report is not gated.** Attribution `relation_type` flips at **46.2 %**
-(ordering A) and **44.0 %** (ordering B) against **0.0 %** for both the noise floor and the baseline.
-The tolerance rule speaks only to the persisted `calibration_result`, and `combineCalibrationResult`'s
-mechanical cap absorbs much of this before it reaches that field — which is exactly why both the
-pre-cap and post-cap distributions are recorded. Any decision to re-run or re-author should treat
-this as a primary finding, not a diagnostic footnote.
+**A harness defect was found and fixed while reading this report.** The attribution
+`relation_type` diagnostic keyed its reference map on the bare `evidence_id`. Evidence ids are
+per-claim and not unique across the corpus — every claim has an `ev_0001` — so each arm's evidence was
+paired against an unrelated claim. It reported **46.2 % / 44.0 %** where the true figures are
+**9.6 % / 8.0 %**. Same defect class as the duplicate `clm_0001` ids fixed in `09696f1`; that fix
+namespaced claim ids and missed this second keying site. The gating comparison keys on `claim_id`,
+which IS namespaced, and was independently recomputed against the NDJSON — **the FAIL verdicts are
+unaffected**. Only this one non-gating row changed.
 
 **One thing clearly improved.** Quote refusals fall from 19–23 % under v1.1.0 to 3.0 % / 2.1 % under
-v1.2.0 — the matched-quotation-mark request in the new templates working as 03-03 hoped. This is
-reported only and does not license relaxing the display tier's refusal logic.
+v1.2.0 — the matched-quotation-mark request in the new templates working as 03-03 hoped. Reported
+only; it does not license relaxing the display tier's refusal logic.
 
 ## Gating result
 
@@ -143,8 +150,8 @@ Clauses that fired more than twice in `v1.2.0-ordering-b`:
 | --- | --- | --- |
 | noise-floor | 0 (0.0 %) | 13 |
 | v1.1.0-baseline | 0 (0.0 %) | 34 |
-| v1.2.0-ordering-a | 24 (46.2 %) | 52 |
-| v1.2.0-ordering-b | 22 (44.0 %) | 50 |
+| v1.2.0-ordering-a | 5 (9.6 %) | 52 |
+| v1.2.0-ordering-b | 4 (8.0 %) | 50 |
 
 None of the above gates anything. The hedge count comes from a word list defined in the harness — a diagnostic, because a word-list lint false-positives on legitimate German and a retry loop on grammatical prose is worse than its miss rate. No readability score is computed. The quote-refusal rate reproduces the display tier's own refusal condition and is reported only; it does not license relaxing that logic.
 
