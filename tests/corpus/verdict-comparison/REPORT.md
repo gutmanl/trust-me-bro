@@ -8,12 +8,12 @@ Why those lines exist: everything else in this ship gate is already mechanical �
 
 | Field | Value |
 | --- | --- |
-| Report written | 2026-08-23T18:06:22.731Z |
-| Backend | (dry run — no backend) |
+| Report written | 2026-08-23T19:59:12.199Z |
+| Backend | claude |
 | Models reported | claude-haiku-4-5-20251001, claude-opus-5[1m] |
 | Pre-run smoke check | not recorded — pass --smoke-result |
 | Corpus | 47 claims, 29 with a recorded calibration_result, frozen 2026-08-23T11:22:09.321Z |
-| Records in NDJSON | 340 |
+| Records in NDJSON | 439 |
 | Sample cap for this invocation | none |
 
 | Arm | Ran | Paired N | Contract(s) seen | Template digests |
@@ -22,6 +22,7 @@ Why those lines exist: everything else in this ship gate is already mechanical �
 | v1.1.0-baseline | yes (99 ok, 0 exhausted) | 29 | single-reasoning | attribution v1.1.0 `cd6df03a305a…`<br>rubric v1.1.0 `906cc06795ea…` |
 | v1.2.0-ordering-a | yes (99 ok, 0 exhausted) | 47 | two-layer | attribution v1.2.0 `a43910c7cc54…`<br>rubric v1.2.0 `15ad1ff0bd62…` |
 | v1.2.0-ordering-b | yes (97 ok, 2 exhausted) | 47 | two-layer | attribution v1.2.0-plain-first `e4738d6ffdd1…`<br>rubric v1.2.0-plain-first `b8168dae0561…` |
+| v1.2.0-noise-floor | yes (97 ok, 2 exhausted) | 46 | two-layer | attribution v1.2.0 `a43910c7cc54…`<br>rubric v1.2.0 `15ad1ff0bd62…` |
 
 ## Operator notes (hand-written, added after the final harness invocation)
 
@@ -31,54 +32,62 @@ the run's record and is re-added by hand if the report is regenerated. It does *
 
 | Field | Value |
 | --- | --- |
-| Run date | 2026-08-23, two sittings |
-| Sitting 1 | dev box, 13:25–15:50 CEST — noise floor (N=10) and v1.1.0 baseline (full N); ordering A stopped after 10/99 units at a 10 % contract pass rate |
+| Sitting 1 | dev box, 2026-08-23 13:25–15:50 CEST — v1.1.0 noise floor (N=10) and v1.1.0 baseline; ordering A stopped after 10/99 units at a 10 % contract pass rate |
 | Sitting 2 | cloud session, ~14:40–16:20 UTC — both v1.2.0 arms re-run in full after the cap recalibration |
-| Backend / model | `claude` CLI 2.1.241, `claude-haiku-4-5-20251001`; pre-run adapter smoke: attribution ok, rubric ok, extraction ok, repair ok, relevance ok, reference_parse ok, `research` FAILED (unused job kind, fails identically on the dev box) |
-| Cadence | 0.66 min/unit, zero rate-limit pauses across 198 units |
-| Caps in force | `JOINED_MAX_CHARS = 2600`, `PLAIN_MAX_CHARS = 360` (raised from 1400 / 320 by user decision before this sitting; commit `91d0bc0`) |
-| Template digests measured | rubric `15ad1ff0…`, attribution `a43910c7…` |
+| Sitting 3 | cloud session, ~17:00–18:05 UTC — **`v1.2.0-noise-floor`**, the arm the original design lacked |
+| Backend / model | `claude` CLI 2.1.241, `claude-haiku-4-5-20251001` throughout |
+| Caps in force (sittings 2–3) | `JOINED_MAX_CHARS = 2600`, `PLAIN_MAX_CHARS = 360` (commit `91d0bc0`) |
 
-**Why the arms were re-run.** 03-04 could not measure either v1.2.0 arm: `JOINED_MAX_CHARS = 1400`
-was sized against single-reasoning strings (median ≈ 750) and could not fit three prose fields, so 27
-of 30 failed clauses were that one cap. The cap was raised **before** this sitting and never during
-it. The 10 ordering-A records generated under the 1400 contract were moved to
-`results-1400-contract.ndjson` so they could not be paired against new-contract records; those units
-were regenerated here.
+## THE HEADLINE: the noise floor exceeds the signal
 
-**The recalibration worked; the gate still failed.** Contract achievability is no longer the problem —
-ordering A completed 99/99 with zero exhaustions at 90.9 % first-attempt, and the 2600 joined cap was
-never reached (measured max 1775). Both arms nevertheless **FAIL** the pre-registered tolerance and
-`DEFAULT_RUBRIC_VERSION` has **not** moved.
+The measurement this report exists to make **cannot be made with this instrument.** Two *identical*
+v1.2.0 runs disagree with each other MORE than v1.2.0 disagrees with v1.1.0:
 
-**Ordering A fails on one claim.** 3 flips of 47 is exactly the allowance (≤ 3), so it satisfies the
-ratio clause and fails solely on the absolute prohibition against a `licensed` ↔
-`pending_adjudication` move. That move is `r2.clm_0019`, `pending_adjudication → licensed`. Its other
-two flips are `weakened → pending_adjudication`, toward more human review rather than less.
+| Comparison | N | Flips | Rate | Two-step | Contains a prompt change? |
+| --- | --- | --- | --- | --- | --- |
+| ordering A vs v1.1.0 baseline | 47 | 3 | 6.4 % | 1 | yes |
+| ordering B vs v1.1.0 baseline | 47 | 4 | 8.5 % | 2 | yes |
+| **ordering A run 2 vs run 1** | **46** | **5** | **10.9 %** | **2** | **NO — same templates** |
 
-**`r2.clm_0019` is the phase's real finding, and it is not about field ordering.** It flips the same
-way in BOTH arms. The claim is typed `effectiveness_statement` but is actually an attributed
-literature summary, and `mechanical: met` means `combineCalibrationResult` never caps it — the model's
-judgment passes straight through. The v1.1.0 baseline detected the type ambiguity and **escalated**:
-"Diese Typ-Unklarheit lässt die Regel nicht sauber anwenden und erfordert eine menschliche
-Entscheidung." Both v1.2.0 arms **resolved the ambiguity themselves and licensed it** — while their
-`Jedoch:` layer still records the doubt in prose. The hypothesis this run cannot settle: giving the
-model a caveat field gives it somewhere to put uncertainty, so it stops parking the claim. The caveat
-absorbs what previously forced adjudication. That is a property of the two-layer contract, not of
-ordering A or B, and it is what a follow-up must test.
+The tolerance is 6.67 % with zero two-step moves. The two-layer contract's own run-to-run variance is
+**10.9 % with two two-step moves**. The gate therefore **cannot be passed by any v1.2.0 prompt**,
+including a hypothetically perfect one, because pure nondeterminism already breaches it.
 
-**A harness defect was found and fixed while reading this report.** The attribution
-`relation_type` diagnostic keyed its reference map on the bare `evidence_id`. Evidence ids are
-per-claim and not unique across the corpus — every claim has an `ev_0001` — so each arm's evidence was
-paired against an unrelated claim. It reported **46.2 % / 44.0 %** where the true figures are
-**9.6 % / 8.0 %**. Same defect class as the duplicate `clm_0001` ids fixed in `09696f1`; that fix
-namespaced claim ids and missed this second keying site. The gating comparison keys on `claim_id`,
-which IS namespaced, and was independently recomputed against the NDJSON — **the FAIL verdicts are
-unaffected**. Only this one non-gating row changed.
+`GATE_RESULT: FAIL arm=v1.2.0-noise-floor` reads oddly and should not be misread: the harness applies
+the same rule to every arm, and a floor "failing" a tolerance is the *finding*, not a defect in the
+arm.
 
-**One thing clearly improved.** Quote refusals fall from 19–23 % under v1.1.0 to 3.0 % / 2.1 % under
-v1.2.0 — the matched-quotation-mark request in the new templates working as 03-03 hoped. Reported
-only; it does not license relaxing the display tier's refusal logic.
+**The same claims flip either way.** The noise arm's five flips are `r1.clm_0003`, `r2.clm_0006`,
+`r2.clm_0013`, `r2.clm_0017`, `r2.clm_0019` — four of them are the very claims that flip in the signal
+arms. These are borderline claims on which the model is simply unstable, and which prompt produced the
+answer barely matters.
+
+**`r2.clm_0019` flips in BOTH directions.** It is the claim whose two-step move failed ordering A
+(`pending_adjudication → licensed`). Across two identical runs it moves the other way
+(`licensed → pending_adjudication`). Earlier readings of this run treated it first as evidence that
+the two-layer contract suppresses adjudication, then as a structural outlier on a mis-typed claim.
+Both over-read it. It is nondeterministic, and that is the whole of it.
+
+**What this does NOT mean.** It does not turn either FAIL into a PASS. The pre-registered rule was
+written before any data and is not adjustable now; both v1.2.0 arms breached it and
+`DEFAULT_RUBRIC_VERSION` has not moved. What has changed is that the breach is now known to be
+**uninformative** — it carries no evidence about the prompts either way.
+
+**What follows.** A gate whose tolerance sits below its instrument's noise cannot decide a ship. The
+choices are to make the measurement precise enough to have signal (repeated runs per arm with a
+per-claim majority verdict, or a much larger corpus), or to accept that per-claim verdict stability is
+the wrong statistic for a contract this variable and to design the v1.2 milestone's gate around
+something else. Neither is a change to THIS milestone's rule, which stands as written and as breached.
+
+**Also fixed in this sitting.** The attribution `relation_type` diagnostic keyed its reference map on
+the bare `evidence_id`, which is per-claim and not unique across the corpus, so it paired unrelated
+claims and reported 46.2 % / 44.0 % where the true figures are 9.6 % / 8.0 % (commit `c31dfa0`). The
+gating comparison keys on the namespaced `claim_id` and was unaffected; every gate line here was
+independently re-derived from the NDJSON.
+
+**One clear improvement, unaffected by any of the above.** Quote refusals fall from 19–23 % under
+v1.1.0 to 3.0 % / 2.1 % under v1.2.0 — 03-03's matched-quotation-mark request working. Reported only;
+it does not license relaxing the display tier's refusal logic.
 
 ## Gating result
 
@@ -94,6 +103,7 @@ Evaluated on the PERSISTED (post-cap) verdict, as a ratio so a reduced-N arm is 
 | v1.1.0-baseline | fixture | 29 | 0 (0.0 %) | ≤ 1 | 0 | **PASS** |
 | v1.2.0-ordering-a | v1.1.0-baseline | 47 | 3 (6.4 %) | ≤ 3 | 1 | **FAIL** |
 | v1.2.0-ordering-b | v1.1.0-baseline | 47 | 4 (8.5 %) | ≤ 3 | 2 | **FAIL** |
+| v1.2.0-noise-floor | v1.2.0-ordering-a | 46 | 5 (10.9 %) | ≤ 3 | 2 | **FAIL** |
 
 Note: `noise-floor` was evaluated at a REDUCED N of 10, not 30 — the rule's ratio form was applied and the comparison is correspondingly weaker.
 Note: `v1.1.0-baseline` was evaluated at a REDUCED N of 29, not 30 — the rule's ratio form was applied and the comparison is correspondingly weaker.
@@ -103,6 +113,7 @@ GATE_RESULT: PASS arm=noise-floor flips=0/10 two_step=0
 GATE_RESULT: PASS arm=v1.1.0-baseline flips=0/29 two_step=0
 GATE_RESULT: FAIL arm=v1.2.0-ordering-a flips=3/47 two_step=1
 GATE_RESULT: FAIL arm=v1.2.0-ordering-b flips=4/47 two_step=2
+GATE_RESULT: FAIL arm=v1.2.0-noise-floor flips=5/46 two_step=2
 ```
 
 ## Verdict distributions (reported, not gating)
@@ -113,6 +124,7 @@ GATE_RESULT: FAIL arm=v1.2.0-ordering-b flips=4/47 two_step=2
 | v1.1.0-baseline | licensed 9, pending_adjudication 4, weakened 34 | licensed 8, pending_adjudication 4, weakened 35 |
 | v1.2.0-ordering-a | licensed 9, pending_adjudication 5, weakened 33 | licensed 9, pending_adjudication 5, weakened 33 |
 | v1.2.0-ordering-b | licensed 8, pending_adjudication 6, weakened 33 | licensed 8, pending_adjudication 6, weakened 33 |
+| v1.2.0-noise-floor | licensed 10, pending_adjudication 3, weakened 33 | licensed 9, pending_adjudication 3, weakened 34 |
 
 Both columns are recorded per result because `combineCalibrationResult` sits between them, is untouched by this phase, and therefore absorbs part of any upward drift. A single number would hide exactly that.
 
@@ -124,6 +136,7 @@ Both columns are recorded per result because `combineCalibrationResult` sits bet
 | v1.1.0-baseline | 99 | 97 | 98.0 % | 0 |
 | v1.2.0-ordering-a | 99 | 90 | 90.9 % | 0 |
 | v1.2.0-ordering-b | 97 | 87 | 89.7 % | 2 |
+| v1.2.0-noise-floor | 97 | 86 | 88.7 % | 2 |
 
 This is the cheapest available calibration of *is this contract achievable*, and it is the input to 03-05's re-examination of the plain-layer character cap. It is reported, not gated.
 
@@ -137,6 +150,12 @@ Clauses that fired more than twice in `v1.2.0-ordering-b`:
 - 9× — reasoning_plain: darf höchstens 360 Zeichen lang sein, hat
 - 5× — claude produced unusable output on job "attribution": result
 
+Clauses that fired more than twice in `v1.2.0-noise-floor`:
+
+- 6× — reasoning_plain: darf höchstens 360 Zeichen lang sein, hat
+- 4× — claude produced unusable output on job "rubric": result
+- 3× — caveat: enthält eine interne Kennung oder eine Klammerziffer
+
 ## Non-gating diagnostics
 
 | Arm | Plain chars (median) | Caveat chars | Technical chars | Hedge hits plain/technical | Plain∩technical overlap | Quote refusals |
@@ -145,6 +164,7 @@ Clauses that fired more than twice in `v1.2.0-ordering-b`:
 | v1.1.0-baseline | n/a | n/a | n/a | 0/0 | n/a | 19/99 (19.2 %) |
 | v1.2.0-ordering-a | 274 (min 175, max 358) | 302 (min 143, max 490) | 633 (min 306, max 1014) | 15/12 | 44.9 % (mean) | 3/99 (3.0 %) |
 | v1.2.0-ordering-b | 270 (min 167, max 354) | 281 (min 174, max 531) | 483 (min 219, max 688) | 16/9 | 39.0 % (mean) | 2/97 (2.1 %) |
+| v1.2.0-noise-floor | 268 (min 180, max 359) | 303 (min 192, max 465) | 619 (min 308, max 1095) | 14/14 | 44.5 % (mean) | 0/97 (0.0 %) |
 
 | Arm | Attribution relation_type flips | Paired evidence |
 | --- | --- | --- |
@@ -152,6 +172,7 @@ Clauses that fired more than twice in `v1.2.0-ordering-b`:
 | v1.1.0-baseline | 0 (0.0 %) | 34 |
 | v1.2.0-ordering-a | 5 (9.6 %) | 52 |
 | v1.2.0-ordering-b | 4 (8.0 %) | 50 |
+| v1.2.0-noise-floor | 5 (9.8 %) | 51 |
 
 None of the above gates anything. The hedge count comes from a word list defined in the harness — a diagnostic, because a word-list lint false-positives on legitimate German and a retry loop on grammatical prose is worse than its miss rate. No readability score is computed. The quote-refusal rate reproduces the display tier's own refusal condition and is reported only; it does not license relaxing that logic.
 
@@ -199,6 +220,16 @@ Jedoch: Die Aussage stützt sich ausschließlich auf die Zusammenfassung eines e
 Technisch: Nach der Regel für Wirksamkeitsaussagen erfordert eine Aussage darüber, dass ein Ansatz funktioniert, eine empirische Studie in Form eines Experiments oder einer Fallstudie, während Erfahrungsberichte und Übersichtsdarstellungen nur als schwacher Hinweis zählen; hier liegt lediglich die Zusammenfassung eines einzelnen Übersichtsartikels aus grauer Literatur vor, sodass die unqualifizierte Formulierung („ohne vorhandenen Code umfassend umzubauen“) die Beleglage übersteigt und abgeschwächt werden sollte.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige Quelle, ein zusammenfassendes Review-Paper, das die Aussage im Abstract macht, aber keine eigene Experiment- oder Fallstudie liefert, weshalb die klare, uneingeschränkte Aussage zur Wirksamkeit nicht ausreichend abgesichert ist.
+
+Jedoch: Es liegt nur eine einzige Quelle vor, und diese ist eine graue Literatur in Form eines Reviews, das eine allgemeine Aussage im Abstract trifft, statt eine eigene empirische Studie mit Experiment oder Fallstudie vorzulegen; die Formulierung sollte entsprechend als vorläufig oder auf diese eine Quelle gestützt gekennzeichnet werden.
+
+Technisch: Die Behauptung ist eine Wirksamkeitsaussage, da sie postuliert, dass neue Verhaltensmodule als eigenständige Erweiterung ergänzt werden können, ohne vorhandenen Code umfassend umzubauen; nach der Regel für Wirksamkeitsaussagen ist dafür eine empirische Studie in Form eines Experiments oder einer Fallstudie erforderlich, während Erfahrungsberichte oder allgemeine Übersichtsaussagen nur als schwacher Hinweis gelten. Der einzige Beleg stammt aus dem Abstract eines Review-Papers (graue Literatur), das die inkrementelle Entwicklung „mit wenigen oder keinen Änderungen am bestehenden Code“ lediglich zusammenfassend behauptet, ohne selbst eine empirische Untersuchung mit Experiment oder Fallstudie zu präsentieren. Damit liegt keine für eine uneingeschränkte Wirksamkeitsaussage hinreichende Evidenzbasis vor, und die Formulierung überzeichnet, was die einzelne, nicht-empirische Quelle stützen kann.
+```
+
 ### r1.clm_0002
 
 > Die Literatur verbindet diese Anforderungsausrichtung mit einer szenariobasierten Repräsentation, weil Anforderungen häufig bereits als Use Cases und Szenarien formuliert werden.
@@ -237,6 +268,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es liegt nur eine
 Jedoch: Die Evidenzbasis besteht aus nur einer einzigen Quelle aus grauer Literatur, die keine empirische Studie ist, sondern lediglich eine unbelegte Praxisbeobachtung in einer Einleitung liefert; für eine derart generalisierende Formulierung wie „die Literatur verbindet“ wäre mindestens eine empirische Studie oder zusätzliche konvergente Evidenz aus mehreren Quellen nötig.
 
 Technisch: Da der Claim als Wirksamkeitsaussage eingeordnet ist, verlangt die Regel für Wirksamkeitsaussagen eine empirische Studie (Experiment oder Fallstudie); als Beleg liegt jedoch nur eine einzelne Quelle aus grauer Literatur vor, deren Aussage „One widely accepted practice is to formalize requirements in the form of use cases and scenarios“ eine bloße Praxisbeobachtung in der Einleitung darstellt und keine empirische Untersuchung, sodass die pauschale Formulierung „die Literatur verbindet“ nicht gedeckt ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzelne Quelle aus der grauen Literatur, die lediglich eine Praxisbeobachtung in ihrer Einleitung nennt, aber keine empirische Untersuchung ist; die Behauptung, „die Literatur“ verbinde beides, ist damit zu stark verallgemeinert.
+
+Jedoch: Die Aussage stützt sich auf nur eine graue Quelle ohne empirischen Charakter, sodass weder die Verallgemeinerung auf „die Literatur“ noch eine Wirksamkeitsbehauptung im engeren Sinn durch die Rubrik gedeckt ist; tragfähig wäre allenfalls eine abgeschwächte Formulierung, die die Aussage explizit auf diese eine Quelle zurückführt.
+
+Technisch: Der Anspruch ist als Wirksamkeitsaussage formuliert, da unterstellt wird, dass sich die Anforderungsausrichtung und die szenariobasierte Repräsentation aus einem in der Praxis wirksamen Zusammenhang ergeben; nach der Regel für Wirksamkeitsaussagen wäre dafür eine empirische Studie erforderlich, wobei Erfahrungsberichte allenfalls als schwacher Hinweis zählen, doch als Beleg liegt lediglich eine einzelne Aussage aus der Einleitung eines Beitrags der grauen Literatur vor, die selbst keine empirische Untersuchung darstellt, sondern nur feststellt, dass „one widely accepted practice is to formalize requirements in the form of use cases and scenarios“; zudem verallgemeinert die Formulierung „die Literatur verbindet“ diesen Einzelbeleg auf einen ganzen Forschungsbereich, was über die Reichweite der einen zitierten Quelle hinausgeht.
 ```
 
 ### r1.clm_0003
@@ -279,6 +320,16 @@ Jedoch: Die Aussage stützt sich ausschließlich auf eine einzelne Quelle aus gr
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigen Aussagen über einen wirksamen Mechanismus eine empirische Studie in Form eines Experiments oder einer Fallstudie, während Erfahrungsberichte nur als schwacher Hinweis gelten; hier liegt lediglich ein einzelner Beleg aus grauer Literatur vor, der die Selbstbeschreibung des Werkzeugs im Abstract wiedergibt, ohne dass eine unabhängige empirische Untersuchung der getrennten Spezifikation mehrerer Verhaltensszenarien vorliegt, sodass die unqualifizierte Formulierung als etablierter Mechanismus die vorhandene Beleglage übersteigt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige, nicht-empirische Quelle, nämlich eine Aussage aus der Zusammenfassung eines Fachberichts, die den Mechanismus beschreibt, aber keine Studie, die seine Wirksamkeit tatsächlich belegt, sodass die Formulierung als feststehende Tatsache zu stark ausfällt.
+
+Jedoch: Es liegt nur eine einzige Quelle aus grauer Literatur mit einer kurzen Abstract-Aussage vor, ohne begleitende experimentelle oder Fallstudien-Validierung des beschriebenen Mechanismus, weshalb die Aussage entweder als auf einer einzelnen, nicht-empirischen Quelle beruhend gekennzeichnet oder in ihrer Formulierung abgeschwächt werden sollte.
+
+Technisch: Die Aussage beschreibt einen Wirkmechanismus des Werkzeugs und fällt damit unter die Regel für Wirksamkeitsaussagen, die für eine unqualifizierte Formulierung eine empirische Studie (Experiment oder Fallstudie) verlangt; als Beleg liegt hier jedoch nur eine einzelne Passage aus der Zusammenfassung der Quelle vor, nämlich „multi-modal behaviors can be specified separately, and are integrated only at run time“, also eine Selbstbeschreibung des Ansatzes durch die Autoren ohne empirische Überprüfung, die nach der Regel höchstens als schwacher Hinweis zählt, sodass die unqualifizierte Formulierung die Beleglage übersteigt.
+```
+
 ### r1.clm_0004
 
 > Diese Laufzeitintegration erzeugt zugleich eine Verständnishürde, weil die Wechselwirkungen zwischen Szenarien indirekt und dynamisch werden.
@@ -317,6 +368,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg stammt 
 Jedoch: Es liegt nur eine einzige Quelle aus der grauen Literatur vor, und diese Quelle beschreibt lediglich die Motivation eines Visualisierungswerkzeugs, nicht das Ergebnis einer Untersuchung zu Verständnisproblemen; die Formulierung sollte daher als Einzelquellenbefund gekennzeichnet oder abgeschwächt werden.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen ist für eine ungehedgte Aussage über eine Wirkung (hier: das Entstehen einer Verständnishürde) eine empirische Studie in Form eines Experiments oder einer Fallstudie erforderlich, während Erfahrungsberichte nur als schwacher Hinweis zählen; der vorliegende Beleg ist jedoch weder eine empirische Studie noch ein Erfahrungsbericht, sondern eine motivierende Aussage aus der Einleitung eines Grauliteratur-Textes, sodass die kategorische Formulierung der Claim die Beleglage überzieht.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige Quelle aus grauer Literatur, die aus einer Einleitung stammt und keine echte Untersuchung zu einer Verständnishürde darstellt, sondern eher die Vorteile eines Visualisierungswerkzeugs beschreibt, weshalb die feste Behauptung einer entstehenden Verständnishürde zu stark formuliert ist.
+
+Jedoch: Es liegt nur eine einzige, nicht-empirische Quelle aus der grauen Literatur vor, die zudem primär die Vorzüge einer Visualisierungstechnik motiviert statt eine Verständnishürde empirisch zu belegen; die Aussage sollte daher als auf einer einzelnen, schwachen Quelle beruhend gekennzeichnet und in ihrer Formulierung abgeschwächt werden.
+
+Technisch: Da es sich um eine Wirksamkeitsaussage handelt, greift die Regel für Wirksamkeitsaussagen, die für eine unqualifizierte Formulierung eine empirische Studie (Experiment oder Fallstudie) verlangt und Erfahrungsberichte nur als schwachen Hinweis gelten lässt; der vorliegende Beleg stammt jedoch aus der Einleitung einer grauen Literaturquelle und beschreibt lediglich die motivierende Zielsetzung einer Visualisierungstechnik („enhance understanding of executions by best illustrating the flow of each behavior module as well as the indirect interaction between behaviors“), nicht das empirische Ergebnis einer Untersuchung zu einer entstehenden Verständnishürde, sodass die Evidenzlage die kategorische Formulierung „erzeugt zugleich eine Verständnishürde“ nicht trägt und lediglich einen schwachen Hinweis liefert, der für eine abgeschwächte Formulierung ausreicht.
 ```
 
 ### r1.clm_0005
@@ -359,6 +420,16 @@ Jedoch: Die Aussage stützt sich auf nur eine einzige, nicht peer-reviewte Quell
 Technisch: Nach der Regel für Wirksamkeitsaussagen setzt eine unqualifizierte Aussage über die Natur eines Phänomens eine empirische Studie (Experiment oder Fallstudie) voraus, während Erfahrungsberichte nur als schwacher Hinweis gelten; hier liegt jedoch nur eine einzelne Quelle aus grauer Literatur mit einem knappen Abstract-Auszug vor, sodass die als Ergebnis „der gefundenen Literatur“ formulierte, verallgemeinernde und zugleich negierende Einordnung von „Inter-scenario coupling“ nicht durch ein hinreichend breites oder empirisch abgesichertes Belegfundament getragen wird.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es liegt nur ein einziger, nicht eindeutig empirischer Beleg aus grauer Literatur vor, der weder eine literaturweite Zuspitzung noch die Verneinung eines eigenständigen kognitionspsychologischen Prozesses stützt.
+
+Jedoch: Die inhaltliche Kernaussage – dass der Begriff die Nachvollziehbarkeit von Ursache-Wirkungs-Beziehungen und Abhängigkeiten beschreibt – wird durch das Zitat direkt gestützt; nicht gedeckt sind jedoch die literaturweite Reichweite „am präzisesten... in der gefundenen Literatur“ sowie die explizite Verneinung eines nachgewiesenen kognitionspsychologischen Prozesses, da der einzelne Beleg dazu keine Aussage trifft.
+
+Technisch: Da der Claim als Wirksamkeits- bzw. Charakterisierungsaussage über den Status eines Konzepts formuliert ist, greift die Regel für Wirksamkeitsaussagen: Für eine solche Aussage wird eine empirische Studie (Experiment oder Fallstudie) verlangt, während Erfahrungsberichte nur als schwacher Hinweis zählen; hier liegt jedoch nur ein einziger Beleg aus grauer Literatur vor (ein kurzes Abstract-Zitat), bei dem weder erkennbar ist, ob es sich um eine empirische Studie handelt, noch dass er die im Claim behauptete Abgrenzung „nicht als nachgewiesener eigenständiger kognitionspsychologischer Prozess“ überhaupt anspricht. Die Formulierung „am präzisesten... in der gefundenen Literatur“ suggeriert zudem eine über mehrere Quellen konvergierende, literaturweite Absicherung, obwohl nur eine einzelne, nicht als empirisch ausgewiesene Quelle vorliegt.
+```
+
 ### r1.clm_0006
 
 > Verständlichkeit soll steigen, wenn sichtbar wird, welche Threads ein Ereignis angefordert, auf es gewartet oder es blockiert haben und weshalb die kollektive Ausführung eine bestimmte Alternative gewählt hat.
@@ -397,6 +468,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der einzige Beleg
 Jedoch: Es liegt lediglich ein einzelner Beleg aus grauer Literatur vor, der zudem nur eine Einleitung ist und keine empirische Untersuchung zur Wirksamkeit darstellt; damit fehlt die von der Regel für Wirksamkeitsaussagen geforderte empirische Studie oder zumindest ein Erfahrungsbericht.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine Aussage, dass etwas wirkt oder die Verständlichkeit steigert, eine empirische Studie mit Experiment oder Fallstudie, wobei Erfahrungsberichte nur als schwacher Hinweis zählen; hier liegt jedoch nur ein einzelner Beleg aus grauer Literatur vor, der lediglich in der Einleitung motiviert, welche Ereignisse angezeigt werden, ohne dass eine Untersuchung der tatsächlichen Verständlichkeitswirkung stattfindet, weshalb die Formulierung als Wirksamkeitsaussage die Evidenzlage übersteigt.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg beschreibt nur, dass ein Visualisierungswerkzeug zeigen soll, welche Ereignisse gewählt wurden und warum andere nicht, aber es gibt keine Studie, die belegt, dass dies das Verständnis tatsächlich erhöht.
+
+Jedoch: Die Formulierung sollte von einem behaupteten Wirksamkeitseffekt auf eine Designabsicht bzw. einen postulierten Nutzen abgeschwächt werden, etwa dass die Visualisierung diese Information bereitstellt, anstatt einen belegten Anstieg der Verständlichkeit zu unterstellen, solange keine empirische Untersuchung des Effekts vorliegt.
+
+Technisch: Der Claim ist eine Wirksamkeitsaussage, da er behauptet, dass Verständlichkeit steigt, wenn bestimmte Informationen zu Threads und Ereigniswahl sichtbar gemacht werden; nach der Regel für Wirksamkeitsaussagen wäre dafür eine empirische Studie (Experiment oder Fallstudie) nötig, während Erfahrungsberichte nur als schwacher Hinweis zählen. Der einzige vorliegende Beleg stammt aus der Einleitung einer Quelle grauer Literatur und beschreibt lediglich, dass die betrachtete Visualisierung zeigen soll, „why certain events were chosen but also why others were not (e.g., due to selection order or blocking)“, ohne dass eine Untersuchung eines tatsächlichen Verständlichkeitsgewinns berichtet wird. Der Beleg stützt somit die Existenz eines entsprechenden Visualisierungsmerkmals, nicht aber eine Wirksamkeitsaussage in dieser Formulierungsstärke.
 ```
 
 ### r1.clm_0007
@@ -439,6 +520,16 @@ Jedoch: Die Quelle beschreibt lediglich die Funktionalität eines Visualisierung
 Technisch: Der Anspruch ist als Wirksamkeitsaussage formuliert, da behauptet wird, dass Information über verworfene, verzögerte oder blockierte Alternativen für das Verständnis erforderlich sei; nach der Regel für Wirksamkeitsaussagen wäre dafür eine empirische Studie, etwa ein Experiment oder eine Fallstudie, nötig, doch die einzige vorliegende Quelle ist ein Abstract aus grauer Literatur, das lediglich beschreibt, was ein Visualisierungswerkzeug darstellt, ohne empirisch zu belegen, dass diese zusätzliche Information tatsächlich notwendig oder wirksam für das Verständnis ist, weshalb sie allenfalls als schwacher Hinweis zählt und die unqualifizierte Formulierung nicht deckt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der einzige Beleg beschreibt nur, was ein Visualisierungswerkzeug anzeigt, belegt aber nicht empirisch, dass diese Information für das Verstehen tatsächlich erforderlich ist.
+
+Jedoch: Es liegt nur eine einzelne Quelle aus grauer Literatur vor, die zudem nur als Abstract vorliegt und keine empirische Validierung der Verständniswirkung enthält; die Formulierung sollte eher als Beschreibung des Werkzeugziels denn als belegte Notwendigkeit gefasst werden.
+
+Technisch: Der Anspruch ist als Wirksamkeitsaussage formuliert, da er behauptet, dass eine bestimmte Information für das Verstehen notwendig ist; nach der Regel für Wirksamkeitsaussagen wäre dafür eine empirische Studie (Experiment oder Fallstudie) erforderlich, während Erfahrungsberichte nur als schwacher Hinweis zählen. Der einzige Beleg ist ein Abstract aus grauer Literatur, das lediglich beschreibt, was ein Visualisierungswerkzeug darstellt („zeigt … Verhaltensweisen und Ereignisse … sowie verzögerte oder abgebrochene … Ursachen und Gründe“), ohne eine empirische Untersuchung der Verständniswirkung. Damit stützt der Beleg allenfalls die Existenz eines Werkzeugs mit dieser Darstellungsfähigkeit, nicht aber die stärkere Notwendigkeitsaussage, dass solche Information für das Verstehen „erforderlich“ ist.
+```
+
 ### r1.clm_0008
 
 > Ein vierter Mechanismus ist die Reduktion der Informationsmenge durch Gruppierung ähnlicher Verhaltensthreads, wodurch die Person den Gesamtablauf auf einer höheren Abstraktionsebene verfolgen kann.
@@ -477,6 +568,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es liegt nur ein 
 Jedoch: Die Aussage stützt sich auf einen einzigen grauliteratur-Beleg ohne dokumentiertes Experiment oder Fallstudie, weshalb sie allenfalls als schwacher Hinweis auf den Mechanismus gilt und nicht als abgesicherter Wirksamkeitsnachweis.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine unqualifizierte Aussage über die Wirksamkeit eines Mechanismus eine empirische Studie in Form eines Experiments oder einer Fallstudie, während Erfahrungsberichte nur als schwacher Hinweis gelten; der vorliegende Beleg stammt aus einer einzelnen grauen Literaturquelle, die die Beobachtung „Grouping these instances together reduces the cognitive load by removing some information, and helps in understanding the overall run“ nur beschreibend anführt, ohne eine Studie oder ein Experiment zu dokumentieren, sodass die Formulierung die Belege übersteigt und abgeschwächt werden sollte.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur einen Beleg aus einem informellen Beispieltext, der die Wirkung beschreibt, aber keine echte Studie ist, weshalb die Aussage nicht als sicher belegter Mechanismus formuliert werden sollte.
+
+Jedoch: Es liegt nur eine einzelne Quelle aus grauer Literatur vor, die den Effekt beispielhaft beschreibt, aber keine systematische empirische Prüfung darstellt; die Aussage sollte daher als vorläufige oder durch eine einzelne Quelle gestützte Beobachtung gekennzeichnet werden statt als gesicherter Mechanismus.
+
+Technisch: Nach der Regel für Wirksamkeitsaussagen muss eine Aussage, die einen Mechanismus als wirksam beschreibt, durch eine empirische Studie (Experiment oder Fallstudie) gestützt werden, während Erfahrungsberichte nur als schwacher Hinweis gelten; hier stammt der einzige Beleg aus grauer Literatur, konkret einem Beispielabschnitt eines technischen Berichts, der lediglich beobachtend feststellt, dass Gruppierung „die kognitive Last reduziert... und hilft, den Gesamtablauf zu verstehen“, ohne dass eine kontrollierte Untersuchung oder ein dokumentierter Fall zugrunde liegt, sodass die uneingeschränkte Formulierung als etablierter vierter Mechanismus die Beleglage übersteigt.
 ```
 
 ### r1.clm_0009
@@ -519,6 +620,16 @@ Jedoch: Die Empfehlung stützt sich derzeit nur auf eine einzelne Quelle aus gra
 Technisch: Der Anspruch ist als Empfehlung formuliert, doch nach der Regel für Empfehlungen wird konvergente Evidenz aus mehreren Quellentypen verlangt, während hier nur eine einzige Quelle aus grauer Literatur vorliegt, die zudem lediglich eine bestehende Visualisierung aus Spalten und Zeilen beschreibt; damit ist die Mindestanforderung nicht erfüllt und die Formulierung sollte als auf einer einzelnen Quelle beruhend gekennzeichnet werden.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es liegt nur eine einzige Quelle vor, die eine bestehende Darstellungsweise beschreibt, aber für eine so allgemein formulierte Gestaltungsempfehlung wären mehrere, unabhängige Quellenarten nötig gewesen.
+
+Jedoch: Da nur ein Beleg aus grauer Literatur vorliegt und keine zweite, unabhängige Quelle die Empfehlung stützt, ist die uneingeschränkte Formulierung als Sollensaussage nicht gedeckt; sie sollte auf die Einzelquelle bezogen oder abgeschwächt werden, etwa als Beobachtung aus einer beschriebenen Visualisierungslösung statt als generelle Gestaltungsanforderung.
+
+Technisch: Die Aussage ist eine Empfehlung zur Gestaltung einer Darstellung, für die nach der Regel für Empfehlungen konvergente Evidenz aus mehreren Quellentypen verlangt wird, da eine einzelne Quelle – ob Fachliteratur, Erfahrungsbericht oder Herstellerdokumentation – für eine unqualifizierte Handlungsempfehlung nicht ausreicht; hier liegt jedoch nur ein einziger Beleg aus grauer Literatur vor, der zudem lediglich eine bestehende Visualisierungslösung beschreibt („B-threads are depicted in columns ordered by priorities, and syncpoints are represented by rows ordered by time“), ohne dass eine zweite, unabhängige Quelle oder ein anderer Quellentyp die Notwendigkeit dieser Gestaltungsentscheidung stützt.
+```
+
 ### r1.clm_0010
 
 > Eine 2025 veröffentlichte kontrollierte Studie prüfte die Verständlichkeit zweier BP-Varianten und operationalisierte sie als Verständnis der Ausführungssemantik sowie als Identifikation von Anforderungen aus Implementierungen.
@@ -559,6 +670,16 @@ Jedoch: Die Einschätzung beruht ausschließlich auf einem einzigen peer-reviewt
 Technisch: Der Claim ist als quantitative_finding getaggt, wofür grundsätzlich die Regel für Zahlenbefunde einschlägig wäre, doch der Formulierungstext enthält keine gemessene Zahl, sondern beschreibt lediglich, dass eine kontrollierte Studie die Verständlichkeit zweier BP-Varianten anhand zweier Operationalisierungen prüfte, gestützt auf nur einen einzigen peer-reviewten Beleg aus dem Abstract, sodass unklar bleibt, ob diese Regel oder eine andere Einordnung greift, und die mechanische Prüfung dies auch nicht eindeutig auflösen konnte.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Der Claim beschreibt nur eine einzelne, namentlich nicht verallgemeinerte Studie, und der vorliegende Beleg bestätigt sowohl das Studiendesign als auch die genannten Prüfdimensionen fast wortgleich, sodass keine Überziehung der Aussagekraft vorliegt.
+
+Jedoch: Die Stützung beruht auf genau einer Quelle und lediglich deren Abstract, was jedoch durch die im Claim gewählte Formulierung als Einzelstudie („Eine … Studie“) bereits angemessen abgebildet und nicht überhöht wird.
+
+Technisch: Nach der Regel für Zahlenbefunde genügt für eine als Einzelstudienbefund formulierte Aussage ein peer-reviewter Beleg mit passendem Kontext, sofern die Aussage sich erkennbar auf nur eine Studie stützt; genau das leistet die Formulierung „Eine 2025 veröffentlichte kontrollierte Studie“, die von vornherein keine Verallgemeinerung über eine einzelne Untersuchung hinaus beansprucht, und der Beleg aus dem Abstract von src_ashrov2025 bestätigt sowohl das kontrollierte Studiendesign als auch die beiden genannten Operationalisierungsdimensionen „Verständnis der Ausführungssemantik“ und „Identifikation von Anforderungen aus Implementierungen“ nahezu wortgleich, sodass die Formulierungsstärke durch den Beleg gedeckt ist.
+```
+
 ### r1.clm_0011
 
 > Klassisches BP zeigte insgesamt bessere Verständlichkeit und höheres Vertrauen, während Context-Oriented BP bei komplexem, kontextabhängigem Verhalten Vorteile hatte.
@@ -589,6 +710,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die Aussage vergl
 Jedoch: Die Einschätzung beruht ausschließlich auf der Zusammenfassung einer einzigen Studie; eine zweite, unabhängige Quelle liegt nicht vor, weshalb die vergleichende Formulierung nur vorläufig gelten kann.
 
 Technisch: Die Aussage ist ein Vergleich zwischen klassischem BP und Context-Oriented BP, daher greift die Regel für Vergleichsaussagen, die mindestens zwei unabhängige Quellen verlangt, von denen eine anbieterunabhängig sein muss; vorliegend stützt sich die Aussage jedoch auf nur eine einzige peer-reviewte Publikation, sodass die Mindestanforderung nicht erfüllt ist und die vergleichende Formulierung abgeschwächt werden sollte.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Vergleich zwischen klassischem BP und Context-Oriented BP stützt sich auf nur eine einzige Studie, obwohl die Regel für Vergleichsaussagen mindestens zwei unabhängige Quellen verlangt.
+
+Jedoch: Die Aussage sollte kenntlich machen, dass sie auf einer einzigen Studie beruht, solange keine zweite unabhängige Quelle den Vergleich zwischen klassischem BP und Context-Oriented BP bestätigt.
+
+Technisch: Nach der Regel für Vergleichsaussagen benötigen vergleichende Aussagen mindestens zwei unabhängige Quellen, davon mindestens eine anbieterunabhängig; hier liegt jedoch nur eine einzige peer-reviewte Quelle vor, nämlich der Abstract von src_ashrov2025, sodass die mechanische Mindestanforderung der Regel nicht erfüllt ist und die uneingeschränkt formulierte Vergleichsaussage über das hinausgeht, was eine einzelne Studie belegen kann.
 ```
 
 ### r1.clm_0012
@@ -623,6 +754,16 @@ Jedoch: Die Einschätzung stützt sich auf nur eine einzige Quelle, deren Beleg 
 Technisch: Nach der Regel für Wirksamkeitsaussagen genügt für eine Wirksamkeitsaussage eine empirische Studie in Form eines Experiments oder einer Fallstudie, und der vorliegende Beleg aus einer begutachteten Publikation berichtet ausdrücklich Ergebnisse eines solchen Vergleichsexperiments zwischen den beiden Ansätzen, sodass die zurückhaltend formulierte Abhängigkeitsaussage durch den einzelnen Beleg gedeckt ist.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die vorsichtige Formulierung mit „stützt eine Abhängigkeit“ passt zu einer einzelnen, aber empirischen Studie, wie sie für Wirksamkeitsaussagen ausreicht, auch wenn die Quelle komplexe und kontextabhängige Faktoren nur gemeinsam beschreibt.
+
+Jedoch: Da nur eine einzige Quelle vorliegt und diese die beiden im Claim genannten Faktoren strukturelle Komplexität und Kontextabhängigkeit im Abstract nur gemeinsam als eine Kategorie „complex, context-dependent behaviors“ beschreibt, bleibt offen, ob beide Faktoren tatsächlich getrennt voneinander einen eigenständigen Effekt zeigen oder ob es sich lediglich um einen kombinierten Effekt handelt.
+
+Technisch: Die Klassifikation als Wirksamkeitsaussage verlangt nach der Regel für Wirksamkeitsaussagen mindestens eine empirische Studie (Experiment oder Fallstudie), wobei Erfahrungsberichte nur als schwacher Hinweis zählen; hier liegt mit der begutachteten Publikation eine solche empirische Studie vor, deren Abstract mit „The results indicate that BP generally leads to better comprehension and higher confidence; while COBP demonstrates advantages in complex, context-dependent behaviors“ genau die im Beleg beschriebenen kontext- und komplexitätsabhängigen Unterschiede benennt, sodass die Mindestanforderung der Regel erfüllt ist; die Formulierung selbst bleibt mit „stützt eine Abhängigkeit“ angemessen zurückhaltend und erhebt keinen Anspruch auf einen bewiesenen oder generalisierten Zusammenhang, sondern beschreibt lediglich eine durch den Befund gestützte Tendenz, was der Stärke einer einzelnen Studie entspricht.
+```
+
 ### r2.clm_0001
 
 > In einer fMRI-Studie mit 11 Personen fanden Siegmund et al. „evidence of semantic chunking during bottom-up comprehension“
@@ -647,6 +788,14 @@ Technisch: Nach der Regel für Zahlenbefunde genügt für einen gemeldeten Zahle
 Einfach gesagt: Die Formulierung passt zu den Belegen. Die Studie wird namentlich genannt, die Teilnehmerzahl von 11 stimmt mit der Quelle überein, und der zentrale Befund wird wörtlich zitiert, sodass keine Übertreibung vorliegt.
 
 Technisch: Nach der Regel für Zahlenbefunde genügt für einen gemessenen Wert wie die Teilnehmerzahl eine peer-reviewte Studie mit passendem Kontext, und hier stammt der Beleg direkt aus dem Abstract derselben, namentlich genannten Studie mit exakt übereinstimmender Zahl (11 Teilnehmer) sowie einem wörtlichen Zitat des Befunds, sodass die Formulierungsstärke durch den einzelnen Beleg gedeckt ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die Aussage nennt die Studie und ihre 11 Teilnehmenden namentlich und übernimmt deren eigenen Befund wörtlich, sodass klar erkennbar ist, dass sie auf genau dieser einen Studie beruht.
+
+Technisch: Die Formulierung berichtet einen Befund aus einer einzelnen fMRI-Studie mit 11 Teilnehmenden und übernimmt dabei wörtlich die Formulierung „evidence of semantic chunking during bottom-up comprehension“ aus dem Abstract von Siegmund et al.; da die Studie und die Teilnehmerzahl explizit genannt werden, ist der Befund erkennbar als auf eine einzelne, peer-reviewte Quelle mit passendem Kontext (gleiche Stichprobe, gleiches Studiendesign, gleicher Wortlaut) gestützt, wie es die Regel für Zahlenbefunde für eine unqualifizierte Formulierung verlangt.
 ```
 
 ### r2.clm_0002
@@ -689,6 +838,16 @@ Jedoch: Die Aussage beruht auf nur einer einzigen Quelle; eine zweite, unabhäng
 Technisch: Die Aussage vergleicht zwei Aktivierungsniveaus und fällt damit unter die Regel für Vergleichsaussagen, die mindestens zwei unabhängige Quellen verlangt, davon mindestens eine herstellerunabhängige; hier liegt jedoch nur eine einzige peer-reviewte Studie als Beleg vor, sodass die mechanische Anforderung nicht erfüllt ist und die unqualifizierte Formulierung die Beleglage überzieht.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die Aussage vergleicht zwei Aktivierungszustände, obwohl nur eine einzige Studie vorliegt; für einen Vergleich wären mindestens zwei unabhängige Quellen nötig, weshalb die Formulierung abgeschwächt werden sollte.
+
+Jedoch: Die zugrunde liegende Quelle stützt den inhaltlichen Kern der Aussage durchaus, da im Abstract explizit von geringerer Aktivierung bei hinweisbasiertem Verstehen die Rede ist; es fehlt jedoch eine zweite, unabhängige Quelle, weshalb die vergleichende Formulierung nur mit dem Hinweis auf eine einzelne Studie stehen bleiben sollte.
+
+Technisch: Die Behauptung formuliert einen Vergleich zwischen zwei Aktivierungszuständen (Aktivierung bei bottom-up-basiertem versus bei hinweisbasiertem Verstehen) und fällt damit unter die Regel für Vergleichsaussagen, die mindestens zwei unabhängige Quellen verlangt, davon mindestens eine anbieterunabhängige; hier liegt jedoch nur eine einzige peer-reviewte Studie von Siegmund et al. vor, sodass die verlangte Quellenbreite nicht erreicht wird und die vergleichende Formulierung die tatsächlich vorliegende Evidenz übersteigt.
+```
+
 ### r2.clm_0003
 
 > Die Autoren interpretieren dies als Bestätigung dafür, dass „beacons ease comprehension“
@@ -713,6 +872,14 @@ Technisch: Die Aussage ist eine Wirksamkeitsaussage im Sinne der Regel für Wirk
 Einfach gesagt: Die Formulierung passt zu den Belegen. Der Satz gibt lediglich wieder, dass die Autoren selbst ihre Studie so interpretieren, und übernimmt dafür wörtlich deren eigene Formulierung, ohne die Aussage zu verstärken oder auszuweiten.
 
 Technisch: Es handelt sich um eine Wirksamkeitsaussage, da behauptet wird, dass Beacons das Verständnis erleichtern; nach der Regel für Wirksamkeitsaussagen genügt dafür eine empirische Studie in Form eines Experiments oder einer Fallstudie, und die vorliegende peer-reviewte Publikation mit gemessenen Unterschieden in der Gehirnaktivierung und semantischem Chunking erfüllt diese Anforderung, zumal die Behauptung die Interpretation korrekt als Interpretation der Autoren kennzeichnet und deren eigene Formulierung „confirming that beacons ease comprehension“ direkt zitiert, statt sie eigenständig zu verstärken.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die zitierte Studie ist eine empirische, peer-reviewte Untersuchung, deren Autoren selbst zu dem Schluss kommen, dass Beacons das Verständnis erleichtern, und die Aussage gibt genau diese Interpretation wieder, ohne sie zu verstärken.
+
+Technisch: Nach der Regel für Wirksamkeitsaussagen genügt für eine Aussage, dass etwas wirkt, eine empirische Studie (Experiment oder Fallstudie), während Erfahrungsberichte nur als schwacher Hinweis zählen; hier stammt der Beleg aus einer peer-reviewten Publikation, die empirische Befunde zu semantischem Chunking und reduzierter Hirnaktivierung berichtet und diese explizit als Bestätigung dafür interpretiert, dass „beacons ease comprehension“, sodass die Formulierung, die genau diese Interpretation der Autoren wiedergibt, durch die Studie gedeckt ist.
 ```
 
 ### r2.clm_0004
@@ -755,6 +922,16 @@ Jedoch: Die Aussage sollte als in der Literatur vorgeschlagenes theoretisches Ko
 Technisch: Nach der Regel für Wirksamkeitsaussagen ist für eine Aussage, dass etwas wirkt, eine empirische Studie in Form eines Experiments oder einer Fallstudie erforderlich, doch beide Belege stammen aus der einleitenden, theoretischen Darstellung der herangezogenen Publikation und beschreiben Beacons lediglich begrifflich als vorgeschlagene Theorie beziehungsweise als das, worauf erfahrene Programmierer beim Lesen vertrauter Codeabschnitte achten, ohne einen empirischen Nachweis für schnelleres Finden oder ein Bündeln zu funktionalen Einheiten zu liefern, weshalb die als Wirksamkeitsaussage formulierte Behauptung die Beleglage überzeichnet.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die Belege zeigen nur, dass Beacons als theoretisches Konzept vorgeschlagen wurden und dass erfahrene Programmierer solche Anhaltspunkte nutzen, aber nicht, dass dadurch nachweislich schneller gefunden oder gebündelt wird.
+
+Jedoch: Die Formulierung sollte auf eine vorsichtigere, eher theoriebasierte Aussage abgeschwächt werden, da beide Belegstellen aus derselben Quelle stammen und konzeptionell-beschreibend statt experimentell sind.
+
+Technisch: Die Aussage behauptet eine Wirkung (schnelleres Auffinden und Bündeln von Code- oder Verhaltensabschnitten zu funktionalen Einheiten), weshalb hier die Regel für Wirksamkeitsaussagen greift, die für eine solche Formulierung eine empirische Studie (Experiment oder Fallstudie) verlangt. Beide Belege stammen aus derselben Publikation und beschreiben Beacons nur als vorgeschlagenes theoretisches Konstrukt („Several theories have been proposed“) beziehungsweise als Beobachtung, dass erfahrene Programmierer beim Lesen vertrauten Codes auf solche Anhaltspunkte stoßen; eine kontrollierte Untersuchung, die den behaupteten Geschwindigkeits- oder Bündelungseffekt tatsächlich misst, liegt nicht vor. Die Belege stützen damit den Begriff der Beacons als Konzept, tragen aber die im Anspruch formulierte Wirksamkeitsbehauptung nicht in ihrer vollen Stärke.
+```
+
 ### r2.clm_0005
 
 > Lin et al. fanden bei leistungsstärkeren Studierenden bei komplexen Konstrukten höhere EEG-Marker für Arbeitsgedächtnis
@@ -795,6 +972,16 @@ Jedoch: Die Einschätzung stützt sich auf nur eine einzige Quelle, nämlich die
 Technisch: Die Aussage vergleicht leistungsstärkere mit leistungsschwächeren Studierenden hinsichtlich EEG-Markern für Arbeitsgedächtnis bei komplexen Konstrukten und stellt damit eine Vergleichsaussage dar; die Regel für Vergleichsaussagen verlangt hierfür mindestens zwei unabhängige Quellen, davon mindestens eine herstellerunabhängige, während hier nur die einzige peer-reviewte Publikation von Lin et al. als Beleg vorliegt, weshalb das mechanische Kriterium nicht erfüllt ist und die Formulierung abgeschwächt werden sollte.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige Studie zu diesem Vergleich zwischen leistungsstärkeren und leistungsschwächeren Studierenden, für eine Vergleichsaussage wären aber mindestens zwei unabhängige Quellen nötig, daher sollte klargestellt werden, dass der Befund nur auf einer Studie beruht.
+
+Jedoch: Die Aussage beruht ausschließlich auf einer einzigen Studie von Lin et al. ohne unabhängige Replikation oder zweite Quelle; sie sollte entsprechend als ein auf einer Einzelstudie beruhender Befund gekennzeichnet werden, statt als uneingeschränkte, allgemein geltende Vergleichsaussage formuliert zu sein.
+
+Technisch: Die Regel für Vergleichsaussagen verlangt für eine Vergleichsaussage wie diese – leistungsstärkere gegenüber leistungsschwächeren Studierenden bei komplexen Konstrukten – mindestens zwei unabhängige Quellen, davon mindestens eine anbieterunabhängige; hier liegt jedoch nur ein einziger Beleg aus der Studie von Lin et al. vor, der zwar den Befund zu höherer Theta-Power als Marker für Arbeitsgedächtnis bei komplexen Konstrukten stützt, aber keine zweite unabhängige Quelle zur Bestätigung dieses Vergleichs liefert, sodass die uneingeschränkte Formulierung als allgemeiner, gesicherter Vergleichsbefund über die vorliegende Beleglage hinausgeht.
+```
+
 ### r2.clm_0006
 
 > Lin et al. fanden bei leistungsstärkeren Studierenden bei komplexen Konstrukten höhere EEG-Marker für Aufmerksamkeitsressourcenzuweisung
@@ -825,6 +1012,16 @@ Einfach gesagt: Die Regel lässt sich hier nicht eindeutig anwenden. Die Aussage
 Jedoch: Da nur eine einzige Quelle vorliegt und der Anspruchstyp zwischen Vergleichsaussage und Zahlenbefund changiert, sollte die endgültige Einstufung von einem menschlichen Gutachter bestätigt werden, bevor die Formulierung unverändert stehen bleibt oder abgeschwächt wird.
 
 Technisch: Die Formulierung vergleicht zwei Gruppen von Studierenden und wäre damit nach der Regel für Vergleichsaussagen zu prüfen, die mindestens zwei unabhängige Quellen verlangt, während hier nur eine einzige Publikation von Lin et al. vorliegt; zugleich ließe sich die Aussage auch als einzelner, namentlich zugeordneter Zahlenbefund im Sinne der Regel für Zahlenbefunde lesen, für den eine Studie genügt, wenn die Einzelquellenlage kenntlich gemacht ist, weshalb die Einordnung des Anspruchstyps hier nicht eindeutig ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, pending_adjudication → pending_adjudication)
+
+```text
+Einfach gesagt: Die Regel lässt sich hier nicht eindeutig anwenden. Es gibt nur eine Studie, aber die Aussage vergleicht zwei Gruppen von Studierenden, sodass unklar ist, ob die strengere Regel für Vergleiche mit zwei Quellen gelten muss oder die Regel für Einzelstudien ausreicht.
+
+Jedoch: Die Einordnung als Vergleichsaussage im Sinne der Regel für Vergleichsaussagen oder als Einzelstudienbefund im Sinne der Regel für Zahlenbefunde ist nicht eindeutig, da der berichtete Vergleich zwischen leistungsstärkeren und leistungsschwächeren Studierenden aus einer einzigen Studie stammt und keine zweite unabhängige Quelle vorliegt; eine abschließende Entscheidung erfordert eine menschliche Prüfung des Anspruchstyps.
+
+Technisch: Die Aussage ist als Vergleichsaussage getaggt und vergleicht leistungsstärkere mit weniger leistungsstarken Studierenden hinsichtlich EEG-Markern, liegt aber nur mit einer einzigen Quelle (Lin et al.) vor. Nach der Regel für Vergleichsaussagen wären für einen Vergleich zwischen zwei oder mehr Optionen mindestens zwei unabhängige Quellen erforderlich, von denen mindestens eine anbieterunabhängig ist; diese Bedingung ist mechanisch nicht erfüllt. Zugleich handelt es sich inhaltlich um einen Gruppenvergleich innerhalb einer einzigen empirischen Studie, was eher der Regel für Zahlenbefunde entspräche, die eine Einzelstudie zulässt, sofern die Aussage als auf einer einzigen Quelle beruhend gekennzeichnet wird. Welche der beiden Regeln für diesen Anspruchstyp tatsächlich maßgeblich ist, lässt sich anhand der vorliegenden Angaben nicht sauber entscheiden.
 ```
 
 ### r2.clm_0007
@@ -867,6 +1064,16 @@ Jedoch: Da als Beleg ausschließlich die Studie von Lin et al. vorliegt und kein
 Technisch: Die Aussage vergleicht leistungsstärkere mit weniger leistungsstarken Studierenden hinsichtlich EEG-Markern und ist damit eine Vergleichsaussage; nach der Regel für Vergleichsaussagen sind für eine solche Formulierung mindestens zwei unabhängige Quellen nötig, von denen mindestens eine herstellerunabhängig ist, während hier nur die einzelne Studie von Lin et al. als Beleg vorliegt, sodass die uneingeschränkte Formulierung die vorhandene Beleglage übersteigt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige Studie von Lin et al., die diesen Vergleich zwischen leistungsstärkeren und anderen Studierenden stützt, für eine so klar formulierte Vergleichsaussage bräuchte es aber mindestens eine zweite, unabhängige Quelle.
+
+Jedoch: Die Formulierung sollte kenntlich machen, dass sie auf einer einzelnen Studie beruht, da für einen belastbar formulierten Gruppenvergleich mindestens eine weitere unabhängige Untersuchung zur Bestätigung fehlt.
+
+Technisch: Die Aussage ist als Vergleichsaussage formuliert, da sie leistungsstärkere Studierende explizit von anderen Studierenden hinsichtlich der EEG-Marker für die Interaktion von Arbeits- und semantischem Gedächtnis abhebt; nach der Regel für Vergleichsaussagen sind dafür mindestens zwei unabhängige Quellen erforderlich, von denen mindestens eine herstellerunabhängig ist. Der vorliegende Beleg aus der Zusammenfassung von Lin et al. stützt den zugrunde liegenden Befund inhaltlich, es liegt jedoch nur eine einzige peer-reviewte Studie vor, sodass das mechanische Kriterium der Regel nicht erfüllt ist und die unqualifizierte, verallgemeinernde Formulierung die vorhandene Evidenzlage überzeichnet.
+```
+
 ### r2.clm_0008
 
 > Die Ausrichtung an Anforderungen beziehungsweise Zielen wird als Mechanismus der Verständlichkeits- und Validierungsarbeit beschrieben, allerdings primär als analytische Unterstützung für menschliche Analysten und nicht als direkt gemessener kognitiver Prozess
@@ -905,6 +1112,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg begrün
 Jedoch: Der Beleg besteht aus einer einzelnen motivierenden Passage aus der Einleitung einer Publikation, die den Bedarf an Werkzeugen begründet, aber keine empirische Studie oder Fallstudie zur Wirksamkeit der Ausrichtung an Anforderungen oder Zielen liefert, weshalb die Aussage nur als abgeschwächte, teilweise gestützte Formulierung tragfähig ist.
 
 Technisch: Die Regel für Wirksamkeitsaussagen verlangt für eine Aussage, dass ein Mechanismus wirksam beschrieben ist, eine empirische Studie in Form eines Experiments oder einer Fallstudie, wobei Erfahrungsberichte nur als schwacher Hinweis zählen; der einzige Beleg stammt jedoch aus einem Abschnitt, der lediglich die Notwendigkeit interaktiver Werkzeuge für Analysten begründet, ohne dass dort eine tatsächliche Anwendung, Messung oder Fallstudie zur Ausrichtung an Anforderungen oder Zielen berichtet wird, sodass die Formulierung als beschriebener Mechanismus über das hinausgeht, was der Beleg trägt.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg beschreibt lediglich den Bedarf an interaktiven Werkzeugen für Analysten, aber keine tatsächlich nachgewiesene Wirkung als Verständlichkeits- oder Validierungsmechanismus, weshalb die Aussage abgeschwächt werden sollte.
+
+Jedoch: Es liegt nur eine einzige, nicht-empirische Quelle vor, die primär einen zukünftigen Werkzeugbedarf argumentiert statt einen tatsächlich beobachteten Effekt zu berichten; die Aussage sollte daher als auf einer einzelnen, schwachen Quelle beruhend gekennzeichnet und in ihrer Formulierung abgeschwächt werden.
+
+Technisch: Nach der Regel für Wirksamkeitsaussagen setzt eine Aussage, dass eine Ausrichtung an Anforderungen beziehungsweise Zielen als Mechanismus der Verständlichkeits- und Validierungsarbeit wirkt, eine empirische Studie in Form eines Experiments oder einer Fallstudie voraus; Erfahrungsberichte gelten dabei nur als schwacher Hinweis. Der vorliegende Beleg stammt aus der Einleitung einer Publikation und formuliert lediglich einen Bedarf an interaktiven Werkzeugen, mit denen Analysten die Auswirkung unterschiedlicher Anforderungskonfigurationen auf die Zielerreichung untersuchen können; er berichtet weder ein Experiment noch eine Fallstudie und stützt die Aussage damit nur teilweise. Die im Anspruch bereits enthaltene Einschränkung auf „analytische Unterstützung für menschliche Analysten“ mildert die Überdehnung zwar ab, ändert aber nichts daran, dass die Formulierung „wird als Mechanismus... beschrieben“ ein bereits etabliertes und wirksames Verfahren suggeriert, während die Quelle nur einen zukünftigen Werkzeugbedarf artikuliert, sodass die Aussage insgesamt abgeschwächt werden sollte.
 ```
 
 ### r2.clm_0009
@@ -947,6 +1164,16 @@ Jedoch: Beide Belege stammen aus derselben Veröffentlichung von Alrajeh et al.,
 Technisch: Nach der Regel für Empfehlungen benötigen Aussagen, die ein Vorgehen fordern, konvergente Evidenz aus mehreren Quellentypen, wobei eine einzelne Quelle nicht ausreicht; hier stammen beide Belege („absence of the computational mechanisms needed to associate scenario, system specification and goal analysis tools“ und „New software capabilities are needed to integrate existing scenario, system specification and goal analysis tools and techniques“) aus derselben peer-reviewten Publikation, sodass die geforderte Konvergenz mehrerer Quellentypen nicht erfüllt ist und die als feststehende Forderung formulierte Aussage die Beleglage übersteigt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die Empfehlung wird als allgemein geltende Forderung dargestellt, beruht aber nur auf einer einzigen Studie, und einer der beiden Belege stützt sie nur teilweise, weshalb die Formulierung abgeschwächt werden sollte.
+
+Jedoch: Die Einschränkung betrifft die Quellenbreite: Beide Belege entstammen derselben Einzelpublikation, sodass die Aussage faktisch auf einer einzigen Quelle beruht und dies in der Formulierung kenntlich gemacht werden sollte; zudem stützt einer der beiden Belege die Aussage nur teilweise, da er eher die Problemlage als die Werkzeugforderung selbst beschreibt.
+
+Technisch: Die Aussage ist eine Empfehlung, wonach Alrajeh et al. die Verbindung von Szenario-, Systemspezifikations- und Zielanalysewerkzeugen fordern. Nach der Regel für Empfehlungen braucht eine so formulierte Handlungsaufforderung konvergente Evidenz aus mehreren Quellentypen, wobei eine einzelne Quelle allein nicht genügt. Beide vorliegenden Belege stammen jedoch aus derselben Publikation: der zweite Beleg aus dem Abschnitt zur Anforderungsvalidierungsherausforderung stützt die Forderung direkt, der erste aus dem Abstract beschreibt vor allem das zugrunde liegende Problem und stützt die Forderung nur teilweise. Da somit nur ein einziger Quellentyp vorliegt und keine unabhängige Konvergenz gegeben ist, ist das mechanische Kriterium der Regel für Empfehlungen nicht erfüllt, weshalb die unqualifiziert formulierte Empfehlung die vorliegende Evidenzbasis überzeichnet.
+```
+
 ### r2.clm_0010
 
 > Für die konkrete Formulierung „alignment with requirements“ fehlt in den gefundenen DOI-Publikationen ein direkter experimenteller Nachweis als isolierter kognitiver Mechanismus
@@ -977,6 +1204,16 @@ Einfach gesagt: Die Regel lässt sich hier nicht eindeutig anwenden. Die Aussage
 Jedoch: Die Formulierung bezieht sich auf „die gefundenen DOI-Publikationen“ im Plural, während als Beleg nur eine einzige Quelle mit einem allgemeinen Abstract-Satz vorliegt, der „alignment with requirements“ nicht erkennbar berührt; zudem ist unklar, ob eine Negativ- bzw. Lückenaussage überhaupt unter die Regel für Wirksamkeitsaussagen fällt oder als eigener Aussagetyp zu behandeln ist. Eine menschliche Prüfung sollte klären, ob weitere Quellen der Fundmenge einbezogen werden müssen, bevor über Formulierungsstärke entschieden wird.
 
 Technisch: Der Anspruchstyp ist als Wirksamkeitsaussage („effectiveness_statement“) klassifiziert, wofür laut Regel für Wirksamkeitsaussagen eine empirische Studie oder zumindest ein klar zuordenbarer Erfahrungsbericht als Mindestbeleg erwartet wird; hier liegt jedoch keine positive Wirksamkeitsaussage, sondern eine Negativaussage über einen fehlenden Nachweis vor, deren Reichweite („gefundenen DOI-Publikationen“, Plural) durch die einzige vorliegende, unspezifische Beleg-Passage aus src_alrajeh2013 nicht abgedeckt wird, sodass die Anwendung der Regel und die Bewertung der Formulierungsstärke mechanisch nicht eindeutig entschieden werden können.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, pending_adjudication → pending_adjudication)
+
+```text
+Einfach gesagt: Die Regel lässt sich hier nicht eindeutig anwenden. Die Aussage behauptet, dass etwas in der Literatur fehlt, doch der einzige angegebene Beleg passt inhaltlich kaum zur konkreten Formulierung, weshalb nicht klar geprüft werden kann, ob diese Formulierung durch die Belege gedeckt ist.
+
+Jedoch: Da die Behauptung eine Abwesenheit von Evidenz über mehrere DOI-Publikationen hinweg postuliert, aber nur ein einziger, inhaltlich kaum einschlägiger Beleg vorliegt, bleibt unklar, ob dieser Beleg die Negativaussage überhaupt stützen soll oder nur exemplarisch angehängt wurde; diese Unklarheit macht eine automatisierte Einstufung unzuverlässig und sollte von einem Menschen entschieden werden.
+
+Technisch: Die Behauptung formuliert keine gewöhnliche Wirksamkeitsaussage, sondern das Fehlen eines direkten experimentellen Nachweises für eine isolierte kognitive Mechanik hinter der konkreten Formulierung „alignment with requirements“; die Regel für Wirksamkeitsaussagen verlangt für eine positive Aussage über Wirksamkeit eine empirische Studie, sagt aber nichts darüber aus, wie eine Negativaussage über das Fehlen solcher Nachweise über mehrere Publikationen hinweg zu bewerten ist, und der einzige vorliegende Beleg ist ein knappes Abstract, das lediglich ankündigt, „erste Forschungsergebnisse“ mit einem Beispiel aus einer Rolls-Royce-Triebwerkssoftware zu demonstrieren, ohne erkennbaren inhaltlichen Bezug zur konkreten Formulierung, sodass die Regel hier nicht mechanisch angewendet werden kann.
 ```
 
 ### r2.clm_0011
@@ -1019,6 +1256,16 @@ Jedoch: Da beide Belege aus derselben Quelle stammen und die Aussage nur teilwei
 Technisch: Der Anspruch ist als Vergleichsaussage formuliert, wonach die gefundene Arbeit vor allem rechnergestützte Validierung und Szenarioanalyse statt der Veränderung menschlicher Verständnismesswerte untersucht; nach der Regel für Vergleichsaussagen wären dafür mindestens zwei unabhängige Quellen nötig, von denen mindestens eine herstellerunabhängig ist, hier liegt jedoch nur eine einzige Quelle vor, deren beide Belegstellen die Aussage jeweils nur teilweise stützen, sodass das mechanische Kriterium nicht erfüllt ist und die Formulierung stärker klingt, als die Beleglage hergibt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Beide Belege stammen aus derselben Studie und nicht aus zwei unabhängigen Quellen, und einer davon beschreibt nur einen künftigen Wunsch der Forschung, keine Aussage über den tatsächlichen Inhalt der gefundenen Arbeit.
+
+Jedoch: Die Formulierung suggeriert eine klare, gut abgesicherte Abgrenzung zwischen untersuchtem und nicht untersuchtem Aspekt, obwohl faktisch nur eine einzige Quelle vorliegt und der zweite Beleg lediglich eine Wunschformulierung zu künftigem Forschungsbedarf ist, nicht aber eine Beschreibung des tatsächlichen Untersuchungsgegenstands der gefundenen Arbeit; die Aussage sollte entsprechend abgeschwächt und als auf einer einzigen Quelle beruhend gekennzeichnet werden.
+
+Technisch: Der Claim ist eine vergleichende Aussage, die den Fokus der gefundenen Arbeit (rechnergestützte Validierung und Szenarioanalyse) gegen einen ausgeschlossenen Aspekt (Veränderung menschlicher Verständnismesswerte) abgrenzt; nach der Regel für Vergleichsaussagen wären dafür mindestens zwei unabhängige Quellen nötig, davon mindestens eine herstellerunabhängig, doch beide vorliegenden Belege stammen aus derselben Publikation, sodass das mechanische Kriterium nicht erfüllt ist; zudem beschreibt der zweite Beleg im Abschnitt „Related Work“ lediglich einen von den Autoren postulierten künftigen Forschungsbedarf („What we need are new applications of artificial intelligence to analyse more complete sets of system behaviours and qualities, as well as enable human understanding of those behaviours and qualities“) und keine explizite Aussage darüber, was die gefundene Arbeit selbst untersucht oder unterlässt, weshalb beide Belege die Formulierung nur teilweise stützen.
+```
+
 ### r2.clm_0012
 
 > Inter-Szenario-Kopplung erscheint in der DOI-Literatur als Notwendigkeit, Ursache-Wirkungs-Beziehungen zwischen relativ unabhängigen Verhaltenskomponenten zu rekonstruieren
@@ -1057,6 +1304,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die einzige Quell
 Jedoch: Es liegt nur eine einzige Quelle auf Abstract-Ebene vor, die eine Problemstellung formuliert, aber keine empirische Prüfung einer Lösung enthält, sodass die Aussage nur teilweise gestützt wird und abgeschwächt werden sollte.
 
 Technisch: Der Claim ist als Wirksamkeitsaussage typisiert, wonach Inter-Szenario-Kopplung als Notwendigkeit zur Rekonstruktion von Ursache-Wirkungs-Beziehungen erscheint, doch nach der Regel für Wirksamkeitsaussagen verlangt eine solche Aussage eine empirische Studie in Form eines Experiments oder einer Fallstudie, während der vorliegende Beleg nur eine Problembeschreibung aus einem Abstract einer einzigen Quelle darstellt, die bestenfalls als schwacher Hinweis zählt und die Formulierung als Notwendigkeit somit nicht trägt.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzelne Quelle, und diese beschreibt lediglich, dass ein Forschungsproblem adressiert wird, nicht dass eine Notwendigkeit empirisch nachgewiesen wurde – die Aussage sollte daher vorsichtiger formuliert werden.
+
+Jedoch: Die Einschränkung betrifft sowohl die Quellenbreite als auch die inhaltliche Passung: Es liegt nur eine einzige Quelle vor, obwohl die Formulierung einen Befund über die gesamte DOI-Literatur suggeriert, und der zitierte Abstract-Satz spricht nicht ausdrücklich von „Inter-Szenario-Kopplung“ oder einer Notwendigkeit, sondern beschreibt allgemein ein Forschungsproblem, sodass die Evidenz die Aussage nur teilweise stützt.
+
+Technisch: Nach der Regel für Wirksamkeitsaussagen bräuchte eine als Notwendigkeit formulierte Aussage eine empirische Studie (Experiment oder Fallstudie), die diese Notwendigkeit belegt; Erfahrungsberichte oder bloße Problembeschreibungen zählen nur als schwacher Hinweis. Die vorliegende Beleglage besteht aus einem einzigen Abstract-Satz einer Quelle (src_eitan2011), der lediglich beschreibt, dass die Autoren „das Problem der Erfassung von Ursache-Wirkungs-Beziehungen zwischen relativ unabhängigen Verhaltenskomponenten einer einzelnen Anwendung“ adressieren – das ist eine Problemstellung, kein empirischer Nachweis einer generellen Notwendigkeit, wie sie die Formulierung „erscheint in der DOI-Literatur als Notwendigkeit“ suggeriert. Zudem stützt sich die Aussage über ein ganzes Literaturfeld auf nur eine einzige Quelle, deren Aussage zudem nur teilweise zur spezifischen Behauptung der Inter-Szenario-Kopplung passt, weshalb die Formulierung die Beleglage überzieht und abgeschwächt werden sollte.
 ```
 
 ### r2.clm_0013
@@ -1099,6 +1356,16 @@ Jedoch: Die Einordnung als Wirksamkeitsaussage im Claim-Typ passt nicht zum tats
 Technisch: Die als Wirksamkeitsaussage eingestufte Formulierung zitiert tatsächlich nur wörtlich die Selbstbeschreibung des Forschungsgegenstands aus dem Abstract von Eitan et al., ohne eine Aussage über Wirksamkeit, Vergleich, Zahlenwert oder Empfehlung zu treffen; die Regel für Wirksamkeitsaussagen passt daher nicht auf den tatsächlichen Aussagegehalt, und auch die Regel für Zahlenbefunde, die Regel für Vergleichsaussagen sowie die Regel für Empfehlungen sind nicht einschlägig, sodass die Einordnung des Claim-Typs vor einer abschließenden Kalibrierung geklärt werden muss.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Der Satz gibt einfach wortwörtlich wieder, was die Autoren selbst in ihrem Abstract über das Ziel ihrer Arbeit schreiben, und genau dieser Wortlaut findet sich im vorgelegten Beleg wieder, sodass keine Übertreibung vorliegt.
+
+Jedoch: Da es sich um eine wörtliche Zitatwiedergabe handelt, genügt hier ausnahmsweise eine einzelne Quelle, weil die Regel für Wirksamkeitsaussagen auf eine reine Zitatattribution nur eingeschränkt anwendbar ist und keine über die Quelle hinausgehende empirische Bestätigung verlangt.
+
+Technisch: Die Aussage referiert wörtlich, was Eitan et al. im Abstract als Gegenstand ihrer Arbeit beschreiben, nämlich „comprehending cause and effect relationships between relatively independent behavior components“; der vorgelegte Beleg enthält exakt diesen Wortlaut aus der referenzierten Publikation, sodass es sich um eine direkte, überprüfbare Zitatzuschreibung und nicht um eine eigenständige Wirksamkeitsbehauptung handelt. Nach der Regel für Wirksamkeitsaussagen wäre für eine Aussage, dass etwas „wirkt“, eine empirische Studie erforderlich; hier wird jedoch keine Wirksamkeit behauptet, sondern lediglich die Selbstbeschreibung der Autoren zitiert, die durch die einzige peer-reviewte Quelle selbst vollständig und wortgetreu belegt ist, weshalb die Formulierungsstärke durch den Beleg gedeckt ist.
+```
+
 ### r2.clm_0014
 
 > multimodale Verhaltensanteile werden separat spezifiziert, aber „integrated only at run time“
@@ -1139,6 +1406,16 @@ Jedoch: Die Aussage stützt sich nur auf eine einzige Quelle, deren Abstract-Aus
 Technisch: Der Beleg stammt aus dem Abstract einer einzelnen peer-reviewten Publikation und beschreibt lediglich ein Architekturmerkmal des Programmierparadigmas, nämlich dass multimodale Verhaltensanteile getrennt spezifiziert und erst zur Laufzeit integriert werden; nach der Regel für Wirksamkeitsaussagen ist für eine unqualifizierte Wirksamkeitsaussage jedoch eine empirische Studie (Experiment oder Fallstudie) erforderlich, und aus dem vorliegenden Abstract-Ausschnitt geht nicht hervor, dass dies durch eine solche Studie belegt wird, sodass die Formulierung als feststehende Tatsache über das hinausgeht, was der einzelne Beleg trägt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige Publikation, deren Abstract die getrennte Spezifikation und die Integration „only at run time“ beschreibt, aber keine empirische Studie liefert, die diese Eigenschaft als wirksam nachweist.
+
+Jedoch: Es liegt nur eine einzige Quelle vor, deren Aussage zudem lediglich aus der Abstract-Ebene einer Paradigmenbeschreibung stammt und keine gesonderte empirische Validierung darstellt; die Formulierung sollte daher als auf einer einzelnen Quelle beruhende Beschreibung gekennzeichnet werden, nicht als allgemein abgesicherte Wirksamkeitsaussage.
+
+Technisch: Der Claim ist als Wirksamkeitsaussage typisiert, da er eine Eigenschaft des Programmierparadigmas als feststehende Tatsache formuliert; nach der Regel für Wirksamkeitsaussagen benötigt eine solche unqualifizierte Formulierung eine empirische Studie (Experiment oder Fallstudie), während bloße Erfahrungsberichte nur als schwacher Hinweis zählen. Der einzige vorliegende Beleg ist die Abstract-Aussage einer einzelnen Publikation, die die getrennte Spezifikation multimodaler Verhaltensanteile und deren Integration „integrated only at run time“ lediglich beschreibt, ohne dass eine empirische Untersuchung, ein Experiment oder eine Fallstudie diese Eigenschaft eigens nachweist; der Beleg stützt damit zwar den Inhalt der Aussage, lizenziert aber keine unqualifiziert-verallgemeinernde Formulierung als belegte Wirksamkeit.
+```
+
 ### r2.clm_0015
 
 > Die Verständnishilfe bei szenarioübergreifender Kopplung besteht in der Rekonstruktion von Laufzeitentscheidungen, weil ein Visualisierungswerkzeug ausgeführte, verzögerte oder verworfene Ereignisse samt „causes and reasons behind these run-time choices“ sichtbar macht
@@ -1169,6 +1446,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg beschre
 Jedoch: Es liegt nur eine einzelne Quelle vor, und diese Quelle ist die Werkzeugbeschreibung im Abstract selbst, keine gesonderte empirische Studie oder Nutzerevaluation, die die Wirksamkeit als Verständnishilfe belegt.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine Aussage, dass etwas wirkt, eine empirische Studie (Experiment oder Fallstudie); hier liefert die Quelle nur eine Selbstbeschreibung der Werkzeugfunktionalität im Abstract, ohne eine Untersuchung der tatsächlichen Verständniswirkung, weshalb die Evidenz die Aussage nur teilweise stützt und die Formulierung abgeschwächt werden sollte.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg beschreibt nur, was das Werkzeug anzeigt, belegt aber nicht empirisch, dass es speziell bei szenarioübergreifender Kopplung das Verständnis verbessert, weshalb die kausale Formulierung mit „weil“ zu stark ist.
+
+Jedoch: Der einzige Beleg stammt aus dem Abstract einer einzelnen Publikation und beschreibt nur die Funktionalität des Werkzeugs, nicht aber eine gesonderte empirische Evaluation der Verständnishilfe im Kontext szenarioübergreifender Kopplung, sodass die Kausalformulierung abgeschwächt werden sollte.
+
+Technisch: Die Aussage ist eine Wirksamkeitsaussage, da sie behauptet, dass ein Visualisierungswerkzeug ursächlich zur Verständnishilfe bei szenarioübergreifender Kopplung führt; nach der Regel für Wirksamkeitsaussagen ist dafür eine empirische Studie erforderlich, während der vorliegende Beleg lediglich die Abstract-Beschreibung eines Werkzeugs liefert, das ausgeführte, verzögerte und verworfene Ereignisse samt deren Gründen sichtbar macht, ohne dass eine empirische Untersuchung der Verständniswirkung speziell für szenarioübergreifende Kopplung belegt wird; der Beleg stützt damit nur teilweise die Kausalaussage, weshalb die Formulierung mit „weil“ eine engere kausale Bindung suggeriert, als der Beleg hergibt.
 ```
 
 ### r2.clm_0016
@@ -1203,6 +1490,12 @@ Jedoch: Beide Belege stammen aus derselben Quelle und behandeln ein Werkzeug zur
 Technisch: Nach der Regel für Wirksamkeitsaussagen wäre für die Behauptung zur Wirkung von „inter-scenario coupling“ auf einen Verständniseffekt eine empirische Studie mit passendem Kontext erforderlich; die beiden vorgelegten Belege aus einer Quelle zu einem Visualisierungswerkzeug für Laufzeitentscheidungen eines Ausführungsmechanismus behandeln jedoch weder Kopplung noch Verständniseffekte und sind daher inhaltlich nicht einschlägig, sodass die mechanische Prüfung nicht erfüllt ist und sich keine belastbare Zuordnung zwischen Beleglage und Formulierungsstärke treffen lässt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, - → -)
+
+```text
+(no output — the unit exhausted its attempts)
+```
+
 ### r2.clm_0017
 
 > die gefundene DOI-Publikation beschreibt stattdessen die zu verstehende Laufzeitintegration unabhängiger Verhaltenskomponenten und ein Werkzeug zu ihrer Visualisierung
@@ -1233,6 +1526,16 @@ Einfach gesagt: Die Regel lässt sich hier nicht eindeutig anwenden. Es ist unkl
 Jedoch: Da beide Belege aus derselben Publikation stammen und der zweite Beleg die Aussage nur teilweise stützt, bleibt offen, ob die strengeren Anforderungen an Vergleichsaussagen hier überhaupt greifen oder ob die Einstufung als vergleichende Aussage selbst zu hinterfragen ist.
 
 Technisch: Der Anspruch ist als vergleichende Aussage (comparative_statement) eingestuft, wofür die Regel für Vergleichsaussagen mindestens zwei unabhängige Quellen verlangt, davon mindestens eine herstellerunabhängige; hier stammen jedoch beide Belege aus derselben Publikation, sodass diese Mindestanforderung mechanisch nicht erfüllt ist, zugleich beschreibt die Formulierung inhaltlich eher den Inhalt einer einzelnen gefundenen Publikation als einen echten Vergleich zwischen mehreren Optionen, außerdem stützt der zweite Beleg die Aussage laut Einstufung nur teilweise, sodass unklar bleibt, ob die Regel für Vergleichsaussagen auf diesen Anspruchstyp überhaupt passend angewendet werden kann.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, licensed → weakened)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die beiden Zitate stammen direkt aus der beschriebenen Publikation und belegen sowohl die Laufzeitintegration unabhängiger Verhaltenskomponenten als auch das Visualisierungswerkzeug, auch wenn eine automatische Prüfregel formal nicht gegriffen hat.
+
+Jedoch: Der mechanische Check hat die Regel für Vergleichsaussagen formal als nicht erfüllt markiert, weil nur eine einzige Quelle vorliegt und der zweite Beleg die Formulierung nur teilweise stützt, insbesondere den Aspekt der „unabhängigen Verhaltenskomponenten“ deckt er nicht wörtlich ab; dies wurde im Rahmen der Zweitmeinung als Fehlanwendung der Regel auf eine reine Inhaltsbeschreibung gewertet und ändert nichts an der Angemessenheit der Formulierung.
+
+Technisch: Die Aussage beschreibt lediglich den Inhalt einer einzelnen gefundenen Publikation und stellt keinen empirischen Vergleich mehrerer Optionen dar, obwohl sie formal als vergleichende Aussage klassifiziert ist; die Regel für Vergleichsaussagen, die mindestens zwei unabhängige Quellen verlangt, passt daher inhaltlich nicht auf diesen Fall, denn beide Belege sind wortgetreue Zitate aus genau der Publikation, deren Inhalt referiert wird, und decken die im Text genannten Elemente – die Laufzeitintegration unabhängiger Verhaltenskomponenten sowie ein Werkzeug zu ihrer Visualisierung – hinreichend konkret ab.
 ```
 
 ### r2.clm_0018
@@ -1267,6 +1570,16 @@ Jedoch: Die Aussage stützt sich auf nur eine einzige Publikation, die Top-down-
 Technisch: Nach der Regel für Vergleichsaussagen benötigen vergleichende Aussagen mindestens zwei unabhängige Quellen, von denen mindestens eine herstellerunabhängig ist; hier liegt lediglich eine einzige Quelle vor, die zudem nur von einer möglichen Kombination der beiden Ansätze spricht und nicht explizit von komplementären Strategien, sodass die Formulierung die Evidenzlage überzeichnet.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es wird nur eine einzige Quelle genannt, die zudem lediglich erwähnt, dass es Top-down-, Bottom-up- und eine Kombinationstheorie gibt, aber nicht ausdrücklich sagt, dass diese als „komplementär“ beschrieben werden; für eine solche Vergleichsaussage bräuchte es mehrere unabhängige Quellen.
+
+Jedoch: Die Einschränkung betrifft sowohl die Quellenbasis als auch die inhaltliche Passung: Es liegt nur eine Quelle vor, während die Regel für Vergleichsaussagen zwei unabhängige Quellen verlangt, und diese eine Quelle listet die Kombination von Top-down und Bottom-up nur als dritte Theorie neben den beiden anderen, ohne die Komplementarität explizit zu belegen.
+
+Technisch: Der Claim ist als Vergleichsaussage formuliert, die Top-down- und Bottom-up-Verarbeitung explizit als komplementäre Strategien charakterisiert; nach der Regel für Vergleichsaussagen wäre dafür mindestens zwei unabhängige Quellen erforderlich, davon mindestens eine herstellerunabhängige, während hier nur ein einziger Beleg (ev_0001) aus einer einzigen Publikation vorliegt. Zudem stützt der Beleg selbst die Formulierung nur teilweise: Er erwähnt lediglich, dass Top-down, Bottom-up und eine Kombination beider als unterschiedliche Theorien vorgeschlagen wurden, ohne diese Kombination explizit als „komplementär“ zu benennen oder ihr Verhältnis inhaltlich zu charakterisieren. Die Formulierung überschreitet damit sowohl in der Quellenanzahl als auch im inhaltlichen Gehalt das, was der einzelne Beleg hergibt.
+```
+
 ### r2.clm_0019
 
 > Wang und Liu fassen die theoretische Literatur so zusammen, dass bottom-up-Verstehen Aussagen hierarchisch zu funktionalen Einheiten bündelt
@@ -1297,6 +1610,16 @@ Einfach gesagt: Die Formulierung passt zu den Belegen. Der Satz gibt lediglich w
 Jedoch: Die Kalibrierung stützt sich nur auf eine einzige Quelle, und sollte die Aussage künftig so gelesen werden, dass bottom-up-Verstehen tatsächlich empirisch wirksam ist statt nur theoretisch beschrieben, wäre nach der Regel für Wirksamkeitsaussagen zusätzlich eine empirische Studie nötig.
 
 Technisch: Da die Aussage nicht eigenständig behauptet, dass bottom-up-Verstehen empirisch wirksam ist, sondern als Attribution referiert, wie Wang und Liu die theoretische Literatur zusammenfassen, greift die Regel für Wirksamkeitsaussagen hier nicht im Sinne eines geforderten empirischen Wirksamkeitsnachweises, sondern die Formulierung bleibt exakt auf das beschränkt, was die einzige benannte Quelle wortgleich berichtet, was für diese attribuierte Zusammenfassungsaussage ausreichend ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, pending_adjudication → pending_adjudication)
+
+```text
+Einfach gesagt: Die Regel lässt sich hier nicht eindeutig anwenden. Die Aussage könnte entweder als einfache Wiedergabe dessen gelesen werden, was Wang und Liu über die Theorie schreiben, oder als eigenständige Aussage zur Wirksamkeit des bottom-up-Verstehens gelesen werden, wofür der vorliegende, rein theoretische Beleg allein nicht ausreichen würde.
+
+Jedoch: Da die Einordnung des Claims zwischen einer bloßen Wiedergabe der Literaturzusammenfassung von Wang und Liu und einer eigenständigen Aussage über die tatsächliche Wirksamkeit des bottom-up-Verstehens changiert und nur eine einzige, rein theoretische Quelle vorliegt, sollte ein Mensch entscheiden, welche Lesart und damit welche Regel hier maßgeblich ist.
+
+Technisch: Der Anspruch ist als Wirksamkeitsaussage getaggt, doch der Wortlaut behauptet keine empirische Wirksamkeit des bottom-up-Verstehens, sondern referiert lediglich, wie Wang und Liu die theoretische Literatur zusammenfassen; nach der Regel für Wirksamkeitsaussagen wäre für eine Aussage über tatsächliche Wirksamkeit eine empirische Studie erforderlich, während der einzige Beleg eine theoretische, im Related-Work-Abschnitt zitierte Modellbeschreibung ist, sodass unklar bleibt, ob die Formulierung als reine Attributions- beziehungsweise Zusammenfassungsaussage oder als eigenständige Wirksamkeitsaussage zu prüfen ist.
 ```
 
 ### r2.clm_0020
@@ -1331,6 +1654,16 @@ Jedoch: Die einzige Quelle beschreibt lediglich ein einzelnes, von anderer Stell
 Technisch: Der Anspruch ist als Vergleichsaussage formuliert, für die laut Regel für Vergleichsaussagen mindestens zwei unabhängige Quellen erforderlich sind, davon mindestens eine herstellerunabhängige; hier liegt jedoch nur eine Quelle vor, die überdies bloß ein einzelnes, aus anderer Stelle referiertes Modell beschreibt, weshalb das Kriterium nicht erfüllt ist und die Formulierung abgeschwächt werden muss.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Satz spricht allgemein von „integrierten Modellen“, aber es gibt nur eine einzige Quelle, die zudem nur ein fremdes Modell zusammenfasst, statt es selbst zu untersuchen. Für eine so allgemeine, vergleichende Aussage bräuchte es mindestens eine zweite, unabhängige Quelle.
+
+Jedoch: Die Quelle beschreibt den flexiblen Wechsel zwischen top-down- und bottom-up-Strategien nur als Zusammenfassung eines fremden, referenzierten Metamodells, nicht als eigene Prüfung; die Aussage sollte daher auf ein einzelnes vorgeschlagenes Modell statt auf „integrierte Modelle“ im Allgemeinen bezogen werden.
+
+Technisch: Die Formulierung verallgemeinert im Plural auf „integrierte Modelle“ und stellt damit implizit einen Vergleich zwischen top-down- und bottom-up-Strategien als Merkmal einer ganzen Modellklasse dar; nach der Regel für Vergleichsaussagen wäre dafür mindestens eine zweite, unabhängige und idealerweise herstellerunabhängige Quelle nötig. Vorhanden ist jedoch nur die eine Quelle src_wang2017, und diese berichtet die Aussage zudem nur sekundär über ein bei einem Drittautor referenziertes einzelnes Metamodell, ohne es selbst empirisch zu prüfen. Damit stützt der Beleg lediglich die Existenz eines einzelnen vorgeschlagenen integrierten Modells, nicht aber die verallgemeinerte Aussage über „integrierte Modelle“ insgesamt, weshalb die Bedingung der Regel für Vergleichsaussagen nicht erfüllt ist.
+```
+
 ### r2.clm_0021
 
 > Topic Modeling kann einen Teil dieser kognitiven Strukturierungsarbeit nach außen verlagern, indem es aus Textartefakten „features and structures“ automatisch entdeckt und daraus eine Projektübersicht sowie semantische Suche erzeugt
@@ -1361,6 +1694,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg zeigt n
 Jedoch: Die Aussage stützt sich auf eine einzige Quelle, deren Abstract lediglich die Funktionalität des Werkzeugs JSEA beschreibt, ohne Angaben zu einer empirischen Prüfung offenzulegen, sodass die behauptete Wirksamkeit nur teilweise belegt ist.
 
 Technisch: Da es sich um eine Wirksamkeitsaussage handelt, verlangt die Regel für Wirksamkeitsaussagen eine empirische Studie in Form eines Experiments oder einer Fallstudie als Beleg, doch der vorliegende Beleg besteht lediglich aus dem Abstract einer einzelnen Publikation, das die Funktionalität von JSEA beschreibt, ohne dass daraus eine empirische Absicherung der behaupteten Wirksamkeit ersichtlich wird, weshalb die Formulierung stärker erscheint, als es der Beleg trägt.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg ist nur der Abstract einer einzelnen Studie, der beschreibt, was das Tool JSEA leisten soll, aber keine geprüfte Wirksamkeit im Sinne der Regel für Wirksamkeitsaussagen zeigt, weshalb die Aussage abgeschwächt werden sollte.
+
+Jedoch: Es liegt nur eine einzige Quelle vor, und deren Abstract beschreibt primär die Funktionsweise des Tools JSEA, nicht zwingend eine unabhängig geprüfte Wirksamkeit; ohne weitere empirische Studien oder Fallstudien zur Bestätigung bleibt die Aussage nur schwach abgesichert.
+
+Technisch: Die Formulierung ist eine Wirksamkeitsaussage, die behauptet, Topic Modeling könne kognitive Strukturierungsarbeit „nach außen verlagern“, indem es Merkmale und Strukturen automatisch entdeckt und daraus Projektübersicht sowie semantische Suche erzeugt; nach der Regel für Wirksamkeitsaussagen wäre dafür eine empirische Studie (Experiment oder Fallstudie) erforderlich, die die tatsächliche Wirkung belegt. Die einzige vorliegende Evidenz ist der Abstract einer einzigen Publikation (src_wang2017), der lediglich die konstruierten Fähigkeiten des Tools JSEA beschreibt, ohne hier eine empirische Validierung im Sinne einer belegten Wirksamkeit auszuweisen; die Ground-Truth-Relation stuft dies folgerichtig als „partially_supports“ ein. Die unqualifizierte, generalisierende Formulierung im Prätext übersteigt damit die Tragfähigkeit dieser einzelnen, beschreibenden Quelle.
 ```
 
 ### r2.clm_0022
@@ -1395,6 +1738,16 @@ Jedoch: Die Grundlage ist eine einzelne kleine Studie mit 12 Freiwilligen, und d
 Technisch: Der Beleg stammt aus einer peer-reviewten Publikation und berichtet ein Experiment mit 12 Freiwilligen an zwei Java-Projekten, das zeigt, dass JSEA Entwickler beim Programmverständnis unterstützen kann; damit liegt nach der Regel für Wirksamkeitsaussagen eine empirische Studie vor, die den ersten Teil der Aussage („berichteter Unterstützungsmechanismus für Verständlichkeit“) trägt, während der zweite Teil lediglich ausdrücklich verneint, dass daraus ein Nachweis für einen menschlichen kognitiven Mechanismus folgt, was keine zusätzliche Evidenzlast erzeugt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die Studie zeigt in einem kleinen Experiment, dass der Ansatz Entwicklern beim Verstehen von Code helfen kann, und die Aussage behauptet nicht mehr als genau das, während sie eine weitergehende Erklärung eines kognitiven Mechanismus ausdrücklich ausschließt.
+
+Jedoch: Es handelt sich um eine einzelne Studie mit kleiner Stichprobe von 12 Freiwilligen und ohne unabhängige Zweitquelle, sodass die Evidenzbasis insgesamt schmal ist; für die hier gewählte, bewusst zurückhaltende Formulierung reicht dies aus, eine stärkere oder verallgemeinernde Aussage über Topic Modeling wäre damit jedoch nicht gedeckt.
+
+Technisch: Die Aussage ist eine Wirksamkeitsaussage über einen berichteten Unterstützungseffekt, und nach der Regel für Wirksamkeitsaussagen genügt hierfür eine empirische Studie in Form eines Experiments oder einer Fallstudie; die Quelle Wang et al. 2017 liefert genau das, ein Experiment mit 12 Freiwilligen an zwei quelloffenen Java-Projekten, dessen Abstract berichtet, dass der Ansatz Java-Entwickler beim Programmverständnis unterstützen kann. Die Formulierung der Behauptung bleibt eng an dieser Evidenzlage: Sie spricht lediglich von einem „berichteten Unterstützungsmechanismus für Verständlichkeit“ und verneint ausdrücklich, dass damit ein menschlicher kognitiver Mechanismus erklärt sei. Damit überschreitet die Formulierung nicht das, was das Experiment hergibt, sondern grenzt bewusst gegen eine stärkere, nicht belegte Interpretation ab, sodass die Formulierungsstärke durch die Evidenz gedeckt ist.
+```
+
 ### r2.clm_0023
 
 > die Studie berichtet eine vorläufige Evaluation mit 12 Freiwilligen in zwei Open-Source-Java-Projekten
@@ -1423,6 +1776,14 @@ Einfach gesagt: Die Formulierung passt zu den Belegen. Der Beleg stammt aus eine
 Jedoch: Die Aussage stützt sich auf eine einzige Quelle; weitere unabhängige Studien mit derselben Stichprobengröße liegen nicht vor, was für einen Zahlenbefund aber ausreichend ist.
 
 Technisch: Nach der Regel für Zahlenbefunde genügt für eine gemessene Zahl eine einzige begutachtete Studie mit passendem Kontext, und der verbatim-Auszug aus src_wang2017 belegt exakt „Experiments with 12 volunteers on two open source Java projects“, sodass die Zahlenangabe in der Klaim-Formulierung durch den Beleg getragen wird.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Der Claim gibt genau wieder, was die zitierte Studie berichtet, nämlich eine vorläufige Evaluation mit 12 Freiwilligen in zwei Open-Source-Java-Projekten, und diese Zahlen stimmen exakt mit dem Beleg überein.
+
+Technisch: Der Claim berichtet einen konkreten Zahlenbefund (12 Freiwillige, zwei Open-Source-Java-Projekte) und ist damit an der Regel für Zahlenbefunde zu prüfen; diese verlangt entweder eine peer-reviewte Studie mit passendem Kontext oder eine explizite Kennzeichnung als auf einer einzigen Quelle beruhend, und beides ist hier erfüllt: die Formulierung „die Studie berichtet eine vorläufige Evaluation“ markiert den Befund bereits als Bericht einer einzelnen Studie, und der Beleg ev_0001 aus einer peer-reviewten Publikation (src_wang2017) stimmt in den Zahlen exakt überein („Experiments with 12 volunteers on two open source Java projects“), sodass Formulierung und Beleglage deckungsgleich sind.
 ```
 
 ### r3.clm_0001
@@ -1457,6 +1818,16 @@ Jedoch: Es liegt nur eine einzige Quelle vor, zudem graue Literatur in Form eine
 Technisch: Der Beleg stammt aus dem Abstract eines Review-Artikels (graue Literatur) und stellt damit keine empirische Studie im Sinne der Regel für Wirksamkeitsaussagen dar, die für Wirksamkeitsaussagen ein Experiment oder eine Fallstudie verlangt und Erfahrungsberichte nur als schwachen Hinweis zulässt; da hier nur eine einzelne, nicht-empirische Quelle vorliegt, ist die unqualifizierte Formulierung als etablierte Fähigkeit nicht gedeckt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der einzige Beleg ist die Zusammenfassung eines Übersichtsartikels und keine eigene Studie mit Experiment oder Fallstudie, weshalb die klare Behauptung, dass sich Module ohne größere Codeänderungen ergänzen lassen, abgeschwächt werden sollte.
+
+Jedoch: Da nur eine einzige Quelle aus grauer Literatur vorliegt und diese selbst keine empirische Studie, sondern eine zusammenfassende Übersichtsdarstellung ist, sollte die Formulierung abgeschwächt und als auf einer einzelnen, nicht-empirischen Quelle beruhend gekennzeichnet werden.
+
+Technisch: Die Aussage ist eine Wirksamkeitsaussage, da sie behauptet, dass neue Verhaltensmodule als zusätzliche, relativ eigenständige Anforderungen ergänzt werden können, ohne vorhandenen Code umfassend umzubauen; nach der Regel für Wirksamkeitsaussagen ist dafür eine empirische Studie (Experiment oder Fallstudie) erforderlich, während Erfahrungsberichte nur als schwacher Hinweis gelten. Der einzige Beleg stammt aus dem Abstract eines Review-Artikels (graue Literatur), der die Eigenschaft des Ansatzes lediglich beschreibend behauptet, ohne eine eigene empirische Untersuchung, ein Experiment oder eine Fallstudie zu berichten; damit liegt bestenfalls ein schwacher Hinweis vor, der die unqualifizierte Formulierung „sollen ... ergänzt werden können, ohne vorhandenen Code umfassend umzubauen“ nicht trägt.
+```
+
 ### r3.clm_0002
 
 > Die Literatur verbindet diese Anforderungsausrichtung mit einer szenariobasierten Repräsentation, weil Anforderungen häufig bereits als Use Cases und Szenarien formuliert werden.
@@ -1487,6 +1858,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die Aussage schre
 Jedoch: Die Verallgemeinerung auf „die Literatur“ stützt sich auf nur eine einzige, nicht peer-review-geprüfte Quelle; die Aussage sollte daher als auf einem Einzelbeleg beruhend gekennzeichnet und nicht als allgemeiner Literaturbefund formuliert werden.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine Aussage darüber, dass eine Praxis funktioniert bzw. verbreitet ist, eine empirische Studie in Form eines Experiments oder einer Fallstudie, während Erfahrungsberichte allenfalls als schwacher Hinweis gelten; hier liegt lediglich eine einzelne graue Quelle mit der unbelegten Behauptung vor, dies sei „one widely accepted practice“, was weder eine Studie noch einen Erfahrungsbericht darstellt und die verallgemeinernde Formulierung „die Literatur verbindet“ nicht trägt.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzelne, nicht wissenschaftlich geprüfte Quelle, die diese Verbindung behauptet, aber der Text tut so, als sei dies eine breit abgesicherte Erkenntnis der gesamten Literatur.
+
+Jedoch: Die Einschränkung betrifft die schmale Quellenbasis: Es liegt nur eine einzige, nicht peer-reviewte Quelle vor, deren eigene Behauptung unbelegt bleibt, sodass die Formulierung besser auf diese eine Quelle statt auf „die Literatur“ im Allgemeinen bezogen werden sollte.
+
+Technisch: Der Beleg besteht aus genau einer grauliteratur-Quelle (Harel et al.), die in der Einleitung lediglich behauptet, das Formalisieren von Anforderungen als Use Cases und Szenarien sei „eine weithin akzeptierte Praxis“, ohne dass eine empirische Studie oder ein belastbarer Erfahrungsbericht zugrunde liegt. Nach der Regel für Wirksamkeitsaussagen wäre für eine unqualifizierte Formulierung eine empirische Studie (Experiment oder Fallstudie) nötig, wobei selbst Erfahrungsberichte nur als schwacher Hinweis gelten; die vorliegende unbelegte Einzelaussage aus grauer Literatur liegt noch darunter. Die Formulierung „Die Literatur verbindet diese Anforderungsausrichtung mit einer szenariobasierten Repräsentation“ suggeriert einen breiten, mehrfach abgesicherten Literaturkonsens, den ein einzelner nicht-peer-reviewter Beleg nicht trägt, weshalb die Aussage in ihrer Formulierungsstärke abzuschwächen ist.
 ```
 
 ### r3.clm_0003
@@ -1521,6 +1902,16 @@ Jedoch: Die Einschätzung stützt sich auf nur eine einzige, nicht peer-begutach
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigen Aussagen darüber, dass etwas funktioniert, eine empirische Studie (Experiment oder Fallstudie), während Erfahrungsberichte nur als schwacher Hinweis gelten; hier stammt der einzige Beleg aus dem Abstract einer grauen-Literatur-Quelle, die lediglich das Designprinzip von Eitan et al. beschreibt, weshalb die als etablierter Mechanismus formulierte Aussage stärker klingt, als es dieser einzelne, nicht-empirische Beleg stützt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der einzige Beleg ist eine Beschreibung in einem Abstract aus grauer Literatur, keine empirische Studie, die zeigt, dass der Mechanismus tatsächlich wirksam ist; die Aussage sollte daher als auf einer einzelnen Quelle beruhende Beschreibung gekennzeichnet werden.
+
+Jedoch: Die Aussage stützt sich auf nur eine einzige, nicht peer-reviewte Quelle (graue Literatur) in Form eines Abstracts, ohne unabhängige Bestätigung durch eine empirische Studie; damit bleibt unklar, ob die getrennte Spezifikation tatsächlich einen wirksamen Mechanismus darstellt oder lediglich eine Designbeschreibung der Autoren ist.
+
+Technisch: Der Beleg stammt aus einem einzigen Stück grauer Literatur (Abstract) und beschreibt lediglich, dass multimodale Verhaltensweisen getrennt spezifiziert und erst zur Laufzeit integriert werden; er liefert keine empirische Studie (Experiment oder Fallstudie), die belegt, dass dieser Mechanismus tatsächlich wirksam ist. Nach der Regel für Wirksamkeitsaussagen zählen Beschreibungen aus grauer Literatur bzw. Erfahrungsberichten nur als schwacher Hinweis, sodass die Formulierung als etablierter „Mechanismus“ die Aussagekraft der einzelnen Quelle übersteigt und abgeschwächt werden sollte, etwa durch Kennzeichnung als auf einer einzigen Quelle beruhende Beschreibung.
+```
+
 ### r3.clm_0004
 
 > Diese Laufzeitintegration erzeugt zugleich eine Verständnishürde, weil die Wechselwirkungen zwischen Szenarien indirekt und dynamisch werden.
@@ -1551,6 +1942,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg beschre
 Jedoch: Die einzige Quelle ist ein einzelner Beleg aus grauer Literatur (Werkzeugbeschreibung/Einleitung), der die Formulierung nur teilweise stützt; eine belastbarere Einordnung würde eine empirische Studie oder mindestens eine zusätzliche unabhängige Quelle erfordern.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine Aussage über eine bewirkte Eigenschaft — hier die Verständnishürde durch indirekte, dynamische Wechselwirkungen — eine empirische Studie (Experiment oder Fallstudie), während ein Erfahrungsbericht oder eine motivierende Werkzeugbeschreibung nur als schwacher Hinweis zählt; der vorliegende Beleg aus grauer Literatur stützt den Gedanken der „indirekten Interaktion zwischen Verhaltensweisen“ nur teilweise (partially_supports) und rechtfertigt damit keine unqualifizierte kausale Wirksamkeitsaussage, sodass die Formulierung abgeschwächt werden sollte.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg zeigt nur, dass ein Werkzeug entwickelt wurde, um indirekte Wechselwirkungen zwischen Verhaltensmodulen besser darstellbar zu machen, belegt aber nicht direkt, dass dadurch tatsächlich eine Verständnishürde entsteht, weshalb die Aussage als zu stark formuliert gilt.
+
+Jedoch: Die einzige Quelle ist ein Erfahrungsbericht bzw. graue Literatur ohne kontrollierte Untersuchung der behaupteten Verständnishürde; die Aussage sollte entsprechend abgeschwächt oder als vorläufige Einschätzung gekennzeichnet werden.
+
+Technisch: Die Klaimformulierung behauptet einen kausalen Effekt – die Laufzeitintegration „erzeugt“ eine Verständnishürde, weil Wechselwirkungen indirekt und dynamisch werden – und ist damit eine Wirksamkeitsaussage. Nach der Regel für Wirksamkeitsaussagen ist dafür eine empirische Studie (Experiment oder Fallstudie) erforderlich, während Erfahrungsberichte nur als schwacher Hinweis zählen. Der vorliegende Beleg stammt aus grauer Literatur und beschreibt lediglich die Zielsetzung eines Visualisierungswerkzeugs, das die „indirect interaction between behaviors“ adressieren soll; er dokumentiert damit, dass indirekte Wechselwirkungen als Herausforderung wahrgenommen werden, liefert aber keine empirische Bestätigung dafür, dass daraus tatsächlich eine Verständnishürde entsteht. Die Evidenz stützt die Aussage somit nur partiell, und die gewählte Formulierung überzeichnet, was der Beleg tatsächlich hergibt.
 ```
 
 ### r3.clm_0005
@@ -1585,6 +1986,16 @@ Jedoch: Die Einschränkung besteht darin, dass nur ein einziger, teilweise stüt
 Technisch: Die Aussage ordnet „Inter-scenario coupling“ pointiert als Nachvollziehbarkeit von Ursache-Wirkungs-Beziehungen ein und grenzt sie explizit von einem eigenständigen kognitionspsychologischen Prozess ab, stützt sich dabei aber ausschließlich auf einen einzigen Beleg aus grauer Literatur, der als nur teilweise stützend eingestuft ist; nach der Regel für Wirksamkeitsaussagen zählt ein solcher nicht-empirischer Beleg nur als schwacher Hinweis, sodass die abgrenzende, als „am präzisesten“ markierte Formulierung stärker wirkt, als die einzelne, nur teilweise passende Quelle tragen kann.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur einen Beleg, ein Abstract aus grauer Literatur, das die Aussage nur teilweise stützt und weder den Vergleich „am präzisesten“ noch die Aussage bestätigt, dass es sich nicht um einen eigenständigen kognitionspsychologischen Prozess handelt.
+
+Jedoch: Der einzige Beleg stammt aus grauer Literatur und deckt die Kernaussage nur teilweise ab; weder die vergleichende Einordnung „am präzisesten“ noch die explizite Abgrenzung von einem kognitionspsychologischen Prozess wird durch ihn direkt belegt, sodass die Formulierung abgeschwächt werden sollte.
+
+Technisch: Nach der Regel für Wirksamkeitsaussagen müsste eine Aussage über den tatsächlichen Charakter bzw. die Eigenständigkeit eines Konzepts wie „Inter-scenario coupling“ auf einer empirischen Studie (Experiment oder Fallstudie) beruhen, wobei Erfahrungsberichte nur als schwacher Hinweis zählen. Hier liegt jedoch nur ein einzelner Beleg aus grauer Literatur vor, ein Abstract, das die Aussage nur teilweise stützt. Der Beleg beschreibt lediglich das Nachvollziehen von Ursache-Wirkungs-Beziehungen zwischen relativ unabhängigen Verhaltenskomponenten, trifft aber keine Aussage darüber, ob diese Fassung „am präzisesten“ ist, und äußert sich nicht zur Frage eines eigenständigen kognitionspsychologischen Prozesses. Die im Claim enthaltene vergleichende Zuspitzung sowie die explizite Verneinung gehen damit über das hinaus, was der einzelne, nicht-empirische Beleg trägt.
+```
+
 ### r3.clm_0006
 
 > Verständlichkeit soll steigen, wenn sichtbar wird, welche Threads ein Ereignis angefordert, auf es gewartet oder es blockiert haben und weshalb die kollektive Ausführung eine bestimmte Alternative gewählt hat.
@@ -1615,6 +2026,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der einzige Beleg
 Jedoch: Es liegt nur eine einzige, nicht-empirische Quelle vor, die den Anspruch zudem nur teilweise abdeckt; eine Aussage über Threads, die ein Ereignis angefordert, abgewartet oder blockiert haben, wird darin nicht direkt behandelt, sodass die Wirksamkeitsaussage abgeschwächt werden sollte.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine Aussage, dass etwas die Verständlichkeit tatsächlich steigert, eine empirische Studie (Experiment oder Fallstudie); der einzige vorliegende Beleg stammt jedoch aus grauer Literatur und liefert lediglich eine Begründung dafür, warum bestimmte Ereignisse ausgewählt wurden und andere nicht, ohne die vollständige Aussage über angeforderte, abgewartete oder blockierte Threads empirisch abzusichern, weshalb die Formulierung als uneingeschränkte Wirksamkeitsaussage nicht gedeckt ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzige, nicht-empirische Quelle, die das Thema in ihrer Einleitung nur am Rande anspricht, aber nicht zeigt, dass die Sichtbarkeit solcher Informationen die Verständlichkeit tatsächlich erhöht.
+
+Jedoch: Es liegt lediglich eine einzelne, nicht-empirische Quelle vor, deren Aussage aus der Einleitung stammt und die betreffende Fragestellung nur andeutet, statt sie durch eine Studie zu belegen; ohne konvergierende oder empirische Belege bleibt die Wirksamkeitsbehauptung in dieser Stärke nicht abgesichert.
+
+Technisch: Die Aussage ist eine Wirksamkeitsaussage, da sie behauptet, dass die Verständlichkeit steigt, wenn bestimmte Informationen zu Ereignissen sichtbar gemacht werden; nach der Regel für Wirksamkeitsaussagen wäre dafür eine empirische Studie, etwa ein Experiment oder eine Fallstudie, erforderlich. Als Beleg liegt jedoch nur eine einzelne Quelle aus der grauen Literatur vor, deren Exzerpt aus der Einleitung lediglich motivierend beschreibt, dass Auswahl- und Blockierungsgründe für Ereignisse von Interesse sein können, ohne dass ein tatsächlicher Wirksamkeitsnachweis erbracht wird; der Beleg stützt die Aussage daher nur teilweise. Die uneingeschränkte, verallgemeinernde Formulierung überschreitet damit, was dieser einzelne, nicht-empirische Beleg trägt.
 ```
 
 ### r3.clm_0007
@@ -1649,6 +2070,16 @@ Jedoch: Es liegt nur eine einzige Quelle aus grauer Literatur vor, die zudem led
 Technisch: Nach der Regel für Wirksamkeitsaussagen wäre für eine Aussage, dass etwas fürs Verstehen tatsächlich notwendig oder wirksam ist, eine empirische Studie in Form eines Experiments oder einer Fallstudie erforderlich, während Erfahrungsberichte nur als schwacher Hinweis zählen; die vorliegende Quelle ist ein Abstract aus grauer Literatur, das lediglich beschreibt, welche Informationen eine Visualisierung anzeigt, ohne dies empirisch mit Verstehensleistung zu verknüpfen, weshalb die Formulierung als kausale Notwendigkeitsaussage die Beleglage überzieht und der Beleg nur als teilweise stützend gilt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Beleg beschreibt nur, was ein Visualisierungswerkzeug anzeigt, liefert aber keine empirische Untersuchung darüber, ob diese Information tatsächlich für das Verstehen notwendig ist, weshalb die Notwendigkeitsaussage abgeschwächt werden sollte.
+
+Jedoch: Es liegt lediglich eine einzelne graue Quelle vor, die den Funktionsumfang eines Werkzeugs beschreibt, ohne eine empirische Untersuchung des Verstehensprozesses selbst durchzuführen; die Formulierung sollte entsprechend als Beobachtung eines Werkzeugdesigns und nicht als belegte Notwendigkeitsaussage für das Verstehen dargestellt werden.
+
+Technisch: Die Aussage formuliert eine Wirksamkeits- bzw. Notwendigkeitsbehauptung darüber, was für das Verstehen von Programmverhalten erforderlich ist, und fällt damit unter die Regel für Wirksamkeitsaussagen, die eine empirische Studie (Experiment oder Fallstudie) verlangt. Der einzige Beleg ist jedoch die Abstract-Beschreibung eines Visualisierungswerkzeugs aus der grauen Literatur, die lediglich darlegt, dass das Werkzeug „the behaviors and events that were executed“ sowie „those that were delayed or abandoned, as well as the causes and reasons behind these run-time choices“ anzeigt; dies ist eine Funktionsbeschreibung des Tools, keine empirische Untersuchung, die belegt, dass solche Information tatsächlich notwendig für das Verstehen ist. Der Beleg stützt die Aussage damit nur teilweise, sodass die im Claim enthaltene generalisierte Notwendigkeitsformulierung „reicht nicht nur... sondern auch“ über das hinausgeht, was der einzelne Beleg trägt.
+```
+
 ### r3.clm_0008
 
 > Ein vierter Mechanismus ist die Reduktion der Informationsmenge durch Gruppierung ähnlicher Verhaltensthreads, wodurch die Person den Gesamtablauf auf einer höheren Abstraktionsebene verfolgen kann.
@@ -1679,6 +2110,16 @@ Einfach gesagt: Die Formulierung geht über die Belege hinaus. Die einzige Quell
 Jedoch: Die Formulierung stellt die Gruppierung als vierten, wirksamen Mechanismus dar, während die einzige Quelle ein Beispiel aus einem Dokument der grauen Literatur ist und keine empirische Untersuchung darstellt, sodass die Aussage abgeschwächt werden sollte, etwa als Beobachtung aus einem Beispiel statt als belegter Wirkmechanismus.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen benötigt eine Aussage, dass ein Mechanismus wirkt, eine empirische Studie wie ein Experiment oder eine Fallstudie; der einzige Beleg stammt jedoch aus grauer Literatur und beschreibt lediglich ein Beispiel, in dem Gruppierung die kognitive Last reduziert und das Verständnis des Gesamtablaufs unterstützt, was allenfalls als schwacher Erfahrungsbericht zählt und die als etablierten Mechanismus formulierte Aussage nicht trägt.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzelne Quelle aus einem Beispielabschnitt, die den beschriebenen Effekt zwar nennt, aber keine echte Untersuchung ist, weshalb die Aussage vorsichtiger formuliert werden sollte, statt die Wirksamkeit als gesichert darzustellen.
+
+Jedoch: Es liegt nur eine einzige, nicht-peer-reviewte Quelle aus einem illustrativen Beispielabschnitt vor, die eher demonstrativen als empirisch-belegenden Charakter hat; damit stützt der Beleg die Kernaussage nur als schwacher Hinweis, nicht als hinreichenden Nachweis einer belegten Wirksamkeit.
+
+Technisch: Die Behauptung ist eine Wirksamkeitsaussage, da sie einen kausalen Mechanismus postuliert – Gruppierung ähnlicher Verhaltensthreads reduziert die Informationsmenge und ermöglicht das Verfolgen des Gesamtablaufs auf höherer Abstraktionsebene; nach der Regel für Wirksamkeitsaussagen ist dafür eine empirische Studie (Experiment oder Fallstudie) erforderlich, während Erfahrungsberichte nur als schwacher Hinweis gelten, und die einzige vorliegende Quelle ist eine Passage aus einem „Example“-Abschnitt grauer Literatur, die den Effekt zwar plausibel beschreibt („Grouping these instances together reduces the cognitive load by removing some information, and helps in understanding the overall run“), aber keine kontrollierte empirische Untersuchung darstellt, sodass die uneingeschränkte Formulierung die Beleglage übersteigt.
 ```
 
 ### r3.clm_0009
@@ -1713,6 +2154,16 @@ Jedoch: Die Empfehlung stützt sich auf nur eine Quelle aus grauer Literatur, di
 Technisch: Es handelt sich um eine Empfehlung zur Gestaltung einer Darstellung, für die nach der Regel für Empfehlungen konvergente Evidenz aus mehreren Quellentypen erforderlich ist, während hier nur eine einzige Quelle aus grauer Literatur vorliegt, die zudem nur teilweise stützt, da sie zeitliche Anordnung und Synchronisationspunkte, aber keine sichtbaren Thread-Zustände belegt.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Es gibt nur eine einzelne Quelle aus grauer Literatur, die lediglich zeigt, dass B-Threads nach Priorität in Spalten und Syncpoints nach Zeit in Zeilen dargestellt werden, aber nicht die volle Empfehlung zu Thread-Zuständen und globaler Einordnung abdeckt.
+
+Jedoch: Es liegt nur ein einziger Beleg aus grauer Literatur vor, der zudem nur einen Teilaspekt der Empfehlung, nämlich zeitliche Ordnung und Synchronisationspunkte, abdeckt, während Thread-Zustände und die Einordnung lokaler Entscheidungen in den globalen Ablauf durch das Zitat nicht gestützt werden; eine konvergente, mehrere Quellentypen umfassende Evidenzbasis fehlt vollständig.
+
+Technisch: Die Empfehlung fordert, dass die Darstellung zeitliche Ordnung, Thread-Zustände und Synchronisationspunkte gleichzeitig sichtbar macht, damit lokale Entscheidungen in den globalen Ablauf eingeordnet werden können; nach der Regel für Empfehlungen ist dafür konvergente Evidenz aus mehreren Quellentypen nötig, während graue Literatur oder Herstellerdokumentation allein nicht ausreicht. Der einzige vorliegende Beleg stammt aus genau einer Quelle der grauen Literatur und stützt lediglich, dass B-Threads spaltenweise nach Priorität und Syncpoints zeilenweise nach Zeit dargestellt werden, also nur einen Ausschnitt der geforderten Gestaltung, nämlich zeitliche Ordnung und Synchronisationspunkte, nicht aber explizit die Sichtbarkeit von Thread-Zuständen oder die Einordnung lokaler Entscheidungen in den globalen Ablauf. Die Formulierung überzieht damit die tatsächliche Beleglage und sollte als nur teilweise und durch eine einzelne Quelle gestützt gekennzeichnet werden.
+```
+
 ### r3.clm_0010
 
 > Eine 2025 veröffentlichte kontrollierte Studie prüfte die Verständlichkeit zweier BP-Varianten und operationalisierte sie als Verständnis der Ausführungssemantik sowie als Identifikation von Anforderungen aus Implementierungen.
@@ -1737,6 +2188,14 @@ Technisch: Nach der Regel für Zahlenbefunde genügt für eine Aussage dieses Ty
 Einfach gesagt: Die Formulierung passt zu den Belegen. Die Aussage beschreibt lediglich, dass eine kontrollierte Studie die Verständlichkeit zweier BP-Varianten anhand von zwei genannten Dimensionen untersucht hat, und genau das ist im Abstract der zitierten Quelle wortnah so festgehalten.
 
 Technisch: Die Aussage berichtet keinen eigenständigen Messwert, sondern beschreibt Design und Operationalisierung einer kontrollierten Studie, und diese Beschreibung wird durch das Abstract der einzigen herangezogenen peer-reviewten Quelle mit passendem Kontext wortnah gedeckt; nach der Regel für Zahlenbefunde genügt dafür eine peer-reviewte Studie mit übereinstimmendem Kontext, ohne dass eine ausdrückliche Kennzeichnung als Einzelquelle nötig wäre, weshalb die Formulierungsstärke hier durch den Beleg gedeckt ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die Aussage beschreibt nur, was eine einzelne 2025 veröffentlichte Studie untersucht und wie sie Verständlichkeit gemessen hat, und dafür reicht eine passende peer-reviewte Quelle aus, die genau das bestätigt.
+
+Technisch: Die Aussage beschreibt Design und Operationalisierung einer 2025 veröffentlichten kontrollierten Studie zur Verständlichkeit zweier BP-Varianten und stützt sich auf genau eine peer-reviewte Publikation mit passendem Kontext (Abstract), deren Wortlaut die beiden genannten Operationalisierungsdimensionen – Verständnis der Ausführungssemantik und Identifikation von Anforderungen aus Implementierungen – unmittelbar bestätigt; nach der „Regel für Zahlenbefunde“ genügt für eine solche Aussage eine peer-reviewte Studie mit passendem Kontext, und die Formulierung bleibt zudem auf die eine zugrunde liegende Studie beschränkt, ohne eine Verallgemeinerung über mehrere Studien hinweg zu suggerieren.
 ```
 
 ### r3.clm_0011
@@ -1771,6 +2230,16 @@ Jedoch: Die Vergleichsaussage stützt sich nur auf eine einzige Quelle, obwohl d
 Technisch: Die Aussage ist eine Vergleichsaussage im Sinne der Regel für Vergleichsaussagen, die mindestens zwei unabhängige Quellen verlangt, davon eine anbieterunabhängig; hier liegt jedoch nur eine einzige peer-reviewte Studie als Beleg vor, sodass die unqualifizierte, allgemein gehaltene Formulierung die Beleglage überschreitet und stattdessen als auf eine einzelne Studie gestützt markiert werden sollte.
 ```
 
+**v1.2.0-noise-floor** (v1.2.0, weakened → weakened)
+
+```text
+Einfach gesagt: Die Formulierung geht über die Belege hinaus. Der Satz vergleicht zwei Methoden, doch es liegt nur eine einzige Studie als Beleg vor, während für einen Methodenvergleich laut Regel eigentlich zwei unabhängige Quellen nötig wären; inhaltlich passt der Beleg zwar genau, aber die Vergleichsform ist dadurch zu stark ausgedrückt.
+
+Jedoch: Die Zuschreibung „Dieselbe Studie berichtet“ schränkt die Aussage bereits auf eine Einzelquelle ein, ändert aber nichts daran, dass für eine Vergleichsaussage nach der Regel für Vergleichsaussagen zwei unabhängige Quellen erforderlich wären; sollte eine zweite, unabhängige Quelle mit vergleichbarem Befund vorliegen, könnte eine unqualifizierte Formulierung künftig zulässig sein.
+
+Technisch: Die Aussage vergleicht zwei Ansätze (klassisches BP versus Context-Oriented BP) und ist damit eine Vergleichsaussage, für die die Regel für Vergleichsaussagen mindestens zwei unabhängige Quellen verlangt, davon mindestens eine herstellerunabhängige; vorliegend stützt sich die Aussage jedoch ausschließlich auf einen einzigen Beleg aus einer peer-reviewten Studie (src_ashrov2025, Abstract), sodass die mechanische Anforderung nicht erfüllt ist, obwohl der Beleg inhaltlich exakt die berichtete Richtung stützt („The results indicate that BP generally leads to better comprehension and higher confidence; while COBP demonstrates advantages in complex, context-dependent behaviors“); die Formulierung präsentiert den Vergleich damit stärker, als es die vorhandene Quellenbasis zulässt, weshalb sie abgeschwächt werden sollte.
+```
+
 ### r3.clm_0012
 
 > Der Befund stützt somit eine Abhängigkeit des Verständniseffekts von der strukturellen Komplexität und Kontextabhängigkeit des Szenarios.
@@ -1801,5 +2270,15 @@ Einfach gesagt: Die Formulierung passt zu den Belegen. Die zitierte Studie zeigt
 Jedoch: Da nur eine einzige Quelle vorliegt, beruht die Aussage bislang auf einem einzelnen empirischen Befund, dessen Generalisierbarkeit durch weitere unabhängige Studien noch bestätigt werden müsste, auch wenn die Regel für Wirksamkeitsaussagen bereits durch diese eine empirische Studie erfüllt ist.
 
 Technisch: Nach der Regel für Wirksamkeitsaussagen genügt für eine solche Aussage eine empirische Studie, und die vorliegende peer-review-Publikation berichtet im Abstract explizit, dass COBP bei komplexen, kontextabhängigen Verhaltensweisen Vorteile zeigt, während BP allgemein besseres Verständnis liefert, sodass die Formulierung einer Abhängigkeit des Verständniseffekts von struktureller Komplexität und Kontextabhängigkeit durch diesen Befund gedeckt ist.
+```
+
+**v1.2.0-noise-floor** (v1.2.0, licensed → licensed)
+
+```text
+Einfach gesagt: Die Formulierung passt zu den Belegen. Die Studie zeigt, dass ein bestimmter Ansatz (COBP) gerade bei komplexen, kontextabhängigen Szenarien Vorteile bringt, und die Aussage behauptet vorsichtig genau diese Abhängigkeit, ohne sie zu einer allgemeinen Überlegenheit aufzublasen.
+
+Jedoch: Es handelt sich um einen einzigen empirischen Beleg aus einer Quelle; eine Replikation oder ein zweiter unabhängiger Befund liegt nicht vor, was die Reichweite der gestützten Abhängigkeit auf den untersuchten Szenariokontext begrenzt.
+
+Technisch: Die Aussage ist eine Wirksamkeitsaussage im Sinne der Regel für Wirksamkeitsaussagen, wonach eine empirische Studie (Experiment oder Fallstudie) genügt und Erfahrungsberichte nur als schwacher Hinweis zählen; hier liegt mit src_ashrov2025 eine peer-reviewte empirische Studie vor, deren Abstract festhält, dass COBP „advantages in complex, context-dependent behaviors“ zeigt, während BP allgemein zu besserem Verständnis führt. Die Formulierung behauptet nicht pauschal eine Überlegenheit, sondern lediglich eine Abhängigkeit des Verständniseffekts von struktureller Komplexität und Kontextabhängigkeit, was exakt dem im Beleg berichteten Kontrastbefund entspricht und als „partially_supports“ eingestuft ist. Die Hedging-Formulierung „stützt somit eine Abhängigkeit“ bleibt damit unterhalb einer kausalen oder generalisierenden Zuspitzung und ist durch den einzelnen empirischen Beleg gedeckt.
 ```
 
