@@ -9,6 +9,11 @@ import { Source } from "./source";
 // with zeros to full 64-char SHA-256 values and "…" model placeholders got
 // concrete strings — both owed to the printed example's abbreviation.
 import exampleProject from "./__fixtures__/example-project.json";
+// A register written BEFORE the reviewer-triggered re-verification
+// extension: calibration_reasoning set, neither new claim field present,
+// and no reverification event. Its whole job is to fail loudly if either
+// new field is ever made required on the strictObject Claim.
+import prePhase04Project from "./__fixtures__/pre-phase-04-project.json";
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -392,5 +397,88 @@ describe("standalone sub-schemas", () => {
     expect(Judgment.safeParse({ ...judgment, confidence: 1.2 }).success).toBe(
       false,
     );
+  });
+});
+
+describe("reviewer-triggered re-verification: calibration archive and re-run bracket", () => {
+  it("still accepts a pre-Phase-04 register carrying neither new claim field", () => {
+    expect(prePhase04Project.claims[0].calibration_reasoning).toBeTruthy();
+    expect(
+      (prePhase04Project.claims[0] as Record<string, unknown>)
+        .previous_calibrations,
+    ).toBeUndefined();
+    expect(
+      (prePhase04Project.claims[0] as Record<string, unknown>)
+        .calibration_prompt_version,
+    ).toBeUndefined();
+    expect(() => ClaimsRegister.parse(prePhase04Project)).not.toThrow();
+  });
+
+  it("accepts a claim carrying the rotated archive and the prompt-version stamp", () => {
+    const withArchive = clone(exampleProject) as {
+      claims: Record<string, unknown>[];
+    };
+    withArchive.claims[0].calibration_reasoning =
+      "Der Auszug deckt Richtung und Groessenordnung der Aussage.";
+    withArchive.claims[0].calibration_prompt_version = "1.1.0";
+    withArchive.claims[0].previous_calibrations = [
+      {
+        support_degree: "partially_supported",
+        calibration_result: "weakened",
+        calibration_reasoning: "Die Zahl stand nur im Abstract.",
+        calibration_prompt_version: "1.0.0",
+        superseded_at: "2026-08-20T10:00:00Z",
+      },
+    ];
+    expect(ClaimsRegister.safeParse(withArchive).success).toBe(true);
+  });
+
+  it("archives the whole outcome: calibration_result is required on a snapshot", () => {
+    const withArchive = clone(exampleProject) as {
+      claims: Record<string, unknown>[];
+    };
+    withArchive.claims[0].previous_calibrations = [
+      {
+        calibration_reasoning: "Nur die Begruendung, ohne Urteil.",
+        superseded_at: "2026-08-20T10:00:00Z",
+      },
+    ];
+    expect(ClaimsRegister.safeParse(withArchive).success).toBe(false);
+  });
+
+  it("accepts the re-run bracket pair with its claim_ids payload", () => {
+    const withBracket = clone(exampleProject) as {
+      project_events: Record<string, unknown>[];
+    };
+    withBracket.project_events.push(
+      {
+        seq: 2,
+        at: "2026-08-20T10:00:00Z",
+        actor: "human:lg",
+        event: "reverification_run_started",
+        reason: "Erneute Pruefung von 1 Aussage angefordert.",
+        reverification_run: { claim_ids: ["clm_0001"] },
+        prev_hash: "c41d8a".padEnd(64, "0"),
+        hash: "a10b20".padEnd(64, "0"),
+      },
+      {
+        seq: 3,
+        at: "2026-08-20T10:00:00Z",
+        actor: "human:lg",
+        event: "reverification_run_completed",
+        reason: "Erneute Pruefung angefordert; 1 Aussage zurueckgesetzt.",
+        prev_hash: "a10b20".padEnd(64, "0"),
+        hash: "a10b21".padEnd(64, "0"),
+      },
+    );
+    expect(ClaimsRegister.safeParse(withBracket).success).toBe(true);
+  });
+
+  it("accepts a project event from before the extension, without the payload", () => {
+    const event = clone(prePhase04Project.project_events[0]);
+    expect(
+      (event as Record<string, unknown>).reverification_run,
+    ).toBeUndefined();
+    expect(ProjectEvent.safeParse(event).success).toBe(true);
   });
 });

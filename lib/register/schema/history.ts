@@ -244,6 +244,20 @@ export const IdentityChange = z.strictObject({
 });
 export type IdentityChange = z.infer<typeof IdentityChange>;
 
+/**
+ * Payload of a `reverification_run_started` event (reviewer-triggered
+ * re-verification): the claims the request pulled back into the cascade.
+ * The ids are load-bearing, not decorative — a `ProjectEvent` is by
+ * definition an event without a claim reference, so the metrics projection
+ * has no other way to learn which claims a re-check covered, and reading
+ * them back out of the German `reason` prose is not a supported path
+ * (documented extension, additive).
+ */
+export const ReverificationRun = z.strictObject({
+  claim_ids: z.array(ClaimId),
+});
+export type ReverificationRun = z.infer<typeof ReverificationRun>;
+
 /** A project-wide event without claim reference, structurally chain-linked
  * like a history entry. */
 export const ProjectEvent = z.strictObject({
@@ -266,6 +280,9 @@ export const ProjectEvent = z.strictObject({
   /** Only on `source_repair_action` events (automatic repair, documented
    * extension, additive). */
   repair_action: RepairAction.optional(),
+  /** Only on `reverification_run_started` events (reviewer-triggered
+   * re-verification, documented extension, additive). */
+  reverification_run: ReverificationRun.optional(),
   /** The single source an extraction bracket event targeted: set on
    * `batch_run_started`/`batch_run_completed` for per-source passes, absent
    * for the project-wide sweep and for events from before this extension —

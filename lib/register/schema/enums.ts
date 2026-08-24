@@ -248,5 +248,18 @@ export const ProjectEventType = z.enum([
    * `source_id`/`work_item_id` scalars to name the target (documented
    * extension, additive). */
   "source_repair_action_dismissed",
+  /** Reviewer-triggered re-verification: the bracket of a re-check REQUEST,
+   * not of a run — unlike every other pair in this enum. `requestClaimRecheck`
+   * only moves the selected claims back into the cascade; it starts no run,
+   * so nothing would ever come along later to write the completion. Both
+   * events are therefore appended inside that one transaction and the
+   * bracket can never dangle. The started event carries the covered claim
+   * ids in `reverification_run`, because a project event has no claim
+   * reference of its own. Deliberately NOT a discriminator on
+   * `verification_run_started`/`verification_run_completed`: reusing those
+   * would silently flip every existing consumer of them from opt-in to
+   * opt-out (documented extension, additive). */
+  "reverification_run_started",
+  "reverification_run_completed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

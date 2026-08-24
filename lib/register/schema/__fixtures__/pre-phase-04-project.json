@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0.0",
+  "project": {
+    "id": "proj_pre-phase-04",
+    "research_question": "Bleibt eine vor der Erweiterung geschriebene Registerdatei gueltig?",
+    "created_at": "2026-08-01T08:00:00Z",
+    "source_set_revision": 1
+  },
+  "config": {
+    "rubric_version": "se-evidence-rubric-v1",
+    "adjudication_sample_rate": 0.1,
+    "backends": {
+      "primary": {
+        "cli": "claude",
+        "model_family": "anthropic"
+      },
+      "secondary": {
+        "cli": "codex",
+        "model_family": "openai"
+      }
+    }
+  },
+  "sources": [],
+  "claims": [
+    {
+      "id": "clm_0001",
+      "text": "Eine vor dieser Erweiterung beurteilte Aussage traegt nur die aktuelle Begruendung.",
+      "claim_type": "quantitative_finding",
+      "status": "prechecked",
+      "support_degree": "supported",
+      "calibration_result": "licensed",
+      "calibration_reasoning": "Der Auszug deckt Richtung und Groessenordnung der Aussage.",
+      "briefing_anchor": "p1",
+      "provenance": {
+        "tool": "deep-research-x",
+        "model": "deep-research-x-1",
+        "extracted_at": "2026-08-01T08:12:30Z",
+        "search_path": "Suchlauf 1, Abschnitt Wirkung"
+      },
+      "evidence": [],
+      "history": [
+        {
+          "seq": 2,
+          "at": "2026-08-01T08:12:30Z",
+          "actor": "system:extraction",
+          "from_status": null,
+          "to_status": "captured",
+          "reason": "Aus Briefing-Absatz p1 extrahiert.",
+          "prev_hash": "c41d8a0000000000000000000000000000000000000000000000000000000000",
+          "hash": "77e0b30000000000000000000000000000000000000000000000000000000000"
+        }
+      ]
+    }
+  ],
+  "project_events": [
+    {
+      "seq": 1,
+      "at": "2026-08-01T08:05:12Z",
+      "actor": "human:lg",
+      "event": "project_created",
+      "reason": "Projekt angelegt.",
+      "prev_hash": "e3a1c00000000000000000000000000000000000000000000000000000000000",
+      "hash": "c41d8a0000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

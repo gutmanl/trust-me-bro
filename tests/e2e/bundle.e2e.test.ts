@@ -22,7 +22,13 @@ import {
   vi,
 } from "vitest";
 
-import { bundleText, unzipBundle, zipBundle } from "../../lib/export";
+import {
+  bundleText,
+  MANIFEST_VERSION,
+  unzipBundle,
+  zipBundle,
+} from "../../lib/export";
+import { RegisterStore } from "../../lib/register";
 import { importBriefing } from "../../lib/pipeline/briefing";
 import { exportProjectBundle } from "../../lib/pipeline/export/build-export";
 import { importProjectBundle } from "../../lib/pipeline/export/import-bundle";
@@ -166,6 +172,153 @@ describe("export → CLI verify → import roundtrip", () => {
         ),
       ).toBe(0);
       const importedReport = await runCli(importedDir, cliEnv);
+      expect(importedReport.stdout).toContain("blob integrity ok");
+      expect(importedReport.code).toBe(0);
+    },
+  );
+});
+
+describe("reviewer-triggered re-verification: bundle round-trip both ways", () => {
+  it(
+    "a register carrying the new calibration fields exports, verifies and imports",
+    { timeout: 120_000 },
+    async () => {
+      const cliEnv = { ...process.env, TMB_WORKSPACE: workspace };
+      const projectDir = path.join(workspace, "proj_bundle-e2e");
+      const store = RegisterStore.forProject("proj_bundle-e2e");
+
+      // Mint a real, chain-linked claim through the sanctioned capability.
+      await store.transaction((tx) => {
+        tx.addClaim({
+          claim: {
+            id: "clm_0001",
+            text: "Die mediane Reviewzeit sinkt um 55 %.",
+            claim_type: "quantitative_finding",
+            briefing_anchor: "p1",
+            provenance: {
+              tool: "deep-research-x",
+              model: "deep-research-x-1",
+              extracted_at: "2026-08-20T08:00:00Z",
+              search_path: "Suchlauf 1",
+            },
+            evidence: [],
+          },
+          actor: "system:extraction",
+          reason: "Aus Briefing-Absatz p1 extrahiert.",
+        });
+      });
+
+      // The capability that WRITES these fields arrives with the store change
+      // in 04-02. What 04-01 owns is the format: inject the two new fields
+      // directly, then re-seal through a real transaction so the chain's
+      // newest state_root covers them and commit-time zod validation sees
+      // the whole register. Only the newest state_root is verified, so this
+      // is exactly the state a future writer will leave behind.
+      const registerPath = path.join(projectDir, "claims.json");
+      const register = JSON.parse(fs.readFileSync(registerPath, "utf8"));
+      register.claims[0].calibration_result = "weakened";
+      register.claims[0].calibration_reasoning =
+        "Der Auszug nennt die Richtung, nicht die Groessenordnung.";
+      register.claims[0].calibration_prompt_version = "1.1.0";
+      register.claims[0].previous_calibrations = [
+        {
+          support_degree: "supported",
+          calibration_result: "licensed",
+          calibration_reasoning: "Zahlenwert und Richtung stimmen ueberein.",
+          calibration_prompt_version: "1.0.0",
+          superseded_at: "2026-08-20T10:00:00Z",
+        },
+      ];
+      fs.writeFileSync(registerPath, JSON.stringify(register, null, 2));
+
+      await store.transaction((tx) => {
+        tx.recordProjectEvent({
+          event: "reverification_run_started",
+          reason: "Erneute Pruefung von 1 Aussage angefordert.",
+          actor: "human:lg",
+        });
+        tx.recordProjectEvent({
+          event: "reverification_run_completed",
+          reason: "Erneute Pruefung angefordert; 1 Aussage zurueckgesetzt.",
+          actor: "human:lg",
+        });
+      });
+
+      // The directory verifies with the new fields in place.
+      const dirReport = await runCli(projectDir, cliEnv);
+      expect(dirReport.stdout).toContain("blob integrity ok");
+      expect(dirReport.code).toBe(0);
+
+      // Export → the bundle carries them → CLI verify passes on the bundle.
+      const bundle = await exportProjectBundle("proj_bundle-e2e", {
+        includeBlobs: true,
+      });
+      const files = unzipBundle(new Uint8Array(bundle.bytes));
+      const bundledRegister = bundleText.decode(files["claims.json"]);
+      expect(bundledRegister).toContain("previous_calibrations");
+      expect(bundledRegister).toContain("calibration_prompt_version");
+      expect(bundledRegister).toContain("reverification_run_started");
+      expect(bundleText.decode(files["manifest.json"])).toContain(
+        `"manifest_version": "${MANIFEST_VERSION}"`,
+      );
+
+      const bundlePath = path.join(workspace, bundle.filename);
+      fs.writeFileSync(bundlePath, Buffer.from(bundle.bytes));
+      const bundleReport = await runCli(bundlePath, cliEnv);
+      expect(bundleReport.stdout).toContain("manifest ok");
+      expect(bundleReport.code).toBe(0);
+
+      // Import it back under a new name; claims.json survives byte-identical.
+      await importProjectBundle({
+        bytes: Buffer.from(bundle.bytes),
+        targetDirectoryName: "proj_bundle-neu",
+      });
+      const importedDir = path.join(workspace, "proj_bundle-neu");
+      expect(
+        Buffer.compare(
+          fs.readFileSync(path.join(importedDir, "claims.json")),
+          fs.readFileSync(registerPath),
+        ),
+      ).toBe(0);
+      const importedReport = await runCli(importedDir, cliEnv);
+      expect(importedReport.code).toBe(0);
+    },
+  );
+
+  it(
+    "a bundle written before the extension still verifies and imports after it",
+    { timeout: 120_000 },
+    async () => {
+      const cliEnv = { ...process.env, TMB_WORKSPACE: workspace };
+
+      // Nothing here has ever written the new fields — the same content a
+      // register produced before this extension carries.
+      const bundle = await exportProjectBundle("proj_bundle-e2e", {
+        includeBlobs: true,
+      });
+      const files = unzipBundle(new Uint8Array(bundle.bytes));
+      const bundledRegister = bundleText.decode(files["claims.json"]);
+      expect(bundledRegister).not.toContain("previous_calibrations");
+      expect(bundledRegister).not.toContain("calibration_prompt_version");
+      expect(bundledRegister).not.toContain("reverification_run");
+      expect(bundleText.decode(files["manifest.json"])).toContain(
+        `"manifest_version": "${MANIFEST_VERSION}"`,
+      );
+
+      const bundlePath = path.join(workspace, bundle.filename);
+      fs.writeFileSync(bundlePath, Buffer.from(bundle.bytes));
+      const bundleReport = await runCli(bundlePath, cliEnv);
+      expect(bundleReport.stdout).toContain("manifest ok");
+      expect(bundleReport.code).toBe(0);
+
+      await importProjectBundle({
+        bytes: Buffer.from(bundle.bytes),
+        targetDirectoryName: "proj_bundle-alt",
+      });
+      const importedReport = await runCli(
+        path.join(workspace, "proj_bundle-alt"),
+        cliEnv,
+      );
       expect(importedReport.stdout).toContain("blob integrity ok");
       expect(importedReport.code).toBe(0);
     },
