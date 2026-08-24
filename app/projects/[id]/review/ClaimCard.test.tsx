@@ -1,5 +1,36 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+/**
+ * WR-05 needs the POST-SUBMIT rendering of `RecheckClaimControl`, and
+ * `useActionState` returns its initial state under `renderToStaticMarkup` —
+ * so the state is injectable here. `null` (the default) means "behave
+ * exactly like React", which is what every other test in this file relies
+ * on; only the WR-05 cases set it. Hoisted into the factory because
+ * `vi.mock` is lifted above the imports.
+ */
+const actionStateOverride = vi.hoisted(() => ({
+  value: null as { error: string | null; requested?: boolean } | null,
+}));
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useActionState: ((initial: unknown, ...rest: unknown[]) =>
+      actionStateOverride.value === null
+        ? (
+            actual.useActionState as (
+              ...args: unknown[]
+            ) => [unknown, () => void, boolean]
+          )(initial, ...rest)
+        : [
+            actionStateOverride.value,
+            () => {},
+            false,
+          ]) as typeof actual.useActionState,
+  };
+});
 
 import { ProjectEventStreamContext } from "@/app/lib/ProjectEventStream";
 import type { ClaimMarkerVM } from "@/lib/pipeline";
@@ -574,5 +605,66 @@ describe("ClaimCard verdict-changed note (surface 4)", () => {
     ]) {
       expect(html, `banned copy present: ${banned}`).not.toContain(banned);
     }
+  });
+});
+
+/**
+ * The confirmation after a per-claim re-run (WR-05, RERUN-01).
+ *
+ * `useActionState` returns its INITIAL state under `renderToStaticMarkup`,
+ * so the post-submit rendering is unreachable through the component's own
+ * form. The action state is stubbed instead — the point under test is the
+ * ORDER of the two guards inside `RecheckClaimControl`, not React's
+ * plumbing, and that order is exactly what was wrong.
+ *
+ * The bug: `requestClaimRecheckAction` calls `revalidatePath` before
+ * returning `{ requested: true }` and the page is `force-dynamic`, so React
+ * applies the new action state and the refreshed RSC tree in the SAME
+ * commit. By then the claim is `recheck_required` — not eligible — so with
+ * the eligibility guard first the component returned null and the reviewer
+ * got no confirmation at all. `RECHECK_COPY.success` was asserted only as a
+ * constant, never as rendered markup, which is why the suite was green.
+ */
+describe("the per-claim re-run confirmation (WR-05)", () => {
+  function markupWithActionState(
+    status: ClaimStatus,
+    state: { error: string | null; requested?: boolean },
+  ): string {
+    actionStateOverride.value = state;
+    try {
+      return markupOf(claimAt(status) as ClaimMarkerVM["claim"]);
+    } finally {
+      actionStateOverride.value = null;
+    }
+  }
+
+  it("renders the success line on the claim's NEW status", () => {
+    const html = markupWithActionState("recheck_required", {
+      error: null,
+      requested: true,
+    });
+    // The assertion the old ordering could never satisfy: the copy in the
+    // MARKUP, on the status the action actually leaves the claim in.
+    expect(html).toContain(CONTRACT.success);
+    // And the trigger is gone — the claim is queued, not re-triggerable.
+    expect(html).not.toContain(CONTRACT.trigger);
+  });
+
+  it("still renders nothing on an ineligible claim that was not just requested", () => {
+    // The eligibility guard is not weakened, only reordered: `contested` is
+    // ineligible and carries no request, so the block stays absent.
+    const html = markupWithActionState("contested", { error: null });
+    expect(html).not.toContain(CONTRACT.success);
+    expect(html).not.toContain(CONTRACT.trigger);
+  });
+
+  it("does not show the success line on a claim the request never moved", () => {
+    // Conditioned on the new status, not on the flag alone, so a stale
+    // action state cannot claim a move that did not happen.
+    const html = markupWithActionState("prechecked", {
+      error: null,
+      requested: true,
+    });
+    expect(html).not.toContain(CONTRACT.success);
   });
 });

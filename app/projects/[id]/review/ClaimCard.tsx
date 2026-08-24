@@ -624,19 +624,36 @@ function RecheckClaimControl({
   // the reviewer an avoidable RunActiveError instead of an explanation.
   const activity = useActivity();
 
-  if (!offersRecheck(claim)) {
-    // Absent, not disabled-with-a-tooltip: ineligibility here is a property
-    // of where the claim stands, not a temporary obstacle, and a control
-    // that can never become pressable is noise on an already dense card.
-    return null;
-  }
-
-  if (state.requested === true) {
+  // WR-05: BEFORE the eligibility guard, deliberately.
+  //
+  // requestClaimRecheckAction calls revalidatePath(`/projects/${projectId}`)
+  // before returning { requested: true }, and the page is force-dynamic, so
+  // React applies the new action state and the refreshed RSC tree in the
+  // same commit. By the time state.requested is true the claim already
+  // carries `recheck_required` — which is not in RECHECK_ELIGIBLE_STATUSES
+  // and has no routing branch — so with the guard first, offersRecheck was
+  // false and the whole block returned null. The observable behaviour was:
+  // press „Erneut prüfen", the block silently disappears, nothing is said.
+  // ClaimCard has no notice for recheck_required either, so the reviewer
+  // got no confirmation at all. RECHECK_COPY.success was asserted only as a
+  // constant, never as rendered markup, which is why the suite was green.
+  //
+  // Conditioned on the new status rather than on state alone, so the
+  // claim's own status is what clears the message: the next action that
+  // moves the claim on takes the notice with it.
+  if (state.requested === true && claim.status === "recheck_required") {
     return (
       <div className="border-t border-slate-200 pt-3">
         <p className="text-xs text-slate-500">{RECHECK_COPY.success}</p>
       </div>
     );
+  }
+
+  if (!offersRecheck(claim)) {
+    // Absent, not disabled-with-a-tooltip: ineligibility here is a property
+    // of where the claim stands, not a temporary obstacle, and a control
+    // that can never become pressable is noise on an already dense card.
+    return null;
   }
 
   if (activity) {
