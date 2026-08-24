@@ -187,3 +187,128 @@ test.describe("export", () => {
     expect(download.suggestedFilename()).toMatch(/^trustmebro-export_.*\.tmb$/);
   });
 });
+
+/**
+ * The sweep's confirmation (RERUN-02) and the exclusion of the claim the
+ * reviewer has open (RERUN-04).
+ *
+ * These three assertions are here rather than in an SSR test because none
+ * of them exists until a browser runs the component. The forcing step is
+ * three interactions; the exclusion lives entirely in client state that
+ * `lib/` cannot see; and „the submit is reachable without scrolling" is a
+ * layout fact `renderToStaticMarkup` has no viewport for.
+ */
+test.describe("the re-verification sweep", () => {
+  // A sweep moves claims into recheck_required, and the register is
+  // append-only — so the workspace is rebuilt per test rather than letting
+  // the first one leave the second with nothing to sweep.
+  test.beforeEach(async () => {
+    await seedBrowserWorkspace();
+  });
+
+  /**
+   * Opens the sweep dialog, retrying through the hydration race for the
+   * same reason `openClaim` does: the bar is a client component, and a
+   * click dispatched between first paint and hydration is swallowed
+   * silently.
+   */
+  async function openSweep(page: Page): Promise<void> {
+    const trigger = page.getByRole("button", {
+      name: /Mehrere Aussagen erneut prüfen/,
+    });
+    await expect(trigger).toBeVisible();
+    await expect(async () => {
+      await trigger.click();
+      await expect(
+        page.getByRole("heading", { name: "Mehrere Aussagen erneut prüfen" }),
+      ).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+  }
+
+  /** The narrowest rung's displayed count, read off its own radio label. */
+  async function staleRungTotal(page: Page): Promise<number> {
+    const label = await page
+      .getByText(/Nur veraltete Vorprüfungen \(\d+\)/)
+      .innerText();
+    const match = /\((\d+)\)/.exec(label);
+    expect(match).not.toBeNull();
+    return Number((match as RegExpExecArray)[1]);
+  }
+
+  test("the typed number blocks the submit until it is right", async ({
+    page,
+  }) => {
+    await page.goto(projectUrl);
+    await openSweep(page);
+
+    const submit = page.getByRole("button", { name: /^Erneut prüfen \(/ });
+    // 1 — nothing typed yet.
+    await expect(submit).toBeDisabled();
+
+    // The seeded project has exactly one claim awaiting adjudication (the
+    // one whose quote stage 1 could not prove), so the forcing step asks
+    // for the queued count and that count is 1.
+    await expect(
+      page.getByText(
+        "Zur Bestätigung: Wie viele der betroffenen Aussagen stehen in " +
+          "der Warteschlange zur manuellen Überprüfung?",
+      ),
+    ).toBeVisible();
+
+    const field = page.getByLabel(/Zur Bestätigung/);
+
+    // 2 — a wrong number. Still blocked, and the hint appears in slate
+    // rather than red: a wrong number here is the mechanism working.
+    await field.fill("7");
+    await expect(submit).toBeDisabled();
+    const hint = page.getByText(
+      "Die Zahl stimmt nicht mit der Aufstellung überein.",
+    );
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveClass(/text-slate-500/);
+
+    // 3 — the number the itemisation actually named.
+    await field.fill("1");
+    await expect(submit).toBeEnabled();
+    await expect(hint).not.toBeVisible();
+  });
+
+  test("the claim the reviewer has open is left out (RERUN-04)", async ({
+    page,
+  }) => {
+    await page.goto(projectUrl);
+
+    // Both numbers are read from the same page in the same run, so the
+    // assertion cannot drift with the seeded corpus.
+    await openSweep(page);
+    const withNothingOpen = await staleRungTotal(page);
+    expect(withNothingOpen).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "Abbrechen" }).click();
+
+    // clm_0002 is the claim awaiting adjudication — expanding it is exactly
+    // the state D-05 excludes: the effort timer is running on it and a
+    // complaint draft can only exist inside it.
+    await openClaim(page, "clm_0002");
+    await openSweep(page);
+
+    expect(await staleRungTotal(page)).toBe(withNothingOpen - 1);
+    await expect(
+      page.getByText(/Nicht einbezogen:.*gerade geöffnet/),
+    ).toBeVisible();
+  });
+
+  test("the submit is above the fold at the widest rung", async ({ page }) => {
+    await page.goto(projectUrl);
+    await openSweep(page);
+
+    // The rung that selects the most claims is the one whose itemisation is
+    // longest, so it is the one that could push the forcing field and the
+    // submit out of the modal's scroll area. Counts and groups only —
+    // never a claim-id list — is what prevents that.
+    await page.getByText("Auch bestätigte Aussagen").click();
+
+    const submit = page.getByRole("button", { name: /^Erneut prüfen \(/ });
+    await expect(submit).toBeVisible();
+    await expect(submit).toBeInViewport();
+  });
+});
