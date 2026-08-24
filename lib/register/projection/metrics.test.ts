@@ -394,6 +394,56 @@ describe("computeProjectMetrics: the re-run aggregate (D-16)", () => {
     ).toBe(0);
   });
 
+  it("agrees with first_pass_adjudication_* about whether a claim was re-run (WR-03)", () => {
+    // The two columns of the same RQ3 export answer one question from two
+    // sides: the bracket (`first_pass_*`'s window) and the archive
+    // (`reverified_claims`). They disagreed on every project that had ever
+    // revised or corrected a source, because `sweepSourceRecheck` wrote the
+    // archive but emitted no bracket — so the archive said "re-run" while
+    // `first_pass_adjudication_count === adjudication_count` said "never
+    // re-run", with nothing in the CSV to tell them apart. The register is
+    // append-only, so that was not reconstructable after the fact.
+    //
+    // The fixture is the SOURCE-REVISION shape, not a reviewer request:
+    // actor `system:source_revision`, and the transition into
+    // recheck_required is the sweep's, not the request path's.
+    const register = baseRegister();
+    const claim = claimWith(register, "clm_0030", [
+      entry(40, { from_status: null, to_status: "captured" }),
+      decisionEntry(41, 60),
+      entry(50, {
+        from_status: "confirmed",
+        to_status: "recheck_required",
+        actor: "system:source_revision",
+        reason: "Bestandsfassung der Quelle geändert.",
+      }),
+      decisionEntry(52, 90),
+    ]);
+    claim.calibration_result = "weakened";
+    claim.previous_calibrations = [
+      { calibration_result: "licensed", superseded_at: "2026-08-02T10:00:00Z" },
+    ] as never;
+    register.claims = [claim];
+    register.project_events.push({
+      ...rerunStarted(49, ["clm_0030"]),
+      actor: "system:source_revision",
+      reason: "Bestandsfassung der Quelle geändert.",
+    } as never);
+
+    const metrics = computeProjectMetrics(register);
+    const row = metrics.rows.find((r) => r.claim_id === "clm_0030");
+    // The archive says the claim was re-run…
+    expect(metrics.reverification.reverified_claims).toBe(1);
+    // …and so does the first-pass window, which is the agreement that was
+    // missing. A regression here means a path into recheck_required stopped
+    // emitting its bracket.
+    expect(row?.adjudication_count).toBe(2);
+    expect(row?.first_pass_adjudication_count).toBe(1);
+    expect(row?.first_pass_adjudication_count).not.toBe(
+      row?.adjudication_count,
+    );
+  });
+
   it("is idempotent: two calls over the same register are deep-equal", () => {
     const register = baseRegister();
     const claim = claimWith(register, "clm_0024", [

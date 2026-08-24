@@ -91,6 +91,7 @@ const PREVIEW: RecheckPreview = {
 const NO_RECHECK: ProjectMetrics["reverification"] = {
   reverified_claims: 0,
   changed_result_claims: 0,
+  last_run: null,
 };
 
 const RUNNING_TRIGGER: ProjectActivity = {
@@ -240,17 +241,60 @@ describe("the one-time post-run summary (D-16)", () => {
   it("reports the two counts and the non-reproducibility sentence", () => {
     const markup = renderBar({
       verificationState: completedAfterRecheck,
-      reverification: { reverified_claims: 7, changed_result_claims: 2 },
+      reverification: {
+        reverified_claims: 40,
+        changed_result_claims: 9,
+        last_run: { reverified_claims: 7, changed_result_claims: 2 },
+      },
     });
 
     expect(markup).toContain(BAR_RECHECK_COPY.postRun1(2, 7));
     expect(markup).toContain(BAR_RECHECK_COPY.postRun2);
   });
 
+  it("reports THIS run's counts, never the project's lifetime totals (WR-02)", () => {
+    // The gate is per-run; the numbers used to be cumulative. A reviewer
+    // who re-checked 7 claims read the 9-of-40 accumulated over earlier
+    // sessions as the outcome of the run that had just finished — and in
+    // the other direction the sentence could hide a run in which every
+    // touched claim changed its verdict.
+    const markup = renderBar({
+      verificationState: completedAfterRecheck,
+      reverification: {
+        reverified_claims: 40,
+        changed_result_claims: 9,
+        last_run: { reverified_claims: 7, changed_result_claims: 2 },
+      },
+    });
+
+    expect(markup).toContain(BAR_RECHECK_COPY.postRun1(2, 7));
+    expect(markup).not.toContain(BAR_RECHECK_COPY.postRun1(9, 40));
+  });
+
+  it("is absent when the latest run carried no re-check, even with a lifetime archive", () => {
+    // `last_run === null` is the honest shape for "claims were marked but
+    // no run has carried them yet". A zero pair would assert that a run
+    // happened and changed nothing.
+    const markup = renderBar({
+      verificationState: completedAfterRecheck,
+      reverification: {
+        reverified_claims: 40,
+        changed_result_claims: 9,
+        last_run: null,
+      },
+    });
+
+    expect(markup).not.toContain("Erneute Prüfung abgeschlossen");
+  });
+
   it("never publishes a rate", () => {
     const markup = renderBar({
       verificationState: completedAfterRecheck,
-      reverification: { reverified_claims: 7, changed_result_claims: 2 },
+      reverification: {
+        reverified_claims: 40,
+        changed_result_claims: 9,
+        last_run: { reverified_claims: 7, changed_result_claims: 2 },
+      },
     });
 
     // Two absolute counts and no denominator-as-headline: a percentage here
@@ -267,7 +311,11 @@ describe("the one-time post-run summary (D-16)", () => {
         completedAt: "2026-08-24T09:00:00Z",
         precededByRecheck: false,
       },
-      reverification: { reverified_claims: 7, changed_result_claims: 2 },
+      reverification: {
+        reverified_claims: 40,
+        changed_result_claims: 9,
+        last_run: { reverified_claims: 7, changed_result_claims: 2 },
+      },
     });
 
     expect(markup).not.toContain("Erneute Prüfung abgeschlossen");
@@ -280,7 +328,11 @@ describe("the one-time post-run summary (D-16)", () => {
         openClaims: 1,
         precededByRecheck: true,
       },
-      reverification: { reverified_claims: 7, changed_result_claims: 2 },
+      reverification: {
+        reverified_claims: 40,
+        changed_result_claims: 9,
+        last_run: { reverified_claims: 7, changed_result_claims: 2 },
+      },
     });
 
     expect(markup).not.toContain("Erneute Prüfung abgeschlossen");

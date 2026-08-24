@@ -200,6 +200,49 @@ describe("sweepSourceRecheck", () => {
     expect(await sweep(false)).toEqual([]);
   });
 
+  it("brackets the sweep so the metrics columns agree about it (WR-03)", async () => {
+    // first_pass_adjudication_* windows on the reverification_run_started
+    // bracket; reverification.reverified_claims counts the archive the
+    // re-check then writes. While this path moved claims WITHOUT a bracket,
+    // any project that had revised or corrected a source carried claims the
+    // archive counted as re-verified and first_pass_adjudication_count ===
+    // adjudication_count reported as never re-run — in the same CSV, with
+    // nothing to tell the two apart, and unreconstructable afterwards
+    // because the register is append-only.
+    const moved = await addParkedClaim({ routing: "existence_check_failed" });
+    const selected = await sweep(true);
+    expect(selected).toEqual([moved]);
+
+    const register = await RegisterStore.forProject(PROJECT).read();
+    const started = register.project_events.filter(
+      (event) => event.event === "reverification_run_started",
+    );
+    expect(started).toHaveLength(1);
+    // The payload is what actually moved, so the metrics window names
+    // exactly the claims this transaction transitioned.
+    expect(started[0].reverification_run?.claim_ids).toEqual([moved]);
+    expect(
+      register.project_events.filter(
+        (event) => event.event === "reverification_run_completed",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("appends no bracket when the sweep moved nothing", async () => {
+    // An empty sweep is not a project event — the same rule
+    // requestClaimRecheck applies, so a no-op source revision does not
+    // open a metrics window over zero claims.
+    await addParkedClaim({ routing: "negative_precheck" });
+    expect(await sweep(false)).toEqual([]);
+
+    const register = await RegisterStore.forProject(PROJECT).read();
+    expect(
+      register.project_events.filter((event) =>
+        event.event.startsWith("reverification_run"),
+      ),
+    ).toEqual([]);
+  });
+
   it("does not reach a machine-parked claim on a different source", async () => {
     const onOtherSource = await addParkedClaim({
       routing: "existence_check_failed",

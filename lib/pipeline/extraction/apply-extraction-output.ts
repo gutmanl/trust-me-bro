@@ -317,6 +317,25 @@ export function applyExtractionOutput(
     });
     recheckPulled.push(known.id);
   }
+  if (recheckPulled.length > 0) {
+    // WR-03: the third path that pulls claims back for a re-check brackets
+    // it like the other two. `first_pass_adjudication_*` windows on this
+    // bracket and `reverification.reverified_claims` counts the archive the
+    // re-check writes; a path that moves claims without a bracket makes the
+    // two columns of the same RQ3 export disagree irrecoverably.
+    tx.recordReverificationRun({
+      claim_ids: recheckPulled,
+      actor: ACTOR,
+      started_reason:
+        `Neue Belege aus Lauf ${meta.runId} – ${recheckPulled.length} ` +
+        `Aussage${recheckPulled.length === 1 ? "" : "n"} erneut zu prüfen.`,
+      completed_reason:
+        `${recheckPulled.length} Aussage${recheckPulled.length === 1 ? "" : "n"} ` +
+        "zur Nachprüfung vorgemerkt – die Prüfung selbst startet erst mit " +
+        "dem nächsten Prüflauf.",
+      at: now,
+    });
+  }
 
   tx.recordProjectEvent({
     event: "batch_run_completed",

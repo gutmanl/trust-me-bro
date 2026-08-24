@@ -247,9 +247,75 @@ describe("metricsToCsv across a re-run (P-12 regression)", () => {
     expect(computeProjectMetrics(register).reverification).toEqual({
       reverified_claims: 0,
       changed_result_claims: 0,
+      last_run: null,
     });
     applyRerun(register);
     expect(computeProjectMetrics(register).reverification).toEqual({
+      reverified_claims: 1,
+      changed_result_claims: 1,
+      // No verification run has followed the bracket yet, so there is no
+      // „latest run" for the workbench sentence to describe. Null rather
+      // than a zero pair: the bar renders on `last_run !== null`, and a
+      // zero pair would be a claim that a run happened and changed nothing.
+      last_run: null,
+    });
+  });
+
+  it("scopes the workbench pair to the latest run, not the project lifetime (WR-02)", () => {
+    // The mis-report: the bar's gate is per-run
+    // (`precededByRecheck && completedAt`) while the two numbers it printed
+    // were project-lifetime totals. A reviewer who re-checked 2 claims saw
+    // the sentence report the 9-of-40 accumulated over three earlier
+    // sessions — and if both of their 2 claims had changed, the sentence
+    // would still have said 9 of 40, hiding the run's actual outcome.
+    const register = structuredClone(
+      exampleProject,
+    ) as unknown as ClaimsRegister;
+    applyRerun(register);
+
+    // An earlier, already-reported re-check on a DIFFERENT claim: it counts
+    // towards the lifetime pair and must not count towards this run's,
+    // because no bracket in this run's window names it.
+    const older = structuredClone(register.claims[0]);
+    older.id = "clm_0002";
+    older.previous_calibrations = [
+      {
+        support_degree: "supported",
+        calibration_result: "licensed",
+        superseded_at: "2026-08-01T09:00:00Z",
+      },
+    ] as never;
+    older.calibration_result = "weakened";
+    register.claims.push(older);
+
+    // The run that carried the bracket of `applyRerun`.
+    register.project_events.push(
+      {
+        seq: 20,
+        at: "2026-08-05T10:00:00Z",
+        actor: "human:lg",
+        event: "verification_run_started",
+        reason: "Prüflauf gestartet.",
+        prev_hash: "0".repeat(64),
+        hash: "1".repeat(64),
+      } as never,
+      {
+        seq: 21,
+        at: "2026-08-05T11:00:00Z",
+        actor: "human:lg",
+        event: "verification_run_completed",
+        reason: "Prüflauf abgeschlossen.",
+        prev_hash: "0".repeat(64),
+        hash: "1".repeat(64),
+      } as never,
+    );
+
+    const { reverification } = computeProjectMetrics(register);
+    // Lifetime: both claims carry an archive, both changed.
+    expect(reverification.reverified_claims).toBe(2);
+    expect(reverification.changed_result_claims).toBe(2);
+    // This run: only the claim its bracket named.
+    expect(reverification.last_run).toEqual({
       reverified_claims: 1,
       changed_result_claims: 1,
     });

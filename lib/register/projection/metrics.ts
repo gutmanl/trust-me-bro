@@ -42,14 +42,31 @@ export interface ClaimMetricsRow {
    * total, never a windowed subset (D-09). */
   adjudication_duration_s: number;
   /** `adjudication_count` restricted to the decisions recorded BEFORE the
-   * claim's first `reverification_run_started` bracket (reviewer-triggered
-   * re-verification). Equal to `adjudication_count` for a claim that was
-   * never re-run and less than or equal to it otherwise; the difference is
-   * exactly the effort the re-run caused. The pair exists so the RQ3 export
-   * answers both "total effort" and "effort before the first re-run"
-   * without either field having to change meaning — figures already written
-   * up from an earlier export stay comparable (D-09, documented extension,
-   * additive). */
+   * claim's first `reverification_run_started` bracket. Equal to
+   * `adjudication_count` for a claim that was never re-run and less than or
+   * equal to it otherwise; the difference is exactly the effort the re-run
+   * caused. The pair exists so the RQ3 export answers both "total effort"
+   * and "effort before the first re-run" without either field having to
+   * change meaning — figures already written up from an earlier export stay
+   * comparable (D-09, documented extension, additive).
+   *
+   * THE BOUNDARY, STATED ONCE (WR-03). "Re-run" means the
+   * `reverification_run_started` bracket, and EVERY path that pulls a claim
+   * into `recheck_required` emits one: the reviewer's request
+   * (`verification/request-recheck.ts`), the source revision and
+   * correction (`sources/recheck.ts`, shared by four callers) and the
+   * incremental extraction (`extraction/apply-extraction-output.ts`).
+   *
+   * This matters because `reverification.reverified_claims` below answers
+   * the SAME question from the other side — it counts the archive
+   * (`previous_calibrations`) that the re-check then writes. The two are
+   * two views of one event and must not drift: while the source-revision
+   * path moved claims WITHOUT a bracket, any project that had revised a
+   * source carried claims the archive counted as re-verified and
+   * `first_pass_adjudication_count === adjudication_count` reported as
+   * never re-run, in the same CSV, with nothing to tell them apart. A new
+   * path that moves claims into `recheck_required` must emit the bracket
+   * too; `metrics.test.ts` pins the source-revision and extraction cases. */
   first_pass_adjudication_count: number;
   /** `adjudication_duration_s` over the same pre-re-run window as
    * `first_pass_adjudication_count`, with the same equal-when-never-re-run
@@ -111,12 +128,40 @@ export interface ProjectMetrics {
    * do not divide these two in a caller. */
   reverification: {
     /** M — claims carrying at least one archived pre-check outcome, i.e.
-     * claims whose pre-check has been redone at least once. */
+     * claims whose pre-check has been redone at least once, over the
+     * PROJECT'S WHOLE LIFETIME. The metrics page frames it that way
+     * explicitly; the workbench bar must not (see `last_run`). */
     reverified_claims: number;
     /** N — of those, the ones whose NEWEST archived `calibration_result`
      * differs from the current one. Compared as enum values, never as
      * rendered German labels. */
     changed_result_claims: number;
+    /**
+     * The same pair scoped to the LATEST verification run (WR-02), or null
+     * when no re-check bracket preceded it.
+     *
+     * The workbench's post-run summary gates per-run
+     * (`precededByRecheck && completedAt !== undefined`) and used to print
+     * the cumulative pair above, so „Erneute Prüfung abgeschlossen: 9 von
+     * 40 …" appeared after a run that had touched 2 claims — read, in
+     * context, as that run's outcome. It could mislead in both directions:
+     * both of those 2 claims could have changed and the sentence would
+     * still have shown 9/40, hiding the run's actual result. This is the
+     * one place the tool tells the reviewer how often the machine changed
+     * its mind, so a mis-scoped number there is a defect in exactly the
+     * register the phase exists to keep honest.
+     *
+     * The window is `claimIdsRecheckedInLatestRun`, shared verbatim with
+     * `deriveVerificationState`'s `precededByRecheck` — the gate and the
+     * numbers behind it therefore cannot disagree about which run they are
+     * describing. Only claims that carry an archive are counted: a bracket
+     * names claims at the moment they were MARKED, and one whose re-check
+     * has not produced a verdict yet has no "other result" to report.
+     */
+    last_run: {
+      reverified_claims: number;
+      changed_result_claims: number;
+    } | null;
   };
   rows: ClaimMetricsRow[];
 }
@@ -161,6 +206,54 @@ function buildFirstRerunSeqByClaimId(
     }
   }
   return firstRerunSeq;
+}
+
+/**
+ * The claims a re-check bracket named in the window that ends at the latest
+ * verification run — or null when no bracket falls in it.
+ *
+ * The window opens at the verification run BEFORE the latest one, so a
+ * bracket already reported by the previous run's summary is not reported a
+ * second time. With no previous completion it opens at the start of the
+ * register, which is correct for a project whose very first run is a
+ * re-run.
+ *
+ * Exported and shared with `deriveVerificationState`'s `precededByRecheck`
+ * (WR-02): that flag GATES the workbench's post-run summary and this set
+ * supplies the numbers inside it. Two implementations of "the latest run's
+ * re-check window" would be free to disagree about which run the sentence
+ * is describing; one cannot.
+ */
+export function claimIdsRecheckedInLatestRun(
+  register: ClaimsRegister,
+): ReadonlySet<string> | null {
+  const latestStart = register.project_events
+    .filter((event) => event.event === "verification_run_started")
+    .map((event) => event.seq)
+    .at(-1);
+  if (latestStart === undefined) {
+    return null;
+  }
+  const previousCompletion = register.project_events
+    .filter(
+      (event) =>
+        event.event === "verification_run_completed" && event.seq < latestStart,
+    )
+    .map((event) => event.seq)
+    .at(-1);
+  const windowStart = previousCompletion ?? 0;
+  const brackets = register.project_events.filter(
+    (event) =>
+      event.event === "reverification_run_started" &&
+      event.seq > windowStart &&
+      event.seq < latestStart,
+  );
+  if (brackets.length === 0) {
+    return null;
+  }
+  return new Set(
+    brackets.flatMap((event) => event.reverification_run?.claim_ids ?? []),
+  );
 }
 
 function sumDurationS(entries: readonly HistoryEntry[]): number {
@@ -274,14 +367,26 @@ export function computeProjectMetrics(
   // calibration_result differs from the current one. Enum comparison only.
   let reverifiedClaims = 0;
   let changedResultClaims = 0;
+  // WR-02: the same pair over the latest run's bracket window only.
+  const latestRunClaimIds = claimIdsRecheckedInLatestRun(register);
+  let lastRunReverified = 0;
+  let lastRunChanged = 0;
   for (const claim of register.claims) {
     const newestArchived = claim.previous_calibrations?.at(-1);
     if (newestArchived === undefined) {
       continue;
     }
+    const changed =
+      newestArchived.calibration_result !== claim.calibration_result;
     reverifiedClaims += 1;
-    if (newestArchived.calibration_result !== claim.calibration_result) {
+    if (changed) {
       changedResultClaims += 1;
+    }
+    if (latestRunClaimIds?.has(claim.id) === true) {
+      lastRunReverified += 1;
+      if (changed) {
+        lastRunChanged += 1;
+      }
     }
   }
 
@@ -336,6 +441,13 @@ export function computeProjectMetrics(
     reverification: {
       reverified_claims: reverifiedClaims,
       changed_result_claims: changedResultClaims,
+      last_run:
+        latestRunClaimIds === null
+          ? null
+          : {
+              reverified_claims: lastRunReverified,
+              changed_result_claims: lastRunChanged,
+            },
     },
     rows,
   };

@@ -1,3 +1,4 @@
+import { claimIdsRecheckedInLatestRun } from "../../register";
 import type { ClaimsRegister } from "../../register";
 import { pickUnfinishedClaims } from "./select-claims";
 
@@ -44,37 +45,19 @@ export interface VerificationState {
 }
 
 /**
- * Did a reviewer request a re-verification in the window that ends at the
- * latest verification run?
+ * Did a re-verification get requested in the window that ends at the latest
+ * verification run?
  *
- * The window opens at the verification run BEFORE the latest one, so a
- * bracket that was already reported by the previous run's summary does not
- * get reported a second time. With no previous completion the window opens
- * at the start of the register, which is correct for a project whose very
- * first run is a re-run.
+ * The window itself lives in `claimIdsRecheckedInLatestRun`
+ * (`lib/register/projection/metrics.ts`) and this is the boolean view of
+ * it. Single-sourced deliberately (WR-02): this flag GATES the workbench's
+ * post-run summary and the metrics projection supplies the two numbers
+ * INSIDE that summary. While the window existed twice, the gate and the
+ * numbers were free to disagree about which run the sentence describes —
+ * and they did, because the numbers were not windowed at all.
  */
 function recheckPrecededLatestRun(register: ClaimsRegister): boolean {
-  const startSeqs = register.project_events
-    .filter((event) => event.event === "verification_run_started")
-    .map((event) => event.seq);
-  const latestStart = startSeqs.at(-1);
-  if (latestStart === undefined) {
-    return false;
-  }
-  const previousCompletion = register.project_events
-    .filter(
-      (event) =>
-        event.event === "verification_run_completed" && event.seq < latestStart,
-    )
-    .map((event) => event.seq)
-    .at(-1);
-  const windowStart = previousCompletion ?? 0;
-  return register.project_events.some(
-    (event) =>
-      event.event === "reverification_run_started" &&
-      event.seq > windowStart &&
-      event.seq < latestStart,
-  );
+  return claimIdsRecheckedInLatestRun(register) !== null;
 }
 
 export function deriveVerificationState(

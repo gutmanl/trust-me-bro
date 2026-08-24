@@ -81,6 +81,9 @@ describe("public surface of lib/register", () => {
     // relocated here from the repair pipeline (shared by re-entry and
     // metrics, pure history derivation).
     expect(surface.computeProjectMetrics).toBeDefined();
+    // WR-02: one definition of "the latest run's re-check window", shared
+    // by the flag that gates the post-run summary and the numbers in it.
+    expect(surface.claimIdsRecheckedInLatestRun).toBeDefined();
     expect(surface.countRepairCycles).toBeDefined();
     expect(surface.sha256Hex).toBeDefined();
     expect(surface.sha256FromBlobPath).toBeDefined();

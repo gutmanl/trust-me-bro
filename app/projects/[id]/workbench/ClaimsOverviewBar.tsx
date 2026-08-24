@@ -355,11 +355,18 @@ export function ClaimsOverviewBar({
           which is precisely the overreliance failure this phase mitigates. */}
       {verificationState.precededByRecheck &&
       verificationState.completedAt !== undefined &&
-      reverification.reverified_claims > 0 ? (
+      reverification.last_run !== null &&
+      reverification.last_run.reverified_claims > 0 ? (
         <p className="mt-2 text-xs text-slate-500">
+          {/* WR-02: the RUN-scoped pair, not the project-lifetime one. The
+              gate above is per-run, so printing the cumulative totals read
+              as the outcome of a run that may have touched two claims —
+              and hid that run's actual result in both directions. The
+              cumulative pair stays on the metrics page, where the framing
+              is explicitly project-level. */}
           {BAR_RECHECK_COPY.postRun1(
-            reverification.changed_result_claims,
-            reverification.reverified_claims,
+            reverification.last_run.changed_result_claims,
+            reverification.last_run.reverified_claims,
           )}{" "}
           {BAR_RECHECK_COPY.postRun2}
         </p>

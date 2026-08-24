@@ -68,6 +68,11 @@ export { lastActivityAt } from "./projection/activity";
 // TMB-45: evaluation metrics as pure derivations over the register — the
 // history is the single source, nothing is persisted.
 export { computeProjectMetrics } from "./projection/metrics";
+// WR-02: the latest run's re-check window. Public so the verification
+// pipeline's `precededByRecheck` — the flag that GATES the workbench's
+// post-run summary — and the metrics projection that supplies the two
+// numbers INSIDE it read one definition of "which run is this".
+export { claimIdsRecheckedInLatestRun } from "./projection/metrics";
 export type { ClaimMetricsRow, ProjectMetrics } from "./projection/metrics";
 // F4 filter projection (plain CSL-JSON item), shared by source capture and
 // the export epic's references.csl.json derivation.
