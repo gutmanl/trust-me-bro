@@ -59,6 +59,11 @@ describe("public surface of lib/register", () => {
     // TMB-5: the repair pipeline decides the re-entry edge with the same
     // predicate the gate re-checks at commit time.
     expect(surface.allExistenceChecksPassed).toBeDefined();
+    // RERUN-02: the re-check selection asks the widened
+    // pending_adjudication gate whether a queued claim qualifies instead of
+    // restating its condition, so it can never offer the reviewer a claim
+    // the transition would then refuse.
+    expect(surface.machineParkedInAdjudication).toBeDefined();
     // TMB-5: anchor resolution/evidence numbering single-sourced for the
     // markdown projection AND the review UI.
     expect(surface.buildBriefingViewModel).toBeDefined();
@@ -266,6 +271,15 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.isRecheckEligible).toBeUndefined();
     expect(surface.selectRequestedClaims).toBeUndefined();
     expect(surface.RECHECK_STATUSES).toBeUndefined();
+    // RERUN-02: the sweep's preview joins it — the confirmation dialog
+    // cannot itemise what it cannot count. The shared classification, the
+    // scope-selection helper and the scope list stay internal for the same
+    // reason as the predicate above: the app tier may ask what a rung
+    // covers, never decide it.
+    expect(surface.previewClaimRecheck).toBeDefined();
+    expect(surface.classifyClaimForRecheck).toBeUndefined();
+    expect(surface.selectClaimsForScope).toBeUndefined();
+    expect(surface.RECHECK_SCOPES).toBeUndefined();
     // Workbench epic: the auto-chain drain queue's three app-facing
     // functions; the factory and the singleton-getter stay internal.
     expect(surface.enqueueSourceExtraction).toBeDefined();

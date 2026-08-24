@@ -12,7 +12,11 @@ import { createJobRunner } from "../runs/job-runner";
 import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
-import { requestClaimRecheck, selectClaimsForScope } from "./request-recheck";
+import {
+  previewClaimRecheck,
+  requestClaimRecheck,
+  selectClaimsForScope,
+} from "./request-recheck";
 import type { RecheckScope } from "./request-recheck";
 import { loadRubricRuleSet } from "./rubric-rules";
 import { pickUnfinishedClaims } from "./select-claims";
@@ -643,5 +647,94 @@ describe("the claim the reviewer is working on (RERUN-04)", () => {
       "pending_adjudication",
     );
     expect(verifyChain(register).ok).toBe(true);
+  });
+});
+
+describe("previewClaimRecheck", () => {
+  it("agrees with the request it precedes, because both call one predicate", async () => {
+    await seedLadder();
+
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "all",
+    });
+
+    // The agreement property, asserted directly on a race-free register:
+    // the number the reviewer confirms IS the number the sweep acts on.
+    // Two implementations that merely agree today would pass a count
+    // assertion and fail this one.
+    expect([...preview.all.claimIds].sort()).toEqual([...result.moved].sort());
+    expect(preview.all.total).toBe(result.moved.length);
+  });
+
+  it("itemises every rung with its queued and confirmed sub-counts", async () => {
+    const ids = await seedLadder();
+
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+
+    expect(preview.stale.total).toBe(3);
+    expect(preview.all.total).toBe(4);
+    expect(preview.all_including_confirmed.total).toBe(5);
+    // The queued sub-count is the number the forcing step asks for.
+    expect(preview.stale.queued).toBe(1);
+    expect(preview.all_including_confirmed.queued).toBe(1);
+    // Confirmed claims exist only on the top rung, which is the one that
+    // un-confirms them.
+    expect(preview.stale.confirmed).toBe(0);
+    expect(preview.all.confirmed).toBe(0);
+    expect(preview.all_including_confirmed.confirmed).toBe(1);
+    expect(preview.all_including_confirmed.claimIds).toContain(ids.confirmed);
+    expect(preview.stale.scope).toBe("stale");
+  });
+
+  it("counts the legacy machine-parked group so it reads as excluded, never missing", async () => {
+    await seedLadder();
+
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+
+    // P-20 closed at the data layer: exactly the one routing-less parked
+    // claim, named, on every rung.
+    expect(preview.stale.exclusions.legacy_unrouted).toBe(1);
+    expect(preview.all.exclusions.legacy_unrouted).toBe(1);
+    expect(preview.all_including_confirmed.exclusions.legacy_unrouted).toBe(1);
+    expect(preview.stale.exclusions.discarded).toBe(1);
+    expect(preview.stale.exclusions.open_in_workbench).toBe(0);
+  });
+
+  it("honours the reviewer's open claim in the counts it shows", async () => {
+    const ids = await seedLadder();
+
+    const preview = await previewClaimRecheck({
+      projectId: PROJECT,
+      excludeClaimIds: [ids.queued],
+    });
+
+    expect(preview.stale.claimIds).not.toContain(ids.queued);
+    expect(preview.stale.total).toBe(2);
+    expect(preview.stale.queued).toBe(0);
+    expect(preview.stale.exclusions.open_in_workbench).toBe(1);
+  });
+
+  it("returns zeros for every rung on a project with no claims", async () => {
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+
+    for (const rung of [
+      preview.stale,
+      preview.all,
+      preview.all_including_confirmed,
+    ]) {
+      expect(rung.claimIds).toEqual([]);
+      expect(rung.total).toBe(0);
+      expect(rung.queued).toBe(0);
+      expect(rung.confirmed).toBe(0);
+      expect(rung.exclusions).toEqual({
+        open_in_workbench: 0,
+        discarded: 0,
+        legacy_unrouted: 0,
+        human_confirmed: 0,
+        vintage_current: 0,
+      });
+    }
   });
 });

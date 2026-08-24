@@ -249,15 +249,27 @@ export {
   getOpenExistenceCheckCount,
   startExistenceCheck,
 } from "./verification/run-existence-check";
-// Reviewer-triggered re-verification: the request use-case is app-facing —
-// a server action calls it straight from the claim card. Its eligibility
-// predicate and the selection helper are details of that request and stay
-// internal, as does RECHECK_STATUSES, which the source-revision and
-// extraction writers share with it.
-export { requestClaimRecheck } from "./verification/request-recheck";
+// Reviewer-triggered re-verification: the request use-case and the sweep's
+// preview are app-facing — a server action calls the first straight from
+// the claim card, and the confirmation dialog itemises from the second. The
+// eligibility predicate, the shared classification and the scope-selection
+// helper are details of both and stay internal, as do RECHECK_STATUSES
+// (shared with the source-revision and extraction writers) and the scope
+// list itself — the dialog transcribes its three German labels from the
+// Copywriting Contract, never from a runtime enumeration.
+export {
+  previewClaimRecheck,
+  requestClaimRecheck,
+} from "./verification/request-recheck";
 export type {
+  PreviewClaimRecheckInput,
   RecheckExclusion,
+  RecheckExclusionBreakdown,
   RecheckExclusionReason,
+  RecheckPreview,
+  RecheckPreviewExclusionReason,
+  RecheckRungPreview,
+  RecheckScope,
   RequestClaimRecheckInput,
   RequestClaimRecheckResult,
 } from "./verification/request-recheck";

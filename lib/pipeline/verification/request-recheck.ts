@@ -357,6 +357,99 @@ export function selectClaimsForScope(
   return { claims, exclusions, breakdown };
 }
 
+/** One rung of the ladder, as the confirmation needs to itemise it. */
+export interface RecheckRungPreview {
+  scope: RecheckScope;
+  /**
+   * The ids this rung would move, in register order.
+   *
+   * NOT for display — the dialog carries counts and groups only, never a
+   * list of ids (a forty-item list pushes the forcing field below the fold
+   * and makes the last thing the reviewer sees a wall of ids). They are
+   * here so the client can subtract the claim it has selected SINCE this
+   * preview was computed from the displayed counts, without a round trip
+   * that would let the shown number drift from the acted-on one.
+   */
+  claimIds: string[];
+  total: number;
+  /** Of `total`, how many currently await manual adjudication — the number
+   * the forcing step asks the reviewer to type, because it is the thing at
+   * risk. */
+  queued: number;
+  /** Of `total`, how many are human-confirmed. Non-zero only on the top
+   * rung, which is the one that un-confirms them. */
+  confirmed: number;
+  exclusions: RecheckExclusionBreakdown;
+}
+
+/** All three rungs, keyed by scope. */
+export type RecheckPreview = Record<RecheckScope, RecheckRungPreview>;
+
+export interface PreviewClaimRecheckInput {
+  projectId: string;
+  /** Same meaning as on the request — see `RequestClaimRecheckInput`. */
+  excludeClaimIds?: readonly string[];
+}
+
+function buildRung(
+  register: ClaimsRegister,
+  scope: RecheckScope,
+  promptVersion: string,
+  excludeClaimIds: ReadonlySet<string>,
+): RecheckRungPreview {
+  const { claims, breakdown } = selectClaimsForScope(
+    register,
+    scope,
+    promptVersion,
+    excludeClaimIds,
+  );
+  return {
+    scope,
+    claimIds: claims.map((claim) => claim.id),
+    total: claims.length,
+    queued: claims.filter((claim) => claim.status === "pending_adjudication")
+      .length,
+    confirmed: claims.filter((claim) => claim.status === "confirmed").length,
+    exclusions: breakdown,
+  };
+}
+
+/**
+ * What the confirmation itemises from (RERUN-02).
+ *
+ * ALL THREE RUNGS IN ONE CALL, because the reviewer changes rungs
+ * client-side and the itemisation has to recompute instantly — and because
+ * a per-rung round trip would let the displayed count drift from the count
+ * the submit acts on.
+ *
+ * A BARE TOTAL IS THE FAILURE THIS EXISTS TO PREVENT. The ROADMAP is
+ * explicit that a bare count „produces automatic agreement and is a useless
+ * confirmation", so every rung carries its queued and confirmed sub-counts
+ * and a per-reason exclusion breakdown. A dialog can only itemise what the
+ * pipeline can count.
+ *
+ * Read-only and un-gated: it takes no lock, starts nothing and blocks on
+ * nothing. Everything it reports is stale the moment it returns — the
+ * transaction is the authority, and it re-derives the same predicate.
+ */
+export async function previewClaimRecheck(
+  input: PreviewClaimRecheckInput,
+): Promise<RecheckPreview> {
+  const register = await requireProjectStore(input.projectId).read();
+  const promptVersion = currentPromptVersion(register);
+  const excludeClaimIds = new Set(input.excludeClaimIds ?? []);
+  return {
+    stale: buildRung(register, "stale", promptVersion, excludeClaimIds),
+    all: buildRung(register, "all", promptVersion, excludeClaimIds),
+    all_including_confirmed: buildRung(
+      register,
+      "all_including_confirmed",
+      promptVersion,
+      excludeClaimIds,
+    ),
+  };
+}
+
 /**
  * The rung the request acts on, validated at the pipeline boundary.
  *
