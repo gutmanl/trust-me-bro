@@ -115,7 +115,10 @@ export function Workbench({
         (entry.routing === "negative_precheck" &&
           mechanicalCaps[entry.claim.id] === undefined)) &&
       entry.claim.status === "pending_adjudication" &&
-      claimRepairSuggestions[entry.claim.id] === undefined,
+      // No suggestion yet, or only an OUTDATED one (older prompt version)
+      // that regeneration would supersede — mirrors
+      // `claimsEligibleForRepairSuggestion`.
+      (claimRepairSuggestions[entry.claim.id]?.outdated ?? true),
   ).length;
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(

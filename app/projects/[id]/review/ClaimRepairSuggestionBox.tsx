@@ -48,6 +48,10 @@ export function ClaimRepairSuggestionBox({
     dismissClaimRepairSuggestionAction.bind(null, projectId, claimId),
     dismissInitial,
   );
+  const [refreshState, refreshAction, refreshPending] = useActionState(
+    requestClaimRepairSuggestionsAction.bind(null, projectId, claimId),
+    requestInitial,
+  );
   const [editing, setEditing] = useState(false);
   const [applyBriefing, setApplyBriefing] = useState(true);
   const [text, setText] = useState(suggestion.suggestedText);
@@ -88,6 +92,34 @@ export function ClaimRepairSuggestionBox({
             {suggestion.briefingRepair}
           </p>
         </div>
+      ) : null}
+      {suggestion.outdated ? (
+        <form
+          action={refreshAction}
+          className="mt-1.5 rounded-md border border-indigo-200 bg-white/60 px-2 py-1.5"
+        >
+          <p className="text-indigo-700">
+            Veralteter Vorschlag: mit einer älteren Vorlagenfassung (v
+            {suggestion.promptVersion}) erzeugt. Ein neu erzeugter Vorschlag
+            kann auch eine korrigierte Briefing-Passage enthalten und ersetzt
+            diesen.
+          </p>
+          <button
+            type="submit"
+            disabled={
+              refreshPending ||
+              (refreshState.queued !== undefined && refreshState.queued > 0)
+            }
+            className="mt-1 rounded-md border border-indigo-300 bg-white px-2 py-1 text-xs font-medium text-indigo-900 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            {refreshPending
+              ? "Wird eingereiht …"
+              : refreshState.queued !== undefined && refreshState.queued > 0
+                ? "Vorschlag wird erzeugt …"
+                : "Aktuellen Vorschlag erzeugen"}
+          </button>
+          <ErrorBanner message={refreshState.error} />
+        </form>
       ) : null}
       {editing ? (
         <form action={applyAction} className="mt-2 space-y-1.5">

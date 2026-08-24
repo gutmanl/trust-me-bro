@@ -344,6 +344,65 @@ describe("mechanical-cap eligibility (automatic list)", () => {
   });
 });
 
+describe("outdated suggestions (older prompt version)", () => {
+  const plantOutdated = async (store: RegisterStore): Promise<void> => {
+    const claim = (await store.read()).claims[0];
+    await store.transaction((tx) => {
+      tx.recordClaimRepairSuggestion({
+        suggestion: {
+          claim_id: "clm_0001",
+          origin: "negative_precheck",
+          suggested_text: "Alte Fassung.",
+          reasoning: "Alt.",
+          prompt_version: "1.1.0",
+          backend: "claude",
+          history_length: claim.history.length,
+        },
+        actor: "system:repair",
+        reason: "Reparaturvorschlag aus der negativen Vorprüfung erzeugt.",
+      });
+    });
+  };
+
+  it("stays visible but is flagged and no longer blocks eligibility", async () => {
+    const store = await projectWithParkedClaim("negative_precheck");
+    await plantOutdated(store);
+    const register = await store.read();
+    const open = deriveOpenClaimRepairSuggestions(register);
+    expect(open).toHaveLength(1);
+    expect(open[0].outdated).toBe(true);
+    expect(claimsEligibleForRepairSuggestion(register)).toEqual(["clm_0001"]);
+  });
+
+  it("regeneration supersedes the outdated suggestion in chain order", async () => {
+    const store = await projectWithParkedClaim("negative_precheck");
+    await plantOutdated(store);
+    const { orchestrator } = mockOrchestrator({
+      suggested_text: "Neue Fassung.",
+      reasoning: "Neu erzeugt.",
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open).toHaveLength(1);
+    expect(open[0].suggestedText).toBe("Neue Fassung.");
+    expect(open[0].outdated).toBe(false);
+  });
+
+  it("a current-version suggestion still blocks regeneration", async () => {
+    const store = await projectWithParkedClaim("negative_precheck");
+    const { orchestrator, jobs } = mockOrchestrator({
+      suggested_text: "Erste Fassung.",
+      reasoning: "Begründung.",
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    expect(jobs()).toHaveLength(1);
+    expect(deriveOpenClaimRepairSuggestions(await store.read())).toHaveLength(
+      1,
+    );
+  });
+});
+
 describe("briefing repair passthrough", () => {
   it("carries the proposed briefing paragraph into the durable suggestion", async () => {
     const store = await projectWithParkedClaim("negative_precheck");

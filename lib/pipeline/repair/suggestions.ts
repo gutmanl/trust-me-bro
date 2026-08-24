@@ -1,4 +1,7 @@
-import { createProjectOrchestrator } from "../../adapters";
+import {
+  createProjectOrchestrator,
+  CURRENT_PROMPT_VERSION,
+} from "../../adapters";
 import type { Orchestrator } from "../../adapters";
 import { getCurrentActor } from "../../identity";
 import type {
@@ -39,6 +42,15 @@ export interface ClaimRepairSuggestionVM {
   evidenceRepairs?: { evidenceId: string; correctedExcerpt: string }[];
   /** Rewritten briefing paragraph carrying the repaired assertion. */
   briefingRepair?: string;
+  /**
+   * The suggestion was generated with an older repair prompt than the
+   * current one — e.g. a pre-1.2.0 suggestion that carries no briefing
+   * passage. Outdated suggestions stay visible (they may still be useful)
+   * but no longer block regeneration: the eligibility check treats the
+   * claim as needing a fresh suggestion, and a newly recorded one
+   * supersedes the old event in chain order.
+   */
+  outdated: boolean;
   promptVersion: string;
   backend: string;
   recordedAt: string;
@@ -109,6 +121,7 @@ export function deriveOpenClaimRepairSuggestions(
       ...(payload.briefing_repair !== undefined
         ? { briefingRepair: payload.briefing_repair }
         : {}),
+      outdated: payload.prompt_version !== CURRENT_PROMPT_VERSION.repair,
       promptVersion: payload.prompt_version,
       backend: payload.backend,
       recordedAt: at,
@@ -124,8 +137,15 @@ export function deriveOpenClaimRepairSuggestions(
 export function claimsEligibleForRepairSuggestion(
   register: Pick<ClaimsRegister, "claims" | "project_events">,
 ): string[] {
+  // An OUTDATED open suggestion (older prompt version, see the VM field)
+  // does not block regeneration: the claim counts as needing a suggestion
+  // again, and the newly recorded event supersedes the old one in chain
+  // order — otherwise a register full of pre-1.2.0 suggestions would never
+  // pick up the briefing passage.
   const open = new Set(
-    deriveOpenClaimRepairSuggestions(register).map((entry) => entry.claimId),
+    deriveOpenClaimRepairSuggestions(register)
+      .filter((entry) => !entry.outdated)
+      .map((entry) => entry.claimId),
   );
   return register.claims
     .filter(
@@ -249,7 +269,9 @@ export async function evaluateClaimRepair(
       claims: tx.listClaims(),
       project_events: tx.listProjectEvents(),
     });
-    if (openNow.some((entry) => entry.claimId === claimId)) {
+    // A CURRENT open suggestion blocks the write; an outdated one is
+    // exactly what this regeneration supersedes.
+    if (openNow.some((entry) => entry.claimId === claimId && !entry.outdated)) {
       return;
     }
     tx.recordClaimRepairSuggestion({
