@@ -6,13 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RegisterStore, verifyChain } from "../../register";
 import type { ClaimsRegister } from "../../register";
-import { RunActiveError } from "../errors";
+import { InvalidProjectInputError, RunActiveError } from "../errors";
 import { createProject } from "../projects";
 import { createJobRunner } from "../runs/job-runner";
 import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
-import { requestClaimRecheck } from "./request-recheck";
+import { requestClaimRecheck, selectClaimsForScope } from "./request-recheck";
+import type { RecheckScope } from "./request-recheck";
+import { loadRubricRuleSet } from "./rubric-rules";
+import { pickUnfinishedClaims } from "./select-claims";
 
 const PROJECT = "proj_nachpruefung";
 const DOCUMENT = Buffer.from("Die Reviewzeit sank von 42 auf 19 Minuten.");
@@ -68,6 +71,135 @@ function busyRunner() {
     { kind: "verification" },
   );
   return runner;
+}
+
+/**
+ * The prompt-template version THIS project's pin resolves — read the way the
+ * production code reads it, so the assertions below keep meaning when the
+ * default rubric version moves. No test in this file names a version string.
+ */
+async function currentPromptVersion(): Promise<string> {
+  const register = await readRegister();
+  return loadRubricRuleSet(register.config.rubric_version)
+    .prompt_template_version;
+}
+
+/** Stamps a claim's calibration with a prompt-template vintage, the way a
+ * real stage-2/3 run does. */
+async function stampVintage(claimId: string, version: string): Promise<void> {
+  await RegisterStore.forProject(PROJECT).transaction((tx) => {
+    tx.setCalibrationResult(claimId, "licensed", "Begründung.", version);
+  });
+}
+
+/**
+ * A claim parked in the adjudication queue with NO structured routing
+ * reason — the P-20 legacy shape. Written by hand because the walk fixture
+ * always sets `routing`, and this is precisely the case that predates the
+ * routing extension.
+ */
+async function parkWithoutRouting(claimId: string): Promise<void> {
+  await RegisterStore.forProject(PROJECT).transaction((tx) => {
+    tx.transitionClaim(claimId, {
+      to: "pending_adjudication",
+      actor: "system:spot_check",
+      reason: "Ohne maschinellen Einordnungsvermerk geparkt (Altbestand).",
+    });
+  });
+}
+
+async function selectIds(
+  scope: RecheckScope,
+  excluded: readonly string[] = [],
+): Promise<string[]> {
+  const register = await readRegister();
+  return selectClaimsForScope(
+    register,
+    scope,
+    await currentPromptVersion(),
+    new Set(excluded),
+  ).claims.map((claim) => claim.id);
+}
+
+async function breakdownFor(
+  scope: RecheckScope,
+  excluded: readonly string[] = [],
+) {
+  const register = await readRegister();
+  return selectClaimsForScope(
+    register,
+    scope,
+    await currentPromptVersion(),
+    new Set(excluded),
+  ).breakdown;
+}
+
+/**
+ * One register covering every disposition the ladder has to tell apart.
+ * Ids are stable (`clm_000N`) so the rung assertions can name exact SETS
+ * rather than counts — a count would pass while selecting the wrong claims.
+ */
+async function seedLadder(): Promise<Record<string, string>> {
+  const staleClaim = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 1,
+    sourceId,
+    status: "prechecked",
+  });
+  const currentClaim = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 2,
+    sourceId,
+    status: "prechecked",
+  });
+  await stampVintage(currentClaim, await currentPromptVersion());
+  const autoConfirmed = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 3,
+    sourceId,
+    status: "auto_confirmed",
+  });
+  const confirmed = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 4,
+    sourceId,
+    status: "confirmed",
+  });
+  const queued = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 5,
+    sourceId,
+    status: "pending_adjudication",
+  });
+  const legacy = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 6,
+    sourceId,
+    status: "auto_confirmed",
+  });
+  await parkWithoutRouting(legacy);
+  const discarded = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 7,
+    sourceId,
+    status: "discarded",
+  });
+  const captured = await addClaimWalkedTo({
+    projectId: PROJECT,
+    claimNumber: 8,
+    sourceId,
+    status: "captured",
+  });
+  return {
+    staleClaim,
+    currentClaim,
+    autoConfirmed,
+    confirmed,
+    queued,
+    legacy,
+    discarded,
+    captured,
+  };
 }
 
 describe("requestClaimRecheck", () => {
@@ -200,7 +332,7 @@ describe("requestClaimRecheck", () => {
     expect(verifyChain(afterSecond).ok).toBe(true);
   });
 
-  it("moves every eligible source status and leaves the rest alone", async () => {
+  it("moves every eligible source status, including a machine-parked one", async () => {
     const eligible = await Promise.all(
       (["existence_checked", "prechecked", "auto_confirmed"] as const).map(
         (status, index) =>
@@ -212,26 +344,199 @@ describe("requestClaimRecheck", () => {
           }),
       ),
     );
-    const midWorkflow = await addClaimWalkedTo({
+    // The FIFTH source status, reachable only through 04-03's widened gate:
+    // a claim a machine parked in the queue WITH a structured routing
+    // reason. Before that widening this claim stayed put; admitting it is
+    // the point of the gate, and RERUN-04's exclusion — not the status —
+    // is what protects a claim the reviewer is working on.
+    const machineParked = await addClaimWalkedTo({
       projectId: PROJECT,
       claimNumber: 9,
       sourceId,
       status: "pending_adjudication",
     });
+    // …and one parked BEFORE the routing extension, which the gate refuses.
+    const legacyParked = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 10,
+      sourceId,
+      status: "auto_confirmed",
+    });
+    await parkWithoutRouting(legacyParked);
 
     const result = await requestClaimRecheck({
       projectId: PROJECT,
-      claimIds: [...eligible, midWorkflow],
+      claimIds: [...eligible, machineParked, legacyParked],
     });
 
-    expect(result.moved).toEqual(eligible);
-    // An ineligible-from-the-start claim is not an exclusion the reviewer
-    // needs explained here — it was never selected. Only a claim that moved
-    // between the read and the lock is reported as raced.
-    expect(result.excluded).toEqual([]);
+    expect(result.moved).toEqual([...eligible, machineParked]);
+    // Excluded, never missing (P-20): the legacy claim is named with its
+    // reason rather than silently absent from a total nobody can reconcile.
+    expect(result.excluded).toEqual([
+      { claimId: legacyParked, reason: "legacy_unrouted" },
+    ]);
     const register = await readRegister();
     expect(
-      register.claims.find((claim) => claim.id === midWorkflow)?.status,
+      register.claims.find((claim) => claim.id === legacyParked)?.status,
     ).toBe("pending_adjudication");
+  });
+
+  it("rejects an unrecognised scope instead of falling through to the widest rung", async () => {
+    await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "confirmed",
+    });
+    const before = await readRegister();
+
+    await expect(
+      requestClaimRecheck({
+        projectId: PROJECT,
+        scope: "everything" as unknown as RecheckScope,
+      }),
+    ).rejects.toBeInstanceOf(InvalidProjectInputError);
+    // Belt and braces: naming both modes at once is the same mistake.
+    await expect(
+      requestClaimRecheck({
+        projectId: PROJECT,
+        claimIds: [],
+        scope: "all",
+      }),
+    ).rejects.toBeInstanceOf(InvalidProjectInputError);
+
+    const after = await readRegister();
+    expect(after.claims.map((claim) => claim.status)).toEqual(
+      before.claims.map((claim) => claim.status),
+    );
+  });
+});
+
+describe("the scope ladder", () => {
+  it("nests three rungs, each a strict superset of the previous", async () => {
+    const ids = await seedLadder();
+
+    const stale = await selectIds("stale");
+    const all = await selectIds("all");
+    const everything = await selectIds("all_including_confirmed");
+
+    // Exact SETS, not counts: a count passes while selecting the wrong
+    // claims, which is the failure the itemisation exists to prevent.
+    expect(stale).toEqual([ids.staleClaim, ids.autoConfirmed, ids.queued]);
+    expect(all).toEqual([
+      ids.staleClaim,
+      ids.currentClaim,
+      ids.autoConfirmed,
+      ids.queued,
+    ]);
+    expect(everything).toEqual([
+      ids.staleClaim,
+      ids.currentClaim,
+      ids.autoConfirmed,
+      ids.confirmed,
+      ids.queued,
+    ]);
+    // The nesting itself, asserted directly rather than inferred from the
+    // three lists above.
+    expect(all).toEqual(expect.arrayContaining(stale));
+    expect(everything).toEqual(expect.arrayContaining(all));
+    expect(stale.length).toBeLessThan(all.length);
+    expect(all.length).toBeLessThan(everything.length);
+  });
+
+  it("keeps a human-confirmed claim off the lower two rungs and on the top one", async () => {
+    const ids = await seedLadder();
+
+    expect(await selectIds("stale")).not.toContain(ids.confirmed);
+    expect(await selectIds("all")).not.toContain(ids.confirmed);
+    expect(await selectIds("all_including_confirmed")).toContain(ids.confirmed);
+    // Rung-definitional, so counted rather than listed per claim.
+    expect((await breakdownFor("all")).human_confirmed).toBe(1);
+    expect(
+      (await breakdownFor("all_including_confirmed")).human_confirmed,
+    ).toBe(0);
+  });
+
+  it("treats an absent calibration vintage as legacy, hence stale", async () => {
+    const ids = await seedLadder();
+    const register = await readRegister();
+    const unstamped = register.claims.find(
+      (claim) => claim.id === ids.staleClaim,
+    );
+
+    expect(unstamped?.calibration_prompt_version).toBeUndefined();
+    expect(await selectIds("stale")).toContain(ids.staleClaim);
+  });
+
+  it("shrinks the stale rung as claims are re-verified under the current version", async () => {
+    const ids = await seedLadder();
+    const before = await selectIds("stale");
+
+    await stampVintage(ids.staleClaim, await currentPromptVersion());
+    const after = await selectIds("stale");
+
+    // The behaviour the UI must render as progress, not as a defect.
+    expect(after.length).toBeLessThan(before.length);
+    expect(after).not.toContain(ids.staleClaim);
+    expect(before).toContain(ids.staleClaim);
+    expect((await breakdownFor("stale")).vintage_current).toBe(2);
+    // …and the wider rungs are unmoved by a vintage change.
+    expect(await selectIds("all")).toContain(ids.staleClaim);
+  });
+
+  it("counts the terminal and legacy groups instead of dropping them", async () => {
+    const ids = await seedLadder();
+
+    const breakdown = await breakdownFor("stale");
+    expect(breakdown.discarded).toBe(1);
+    expect(breakdown.legacy_unrouted).toBe(1);
+    expect(breakdown.vintage_current).toBe(1);
+    expect(breakdown.human_confirmed).toBe(1);
+    expect(breakdown.open_in_workbench).toBe(0);
+    // A `captured` claim is neither selected nor excluded: the sweep was
+    // never going to touch it, and padding the report with claims that were
+    // never in scope is its own kind of unreconcilable count.
+    expect(await selectIds("all_including_confirmed")).not.toContain(
+      ids.captured,
+    );
+  });
+
+  it("moves nothing and appends no bracket event when a rung selects nothing", async () => {
+    await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "captured",
+    });
+    const before = await readRegister();
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "stale",
+    });
+
+    expect(result).toEqual({ moved: [], excluded: [] });
+    const after = await readRegister();
+    expect(after.project_events.length).toBe(before.project_events.length);
+    expect(bracketEvents(after)).toHaveLength(0);
+  });
+
+  it("hands the sweep's claims to the run through pickUnfinishedClaims", async () => {
+    await seedLadder();
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "all_including_confirmed",
+    });
+
+    // The composition IS the resumability (D-08, ROADMAP must-not): the
+    // sweep sets status, and the run's own work set — recomputed from the
+    // register at every start — picks it up. Nothing here enumerates a
+    // list that a crash could strand.
+    const unfinished = pickUnfinishedClaims(await readRegister()).map(
+      (claim) => claim.id,
+    );
+    expect(result.moved.length).toBeGreaterThan(0);
+    expect(unfinished).toEqual(expect.arrayContaining(result.moved));
   });
 });

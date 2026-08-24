@@ -217,7 +217,7 @@ const always: Gate = () => ok;
  * excluded rather than as silently missing from a total nobody can
  * reconcile.
  */
-const machineParkedInAdjudication: Gate = (claim) =>
+export const machineParkedInAdjudication: Gate = (claim) =>
   claim.history.at(-1)?.routing !== undefined
     ? ok
     : fail(

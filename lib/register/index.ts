@@ -35,6 +35,12 @@ export { allExistenceChecksPassed } from "./statemachine/transitions";
 // mirrors the SAME composition when it picks the edge instead of scanning
 // the history a second time in its own words.
 export { autoConfirmableWithoutPriorHumanConfirmation } from "./statemachine/transitions";
+// RERUN-02: the widened `pending_adjudication → recheck_required` gate,
+// exported for the SAME reason as the two predicates above — the re-check
+// selection must ask the gate whether a queued claim qualifies instead of
+// restating its condition, so it can never offer the reviewer a claim the
+// transition would then refuse.
+export { machineParkedInAdjudication } from "./statemachine/transitions";
 export {
   latestJudgmentPerBackend,
   resolveEvidenceRelation,
