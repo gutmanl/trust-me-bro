@@ -540,3 +540,108 @@ describe("the scope ladder", () => {
     expect(unfinished).toEqual(expect.arrayContaining(result.moved));
   });
 });
+
+describe("the claim the reviewer is working on (RERUN-04)", () => {
+  it("removes the excluded id from the sweep and reports it as open in the workbench", async () => {
+    const ids = await seedLadder();
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "all",
+      excludeClaimIds: [ids.autoConfirmed],
+    });
+
+    expect(result.moved).not.toContain(ids.autoConfirmed);
+    expect(result.excluded).toContainEqual({
+      claimId: ids.autoConfirmed,
+      reason: "open_in_workbench",
+    });
+    const register = await readRegister();
+    expect(
+      register.claims.find((claim) => claim.id === ids.autoConfirmed)?.status,
+    ).toBe("auto_confirmed");
+    // The bracket describes what happened, so the excluded claim is not in
+    // it either.
+    expect(
+      bracketEvents(register)[0].reverification_run?.claim_ids,
+    ).not.toContain(ids.autoConfirmed);
+    expect(verifyChain(register).ok).toBe(true);
+  });
+
+  it("reports a doubly-excludable id exactly once, under the displayed group", async () => {
+    const ids = await seedLadder();
+
+    // This claim qualifies for TWO exclusion reasons on the stale rung:
+    // it is human-confirmed AND the reviewer has it open. It must appear
+    // once, and under the group the confirmation actually renders.
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "stale",
+      excludeClaimIds: [ids.confirmed],
+    });
+
+    const appearances = result.excluded.filter(
+      (exclusion) => exclusion.claimId === ids.confirmed,
+    );
+    expect(appearances).toHaveLength(1);
+    expect(appearances[0].reason).toBe("open_in_workbench");
+  });
+
+  it("lets one raced claim cost one claim, not the whole sweep", async () => {
+    const total = 40;
+    const claimIds: string[] = [];
+    for (let index = 1; index <= total; index += 1) {
+      claimIds.push(
+        await addClaimWalkedTo({
+          projectId: PROJECT,
+          claimNumber: index,
+          sourceId,
+          status: "prechecked",
+        }),
+      );
+    }
+    // One claim is drawn into manual review between the use-case's read and
+    // its transaction. Simulated the way the single-claim case is: a store
+    // whose read returns the pre-race register while the transaction sees
+    // the post-race one.
+    const raced = claimIds[17];
+    const store = RegisterStore.forProject(PROJECT);
+    const staleRegister = await store.read();
+    await store.transaction((tx) => {
+      tx.transitionClaim(raced, {
+        to: "auto_confirmed",
+        actor: "system:precheck",
+        reason: "Vorprüfung durchgehend positiv.",
+      });
+      // Parked WITHOUT a routing reason, so the widened gate refuses it and
+      // the in-transaction re-derivation finds it no longer selectable.
+      tx.transitionClaim(raced, {
+        to: "pending_adjudication",
+        actor: "system:spot_check",
+        reason: "Ohne maschinellen Einordnungsvermerk geparkt.",
+      });
+    });
+    const racingStore = Object.create(store) as RegisterStore;
+    racingStore.read = async () => staleRegister;
+    vi.spyOn(RegisterStore, "forProject").mockReturnValue(racingStore);
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "all",
+    });
+    vi.restoreAllMocks();
+
+    expect(result.moved).toHaveLength(total - 1);
+    expect(result.moved).not.toContain(raced);
+    expect(result.excluded).toContainEqual({ claimId: raced, reason: "raced" });
+    const register = await readRegister();
+    // The ids describe what happened, not what was asked for.
+    expect(
+      bracketEvents(register)[0].reverification_run?.claim_ids,
+    ).toHaveLength(total - 1);
+    expect(register.claims.find((claim) => claim.id === raced)?.status).toBe(
+      "pending_adjudication",
+    );
+    expect(verifyChain(register).ok).toBe(true);
+  });
+});

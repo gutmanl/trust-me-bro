@@ -169,10 +169,34 @@ export interface RequestClaimRecheckInput {
   /**
    * Claims the reviewer is working on right now (RERUN-04, D-05).
    *
-   * Can only ever REMOVE claims from a server-derived selection — the
-   * client never sends a list of claims to act on, so a forged value can at
-   * worst under-select. That asymmetry is what makes honouring
-   * unverifiable client state safe here.
+   * WHY THIS IS CLIENT STATE AND NOT REGISTER STATE. The effort timer is a
+   * client-only `useRef` hook (`app/projects/[id]/review/useEffortTimer.ts`)
+   * and the complaint draft is plain `useState`
+   * (`app/projects/[id]/review/ComplaintDialog.tsx:38-39`); the server sees
+   * neither. TrustMeBro is single-user and local-first, so the browser
+   * holding the timer and the draft is the same browser initiating the
+   * sweep — the exclusion belongs where the state already is. The rejected
+   * alternative was a persisted „in Bearbeitung" lease next to
+   * `claims.json` (the `BriefingDraft` precedent): durable state with a
+   * lifecycle nobody owns, whose stale form silently blocks a legitimate
+   * sweep — a failure mode that presents to the user as a bug.
+   *
+   * WHY ONE ID IS ENOUGH. `ComplaintDialog` renders only inside an EXPANDED
+   * card, and `useEffortTimer(selectedClaimId)` is bound to the same value
+   * (`app/projects/[id]/workbench/Workbench.tsx:84,89`). So „the claim with
+   * an open complaint draft" and „the claim with a running effort timer"
+   * are both subsets of the selected claim. Excluding that one id
+   * implements RERUN-04 completely: one prop, no draft-state lifting.
+   *
+   * WHY IT IS SAFE TO HONOUR UNVERIFIABLE CLIENT STATE. This list can only
+   * ever REMOVE claims from a server-derived selection; the client never
+   * sends a list of claims to act on. A forged value can at worst
+   * under-select.
+   *
+   * CONSEQUENCE FOR TESTING. The server half is tested here; RERUN-04's
+   * other half — that the workbench actually passes the selected id — is
+   * only observable at the UI seam, and 04-07 owns that test. A green suite
+   * in `lib/` is therefore not evidence that RERUN-04 ships.
    */
   excludeClaimIds?: readonly string[];
 }
