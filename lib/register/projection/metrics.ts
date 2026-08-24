@@ -34,10 +34,27 @@ export interface ClaimMetricsRow {
    * (RQ3 control, reported separately). */
   is_sample_control: boolean;
   /** Human decisions recorded on this claim (history entries carrying a
-   * decision object). */
+   * decision object). Unchanged by reviewer-triggered re-verification: it
+   * still counts EVERY decision on the claim, including those made after a
+   * re-run (D-09). */
   adjudication_count: number;
-  /** Summed decision.duration_s over all decisions of this claim. */
+  /** Summed decision.duration_s over all decisions of this claim — the
+   * total, never a windowed subset (D-09). */
   adjudication_duration_s: number;
+  /** `adjudication_count` restricted to the decisions recorded BEFORE the
+   * claim's first `reverification_run_started` bracket (reviewer-triggered
+   * re-verification). Equal to `adjudication_count` for a claim that was
+   * never re-run and less than or equal to it otherwise; the difference is
+   * exactly the effort the re-run caused. The pair exists so the RQ3 export
+   * answers both "total effort" and "effort before the first re-run"
+   * without either field having to change meaning — figures already written
+   * up from an earlier export stay comparable (D-09, documented extension,
+   * additive). */
+  first_pass_adjudication_count: number;
+  /** `adjudication_duration_s` over the same pre-re-run window as
+   * `first_pass_adjudication_count`, with the same equal-when-never-re-run
+   * property (D-09, documented extension, additive). */
+  first_pass_adjudication_duration_s: number;
   repair_cycles: number;
   /** Last routing reason INTO pending_adjudication, if any. */
   routing_reason: RoutingReason | null;
@@ -83,6 +100,24 @@ export interface ProjectMetrics {
     still_settled: number;
     routed_negative_relevance: number;
   } | null;
+  /** Reviewer-triggered re-verification (D-16). A pure projection over
+   * `previous_calibrations`, recomputed at every call like everything else
+   * in this module and deliberately never persisted.
+   *
+   * Two ABSOLUTE counts and no ratio, on purpose: a rate here would be read
+   * as an agreement or accuracy rate, and the run-to-run verdict flip floor
+   * measured in Phase 03 (borderline corpus, identical templates, no prompt
+   * change at all) makes that reading false. Do not add a `ratio` field and
+   * do not divide these two in a caller. */
+  reverification: {
+    /** M — claims carrying at least one archived pre-check outcome, i.e.
+     * claims whose pre-check has been redone at least once. */
+    reverified_claims: number;
+    /** N — of those, the ones whose NEWEST archived `calibration_result`
+     * differs from the current one. Compared as enum values, never as
+     * rendered German labels. */
+    changed_result_claims: number;
+  };
   rows: ClaimMetricsRow[];
 }
 
@@ -99,10 +134,56 @@ function isSampleDecision(claim: Claim, decisionEntry: HistoryEntry): boolean {
   return routingBefore?.routing === "spot_check";
 }
 
-function buildRow(claim: Claim): ClaimMetricsRow {
+/**
+ * The `seq` of the EARLIEST `reverification_run_started` event naming each
+ * claim — the boundary D-09's first-pass counterparts are windowed by.
+ *
+ * Built once here rather than inside `buildRow`, which sees only a `Claim`
+ * and therefore cannot reach `register.project_events` at all. The bracket
+ * carries its `claim_ids` explicitly (D-12) precisely so this map does not
+ * have to be reconstructed from a seq window resting on a single-writer
+ * invariant nothing enforces. The EARLIEST bracket wins, so a later sweep
+ * can never shift a window that is already established.
+ */
+function buildFirstRerunSeqByClaimId(
+  register: ClaimsRegister,
+): ReadonlyMap<string, number> {
+  const firstRerunSeq = new Map<string, number>();
+  for (const event of register.project_events) {
+    if (event.event !== "reverification_run_started") {
+      continue;
+    }
+    for (const claimId of event.reverification_run?.claim_ids ?? []) {
+      const known = firstRerunSeq.get(claimId);
+      if (known === undefined || event.seq < known) {
+        firstRerunSeq.set(claimId, event.seq);
+      }
+    }
+  }
+  return firstRerunSeq;
+}
+
+function sumDurationS(entries: readonly HistoryEntry[]): number {
+  return entries.reduce(
+    (sum, entry) => sum + (entry.decision?.duration_s ?? 0),
+    0,
+  );
+}
+
+function buildRow(
+  claim: Claim,
+  firstRerunSeqByClaimId: ReadonlyMap<string, number>,
+): ClaimMetricsRow {
   const decisions = claim.history.filter(
     (entry) => entry.decision !== undefined,
   );
+  const firstRerunSeq = firstRerunSeqByClaimId.get(claim.id);
+  // No bracket names this claim: the first pass IS the whole history, so the
+  // counterparts equal the totals rather than reading zero.
+  const firstPassDecisions =
+    firstRerunSeq === undefined
+      ? decisions
+      : decisions.filter((entry) => entry.seq < firstRerunSeq);
   const sampleDecisions = decisions.filter((entry) =>
     isSampleDecision(claim, entry),
   );
@@ -122,10 +203,9 @@ function buildRow(claim: Claim): ClaimMetricsRow {
       claim.status === "confirmed" || claim.status === "discarded",
     is_sample_control: sampleDecisions.length > 0,
     adjudication_count: decisions.length,
-    adjudication_duration_s: decisions.reduce(
-      (sum, entry) => sum + (entry.decision?.duration_s ?? 0),
-      0,
-    ),
+    adjudication_duration_s: sumDurationS(decisions),
+    first_pass_adjudication_count: firstPassDecisions.length,
+    first_pass_adjudication_duration_s: sumDurationS(firstPassDecisions),
     repair_cycles: countRepairCycles(claim),
     routing_reason: lastRouting?.routing ?? null,
     is_adopted: claim.provenance.origin_project_id !== undefined,
@@ -143,7 +223,10 @@ const SUPPORT_DEGREES: readonly SupportDegree[] = [
 export function computeProjectMetrics(
   register: ClaimsRegister,
 ): ProjectMetrics {
-  const rows = register.claims.map(buildRow);
+  const firstRerunSeqByClaimId = buildFirstRerunSeqByClaimId(register);
+  const rows = register.claims.map((claim) =>
+    buildRow(claim, firstRerunSeqByClaimId),
+  );
 
   const withProven = rows.filter((row) => row.has_proven_evidence).length;
 
@@ -183,6 +266,22 @@ export function computeProjectMetrics(
     }
     if (claimHasSample) {
       sampleClaimIds.push(claim.id);
+    }
+  }
+
+  // D-16: counts, never a rate. A claim is "re-verified" iff it carries an
+  // archived pre-check outcome; it "changed" iff the NEWEST archived
+  // calibration_result differs from the current one. Enum comparison only.
+  let reverifiedClaims = 0;
+  let changedResultClaims = 0;
+  for (const claim of register.claims) {
+    const newestArchived = claim.previous_calibrations?.at(-1);
+    if (newestArchived === undefined) {
+      continue;
+    }
+    reverifiedClaims += 1;
+    if (newestArchived.calibration_result !== claim.calibration_result) {
+      changedResultClaims += 1;
     }
   }
 
@@ -234,6 +333,10 @@ export function computeProjectMetrics(
             ).length,
             routed_negative_relevance: routedNegative,
           },
+    reverification: {
+      reverified_claims: reverifiedClaims,
+      changed_result_claims: changedResultClaims,
+    },
     rows,
   };
 }

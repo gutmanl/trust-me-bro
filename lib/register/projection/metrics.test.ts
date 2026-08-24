@@ -166,3 +166,231 @@ describe("computeProjectMetrics", () => {
     expect(adoptedRow?.routing_reason).toBe("negative_relevance");
   });
 });
+
+/** Minimal project-event shell for a re-run bracket; only `seq`, `event`
+ * and the carried `claim_ids` are load-bearing for the projection. */
+function rerunStarted(
+  seq: number,
+  claimIds: string[],
+): Record<string, unknown> {
+  return {
+    seq,
+    at: "2026-08-02T10:00:00Z",
+    actor: "human:lg",
+    event: "reverification_run_started",
+    reason: "Erneute Prüfung angefordert.",
+    prev_hash: "0".repeat(64),
+    hash: "1".repeat(64),
+    reverification_run: { claim_ids: claimIds },
+  };
+}
+
+/** A decision-carrying history entry at a given seq. */
+function decisionEntry(seq: number, durationS: number) {
+  return entry(seq, {
+    from_status: "pending_adjudication",
+    to_status: "contested",
+    actor: "human:lg",
+    decision: {
+      categories: [],
+      reviewed_evidence_ids: [],
+      duration_s: durationS,
+    },
+  });
+}
+
+/** A claim cloned off the fixture, with a hand-written history. */
+function claimWith(
+  register: ClaimsRegister,
+  id: string,
+  history: Record<string, unknown>[],
+): ClaimsRegister["claims"][number] {
+  const claim = structuredClone(register.claims[0]);
+  claim.id = id;
+  claim.history = history as never;
+  return claim;
+}
+
+function rowOf(register: ClaimsRegister, claimId: string) {
+  const row = computeProjectMetrics(register).rows.find(
+    (candidate) => candidate.claim_id === claimId,
+  );
+  if (!row) {
+    throw new Error(`no row for ${claimId}`);
+  }
+  return row;
+}
+
+describe("computeProjectMetrics: first-pass counterparts (D-09)", () => {
+  it("equals the totals exactly for a claim that was never re-run", () => {
+    const register = baseRegister();
+    register.claims = [
+      claimWith(register, "clm_0010", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(41, 30),
+        decisionEntry(42, 70),
+      ]),
+    ];
+    const row = rowOf(register, "clm_0010");
+    // Strict equality, not merely "both non-zero": the whole point of the
+    // pair is that a never-re-run claim reports the same figure twice.
+    expect(row.adjudication_count).toBe(2);
+    expect(row.first_pass_adjudication_count).toBe(row.adjudication_count);
+    expect(row.adjudication_duration_s).toBe(100);
+    expect(row.first_pass_adjudication_duration_s).toBe(
+      row.adjudication_duration_s,
+    );
+  });
+
+  it("counts only the decisions before the bracket when a re-run split the history", () => {
+    const register = baseRegister();
+    register.claims = [
+      claimWith(register, "clm_0011", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(41, 30),
+        decisionEntry(42, 70),
+        // seq 50 is the bracket.
+        decisionEntry(51, 200),
+      ]),
+    ];
+    register.project_events.push(rerunStarted(50, ["clm_0011"]) as never);
+    const row = rowOf(register, "clm_0011");
+    expect(row.adjudication_count).toBe(3);
+    expect(row.adjudication_duration_s).toBe(300);
+    expect(row.first_pass_adjudication_count).toBe(2);
+    expect(row.first_pass_adjudication_duration_s).toBe(100);
+  });
+
+  it("equals the totals for a re-run claim whose decisions all precede the bracket", () => {
+    const register = baseRegister();
+    register.claims = [
+      claimWith(register, "clm_0012", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(41, 45),
+      ]),
+    ];
+    register.project_events.push(rerunStarted(50, ["clm_0012"]) as never);
+    const row = rowOf(register, "clm_0012");
+    expect(row.first_pass_adjudication_count).toBe(row.adjudication_count);
+    expect(row.first_pass_adjudication_duration_s).toBe(
+      row.adjudication_duration_s,
+    );
+    expect(row.first_pass_adjudication_count).toBe(1);
+  });
+
+  it("uses the EARLIEST bracket when two name the same claim", () => {
+    const register = baseRegister();
+    register.claims = [
+      claimWith(register, "clm_0013", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(41, 10),
+        // Between the two brackets: excluded, because the window is fixed
+        // by the FIRST re-run and a later sweep must not widen it.
+        decisionEntry(61, 500),
+        decisionEntry(71, 700),
+      ]),
+    ];
+    // Deliberately pushed out of order, so a passing test cannot be an
+    // artefact of "the last bracket seen happens to be the earliest".
+    register.project_events.push(rerunStarted(70, ["clm_0013"]) as never);
+    register.project_events.push(rerunStarted(50, ["clm_0013"]) as never);
+    const row = rowOf(register, "clm_0013");
+    expect(row.adjudication_count).toBe(3);
+    expect(row.adjudication_duration_s).toBe(1210);
+    expect(row.first_pass_adjudication_count).toBe(1);
+    expect(row.first_pass_adjudication_duration_s).toBe(10);
+  });
+
+  it("windows only the claims the bracket names", () => {
+    const register = baseRegister();
+    register.claims = [
+      claimWith(register, "clm_0014", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(51, 90),
+      ]),
+      claimWith(register, "clm_0015", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(51, 90),
+      ]),
+    ];
+    register.project_events.push(rerunStarted(50, ["clm_0014"]) as never);
+    expect(rowOf(register, "clm_0014").first_pass_adjudication_count).toBe(0);
+    expect(rowOf(register, "clm_0015").first_pass_adjudication_count).toBe(1);
+  });
+});
+
+describe("computeProjectMetrics: the re-run aggregate (D-16)", () => {
+  it("reads 0 and 0 on a register with no archived pre-check at all", () => {
+    const metrics = computeProjectMetrics(baseRegister());
+    expect(metrics.reverification.reverified_claims).toBe(0);
+    expect(metrics.reverification.changed_result_claims).toBe(0);
+  });
+
+  it("counts as changed only the claims whose NEWEST archived result differs", () => {
+    const register = baseRegister();
+    const archived = (result: string, at: string) => ({
+      calibration_result: result,
+      superseded_at: at,
+    });
+    const changed = claimWith(register, "clm_0020", [
+      entry(40, { from_status: null, to_status: "prechecked" }),
+    ]);
+    changed.calibration_result = "weakened";
+    changed.previous_calibrations = [
+      archived("licensed", "2026-08-02T10:00:00Z"),
+    ] as never;
+    const unchanged = claimWith(register, "clm_0021", [
+      entry(40, { from_status: null, to_status: "prechecked" }),
+    ]);
+    unchanged.calibration_result = "licensed";
+    unchanged.previous_calibrations = [
+      archived("licensed", "2026-08-02T10:00:00Z"),
+    ] as never;
+    // Moved and moved back: the NEWEST archived entry agrees with the
+    // current result, so this claim is re-verified but not changed — the
+    // same judgment the per-claim note makes on the card.
+    const movedBack = claimWith(register, "clm_0022", [
+      entry(40, { from_status: null, to_status: "prechecked" }),
+    ]);
+    movedBack.calibration_result = "licensed";
+    movedBack.previous_calibrations = [
+      archived("licensed", "2026-08-02T10:00:00Z"),
+      archived("weakened", "2026-08-03T10:00:00Z"),
+      archived("licensed", "2026-08-04T10:00:00Z"),
+    ] as never;
+    register.claims = [changed, unchanged, movedBack];
+
+    const metrics = computeProjectMetrics(register);
+    expect(metrics.reverification.reverified_claims).toBe(3);
+    expect(metrics.reverification.changed_result_claims).toBe(1);
+  });
+
+  it("ignores an empty archive array", () => {
+    const register = baseRegister();
+    const claim = claimWith(register, "clm_0023", [
+      entry(40, { from_status: null, to_status: "prechecked" }),
+    ]);
+    claim.previous_calibrations = [];
+    register.claims = [claim];
+    expect(
+      computeProjectMetrics(register).reverification.reverified_claims,
+    ).toBe(0);
+  });
+
+  it("is idempotent: two calls over the same register are deep-equal", () => {
+    const register = baseRegister();
+    const claim = claimWith(register, "clm_0024", [
+      entry(40, { from_status: null, to_status: "prechecked" }),
+      decisionEntry(51, 60),
+    ]);
+    claim.calibration_result = "weakened";
+    claim.previous_calibrations = [
+      { calibration_result: "licensed", superseded_at: "2026-08-02T10:00:00Z" },
+    ] as never;
+    register.claims = [claim];
+    register.project_events.push(rerunStarted(50, ["clm_0024"]) as never);
+    expect(computeProjectMetrics(register)).toEqual(
+      computeProjectMetrics(register),
+    );
+  });
+});
