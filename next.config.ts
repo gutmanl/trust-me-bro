@@ -14,8 +14,13 @@ const nextConfig: NextConfig = {
         // project data. Tracing stays, but never reaches these.
         // scripts/prepare-standalone.mjs prunes the same set again after the
         // copy; the two guards are deliberately redundant.
+        // The key is a route matcher: "*" matches every route, while the
+        // previous "/*" only matched single-segment routes — every deeper
+        // route (e.g. /projects/[id]/workbench) kept tracing the excluded
+        // set in, and the prepare-standalone guard refused to pack whenever
+        // the dev workspace sat under the repo root.
         outputFileTracingExcludes: {
-          "/*": [
+          "*": [
             "**/coverage/**",
             "**/tests/**",
             "**/*.test.ts",
