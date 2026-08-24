@@ -710,4 +710,62 @@ describe("RegisterTransaction.setCalibrationResult rotation", () => {
     // is what makes the previous prose recoverable, not this field.
     expect(rotated.calibration_reasoning).toBe("Erste Begründung.");
   });
+
+  it("refuses to stamp a prompt version onto prose it did not write (WR-07)", async () => {
+    // The half the rotation test above left unasserted. reasoning and
+    // promptTemplateVersion used to be independent optionals, so this call
+    // left calibration_reasoning untouched („omitted = left unchanged")
+    // while overwriting calibration_prompt_version — old prose under a new
+    // vintage, which is precisely what this capability's own doc comment
+    // forbids. In an append-only register wrong metadata is worse than
+    // absent metadata, so the call is refused rather than silently
+    // corrected.
+    await store.transaction((tx) => {
+      tx.setCalibrationResult(
+        "clm_0001",
+        "licensed",
+        "Erste Begründung.",
+        "v1.0.0",
+      );
+    });
+
+    await expect(
+      store.transaction((tx) => {
+        tx.setCalibrationResult("clm_0001", "weakened", undefined, "v2.0.0");
+      }),
+    ).rejects.toThrow(/only be stamped together with the reasoning/);
+
+    // The refusal aborts before any write: the claim still carries the
+    // first verdict, its prose and its matching vintage.
+    const untouched = await claim();
+    expect(untouched.calibration_result).toBe("licensed");
+    expect(untouched.calibration_reasoning).toBe("Erste Begründung.");
+    expect(untouched.calibration_prompt_version).toBe("v1.0.0");
+    expect(untouched.previous_calibrations ?? []).toHaveLength(0);
+  });
+
+  it("clears the stamp when new prose arrives without one", async () => {
+    // The other direction of the same rule: an omitted version alongside
+    // NEW reasoning must not leave the old vintage attached to wording it
+    // never described. Absent, not wrong — and the archive keeps the
+    // old pair intact.
+    await store.transaction((tx) => {
+      tx.setCalibrationResult(
+        "clm_0001",
+        "licensed",
+        "Erste Begründung.",
+        "v1.0.0",
+      );
+    });
+    await store.transaction((tx) => {
+      tx.setCalibrationResult("clm_0001", "weakened", "Zweite Begründung.");
+    });
+
+    const rotated = await claim();
+    expect(rotated.calibration_reasoning).toBe("Zweite Begründung.");
+    expect(rotated.calibration_prompt_version).toBeUndefined();
+    expect(rotated.previous_calibrations?.[0].calibration_prompt_version).toBe(
+      "v1.0.0",
+    );
+  });
 });

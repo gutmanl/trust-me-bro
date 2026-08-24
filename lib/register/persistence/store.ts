@@ -1084,11 +1084,36 @@ function createTransaction(
         ];
       }
       claim.calibration_result = result;
+      // WR-07: the version stamp is bound to the prose it describes.
+      //
+      // The two used to be independent optionals, so a call passing a
+      // version but omitting the reasoning left calibration_reasoning
+      // untouched (by design — "omitted = left unchanged") while
+      // OVERWRITING calibration_prompt_version. The claim then carried old
+      // prose labelled with a new vintage, which is exactly what this
+      // capability's doc comment forbids at length: the stamp is written
+      // here, beside the prose it describes, and in an append-only register
+      // wrong metadata is worse than absent metadata.
+      //
+      // Writing the version unconditionally when the reasoning IS present
+      // is the other half: an omitted version alongside new prose CLEARS
+      // the stamp rather than leaving the old vintage attached to wording
+      // it never described. Absent, not wrong.
+      //
+      // Not reachable from the pipeline today (Stage23Ok.calibration
+      // .reasoning is a required string), but this is the layer that argues
+      // "no call site can forget it", and until now the guarantee did not
+      // hold. A throw rather than a silent correction: the caller has a bug
+      // that only it can resolve, and the alternatives — dropping the stamp
+      // or keeping the stale one — both persist a quiet lie.
       if (reasoning !== undefined) {
         claim.calibration_reasoning = reasoning;
-      }
-      if (promptTemplateVersion !== undefined) {
         claim.calibration_prompt_version = promptTemplateVersion;
+      } else if (promptTemplateVersion !== undefined) {
+        throw new Error(
+          "setCalibrationResult: a prompt template version may only be " +
+            "stamped together with the reasoning it describes",
+        );
       }
       // A second call inside the SAME transaction must supersede the value
       // this one just wrote, not the one the transaction opened with.
