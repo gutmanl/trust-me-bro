@@ -44,6 +44,7 @@ function rung(
     open_in_workbench: number;
     discarded: number;
     legacy_unrouted: number;
+    not_returnable: number;
     human_confirmed: number;
     vintage_current: number;
   }> = {},
@@ -58,6 +59,7 @@ function rung(
       open_in_workbench: 0,
       discarded: 0,
       legacy_unrouted: 0,
+      not_returnable: 0,
       human_confirmed: 0,
       vintage_current: 0,
       ...exclusions,

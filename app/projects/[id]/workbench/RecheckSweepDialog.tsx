@@ -71,6 +71,8 @@ export const SWEEP_COPY = {
   exclusionDiscarded: (d: number): string => `${d} verworfen`,
   exclusionLegacy: (l: number): string =>
     `${l} ohne maschinellen Einordnungsvermerk (aus älteren Prüfläufen)`,
+  exclusionNotReturnable: (n: number): string =>
+    `${n} ohne belegende Fundstelle (eine erneute Prüfung hätte nichts zu prüfen)`,
   exclusionsPrefix: "Nicht einbezogen: ",
   consequencesHeading: "Was dabei passiert",
   consequence1:
@@ -146,6 +148,7 @@ export interface RecheckRungView {
   excludedOpen: number;
   excludedDiscarded: number;
   excludedLegacy: number;
+  excludedNotReturnable: number;
 }
 
 /**
@@ -193,6 +196,7 @@ export function buildRungView(
     excludedOpen: rung.exclusions.open_in_workbench + (reportedAsOpen ? 1 : 0),
     excludedDiscarded: rung.exclusions.discarded,
     excludedLegacy: rung.exclusions.legacy_unrouted,
+    excludedNotReturnable: rung.exclusions.not_returnable,
   };
 }
 
@@ -237,6 +241,9 @@ export function exclusionsLine(view: RecheckRungView): string | null {
   }
   if (view.excludedLegacy > 0) {
     parts.push(SWEEP_COPY.exclusionLegacy(view.excludedLegacy));
+  }
+  if (view.excludedNotReturnable > 0) {
+    parts.push(SWEEP_COPY.exclusionNotReturnable(view.excludedNotReturnable));
   }
   if (parts.length === 0) {
     return null;

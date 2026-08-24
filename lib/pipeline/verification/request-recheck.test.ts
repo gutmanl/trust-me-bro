@@ -64,6 +64,36 @@ function bracketEvents(register: ClaimsRegister) {
   );
 }
 
+/**
+ * A claim with NOTHING to cite: the creation gate routes it straight to
+ * `pending_adjudication` with routing `no_evidence`. This is the CR-01
+ * claim — a structured routing the widened gate admits, and no evidence, so
+ * the single edge back out of `recheck_required` could never be taken.
+ */
+async function addUnevidencedClaim(claimNumber: number): Promise<string> {
+  const claimId = `clm_${String(claimNumber).padStart(4, "0")}`;
+  await RegisterStore.forProject(PROJECT).transaction((tx) => {
+    tx.addClaim({
+      claim: {
+        id: claimId,
+        text: `Die Reviewzeit sank angeblich (${claimNumber}).`,
+        claim_type: "quantitative_finding",
+        briefing_anchor: `p${claimNumber}`,
+        provenance: {
+          tool: "test",
+          model: "test",
+          extracted_at: new Date().toISOString(),
+          search_path: "Test",
+        },
+        evidence: [],
+      },
+      actor: "system:extraction",
+      reason: "Ohne Beleg extrahiert.",
+    });
+  });
+  return claimId;
+}
+
 /** A runner holding the project's single-writer seat for the whole test. */
 function busyRunner() {
   const runner = createJobRunner();
@@ -383,6 +413,103 @@ describe("requestClaimRecheck", () => {
     expect(
       register.claims.find((claim) => claim.id === legacyParked)?.status,
     ).toBe("pending_adjudication");
+  });
+
+  it("refuses a claim with no evidence and names the exclusion (CR-01)", async () => {
+    // The bug this pins: `recheck_required` has exactly ONE outgoing edge
+    // and it is gated on evidence. Admitting an unevidenced claim stranded
+    // it there permanently — no discard edge, no adjudication edge, and an
+    // append-only register, so no repair path anywhere in the app. Worse,
+    // pickUnfinishedClaims re-selected it on EVERY later run, where stage 1
+    // threw and the runner counted a failed item, for the life of the
+    // project.
+    const stranded = await addUnevidencedClaim(1);
+    const healthy = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 2,
+      sourceId,
+      status: "prechecked",
+    });
+    const before = await readRegister();
+    expect(
+      before.claims.find((claim) => claim.id === stranded)?.history.at(-1)
+        ?.routing,
+    ).toBe("no_evidence");
+
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+    for (const scope of [
+      "stale",
+      "all",
+      "all_including_confirmed",
+    ] as const satisfies readonly RecheckScope[]) {
+      expect(preview[scope].claimIds, scope).not.toContain(stranded);
+      // Itemised, never merely absent (P-20): a reviewer shown a number
+      // that quietly dropped a claim reads data loss, not an exclusion.
+      expect(preview[scope].exclusions.not_returnable, scope).toBe(1);
+    }
+
+    // The explicit per-claim path resolves to the widest rung, so it is the
+    // one that would otherwise bypass every rung filter.
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      claimIds: [stranded, healthy],
+    });
+    expect(result.moved).toEqual([healthy]);
+    expect(result.excluded).toEqual([
+      { claimId: stranded, reason: "not_returnable" },
+    ]);
+
+    const after = await readRegister();
+    expect(after.claims.find((claim) => claim.id === stranded)?.status).toBe(
+      "pending_adjudication",
+    );
+    // The claim never enters the work set, so no later run can fail on it.
+    expect(pickUnfinishedClaims(after).map((claim) => claim.id)).not.toContain(
+      stranded,
+    );
+  });
+
+  it("refuses an unevidenced claim on the four unconditional edges too (CR-01)", async () => {
+    // The second reachable shape, which never touches the widened gate:
+    // adoptClaim's gate checks provenance.origin_project_id, not evidence,
+    // so a warm-run adopted claim with nothing to cite sits in `confirmed`
+    // — a member of RECHECK_STATUSES — and takes the UNCONDITIONAL
+    // confirmed → recheck_required edge.
+    const adopted = "clm_0007";
+    await RegisterStore.forProject(PROJECT).transaction((tx) => {
+      tx.adoptClaim({
+        claim: {
+          id: adopted,
+          text: "Die Reviewzeit sank laut Vorprojekt.",
+          claim_type: "quantitative_finding",
+          briefing_anchor: "p7",
+          provenance: {
+            tool: "test",
+            model: "test",
+            extracted_at: new Date().toISOString(),
+            search_path: "Test",
+            origin_project_id: "proj_vorlauf",
+          },
+          evidence: [],
+        },
+        targetStatus: "confirmed",
+        actor: "system:adoption",
+        reason: "Aus Vorprojekt übernommen.",
+      });
+    });
+    const register = await readRegister();
+    expect(register.claims.find((claim) => claim.id === adopted)?.status).toBe(
+      "confirmed",
+    );
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      claimIds: [adopted],
+    });
+    expect(result.moved).toEqual([]);
+    expect(result.excluded).toEqual([
+      { claimId: adopted, reason: "not_returnable" },
+    ]);
   });
 
   it("rejects an unrecognised scope instead of falling through to the widest rung", async () => {
@@ -732,6 +859,7 @@ describe("previewClaimRecheck", () => {
         open_in_workbench: 0,
         discarded: 0,
         legacy_unrouted: 0,
+        not_returnable: 0,
         human_confirmed: 0,
         vintage_current: 0,
       });

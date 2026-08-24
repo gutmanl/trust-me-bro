@@ -41,6 +41,12 @@ export { autoConfirmableWithoutPriorHumanConfirmation } from "./statemachine/tra
 // restating its condition, so it can never offer the reviewer a claim the
 // transition would then refuse.
 export { machineParkedInAdjudication } from "./statemachine/transitions";
+// CR-01: the invariant "admitted into recheck_required ⇒ able to leave it".
+// Exported for the same reason as the gate above — the re-check selection
+// must ask the table whether a claim can come back out, instead of
+// restating the exit edge's condition and drifting from it. A claim that
+// fails this gate has zero outgoing edges once admitted, permanently.
+export { canLeaveRecheck } from "./statemachine/transitions";
 export {
   latestJudgmentPerBackend,
   resolveEvidenceRelation,

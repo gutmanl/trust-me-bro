@@ -64,6 +64,11 @@ describe("public surface of lib/register", () => {
     // restating its condition, so it can never offer the reviewer a claim
     // the transition would then refuse.
     expect(surface.machineParkedInAdjudication).toBeDefined();
+    // CR-01: the "admitted into recheck_required ⇒ able to leave it"
+    // invariant. Public for the same reason — the selection asks the table
+    // rather than restating the exit edge's condition, because a claim that
+    // fails it is stranded permanently once admitted.
+    expect(surface.canLeaveRecheck).toBeDefined();
     // TMB-5: anchor resolution/evidence numbering single-sourced for the
     // markdown projection AND the review UI.
     expect(surface.buildBriefingViewModel).toBeDefined();

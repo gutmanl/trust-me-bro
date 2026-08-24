@@ -116,7 +116,20 @@ function claimAt(status: ClaimStatus, calibration: Calibration = {}): Claim {
       extracted_at: "2026-08-20T08:00:00Z",
       search_path: "Lauf 1",
     },
-    evidence: [],
+    // CR-01: every one of these statuses implies evidence in a real
+    // register — a claim reaches `prechecked` or `confirmed` only by having
+    // some — and `offersRecheck` now mirrors `canLeaveRecheck`, which asks
+    // for exactly that. An empty array here would have made the fixture,
+    // not the component, the thing under test.
+    evidence: [
+      {
+        id: "ev_0001",
+        source_id: "src_0001",
+        locator: { page: 1 },
+        verbatim_excerpt: "Die Reviewzeit sank.",
+        judgments: [],
+      },
+    ],
     history: [
       {
         seq: 1,
@@ -321,6 +334,29 @@ describe("which claims offer a re-run", () => {
     // counts the group by name so it reads as excluded, never as missing.
     expect(offersRecheck(queued())).toBe(false);
     expect(markupOf(queued())).not.toContain(RECHECK_COPY.trigger);
+  });
+
+  it("offers none on a claim with no evidence, whatever its status (CR-01)", () => {
+    // The single edge out of `recheck_required` is gated on evidence, so a
+    // claim with none would be admitted and then stranded there for the
+    // life of the project. The server refuses it — this mirror keeps the
+    // button from inviting the reviewer to find that out by pressing it.
+    const unevidenced = (claim: ClaimMarkerVM["claim"]) =>
+      ({ ...claim, evidence: [] }) as ClaimMarkerVM["claim"];
+    for (const status of [
+      "existence_checked",
+      "prechecked",
+      "auto_confirmed",
+      "confirmed",
+    ] as ClaimStatus[]) {
+      expect(offersRecheck(unevidenced(claimAt(status))), status).toBe(false);
+    }
+    // The reachable shape: extraction yields a claim with nothing to cite,
+    // so it is parked with routing `no_evidence` — a structured routing the
+    // widened gate admits, and the exact claim CR-01 stranded.
+    const noEvidence = unevidenced(queued("no_evidence"));
+    expect(offersRecheck(noEvidence)).toBe(false);
+    expect(markupOf(noEvidence)).not.toContain(RECHECK_COPY.trigger);
   });
 
   it("offers none on a terminal or in-repair claim", () => {

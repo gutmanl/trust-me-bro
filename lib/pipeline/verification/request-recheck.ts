@@ -1,5 +1,5 @@
 import { getCurrentActor } from "../../identity";
-import { machineParkedInAdjudication } from "../../register";
+import { canLeaveRecheck, machineParkedInAdjudication } from "../../register";
 import type { Claim, ClaimsRegister } from "../../register";
 import { InvalidProjectInputError, RunActiveError } from "../errors";
 import { requireProjectStore } from "../projects";
@@ -114,6 +114,12 @@ function isRecheckScope(value: unknown): value is RecheckScope {
  * - `vintage_current` — rung-definitional: the calibration already carries
  *   the version the project's pinned rule set resolves, so `stale` skips it
  *   and P-19's quota is not spent regenerating prose already current.
+ * - `not_returnable` — CR-01: the claim could enter `recheck_required` but
+ *   could never leave it again, because the single edge back out is gated
+ *   on evidence and atomicity and this claim satisfies neither. A
+ *   zero-evidence claim parked by the creation edge is the common shape.
+ *   Itemised for the same P-20 reason as `legacy_unrouted`: the reviewer
+ *   must read it as an exclusion, not as a number that went missing.
  * - `raced` — the claim moved between the pre-lock read and the
  *   transaction, and a human verdict arriving in that window wins. Only the
  *   transaction can observe this, so it never appears in a preview.
@@ -122,6 +128,7 @@ export type RecheckExclusionReason =
   | "open_in_workbench"
   | "discarded"
   | "legacy_unrouted"
+  | "not_returnable"
   | "human_confirmed"
   | "vintage_current"
   | "raced";
@@ -143,7 +150,12 @@ export type RecheckPreviewExclusionReason = Exclude<
  * „nicht vorgemerkt" would turn the honest report into an alarm.
  */
 const ITEMISED_EXCLUSION_REASONS: ReadonlySet<RecheckPreviewExclusionReason> =
-  new Set(["open_in_workbench", "discarded", "legacy_unrouted"]);
+  new Set([
+    "open_in_workbench",
+    "discarded",
+    "legacy_unrouted",
+    "not_returnable",
+  ]);
 
 export interface RecheckExclusion {
   claimId: string;
@@ -236,11 +248,53 @@ export interface RequestClaimRecheckDependencies {
  *   identical by construction.
  */
 export function isRecheckEligible(claim: Claim): boolean {
-  return (
+  return classifyRecheckEligibility(claim) === "eligible";
+}
+
+/**
+ * Base eligibility, resolved to the REASON it failed so the caller can
+ * itemise instead of counting (P-20).
+ *
+ * `null` means "never a candidate and not worth reporting" — `captured`,
+ * `recheck_required`, `contested`, the repair statuses. The sweep was never
+ * going to touch them, so naming them would pad the report with claims that
+ * were never in scope.
+ *
+ * Three sources, all read from their shipped homes so this file can never
+ * select a claim the gate would refuse:
+ * - `RECHECK_STATUSES`, shared with the source-revision and extraction
+ *   writers and aligned edge-for-edge with the transition table;
+ * - the transition table's OWN gate for the fifth source status,
+ *   `pending_adjudication`, widened in 04-03;
+ * - `canLeaveRecheck` (CR-01), which every `* → recheck_required` edge now
+ *   composes — including the four unconditional ones, which is why it is
+ *   asked on the `RECHECK_STATUSES` branch too and not only on the queued
+ *   one. A warm-run adopted claim with no evidence sits in `confirmed`, a
+ *   member of `RECHECK_STATUSES`, and would otherwise be offered and then
+ *   refused at commit.
+ *
+ * Calling the gates rather than restating their conditions is what keeps
+ * "selected" and "takeable" identical by construction.
+ */
+function classifyRecheckEligibility(
+  claim: Claim,
+): "eligible" | "legacy_unrouted" | "not_returnable" | null {
+  const isSourceStatus =
     RECHECK_STATUSES.has(claim.status) ||
-    (claim.status === "pending_adjudication" &&
-      machineParkedInAdjudication(claim).ok)
-  );
+    claim.status === "pending_adjudication";
+  if (!isSourceStatus) {
+    return null;
+  }
+  if (
+    claim.status === "pending_adjudication" &&
+    !machineParkedInAdjudication(claim).ok
+  ) {
+    return "legacy_unrouted";
+  }
+  if (!canLeaveRecheck(claim).ok) {
+    return "not_returnable";
+  }
+  return "eligible";
 }
 
 /**
@@ -282,8 +336,9 @@ export function classifyClaimForRecheck(
   if (claim.status === "discarded") {
     return "discarded";
   }
-  if (!isRecheckEligible(claim)) {
-    return claim.status === "pending_adjudication" ? "legacy_unrouted" : null;
+  const eligibility = classifyRecheckEligibility(claim);
+  if (eligibility !== "eligible") {
+    return eligibility;
   }
   // Ordered BEFORE the rung filters on purpose. `open_in_workbench` is a
   // displayed group; `human_confirmed` and `vintage_current` are not. A
@@ -314,6 +369,7 @@ function emptyBreakdown(): RecheckExclusionBreakdown {
     open_in_workbench: 0,
     discarded: 0,
     legacy_unrouted: 0,
+    not_returnable: 0,
     human_confirmed: 0,
     vintage_current: 0,
   };

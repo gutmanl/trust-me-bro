@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import type { Claim } from "../schema/claim";
 import type { ClaimStatus } from "../schema/enums";
 import type { HistoryEntry } from "../schema/history";
-import { findTransition } from "./transitions";
+import { findTransition, TRANSITIONS } from "./transitions";
 
 const HASH = "a".repeat(64);
 
@@ -52,6 +52,21 @@ function claim(overrides: Partial<Claim> & { status: ClaimStatus }): Claim {
   } as Claim;
 }
 
+/** One minimal piece of evidence. `canLeaveRecheck` (CR-01) only asks
+ * whether ANY exists, so the cheapest shape that satisfies the schema is
+ * the honest fixture for these cases. */
+function someEvidence(): Claim["evidence"] {
+  return [
+    {
+      id: "ev_0001",
+      source_id: "src_0001",
+      locator: { page: 1 },
+      verbatim_excerpt: "Reviewzeit sank",
+      judgments: [],
+    },
+  ] as Claim["evidence"];
+}
+
 /** The gate under test, read off the table rather than imported, so a test
  * cannot pass against a predicate the table no longer uses. */
 function gateFor(
@@ -66,7 +81,7 @@ function gateFor(
   return def.gate;
 }
 
-describe("machineParkedInAdjudication (pending_adjudication → recheck_required)", () => {
+describe("machineParkedAndReturnable (pending_adjudication → recheck_required)", () => {
   const gate = gateFor("pending_adjudication", "recheck_required");
 
   it("admits a claim whose latest entry carries ANY structured routing reason", () => {
@@ -82,6 +97,9 @@ describe("machineParkedInAdjudication (pending_adjudication → recheck_required
       const result = gate(
         claim({
           status: "pending_adjudication",
+          // Evidence, because the gate is composed with canLeaveRecheck
+          // since CR-01. This case is about the routing half.
+          evidence: someEvidence(),
           history: [
             entry({ seq: 1 }),
             entry({
@@ -157,6 +175,112 @@ describe("machineParkedInAdjudication (pending_adjudication → recheck_required
       }),
     );
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("canLeaveRecheck (every * → recheck_required edge)", () => {
+  /**
+   * CR-01. `recheck_required` has exactly ONE outgoing edge and it is gated
+   * on evidence, so any edge that admits a claim which cannot satisfy that
+   * gate strands the claim permanently — there is no discard edge, no
+   * adjudication edge, and the register is append-only.
+   *
+   * Read off the table per edge rather than asserted against an imported
+   * predicate: the point of the pin is that no `* → recheck_required` edge
+   * can be added or re-gated without satisfying the implication, and
+   * tests/architecture.test.ts pins edges with no `gate` key at all.
+   */
+  const SOURCE_STATUSES = [
+    "existence_checked",
+    "prechecked",
+    "auto_confirmed",
+    "confirmed",
+    "pending_adjudication",
+  ] as const satisfies readonly ClaimStatus[];
+
+  /** The routing entry `pending_adjudication` additionally needs; harmless
+   * on the four unconditional edges. */
+  function parkedHistory(): HistoryEntry[] {
+    return [
+      entry({ seq: 1 }),
+      entry({
+        seq: 2,
+        from_status: "prechecked",
+        to_status: "pending_adjudication",
+        actor: "system:precheck",
+        routing: "no_evidence",
+      }),
+    ];
+  }
+
+  it("covers every edge into recheck_required — no source status is missed", () => {
+    // Guards the list above against a future edge: if one is added, this
+    // fails rather than silently leaving the new edge unpinned.
+    const fromTable = TRANSITIONS.filter(
+      (def) => def.to === "recheck_required",
+    ).map((def) => def.from);
+    expect(new Set(fromTable)).toEqual(new Set(SOURCE_STATUSES));
+  });
+
+  it("refuses a claim with no evidence on EVERY edge", () => {
+    for (const status of SOURCE_STATUSES) {
+      const result = gateFor(
+        status,
+        "recheck_required",
+      )(claim({ status, evidence: [], history: parkedHistory() }));
+      expect(result.ok, `${status} → recheck_required must refuse`).toBe(false);
+      expect(result.ok === false && result.reason).toContain(
+        "could not return from recheck_required",
+      );
+    }
+  });
+
+  it("refuses a non-atomic claim on EVERY edge — the exit gate checks that too", () => {
+    // canLeaveRecheck is hasEvidence itself, not a re-worded evidence test,
+    // precisely so the two cannot drift on this second half.
+    for (const status of SOURCE_STATUSES) {
+      const result = gateFor(
+        status,
+        "recheck_required",
+      )(
+        claim({
+          status,
+          text: "Die Reviewzeit sank messbar. Die Fehlerquote stieg deutlich an.",
+          evidence: someEvidence(),
+          history: parkedHistory(),
+        }),
+      );
+      expect(result.ok, `${status} → recheck_required must refuse`).toBe(false);
+    }
+  });
+
+  it("admits an evidenced claim on EVERY edge — the gate narrows nothing else", () => {
+    for (const status of SOURCE_STATUSES) {
+      const result = gateFor(
+        status,
+        "recheck_required",
+      )(claim({ status, evidence: someEvidence(), history: parkedHistory() }));
+      expect(result, `${status} → recheck_required must admit`).toEqual({
+        ok: true,
+      });
+    }
+  });
+
+  it("is exactly the gate of the one edge back out, so admission implies exit", () => {
+    // The implication itself, asserted rather than argued: whatever any
+    // inbound edge admits, recheck_required → captured must also admit.
+    const exit = gateFor("recheck_required", "captured");
+    for (const status of SOURCE_STATUSES) {
+      for (const evidence of [[], someEvidence()] as Claim["evidence"][]) {
+        const subject = claim({ status, evidence, history: parkedHistory() });
+        if (gateFor(status, "recheck_required")(subject).ok) {
+          expect(
+            exit(claim({ ...subject, status: "recheck_required" })).ok,
+            `${status} admitted a claim recheck_required → captured refuses`,
+          ).toBe(true);
+        }
+      }
+    }
   });
 });
 

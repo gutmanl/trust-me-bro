@@ -537,6 +537,21 @@ const RECHECK_ELIGIBLE_STATUSES: ReadonlySet<ClaimStatus> = new Set([
  * and both sides reject it alike.
  */
 export function offersRecheck(claim: ClaimMarkerVM["claim"]): boolean {
+  // CR-01. Mirrors `canLeaveRecheck`: the single edge back out of
+  // `recheck_required` is gated on evidence, so a claim with none would be
+  // admitted and then stranded there forever. This is NOT the
+  // too-generous-is-safe case the comment above describes — the server does
+  // refuse it, but only after the button has invited the reviewer to press
+  // it, and on the zero-evidence claims of the adjudication queue that is
+  // the most inviting button on the card.
+  //
+  // The atomicity half of the real gate is deliberately NOT mirrored: it
+  // lives in `isAtomicClaimText`, which this client component cannot
+  // runtime-import, and THAT residue is the safe direction — a shade too
+  // generous costs a verbatim German refusal, never a wrong write.
+  if (claim.evidence.length === 0) {
+    return false;
+  }
   if (RECHECK_ELIGIBLE_STATUSES.has(claim.status)) {
     return true;
   }

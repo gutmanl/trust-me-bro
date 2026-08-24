@@ -226,6 +226,60 @@ export const machineParkedInAdjudication: Gate = (claim) =>
       );
 
 /**
+ * Admission into `recheck_required` implies the ability to LEAVE it again.
+ *
+ * `recheck_required` has exactly one outgoing edge — `recheck_required →
+ * captured` — and that edge is gated on `hasEvidence`. A claim admitted
+ * into `recheck_required` that cannot satisfy `hasEvidence` therefore has
+ * ZERO takeable outgoing edges, permanently: there is no discard edge, no
+ * adjudication edge, and the register is append-only, so no repair path
+ * exists anywhere in the app. `pickUnfinishedClaims` keeps re-selecting the
+ * claim on every later run, where stage 1 throws `GateRejectedError` and
+ * the runner counts the item as failed — for the rest of the project's
+ * life.
+ *
+ * Two shapes reach that state, which is why the invariant lives HERE, at
+ * the table, rather than at the call sites that would each have to
+ * remember it:
+ * - a zero-evidence claim parked by the creation edge `null →
+ *   pending_adjudication` (routing `no_evidence`), admitted by
+ *   `machineParkedInAdjudication` since that gate was widened from
+ *   `existence_check_failed` to "any structured routing". The old predicate
+ *   excluded these by construction — a claim can only FAIL an existence
+ *   check if it has evidence to check — and the widening dropped that
+ *   accident of scope without replacing it;
+ * - a warm-run adopted claim carrying no evidence, which lands directly in
+ *   `confirmed` (`isAdopted` checks `provenance.origin_project_id`, not
+ *   evidence) and takes the UNCONDITIONAL `confirmed → recheck_required`
+ *   edge. This one never touches `machineParkedInAdjudication` at all,
+ *   which is why the four unconditional edges carry the gate too.
+ *
+ * Deliberately `hasEvidence` itself rather than a re-worded evidence test:
+ * the whole point is that this predicate and the exit edge's gate can never
+ * drift apart. That includes the atomicity half — a non-atomic claim cannot
+ * leave `recheck_required` either, so it must not be let in.
+ * `transitions.test.ts` pins the implication for EVERY `* →
+ * recheck_required` edge.
+ */
+export const canLeaveRecheck: Gate = (claim) => {
+  const out = hasEvidence(claim);
+  return out.ok
+    ? ok
+    : fail(`claim could not return from recheck_required: ${out.reason}`);
+};
+
+/**
+ * The `pending_adjudication → recheck_required` gate: machine-parked AND
+ * able to come back out. Composed rather than inlined so the two halves
+ * keep reporting their own reasons — a caller itemising exclusions needs to
+ * tell „parked before the routing extension" from „has no evidence".
+ */
+const machineParkedAndReturnable: Gate = (claim) => {
+  const parked = machineParkedInAdjudication(claim);
+  return parked.ok ? canLeaveRecheck(claim) : parked;
+};
+
+/**
  * Adoption edges of the warm run (TMB-43) are only takeable by claims that
  * actually carry adoption provenance — a structural, self-enforcing check:
  * normal extraction can never mint a pre-confirmed claim because its claims
@@ -403,25 +457,25 @@ export const TRANSITIONS: TransitionDef[] = [
     from: "existence_checked",
     to: "recheck_required",
     actorKind: "system",
-    gate: always,
+    gate: canLeaveRecheck,
   },
   {
     from: "prechecked",
     to: "recheck_required",
     actorKind: "system",
-    gate: always,
+    gate: canLeaveRecheck,
   },
   {
     from: "auto_confirmed",
     to: "recheck_required",
     actorKind: "system",
-    gate: always,
+    gate: canLeaveRecheck,
   },
   {
     from: "confirmed",
     to: "recheck_required",
     actorKind: "system",
-    gate: always,
+    gate: canLeaveRecheck,
   },
   // Machine-parked claims (source correction, then reviewer-triggered
   // re-verification): a claim a MACHINE put into the queue was never a
@@ -438,7 +492,7 @@ export const TRANSITIONS: TransitionDef[] = [
     from: "pending_adjudication",
     to: "recheck_required",
     actorKind: "system",
-    gate: machineParkedInAdjudication,
+    gate: machineParkedAndReturnable,
   },
   // Re-entry after recheck: always the full cascade from stage 1 —
   // the revised source text can invalidate any stage's determination, and
