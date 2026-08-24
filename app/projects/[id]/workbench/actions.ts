@@ -11,12 +11,13 @@ import {
   getBriefing,
   publishBriefingRevision,
   readProject,
+  requestClaimRecheck,
   saveBriefingDraft,
   startSourceExtraction,
   startUnevidencedExtraction,
   startVerification,
 } from "@/lib/pipeline";
-import type { CitationRewriteReport } from "@/lib/pipeline";
+import type { CitationRewriteReport, RecheckScope } from "@/lib/pipeline";
 
 /**
  * Server actions of the unified workbench. Everything the page mutates goes
@@ -248,4 +249,59 @@ export async function startVerificationAction(
   }
   revalidateWorkbench(projectId);
   return { error: null };
+}
+
+export interface SweepFormState {
+  error: string | null;
+  /** How many claims the transaction actually moved. Present only on a
+   * successful request, which is also the dialog's signal to close. */
+  moved?: number;
+  /** How many the sweep reported as skipped, with a reason. Shown in the
+   * bar's success line so a count discrepancy the reviewer noticed in the
+   * itemisation is answered rather than left to be read as data loss. */
+  excluded?: number;
+}
+
+/**
+ * The project-wide sweep (RERUN-02/04): marks every claim the chosen rung
+ * selects for Nachprüfung, minus the one the reviewer has open.
+ *
+ * It starts no run. „Vorgemerkt" is the whole outcome; the reviewer's next
+ * „KI-Prüfung starten" — the button directly beside this one — is what
+ * re-checks them, which is why the two halves live in the same bar.
+ *
+ * THE SCOPE IS NOT VALIDATED HERE, ON PURPOSE. `requestClaimRecheck`
+ * validates it at the pipeline boundary as a three-value union and REFUSES
+ * an unknown value rather than falling through to a default — and the
+ * default it would fall through to is the widest rung, the one that
+ * un-confirms human decisions. A second check here would be a second
+ * predicate that can drift from the first; the cast says „untrusted, the
+ * boundary owns it".
+ *
+ * `RunActiveError` is never caught and rewritten: whatever `PipelineError`
+ * comes back reaches the dialog's ErrorBanner verbatim through
+ * `runPipelineAction`, because a press that produces nothing visible is the
+ * failure RERUN-07 names.
+ */
+export async function requestClaimRecheckSweepAction(
+  projectId: string,
+  _previous: SweepFormState,
+  formData: FormData,
+): Promise<SweepFormState> {
+  const scope = String(formData.get("scope") ?? "") as RecheckScope;
+  const excluded = formData.get("exclude_claim_id");
+  const excludeClaimIds =
+    typeof excluded === "string" && excluded.length > 0 ? [excluded] : [];
+  const result = await runPipelineAction(() =>
+    requestClaimRecheck({ projectId, scope, excludeClaimIds }),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidateWorkbench(projectId);
+  return {
+    error: null,
+    moved: result.value.moved.length,
+    excluded: result.value.excluded.length,
+  };
 }
