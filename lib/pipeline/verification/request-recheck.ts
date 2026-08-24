@@ -111,6 +111,16 @@ function isRecheckScope(value: unknown): value is RecheckScope {
  * - `human_confirmed` — rung-definitional: excluded from `stale` and `all`
  *   because a sweep that silently un-confirms what a reviewer decided is
  *   the failure D-11 and SC4 both circle.
+ * - `never_prechecked` — rung-definitional (WR-01): the claim has no
+ *   calibration result at all, so there is no „Vorprüfung" for the two
+ *   vintage rungs to be talking about. Both their labels („Nur veraltete
+ *   Vorprüfungen", „Alle vorgeprüften Aussagen") and `consequence1`
+ *   („Die bisherige Bewertung … werden überschrieben und archiviert") are
+ *   simply false for such a claim, and counting it inflated the number the
+ *   forcing step made the reviewer type.  The top rung still takes them:
+ *   it is the escalation rung, and the explicit per-claim path resolves to
+ *   it, so a reviewer who NAMES an `existence_checked` claim still gets
+ *   the re-check RERUN-01 promises on its card.
  * - `vintage_current` — rung-definitional: the calibration already carries
  *   the version the project's pinned rule set resolves, so `stale` skips it
  *   and P-19's quota is not spent regenerating prose already current.
@@ -130,6 +140,7 @@ export type RecheckExclusionReason =
   | "legacy_unrouted"
   | "not_returnable"
   | "human_confirmed"
+  | "never_prechecked"
   | "vintage_current"
   | "raced";
 
@@ -144,10 +155,11 @@ export type RecheckPreviewExclusionReason = Exclude<
  * The three groups the confirmation's exclusions line names („{o} gerade
  * geöffnet, {d} verworfen, {l} ohne maschinellen Einordnungsvermerk").
  *
- * `human_confirmed` and `vintage_current` are counted in the breakdown but
- * NOT listed per claim: they are what the chosen rung MEANS, the rung's own
- * label already says them, and listing a hundred current-vintage claims as
- * „nicht vorgemerkt" would turn the honest report into an alarm.
+ * `human_confirmed`, `never_prechecked` and `vintage_current` are counted
+ * in the breakdown but NOT listed per claim: they are what the chosen rung
+ * MEANS, the rung's own label already says them, and listing a hundred
+ * current-vintage claims as „nicht vorgemerkt" would turn the honest
+ * report into an alarm.
  */
 const ITEMISED_EXCLUSION_REASONS: ReadonlySet<RecheckPreviewExclusionReason> =
   new Set([
@@ -351,6 +363,17 @@ export function classifyClaimForRecheck(
   if (claim.status === "confirmed" && scope !== "all_including_confirmed") {
     return "human_confirmed";
   }
+  // WR-01. Ordered AFTER `human_confirmed` deliberately: both exclude the
+  // claim from these two rungs, and „bereits bestätigt" is the reason that
+  // tells the reviewer which rung WOULD take it.
+  //
+  // `calibration_result` is the stage-3 verdict and the `preCheckComplete`
+  // gate requires it, so its absence is exactly „never pre-checked" — and
+  // not the same thing as an absent VINTAGE, which legitimately means
+  // „pre-checked before we recorded the stamp" and must stay stale.
+  if (scope !== "all_including_confirmed" && !claim.calibration_result) {
+    return "never_prechecked";
+  }
   if (scope === "stale" && claim.calibration_prompt_version === promptVersion) {
     return "vintage_current";
   }
@@ -371,6 +394,7 @@ function emptyBreakdown(): RecheckExclusionBreakdown {
     legacy_unrouted: 0,
     not_returnable: 0,
     human_confirmed: 0,
+    never_prechecked: 0,
     vintage_current: 0,
   };
 }

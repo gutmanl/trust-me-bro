@@ -777,6 +777,86 @@ describe("the claim the reviewer is working on (RERUN-04)", () => {
   });
 });
 
+describe("the two vintage rungs require a Vorprüfung to exist (WR-01)", () => {
+  /**
+   * Rung 1 is labelled „Nur veraltete Vorprüfungen" and rung 2 „Alle
+   * vorgeprüften Aussagen". A claim that has never been pre-checked has no
+   * `calibration_prompt_version`, which the stale rule reads as „legacy,
+   * therefore stale" — correct for prose written before the stamp existed,
+   * but not for prose that was never written at all. Both rungs then
+   * selected it, both labels lied, `consequence1` lied, and the inflated
+   * count fed `forcingTarget`: on a fresh project rung 1 offered the whole
+   * corpus.
+   */
+  it("excludes an existence_checked claim from stale and all, keeps it on the top rung", async () => {
+    const neverPrechecked = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "existence_checked",
+    });
+    const prechecked = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 2,
+      sourceId,
+      status: "prechecked",
+    });
+
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+    for (const scope of ["stale", "all"] as const) {
+      expect(preview[scope].claimIds, scope).toEqual([prechecked]);
+      expect(preview[scope].exclusions.never_prechecked, scope).toBe(1);
+    }
+    // The escalation rung still takes it, so the ladder stays nested and
+    // the claim is reachable without leaving the dialog.
+    expect(preview.all_including_confirmed.claimIds).toEqual([
+      neverPrechecked,
+      prechecked,
+    ]);
+    expect(preview.all_including_confirmed.exclusions.never_prechecked).toBe(0);
+  });
+
+  it("still re-checks a never-pre-checked claim the reviewer NAMES", async () => {
+    // RERUN-01 draws the button on an `existence_checked` card, and the
+    // explicit path resolves to the top rung precisely so a named claim is
+    // never filtered by a rung it did not choose.
+    const neverPrechecked = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "existence_checked",
+    });
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      claimIds: [neverPrechecked],
+    });
+    expect(result.moved).toEqual([neverPrechecked]);
+  });
+
+  it("keeps an ABSENT vintage stale when a pre-check really happened", async () => {
+    // The distinction the fix turns on: no calibration_result means „never
+    // pre-checked"; a calibration_result with no version stamp means
+    // „pre-checked before D-03 recorded the vintage", which is legacy and
+    // must stay stale. Conflating the two would have silently dropped every
+    // pre-D-03 claim out of the rung built for exactly them.
+    const legacyVintage = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "prechecked",
+    });
+    const register = await readRegister();
+    const claim = register.claims.find((c) => c.id === legacyVintage);
+    expect(claim?.calibration_result).toBeDefined();
+    expect(claim?.calibration_prompt_version).toBeUndefined();
+
+    const preview = await previewClaimRecheck({ projectId: PROJECT });
+    expect(preview.stale.claimIds).toEqual([legacyVintage]);
+    expect(preview.stale.exclusions.never_prechecked).toBe(0);
+  });
+});
+
 describe("previewClaimRecheck", () => {
   it("agrees with the request it precedes, because both call one predicate", async () => {
     await seedLadder();
@@ -861,6 +941,7 @@ describe("previewClaimRecheck", () => {
         legacy_unrouted: 0,
         not_returnable: 0,
         human_confirmed: 0,
+        never_prechecked: 0,
         vintage_current: 0,
       });
     }
