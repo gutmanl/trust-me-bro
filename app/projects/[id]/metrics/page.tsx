@@ -158,6 +158,61 @@ export default async function MetricsPage(
         </p>
       </section>
 
+      {/* Reviewer-triggered re-verification (D-16). TWO ABSOLUTE COUNTS,
+          never a ratio: no percentage, no formatPercent, no progress bar,
+          no denominator as headline. A percentage here would be read as an
+          agreement or accuracy rate, and the run-to-run verdict flip floor
+          measured in Phase 03 — identical templates, no prompt change —
+          makes that reading false. Slate like its neighbours; no colour
+          semantics and no severity chip, because a re-run count is not a
+          warning.
+
+          Layout (checker recommendation 2): the hint LEADS, and the two
+          counts are full-width stacked rows with the number sitting
+          immediately after its own label rather than in a shared right-hand
+          column. Side by side they would invite the division the contract
+          bans; column-aligned above one another they would read as a
+          fraction. Offset by their differently-long labels, each row reads
+          as one standalone sentence — "erneut geprüfte Aussagen: 12" — and
+          there is no axis along which to divide them. */}
+      <section className="rounded-md border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-700">
+          Erneute Prüfungen
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Zählt Aussagen, deren Vorprüfung nach einer erneuten Prüfung ein
+          anderes Ergebnis ergeben hat. Die Zahl beschreibt, wie stabil einzelne
+          Vorprüfungen sind – nicht die Qualität des Projekts oder seiner
+          Quellen.
+        </p>
+        {metrics.reverification.reverified_claims === 0 ? (
+          // No re-run in the project: the empty line, and no tile markup at
+          // all. Two zeroes would read as a result that was measured.
+          <p className="mt-3 text-xs text-slate-600">
+            Noch keine erneute Prüfung in diesem Projekt.
+          </p>
+        ) : (
+          <dl className="mt-3 space-y-2">
+            <div className="flex items-baseline gap-2 rounded-md bg-slate-50 px-3 py-2">
+              <dt className="text-xs text-slate-500">
+                erneut geprüfte Aussagen
+              </dt>
+              <dd className="text-lg font-semibold">
+                {metrics.reverification.reverified_claims}
+              </dd>
+            </div>
+            <div className="flex items-baseline gap-2 rounded-md bg-slate-50 px-3 py-2">
+              <dt className="text-xs text-slate-500">
+                mit abweichendem Ergebnis
+              </dt>
+              <dd className="text-lg font-semibold">
+                {metrics.reverification.changed_result_claims}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </section>
+
       {metrics.warm_run ? (
         <section className="rounded-md border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-700">
