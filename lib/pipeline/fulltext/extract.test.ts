@@ -78,3 +78,22 @@ describe("extractFullText for text formats and unknowns", () => {
     );
   });
 });
+
+describe("the Math.sumPrecise polyfill (pdf.js dependency)", () => {
+  // unpdf's bundled pdf.js calls Math.sumPrecise, which Node <= 24 does not
+  // ship; extract-pdf.ts installs a compensated polyfill on load. Native
+  // implementations satisfy both assertions too, so this stays green once
+  // Node ships the proposal.
+  const sumPrecise = (
+    Math as Math & { sumPrecise?: (values: Iterable<number>) => number }
+  ).sumPrecise;
+
+  it("is available once the PDF extractor is loaded", () => {
+    expect(typeof sumPrecise).toBe("function");
+  });
+
+  it("sums with compensation, not naive addition", () => {
+    // Naive left-to-right addition returns 0 here; a precise sum returns 1.
+    expect(sumPrecise?.([1e100, 1, -1e100])).toBe(1);
+  });
+});

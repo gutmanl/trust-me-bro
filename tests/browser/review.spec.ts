@@ -225,10 +225,20 @@ test.describe("the re-verification sweep", () => {
     }).toPass({ timeout: 15_000 });
   }
 
-  /** The narrowest rung's displayed count, read off its own radio label. */
-  async function staleRungTotal(page: Page): Promise<number> {
+  /**
+   * The escalation rung's displayed count, read off its own radio label.
+   *
+   * The top rung rather than the stale one, deliberately: post-WR-01 the
+   * two vintage rungs require an existing Vorprüfung, and the seeded claims
+   * honestly have none — stage 1 either proved their quote or queued them
+   * unchecked. Only the escalation rung selects them in a browser, so the
+   * client-side interactions are exercised there; the vintage rungs'
+   * arithmetic is proven in
+   * lib/pipeline/verification/request-recheck.test.ts.
+   */
+  async function topRungTotal(page: Page): Promise<number> {
     const label = await page
-      .getByText(/Nur veraltete Vorprüfungen \(\d+\)/)
+      .getByText(/Auch bestätigte Aussagen \(\d+\)/)
       .innerText();
     const match = /\((\d+)\)/.exec(label);
     expect(match).not.toBeNull();
@@ -240,6 +250,10 @@ test.describe("the re-verification sweep", () => {
   }) => {
     await page.goto(projectUrl);
     await openSweep(page);
+    // The default (stale) rung is empty for this register — see
+    // topRungTotal — and an empty rung renders no submit at all, so the
+    // forcing step is exercised on the escalation rung.
+    await page.getByText("Auch bestätigte Aussagen").click();
 
     const submit = page.getByRole("button", { name: /^Erneut prüfen \(/ });
     // 1 — nothing typed yet.
@@ -281,7 +295,8 @@ test.describe("the re-verification sweep", () => {
     // Both numbers are read from the same page in the same run, so the
     // assertion cannot drift with the seeded corpus.
     await openSweep(page);
-    const withNothingOpen = await staleRungTotal(page);
+    await page.getByText("Auch bestätigte Aussagen").click();
+    const withNothingOpen = await topRungTotal(page);
     expect(withNothingOpen).toBeGreaterThan(0);
     await page.getByRole("button", { name: "Abbrechen" }).click();
 
@@ -290,8 +305,9 @@ test.describe("the re-verification sweep", () => {
     // complaint draft can only exist inside it.
     await openClaim(page, "clm_0002");
     await openSweep(page);
+    await page.getByText("Auch bestätigte Aussagen").click();
 
-    expect(await staleRungTotal(page)).toBe(withNothingOpen - 1);
+    expect(await topRungTotal(page)).toBe(withNothingOpen - 1);
     await expect(
       page.getByText(/Nicht einbezogen:.*gerade geöffnet/),
     ).toBeVisible();

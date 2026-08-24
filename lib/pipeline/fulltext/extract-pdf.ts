@@ -3,6 +3,33 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { TextExtractionTimeoutError } from "../errors";
 import { raceTimeout } from "../timeout";
 
+/** unpdf's bundled pdf.js calls `Math.sumPrecise` (TC39 proposal) in its font
+ * code. Chromium ships it, but Node 24 and below do not, so extracting a PDF
+ * that exercises font subsetting throws `TypeError: Math.sumPrecise is not a
+ * function` on every supported Node version (engines: >= 20.9). Polyfilled
+ * here — the single sanctioned pdf.js entry point — rather than globally,
+ * because only pdf.js needs it. Neumaier-compensated so the "precise sum"
+ * contract actually holds instead of silently degrading to naive addition. */
+const patchableMath = Math as Math & {
+  sumPrecise?: (values: Iterable<number>) => number;
+};
+if (typeof patchableMath.sumPrecise !== "function") {
+  patchableMath.sumPrecise = (values: Iterable<number>): number => {
+    let sum = 0;
+    let compensation = 0;
+    for (const value of values) {
+      const t = sum + value;
+      if (Math.abs(sum) >= Math.abs(value)) {
+        compensation += sum - t + value;
+      } else {
+        compensation += value - t + sum;
+      }
+      sum = t;
+    }
+    return sum + compensation;
+  };
+}
+
 /** Time budget for parsing one PDF. unpdf (pdf.js) has no internal bound and
  * can spin indefinitely on a malformed cross-reference table or content
  * stream — a small crafted file is enough — so the parse must be capped from

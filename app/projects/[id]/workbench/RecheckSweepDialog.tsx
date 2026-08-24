@@ -454,7 +454,13 @@ export function RecheckSweepDialog({
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        {/* Sticky within Modal's max-h-[80vh] scroll area: on a short
+            viewport (the mobile browser project) the itemisation and the
+            consequences push the actions below the fold, and the phase's
+            own criterion is that the submit is reachable without scrolling
+            past it. Solid background and hairline keep scrolled-past copy
+            from showing through. */}
+        <div className="sticky bottom-0 -mx-4 flex items-center gap-2 border-t border-slate-200 bg-white px-4 py-3">
           {empty ? null : (
             <button
               type="submit"
