@@ -30,6 +30,11 @@ export { isAtomicClaimText } from "./statemachine/atomicity";
 // the transition table remain the sole authority at commit time.
 export { evaluateAutoConfirmation } from "./statemachine/auto-confirmation";
 export { allExistenceChecksPassed } from "./statemachine/transitions";
+// SC4 of the reviewer-triggered re-verification: the composed gate of the
+// prechecked → auto_confirmed edge. Exported so the verification pipeline
+// mirrors the SAME composition when it picks the edge instead of scanning
+// the history a second time in its own words.
+export { autoConfirmableWithoutPriorHumanConfirmation } from "./statemachine/transitions";
 export {
   latestJudgmentPerBackend,
   resolveEvidenceRelation,

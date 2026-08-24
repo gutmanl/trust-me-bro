@@ -124,8 +124,57 @@ const preCheckComplete: Gate = (claim) => {
  */
 const autoConfirmable: Gate = (claim) => evaluateAutoConfirmation(claim);
 
+/**
+ * The gate of the `prechecked → auto_confirmed` edge: the machine verdict
+ * must be clean AND no human may ever have confirmed this claim.
+ *
+ * The second half is the rule a re-run makes necessary. A confirmed claim can
+ * be pulled back into the cascade (source revision, or a reviewer's re-check
+ * request), and it then walks `captured → … → prechecked` like any other. If
+ * the fresh machine verdict happens to be clean, the bare
+ * `evaluateAutoConfirmation` predicate would let the machine re-confirm what
+ * a human already decided. This register is the attribution trail the
+ * thesis's RQ3 export cites: a machine overwriting a recorded human decision
+ * is a repudiation defect, not a convenience. A re-run verdict on such a
+ * claim therefore always returns to the reviewer.
+ *
+ * Composed HERE, at the edge, rather than folded into
+ * `evaluateAutoConfirmation` — deliberately. That predicate is exported and
+ * also read by the verification pipeline to choose WHICH edge to take, and it
+ * answers exactly one question: "is the machine verdict clean?". Widening it
+ * would silently change the source-revision path's meaning of a clean
+ * verdict as well, a behaviour change beyond this rule. It keeps its meaning;
+ * the edge composes.
+ *
+ * Enforced at the table, so no call site can bypass it. The pipeline mirrors
+ * the composition when it picks the edge (see run-verification.ts) — if the
+ * two disagreed, the pipeline would pick `auto_confirmed` and be refused at
+ * commit, turning a policy into a crash.
+ */
+export const autoConfirmableWithoutPriorHumanConfirmation: Gate = (claim) => {
+  const humanConfirmation = claim.history.find(
+    (entry) =>
+      entry.to_status === "confirmed" && entry.actor.startsWith("human:"),
+  );
+  if (humanConfirmation) {
+    return fail(
+      `claim was confirmed by ${humanConfirmation.actor} at ` +
+        `${humanConfirmation.at}; a re-run verdict returns to the reviewer ` +
+        "instead of being automatically confirmed again",
+    );
+  }
+  return autoConfirmable(claim);
+};
+
+/**
+ * The exact complement of the edge gate above, NOT of `autoConfirmable` —
+ * the two must stay complementary or a claim that neither can admit is
+ * stranded in `prechecked` with no outgoing edge. A human-confirmed claim
+ * whose re-run verdict is clean is precisely that case: it must land in
+ * adjudication.
+ */
 const notAutoConfirmable: Gate = (claim) =>
-  autoConfirmable(claim).ok
+  autoConfirmableWithoutPriorHumanConfirmation(claim).ok
     ? fail("claim qualifies for automatic confirmation, not adjudication")
     : ok;
 
@@ -243,7 +292,7 @@ export const TRANSITIONS: TransitionDef[] = [
     from: "prechecked",
     to: "auto_confirmed",
     actorKind: "system",
-    gate: autoConfirmable,
+    gate: autoConfirmableWithoutPriorHumanConfirmation,
   },
   {
     from: "prechecked",

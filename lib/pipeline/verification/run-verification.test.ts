@@ -569,4 +569,72 @@ describe("re-verification loop", () => {
       ),
     ).toHaveLength(2);
   });
+
+  it("returns a human-confirmed claim's clean re-run verdict to the reviewer, without a gate crash (SC4)", async () => {
+    await createTestProject();
+    await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));
+    await runVerification({
+      rubric: {
+        calibration_result: "licensed",
+        reasoning: "Der Beleg trägt die Aussage in dieser Stärke.",
+      },
+    });
+    const claimId = (await readRegister()).claims[0].id;
+
+    // Walk the claim to a real HUMAN confirmation: a spot check pulls it
+    // back, the reviewer confirms. This is the decision the re-run must not
+    // overwrite.
+    await RegisterStore.forProject(PROJECT).transaction((tx) => {
+      tx.transitionClaim(claimId, {
+        to: "pending_adjudication",
+        actor: "system:spot_check",
+        reason: "Stichprobenkontrolle.",
+        routing: "spot_check",
+      });
+      tx.transitionClaim(claimId, {
+        to: "confirmed",
+        actor: "human:lg",
+        reason: "Geprüft und bestätigt.",
+        decision: {
+          categories: [],
+          reviewed_evidence_ids: [tx.getClaim(claimId).evidence[0].id],
+          duration_s: 45,
+        },
+      });
+    });
+
+    const requested = await requestClaimRecheck({
+      projectId: PROJECT,
+      claimIds: [claimId],
+    });
+    expect(requested.moved).toEqual([claimId]);
+
+    // The SAME clean verdict as the first run. Before SC4 this re-confirmed
+    // the claim automatically; the machine must now hand it back.
+    const handle = await runVerification({
+      rubric: {
+        calibration_result: "licensed",
+        reasoning: "Der Beleg trägt die Aussage in dieser Stärke.",
+      },
+    });
+    // No item failed — the pipeline's edge choice and the table's gate agree.
+    // If they disagreed, the transaction would abort with a
+    // GateRejectedError and this count would be 1.
+    expect((await handle.done).failed).toBe(0);
+
+    const register = await readRegister();
+    const claim = register.claims[0];
+    expect(claim.status).toBe("pending_adjudication");
+    expect(claim.status).not.toBe("auto_confirmed");
+    // The stage-2/3 facts committed, so the transaction ran to the end
+    // rather than being rolled back by a rejected gate.
+    expect(claim.calibration_result).toBe("licensed");
+    expect(claim.previous_calibrations).toHaveLength(1);
+    // The German routing reason names the human decision that closed the
+    // auto-confirmation edge, so the queue says WHY this is back here.
+    const latest = claim.history[claim.history.length - 1];
+    expect(latest.to_status).toBe("pending_adjudication");
+    expect(latest.reason).toContain("human:lg");
+    expect(verifyChain(register).ok).toBe(true);
+  });
 });

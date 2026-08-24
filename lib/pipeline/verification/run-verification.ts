@@ -1,7 +1,7 @@
 import type { Orchestrator } from "../../adapters";
 import { buildProjectOrchestrator } from "../runs/build-orchestrator";
 import { loadAdapterConfig } from "../../identity";
-import { evaluateAutoConfirmation } from "../../register";
+import { autoConfirmableWithoutPriorHumanConfirmation } from "../../register";
 import type { ClaimsRegister, RegisterStore, Source } from "../../register";
 import { VerificationPreconditionError } from "../errors";
 import {
@@ -443,7 +443,13 @@ async function applyPreCheckResult(
           ? " (mechanisches Minimum des Bewertungsschemas verletzt)."
           : "."),
     });
-    const verdict = evaluateAutoConfirmation(tx.getClaim(claimId));
+    // The SAME predicate the prechecked → auto_confirmed gate applies, not
+    // the bare evaluateAutoConfirmation: a claim a human already confirmed
+    // must not be picked for auto_confirmed here, or the table refuses it at
+    // commit and an SC4 policy surfaces as a GateRejectedError (D-15).
+    const verdict = autoConfirmableWithoutPriorHumanConfirmation(
+      tx.getClaim(claimId),
+    );
     if (verdict.ok) {
       tx.transitionClaim(claimId, {
         to: "auto_confirmed",
