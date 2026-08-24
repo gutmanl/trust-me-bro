@@ -38,7 +38,11 @@ export {
   ProjectEvent,
   Revision,
 } from "./history";
-export { Claim, Provenance } from "./claim";
+// `CalibrationSnapshot` is public because the display tier reads it: the
+// claim card's verdict-changed note projects over `previous_calibrations`
+// and must name the archived triple's fields by type. 04-01 added the schema
+// but not this line, so the type was unreachable from `@/lib/register`.
+export { CalibrationSnapshot, Claim, Provenance } from "./claim";
 export {
   BackendRef,
   BriefingImport,
