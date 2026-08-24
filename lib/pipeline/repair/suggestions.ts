@@ -9,7 +9,12 @@ import type {
 import { routedRepairable } from "../../register";
 import { PipelineError } from "../errors";
 import { requireProjectStore } from "../projects";
-import { buildRepairCritique, buildRepairJob } from "./run-repair";
+import { deriveMechanicalCaps } from "../verification/mechanical-cap";
+import {
+  anchoredBriefingParagraph,
+  buildRepairCritique,
+  buildRepairJob,
+} from "./run-repair";
 
 /**
  * Verdict-driven repair suggestions: durable, machine-generated repair
@@ -32,6 +37,8 @@ export interface ClaimRepairSuggestionVM {
   suggestedText: string;
   reasoning: string;
   evidenceRepairs?: { evidenceId: string; correctedExcerpt: string }[];
+  /** Rewritten briefing paragraph carrying the repaired assertion. */
+  briefingRepair?: string;
   promptVersion: string;
   backend: string;
   recordedAt: string;
@@ -99,6 +106,9 @@ export function deriveOpenClaimRepairSuggestions(
             })),
           }
         : {}),
+      ...(payload.briefing_repair !== undefined
+        ? { briefingRepair: payload.briefing_repair }
+        : {}),
       promptVersion: payload.prompt_version,
       backend: payload.backend,
       recordedAt: at,
@@ -133,7 +143,21 @@ export async function claimsNeedingRepairSuggestionForProject(
   projectId: string,
 ): Promise<string[]> {
   const register = await requireProjectStore(projectId).read();
-  return claimsEligibleForRepairSuggestion(register);
+  // The AUTOMATIC list additionally skips mechanically capped
+  // negative-precheck claims: no wording can lift a verdict the rule set
+  // caps, so an unasked-for suggestion would only spend quota and a repair
+  // cycle to land exactly where it started. The per-claim button bypasses
+  // this deliberately — an explicit request is the reviewer's own call, and
+  // the card warns beside it. Failed-quote claims stay in: their excerpt
+  // repair is meaningful regardless of the cap.
+  const caps = deriveMechanicalCaps(register);
+  return claimsEligibleForRepairSuggestion(register).filter((claimId) => {
+    const claim = register.claims.find((candidate) => candidate.id === claimId);
+    return !(
+      claim?.history.at(-1)?.routing === "negative_precheck" &&
+      caps[claimId] !== undefined
+    );
+  });
 }
 
 export interface ClaimRepairEvaluationDeps {
@@ -177,6 +201,7 @@ export async function evaluateClaimRepair(
     store.projectDir,
     claim,
     (sourceId) => sourcesById.get(sourceId)?.custom.source_type,
+    anchoredBriefingParagraph(projectId, register, claimId),
   );
   const orchestrator =
     deps.orchestrator ?? createProjectOrchestrator(register.config);
@@ -204,6 +229,9 @@ export async function evaluateClaimRepair(
             corrected_excerpt: repair.corrected_excerpt,
           })),
         }
+      : {}),
+    ...(outcome.output.briefing_repair !== undefined
+      ? { briefing_repair: outcome.output.briefing_repair }
       : {}),
     prompt_version: job.prompt.version,
     backend: register.config.backends.primary.cli,

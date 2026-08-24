@@ -5,6 +5,7 @@ import { Fragment } from "react";
 import { SuccessBanner } from "@/app/components/ui";
 import type {
   ClaimRepairSuggestionVM,
+  MechanicalCapVM,
   BriefingViewModel,
   EvidenceDisplay,
   QueueEntry,
@@ -34,6 +35,7 @@ export function BriefingReadView({
   queue,
   evidenceDisplay,
   claimRepairSuggestions,
+  mechanicalCaps,
   selectedClaimId,
   selectedEvidenceId,
   hoveredParagraph,
@@ -46,6 +48,7 @@ export function BriefingReadView({
   queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
   claimRepairSuggestions: Record<string, ClaimRepairSuggestionVM>;
+  mechanicalCaps: Record<string, MechanicalCapVM>;
   selectedClaimId: string | null;
   selectedEvidenceId: string | null;
   hoveredParagraph: number | null;
@@ -127,6 +130,7 @@ export function BriefingReadView({
                       selectedEvidenceId={selectedEvidenceId}
                       evidenceDisplay={evidenceDisplay}
                       repairSuggestion={claimRepairSuggestions[marker.claim.id]}
+                      mechanicalCap={mechanicalCaps[marker.claim.id]}
                       currentSeconds={currentSeconds}
                       onSelect={onSelectClaim}
                       paragraphs={paragraphOptions}
@@ -162,6 +166,7 @@ export function BriefingReadView({
                 selectedEvidenceId={selectedEvidenceId}
                 evidenceDisplay={evidenceDisplay}
                 repairSuggestion={claimRepairSuggestions[marker.claim.id]}
+                mechanicalCap={mechanicalCaps[marker.claim.id]}
                 currentSeconds={currentSeconds}
                 onSelect={onSelectClaim}
                 showAnchor

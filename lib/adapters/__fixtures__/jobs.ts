@@ -72,6 +72,7 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
   repair: {
     claim: exampleClaim,
     evidence: [exampleEvidence],
+    briefing_paragraph: "Reviews reduzieren die Fehlerdichte immer deutlich.",
     complaint: {
       origin: "human",
       categories: ["claim_not_derivable"],

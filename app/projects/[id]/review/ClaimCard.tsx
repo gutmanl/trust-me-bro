@@ -12,6 +12,7 @@ import type {
   ClaimRepairSuggestionVM,
   Evidence,
   EvidenceDisplay,
+  MechanicalCapVM,
 } from "@/lib/pipeline";
 import type {
   CalibrationResult,
@@ -57,6 +58,38 @@ import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
 import { ROUTING_LABELS, routingSupersededByVerdict } from "./routing-labels";
 
+/** German prose for the violated mechanical rule(s) — app-tier copy over
+ * the structured VM, mirroring the label-map convention. */
+function describeMechanicalCap(cap: MechanicalCapVM): string {
+  const parts: string[] = [];
+  for (const violation of cap.violations) {
+    if (violation === "min_pertinent_sources") {
+      parts.push(
+        "Das Bewertungsschema verlangt für diesen Aussagetyp mindestens " +
+          `${cap.rule.min_pertinent_sources} unabhängige einschlägige ` +
+          `Quelle${cap.rule.min_pertinent_sources === 1 ? "" : "n"} – ` +
+          `vorhanden: ${cap.pertinentSources}.`,
+      );
+    } else if (violation === "required_source_types_any") {
+      parts.push(
+        "Keine der einschlägigen Quellen hat einen der vom Schema " +
+          "geforderten Quellentypen.",
+      );
+    } else if (violation === "min_source_type_diversity") {
+      parts.push(
+        "Die einschlägigen Quellen erreichen nicht die geforderte " +
+          `Typenvielfalt (${cap.rule.min_source_type_diversity}).`,
+      );
+    } else {
+      parts.push(
+        "Alle einschlägigen Quellen fallen in Typen, die allein nicht " +
+          "ausreichen.",
+      );
+    }
+  }
+  return parts.join(" ");
+}
+
 /**
  * A claim as a margin card beside its anchor paragraph. Collapsed: identity,
  * status, routing reason and the evidence numbers. Selected, it expands in
@@ -81,6 +114,7 @@ export function ClaimCard({
   paragraphs,
   anchoredParagraph,
   repairSuggestion,
+  mechanicalCap,
 }: {
   projectId: string;
   marker: ClaimMarkerVM;
@@ -101,6 +135,9 @@ export function ClaimCard({
   /** Open machine-generated repair suggestion for this claim
    * (verdict-driven repair) — rendered above the complaint dialog. */
   repairSuggestion?: ClaimRepairSuggestionVM;
+  /** Why this claim's verdict is mechanically capped, when it is
+   * (verdict-driven repair) — rendered inside the pre-check disclosure. */
+  mechanicalCap?: MechanicalCapVM;
 }) {
   const { claim } = marker;
   // The repair panel is reachable for a contested claim (all three repairs)
@@ -259,6 +296,20 @@ export function ClaimCard({
                   </div>
                 ) : null}
               </dl>
+              {/* Verdict-driven repair: the cap that decided this verdict.
+                  Without this line the card shows a „abschwächen"-verdict
+                  beside prose that may say no weakening is needed — the
+                  mechanical rule is the missing third voice, and it also
+                  says what actually unlocks the claim. */}
+              {mechanicalCap !== undefined &&
+              claim.calibration_result === "weakened" ? (
+                <p className="border-t border-slate-100 px-3 py-2 text-xs text-slate-600">
+                  <span className="font-medium">Mechanisch begrenzt: </span>
+                  {describeMechanicalCap(mechanicalCap)} Eine Umformulierung
+                  kann dieses Urteil nicht anheben – es braucht weitere Belege
+                  oder Ihre Entscheidung in der Adjudikation.
+                </p>
+              ) : null}
               {/* Between the enum rows and the CURRENT reasoning, never in
                   the header row above: the header is where the status,
                   verdict, routing and anchor chips live, and this must never
@@ -315,6 +366,7 @@ export function ClaimCard({
             <RequestClaimRepairSuggestion
               projectId={projectId}
               claimId={claim.id}
+              capped={mechanicalCap !== undefined}
             />
           ) : null}
           {claim.status === "pending_adjudication" ? (

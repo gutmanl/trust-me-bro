@@ -23,5 +23,11 @@ export const RepairOutput = z.strictObject({
     )
     .min(1)
     .optional(),
+  /** Rewritten briefing paragraph (verdict-driven repair, prompt v1.2.0):
+   * the anchored passage reformulated so it carries the repaired claim —
+   * applied, on the reviewer's accept, as an ordinary audited briefing
+   * revision. Optional; absent when the input carried no paragraph or the
+   * passage needs no change. */
+  briefing_repair: z.string().min(1).optional(),
 });
 export type RepairOutput = z.infer<typeof RepairOutput>;

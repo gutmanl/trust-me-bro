@@ -271,6 +271,10 @@ export const ClaimRepairSuggestion = z.strictObject({
     )
     .min(1)
     .optional(),
+  /** Rewritten briefing paragraph carrying the repaired assertion
+   * (verdict-driven repair); applied only ever as an audited briefing
+   * revision on the reviewer's accept (documented extension, additive). */
+  briefing_repair: z.string().min(1).optional(),
   prompt_version: z.string().min(1),
   backend: z.string().min(1),
   history_length: z.int().min(1),

@@ -114,12 +114,26 @@ export function loadRubricRuleSet(rubricVersion: string): RubricRuleSet {
  * partially_supports), one entry per source. Pure — the caller derives the
  * list from the register.
  */
-export function evaluateMechanicalRubric(
+export type MechanicalViolation =
+  | "min_pertinent_sources"
+  | "required_source_types_any"
+  | "min_source_type_diversity"
+  | "insufficient_if_only";
+
+/**
+ * Every violated condition, not just the first (verdict-driven repair): the
+ * cap display and the repair-suggestion eligibility need to SAY which rule
+ * failed, which a bare met/not_met cannot. `evaluateMechanicalRubric` stays
+ * the run-time verdict and is defined on top of this list, so the two can
+ * never disagree.
+ */
+export function evaluateMechanicalViolations(
   pertinentSourceTypes: readonly SourceType[],
   rule: ClaimTypeRule,
-): "met" | "not_met" {
+): MechanicalViolation[] {
+  const violations: MechanicalViolation[] = [];
   if (pertinentSourceTypes.length < rule.min_pertinent_sources) {
-    return "not_met";
+    violations.push("min_pertinent_sources");
   }
   if (
     rule.required_source_types_any &&
@@ -127,13 +141,13 @@ export function evaluateMechanicalRubric(
       rule.required_source_types_any?.includes(type),
     )
   ) {
-    return "not_met";
+    violations.push("required_source_types_any");
   }
   if (
     rule.min_source_type_diversity !== undefined &&
     new Set(pertinentSourceTypes).size < rule.min_source_type_diversity
   ) {
-    return "not_met";
+    violations.push("min_source_type_diversity");
   }
   if (
     rule.insufficient_if_only &&
@@ -141,9 +155,18 @@ export function evaluateMechanicalRubric(
       rule.insufficient_if_only?.includes(type),
     )
   ) {
-    return "not_met";
+    violations.push("insufficient_if_only");
   }
-  return "met";
+  return violations;
+}
+
+export function evaluateMechanicalRubric(
+  pertinentSourceTypes: readonly SourceType[],
+  rule: ClaimTypeRule,
+): "met" | "not_met" {
+  return evaluateMechanicalViolations(pertinentSourceTypes, rule).length > 0
+    ? "not_met"
+    : "met";
 }
 
 /**

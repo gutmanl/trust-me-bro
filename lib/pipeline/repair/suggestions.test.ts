@@ -176,7 +176,7 @@ describe("evaluateClaimRepair", () => {
       claimId: "clm_0001",
       origin: "negative_precheck",
       suggestedText: "Reviews können die Fehlerdichte reduzieren.",
-      promptVersion: "1.1.0",
+      promptVersion: "1.2.0",
       backend: "claude",
     });
     expect((await store.verify()).ok).toBe(true);
@@ -317,5 +317,46 @@ describe("the verdict-driven repair door", () => {
         source: "manuell",
       }),
     ).rejects.toThrow(RepairPreconditionError);
+  });
+});
+
+describe("mechanical-cap eligibility (automatic list)", () => {
+  // The fixture claims have NO pertinent sources (their evidence carries no
+  // resolved relation), so every rule with min_pertinent_sources >= 1 caps
+  // them — exactly the state the automatic list must skip for
+  // negative_precheck routings while keeping failed-quote claims in.
+  it("skips a capped negative-precheck claim but keeps a failed-quote claim", async () => {
+    await projectWithParkedClaim("negative_precheck");
+    const { claimsNeedingRepairSuggestionForProject } =
+      await import("./suggestions");
+    expect(await claimsNeedingRepairSuggestionForProject(PROJECT_ID)).toEqual(
+      [],
+    );
+  });
+
+  it("keeps an existence_check_failed claim despite the cap", async () => {
+    await projectWithParkedClaim("existence_check_failed");
+    const { claimsNeedingRepairSuggestionForProject } =
+      await import("./suggestions");
+    expect(await claimsNeedingRepairSuggestionForProject(PROJECT_ID)).toEqual([
+      "clm_0001",
+    ]);
+  });
+});
+
+describe("briefing repair passthrough", () => {
+  it("carries the proposed briefing paragraph into the durable suggestion", async () => {
+    const store = await projectWithParkedClaim("negative_precheck");
+    const { orchestrator } = mockOrchestrator({
+      suggested_text: "Abschwächung.",
+      reasoning: "Begründung.",
+      briefing_repair: "Der Absatz, neu formuliert um die Abschwächung.",
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open[0].briefingRepair).toBe(
+      "Der Absatz, neu formuliert um die Abschwächung.",
+    );
+    expect((await store.verify()).ok).toBe(true);
   });
 });

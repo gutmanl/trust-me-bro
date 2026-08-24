@@ -109,6 +109,10 @@ export interface RubricInput {
 export interface RepairInput {
   readonly claim: ClaimContext;
   readonly evidence: readonly EvidenceContext[];
+  /** The briefing paragraph the claim anchors to, verbatim — the passage a
+   * `briefing_repair` proposal would replace (verdict-driven repair). Null
+   * for an unanchored claim, where no passage rewrite is possible. */
+  readonly briefing_paragraph: string | null;
   /** The critique driving the repair (verdict-driven repair): a human
    * complaint (origin "human", always at least one category — the
    * adjudication dialog's multi-select, TMB-35), or the machine's own

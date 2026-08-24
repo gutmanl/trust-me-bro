@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ConnectionLostNotice } from "@/app/components/ui";
 import { useProjectEvents } from "@/app/lib/ProjectEventStream";
 import type {
+  MechanicalCapVM,
   BriefingDraft,
   BriefingViewModel,
   EvidenceDisplay,
@@ -48,6 +49,7 @@ export function Workbench({
   queue,
   evidenceDisplay,
   claimRepairSuggestions,
+  mechanicalCaps,
   counts,
   totalClaims,
   openExistenceCount,
@@ -75,6 +77,8 @@ export function Workbench({
   /** Open verdict-driven repair suggestions, keyed by claim id
    * (verdict-driven repair). */
   claimRepairSuggestions: Record<string, ClaimRepairSuggestionVM>;
+  /** Mechanical verdict caps, keyed by claim id (verdict-driven repair). */
+  mechanicalCaps: Record<string, MechanicalCapVM>;
   counts: Record<ClaimStatus, number>;
   totalClaims: number;
   openExistenceCount: number;
@@ -103,8 +107,13 @@ export function Workbench({
   // register populated before the automatic generation existed.
   const repairSuggestionCandidates = queue.filter(
     (entry) =>
-      (entry.routing === "negative_precheck" ||
-        entry.routing === "existence_check_failed") &&
+      (entry.routing === "existence_check_failed" ||
+        // A capped negative-precheck claim is skipped by the automatic
+        // list (no wording can lift its verdict) — subtract it here too,
+        // or the button would promise more suggestions than the backfill
+        // queues.
+        (entry.routing === "negative_precheck" &&
+          mechanicalCaps[entry.claim.id] === undefined)) &&
       entry.claim.status === "pending_adjudication" &&
       claimRepairSuggestions[entry.claim.id] === undefined,
   ).length;
@@ -216,6 +225,7 @@ export function Workbench({
           queue={queue}
           evidenceDisplay={evidenceDisplay}
           claimRepairSuggestions={claimRepairSuggestions}
+          mechanicalCaps={mechanicalCaps}
           selectedClaimId={selectedClaimId}
           selectedEvidenceId={selectedEvidenceId}
           hoveredParagraph={hoveredParagraph}

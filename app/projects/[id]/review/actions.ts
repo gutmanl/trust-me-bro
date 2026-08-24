@@ -9,6 +9,7 @@ import {
   decideClaim,
   discardClaim,
   dismissClaimRepairSuggestion,
+  enqueueAnchorRepair,
   enqueueClaimRepairEvaluations,
   proposeRepair,
   repairBriefingPassage,
@@ -82,6 +83,9 @@ export interface ApplyRepairFormState {
   error: string | null;
   applied?: boolean;
   reentryTarget?: string;
+  /** Verdict-driven repair: the claim half applied but the briefing half
+   * did not — the German precondition explains why. */
+  briefingError?: string;
 }
 
 /** The accepted excerpt corrections, carried as one hidden JSON field
@@ -172,6 +176,26 @@ export async function applyRepairAction(
     "vorschlag_uebernommen" | "vorschlag_angepasst" | "manuell";
   const proposedText = String(formData.get("proposed_text") ?? "");
   const excerptRepairs = parseExcerptRepairs(formData);
+  // Verdict-driven repair: the briefing half runs FIRST — applying the
+  // claim opportunistically starts a verification run below, and a running
+  // run blocks publishBriefingRevision. Its failure never blocks the claim
+  // half (operator decision 2026-08-24): the German precondition travels
+  // back beside the applied state instead.
+  const briefingRepair = String(formData.get("briefing_repair") ?? "").trim();
+  const applyBriefing = formData.get("apply_briefing") === "on";
+  let briefingError: string | undefined;
+  if (briefingRepair !== "" && applyBriefing) {
+    const briefingResult = await runPipelineAction(() =>
+      repairBriefingPassage(projectId, claimId, briefingRepair),
+    );
+    if (briefingResult.error !== null) {
+      briefingError = briefingResult.error;
+    } else {
+      // The rewrite usually removes the very wording old anchor quotes bind
+      // to — give orphaned quotes their bounded fuzzy re-anchor attempt.
+      enqueueAnchorRepair(projectId);
+    }
+  }
   const result = await runPipelineAction(() =>
     applyRepair(projectId, claimId, {
       newText,
@@ -181,7 +205,10 @@ export async function applyRepairAction(
     }),
   );
   if (result.error !== null) {
-    return { error: result.error };
+    return {
+      error: result.error,
+      ...(briefingError !== undefined ? { briefingError } : {}),
+    };
   }
   if (result.value.reentryTarget !== "pending_adjudication") {
     try {
@@ -197,11 +224,18 @@ export async function applyRepairAction(
       }
     }
   }
-  revalidatePath(`/projects/${projectId}`);
+  // On a partial apply the revalidation is deliberately skipped: it would
+  // re-render the card, unmount the suggestion box and take the briefing
+  // error (and the proposal text needed for a later manual apply) with it.
+  // The stale card is one navigation away; the explanation is not.
+  if (briefingError === undefined) {
+    revalidatePath(`/projects/${projectId}`);
+  }
   return {
     error: null,
     applied: true,
     reentryTarget: result.value.reentryTarget,
+    ...(briefingError !== undefined ? { briefingError } : {}),
   };
 }
 
@@ -272,6 +306,10 @@ export async function repairBriefingPassageAction(
   if (result.error !== null) {
     return { error: result.error };
   }
+  // Gap fix (verdict-driven repair): the manual passage repair never
+  // triggered the fuzzy sweep, unlike the editor publish — a rewritten
+  // passage is exactly the case where anchor quotes stop resolving.
+  enqueueAnchorRepair(projectId);
   revalidatePath(`/projects/${projectId}`);
   return { error: null, repaired: true };
 }

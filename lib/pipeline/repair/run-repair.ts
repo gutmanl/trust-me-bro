@@ -7,8 +7,17 @@ import type {
   RepairOutput,
 } from "../../adapters";
 import { getCurrentActor, loadAdapterConfig } from "../../identity";
-import type { Claim, ExcerptRevision, HistoryEntry } from "../../register";
-import { isAtomicClaimText, routedRepairable } from "../../register";
+import type {
+  Claim,
+  ClaimsRegister,
+  ExcerptRevision,
+  HistoryEntry,
+} from "../../register";
+import {
+  buildBriefingViewModel,
+  isAtomicClaimText,
+  routedRepairable,
+} from "../../register";
 import { RepairPreconditionError } from "../errors";
 import { DEFAULT_MAX_REPAIR_CYCLES, requireProjectStore } from "../projects";
 import { decideReEntry } from "./re-entry";
@@ -135,12 +144,39 @@ export function buildRepairCritique(claim: Claim): RepairInput["complaint"] {
   );
 }
 
+/**
+ * The briefing paragraph the claim anchors to, verbatim — the display
+ * truth, quote-first, the exact passage the reviewer sees beside the card —
+ * or null when no briefing exists or the claim is unanchored. Shared by the
+ * interactive proposal and the automatic evaluator so the repair job always
+ * sees the same passage a `briefing_repair` would replace.
+ */
+export function anchoredBriefingParagraph(
+  projectId: string,
+  register: ClaimsRegister,
+  claimId: string,
+): string | null {
+  const briefing = register.project.briefing_import;
+  if (!briefing) {
+    return null;
+  }
+  const text = requireProjectStore(projectId)
+    .blobs()
+    .readText(briefing.blob_path);
+  const view = buildBriefingViewModel(text, register);
+  const paragraph = view.paragraphs.find((candidate) =>
+    candidate.claims.some((marker) => marker.claim.id === claimId),
+  );
+  return paragraph?.text ?? null;
+}
+
 /** The repair job for one claim, shared by the interactive proposal and the
  * automatic suggestion evaluator so the two can never drift. */
 export function buildRepairJob(
   projectDir: string,
   claim: Claim,
   sourceTypeOf: (sourceId: string) => string | undefined,
+  briefingParagraph: string | null,
 ): JobRequest<"repair"> {
   const input: RepairInput = {
     claim: {
@@ -157,6 +193,7 @@ export function buildRepairJob(
       locator: evidence.locator,
       verbatim_excerpt: evidence.verbatim_excerpt,
     })),
+    briefing_paragraph: briefingParagraph,
     complaint: buildRepairCritique(claim),
   };
   return {
@@ -183,6 +220,7 @@ export async function proposeRepair(
     store.projectDir,
     claim,
     (sourceId) => sourcesById.get(sourceId)?.custom.source_type,
+    anchoredBriefingParagraph(projectId, register, claim.id),
   );
   const orchestrator =
     deps.orchestrator ?? createProjectOrchestrator(register.config);

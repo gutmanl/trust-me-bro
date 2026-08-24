@@ -54,7 +54,11 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // proposals are never persisted as prose vintage — the accepted wording
   // lands in the history with its own provenance — so the newest template
   // is always the right one.
-  repair: "1.1.0",
+  // 1.2.0: the input carries the anchored briefing paragraph and the model
+  // may return `briefing_repair`, a rewrite of that one passage carrying
+  // the repaired assertion — accepted only ever as an audited briefing
+  // revision, never applied silently.
+  repair: "1.2.0",
   relevance: "1.0.0",
   // 1.1.0: the already-detected spans are reported too, with their title,
   // authors and year and the identifier echoed back. 1.0.0 told the model to
@@ -110,6 +114,7 @@ function buildVars(kind: JobKind, input: unknown): Record<string, string> {
         claim_json: json(typed.claim),
         evidence_json: json(typed.evidence),
         complaint_json: json(typed.complaint),
+        briefing_paragraph_json: json(typed.briefing_paragraph),
       };
     }
     case "relevance": {

@@ -455,6 +455,11 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.aggregateSupportDegree).toBeUndefined();
     expect(surface.loadRubricRuleSet).toBeUndefined();
     expect(surface.evaluateMechanicalRubric).toBeUndefined();
+    // Verdict-driven repair: the CAP DERIVATION is public — the card and
+    // the suggestion eligibility must say why a verdict cannot rise — while
+    // the raw rule check and loader above stay internal.
+    expect(surface.deriveMechanicalCaps).toBeDefined();
+    expect(surface.evaluateMechanicalViolations).toBeUndefined();
     expect(surface.drawSample).toBeUndefined();
     // Network access stays behind the fetcher port; the production fetcher
     // is wired internally, not part of the public surface.

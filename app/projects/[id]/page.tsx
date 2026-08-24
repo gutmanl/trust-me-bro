@@ -28,6 +28,7 @@ import {
   getProjectSummary,
   getReferenceCandidates,
   getReferenceScanState,
+  deriveMechanicalCaps,
   deriveOpenClaimRepairSuggestions,
   deriveOpenRepairActions,
   deriveOpenChainTriggers,
@@ -220,6 +221,9 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       entry,
     ]),
   );
+  // Why a verdict cannot rise (verdict-driven repair): the mechanical cap
+  // per claim, re-derived from durable data + the pinned rule set.
+  const mechanicalCaps = deriveMechanicalCaps(register);
 
   // The reference-import section only exists once there is a briefing to
   // scan. Keeping it gated matters beyond tidiness: getBackendsHealth spawns
@@ -290,6 +294,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
           queue={buildAdjudicationQueue(register)}
           evidenceDisplay={buildEvidenceDisplayMap(id, register)}
           claimRepairSuggestions={claimRepairSuggestions}
+          mechanicalCaps={mechanicalCaps}
           counts={summary.claim_counts}
           totalClaims={summary.total_claims}
           openExistenceCount={getOpenExistenceCheckCount(register)}

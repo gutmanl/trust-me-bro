@@ -11,6 +11,7 @@ import {
 } from "@/app/components/ui";
 import type {
   ClaimRepairSuggestionVM,
+  MechanicalCapVM,
   BriefingDraft,
   BriefingViewModel,
   CitationRewriteReport,
@@ -46,6 +47,7 @@ export function BriefingPane({
   queue,
   evidenceDisplay,
   claimRepairSuggestions,
+  mechanicalCaps,
   selectedClaimId,
   selectedEvidenceId,
   hoveredParagraph,
@@ -64,6 +66,7 @@ export function BriefingPane({
   queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
   claimRepairSuggestions: Record<string, ClaimRepairSuggestionVM>;
+  mechanicalCaps: Record<string, MechanicalCapVM>;
   selectedClaimId: string | null;
   selectedEvidenceId: string | null;
   hoveredParagraph: number | null;
@@ -145,6 +148,7 @@ export function BriefingPane({
             queue={queue}
             evidenceDisplay={evidenceDisplay}
             claimRepairSuggestions={claimRepairSuggestions}
+            mechanicalCaps={mechanicalCaps}
             selectedClaimId={selectedClaimId}
             selectedEvidenceId={selectedEvidenceId}
             hoveredParagraph={hoveredParagraph}

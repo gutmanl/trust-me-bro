@@ -28,6 +28,11 @@ export {
   dismissClaimRepairSuggestion,
 } from "./repair/suggestions";
 export type { ClaimRepairSuggestionVM } from "./repair/suggestions";
+// Verdict-driven repair: why a verdict is mechanically capped — derived
+// from durable register data plus the pinned rule set; the rule internals
+// stay behind the run.
+export { deriveMechanicalCaps } from "./verification/mechanical-cap";
+export type { MechanicalCapVM } from "./verification/mechanical-cap";
 // Workbench epic: the two manual anchor repairs the workbench offers beside
 // the wording repair — re-point the claim, or rewrite the passage it points
 // at. The paragraph resolution helpers stay internal.

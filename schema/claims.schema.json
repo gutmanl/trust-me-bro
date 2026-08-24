@@ -1000,6 +1000,10 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "briefing_repair": {
+                "minLength": 1,
+                "type": "string"
+              },
               "claim_id": {
                 "$ref": "#/$defs/__schema23"
               },

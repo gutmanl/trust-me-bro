@@ -49,6 +49,7 @@ export function ClaimRepairSuggestionBox({
     dismissInitial,
   );
   const [editing, setEditing] = useState(false);
+  const [applyBriefing, setApplyBriefing] = useState(true);
   const [text, setText] = useState(suggestion.suggestedText);
   const source =
     text === suggestion.suggestedText
@@ -80,6 +81,14 @@ export function ClaimRepairSuggestionBox({
           ))}
         </div>
       ) : null}
+      {suggestion.briefingRepair !== undefined ? (
+        <div className="mt-1.5 space-y-1">
+          <p className="font-medium">Vorgeschlagene Briefing-Passage:</p>
+          <p className="whitespace-pre-wrap text-indigo-700">
+            {suggestion.briefingRepair}
+          </p>
+        </div>
+      ) : null}
       {editing ? (
         <form action={applyAction} className="mt-2 space-y-1.5">
           <textarea
@@ -102,6 +111,28 @@ export function ClaimRepairSuggestionBox({
               name="excerpt_repairs"
               value={JSON.stringify(suggestion.evidenceRepairs)}
             />
+          ) : null}
+          {suggestion.briefingRepair !== undefined ? (
+            <>
+              <input
+                type="hidden"
+                name="briefing_repair"
+                value={suggestion.briefingRepair}
+              />
+              <label className="flex items-start gap-1.5 text-indigo-900">
+                <input
+                  type="checkbox"
+                  name="apply_briefing"
+                  checked={applyBriefing}
+                  onChange={(event) => setApplyBriefing(event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Auch die Briefing-Passage ersetzen (wird als neue
+                  Briefing-Fassung veröffentlicht)
+                </span>
+              </label>
+            </>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -126,6 +157,13 @@ export function ClaimRepairSuggestionBox({
             </button>
           </div>
           <ErrorBanner message={applyState.error} />
+          {applyState.briefingError !== undefined ? (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-900">
+              Aussage repariert – die Briefing-Passage wurde jedoch NICHT
+              ersetzt: {applyState.briefingError} Der Vorschlagstext oben bleibt
+              für eine spätere manuelle Korrektur sichtbar.
+            </p>
+          ) : null}
         </form>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -162,9 +200,14 @@ export function ClaimRepairSuggestionBox({
 export function RequestClaimRepairSuggestion({
   projectId,
   claimId,
+  capped = false,
 }: {
   projectId: string;
   claimId: string;
+  /** The verdict is mechanically capped (verdict-driven repair): the
+   * automatic generation skips this claim, and the manual request carries
+   * the warning that no wording can lift the verdict. */
+  capped?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     requestClaimRepairSuggestionsAction.bind(null, projectId, claimId),
@@ -177,8 +220,12 @@ export function RequestClaimRepairSuggestion({
       className="rounded-md border border-dashed border-indigo-200 px-3 py-2 text-xs"
     >
       <p className="text-slate-500">
-        Diese Aussage kann ohne Beanstandung repariert werden – der Prüfbefund
-        liefert die Kritik.
+        {capped
+          ? "Das Urteil dieser Aussage ist mechanisch begrenzt (siehe " +
+            "Vorprüfung) – ein Umformulierungsvorschlag kann es nicht " +
+            "anheben, nur weitere Belege oder Ihre Entscheidung."
+          : "Diese Aussage kann ohne Beanstandung repariert werden – der " +
+            "Prüfbefund liefert die Kritik."}
       </p>
       <button
         type="submit"
