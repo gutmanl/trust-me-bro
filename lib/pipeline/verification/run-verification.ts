@@ -423,10 +423,15 @@ async function applyPreCheckResult(
     // The reasoning lives structurally on the claim now (verdict
     // redesign) — the transition reason no longer duplicates the possibly
     // multi-paragraph prose inline.
+    // The rubric TEMPLATE version resolved for THIS run, stamped beside
+    // the prose it produced. The rule set always yields a concrete string
+    // (`prompt_template_version` carries a schema default), so absence in
+    // an archived entry means only "written before this extension".
     tx.setCalibrationResult(
       claimId,
       stage23.calibration.result,
       stage23.calibration.reasoning,
+      context.stage23.ruleSet.prompt_template_version,
     );
     tx.transitionClaim(claimId, {
       to: "prechecked",

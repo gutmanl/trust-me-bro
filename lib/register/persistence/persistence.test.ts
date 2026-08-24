@@ -564,3 +564,150 @@ describe("ChainIntegrityError export", () => {
     expect(new ChainIntegrityError([]).name).toBe("ChainIntegrityError");
   });
 });
+
+describe("RegisterTransaction.setCalibrationResult rotation", () => {
+  const claimInput = {
+    id: "clm_0001",
+    text: "LLM-Reviews reduzieren die Reviewzeit.",
+    claim_type: "quantitative_finding",
+    briefing_anchor: "p12",
+    provenance: {
+      tool: "deep-research-x",
+      model: "drx-1",
+      extracted_at: "2026-08-06T08:10:00Z",
+      search_path: "Lauf 1",
+    },
+    evidence: [],
+  } as unknown as Omit<Claim, "status" | "history">;
+
+  beforeEach(async () => {
+    await store.transaction((tx) => {
+      tx.addClaim({
+        claim: claimInput,
+        actor: "system:extraction",
+        reason: "Extrahiert.",
+      });
+    });
+  });
+
+  async function claim(): Promise<Claim> {
+    return (await store.read()).claims[0];
+  }
+
+  it("archives nothing on the first write", async () => {
+    await store.transaction((tx) => {
+      tx.setSupportDegree("clm_0001", "supported");
+      tx.setCalibrationResult(
+        "clm_0001",
+        "licensed",
+        "Der Beleg trägt die Aussage.",
+        "1.1.0",
+      );
+    });
+
+    const first = await claim();
+    // Absent, not an empty array: the rotation builds the list lazily with
+    // `[...(previous ?? []), superseded]`, so a claim judged once carries
+    // no archive at all.
+    expect(first.previous_calibrations).toBeUndefined();
+    expect(first.calibration_prompt_version).toBe("1.1.0");
+  });
+
+  it("rotates the whole previous outcome on the second write", async () => {
+    await store.transaction((tx) => {
+      tx.setSupportDegree("clm_0001", "supported");
+      tx.setCalibrationResult(
+        "clm_0001",
+        "licensed",
+        "Der Beleg trägt die Aussage.",
+        "1.1.0",
+      );
+    });
+    await store.transaction((tx) => {
+      // Deliberately in the production write order — the stage-3 site sets
+      // the support degree FIRST. The archived degree must still be the
+      // one the transaction opened with, not the one written a line above.
+      tx.setSupportDegree("clm_0001", "partially_supported");
+      tx.setCalibrationResult(
+        "clm_0001",
+        "weakened",
+        "Jedoch: der Beleg trägt die Aussage nur teilweise.",
+        "1.1.0",
+      );
+    });
+
+    const second = await claim();
+    expect(second.previous_calibrations).toHaveLength(1);
+    const [archived] = second.previous_calibrations ?? [];
+    expect(archived.calibration_result).toBe("licensed");
+    expect(archived.calibration_reasoning).toBe("Der Beleg trägt die Aussage.");
+    expect(archived.support_degree).toBe("supported");
+    expect(archived.calibration_prompt_version).toBe("1.1.0");
+    expect(Number.isNaN(Date.parse(archived.superseded_at))).toBe(false);
+    // The current fields hold the SECOND outcome.
+    expect(second.calibration_result).toBe("weakened");
+    expect(second.support_degree).toBe("partially_supported");
+    expect((await store.verify()).ok).toBe(true);
+  });
+
+  it("keeps a third write's archive in write order", async () => {
+    for (const result of [
+      "licensed",
+      "weakened",
+      "pending_adjudication",
+    ] as const) {
+      await store.transaction((tx) => {
+        tx.setCalibrationResult("clm_0001", result, `Begründung ${result}.`);
+      });
+    }
+
+    const third = await claim();
+    expect(
+      (third.previous_calibrations ?? []).map(
+        (entry) => entry.calibration_result,
+      ),
+    ).toEqual(["licensed", "weakened"]);
+    expect(third.calibration_result).toBe("pending_adjudication");
+  });
+
+  it("archives an unstamped original with no version, rather than borrowing the new one", async () => {
+    // The pre-extension case: prose written before the stamp existed. Its
+    // vintage is genuinely unknown, and inventing one from the project's
+    // current pin would be a false record in an append-only file.
+    await store.transaction((tx) => {
+      tx.setCalibrationResult("clm_0001", "licensed", "Alte Begründung.");
+    });
+    await store.transaction((tx) => {
+      tx.setCalibrationResult(
+        "clm_0001",
+        "weakened",
+        "Neue Begründung.",
+        "1.1.0",
+      );
+    });
+
+    const rotated = await claim();
+    const [archived] = rotated.previous_calibrations ?? [];
+    expect(archived.calibration_reasoning).toBe("Alte Begründung.");
+    expect(archived.calibration_prompt_version).toBeUndefined();
+    expect(rotated.calibration_prompt_version).toBe("1.1.0");
+  });
+
+  it("rotates even when the second write carries no reasoning of its own", async () => {
+    await store.transaction((tx) => {
+      tx.setCalibrationResult("clm_0001", "licensed", "Erste Begründung.");
+    });
+    await store.transaction((tx) => {
+      tx.setCalibrationResult("clm_0001", "weakened");
+    });
+
+    const rotated = await claim();
+    expect(rotated.previous_calibrations).toHaveLength(1);
+    expect(rotated.previous_calibrations?.[0].calibration_reasoning).toBe(
+      "Erste Begründung.",
+    );
+    // `reasoning: undefined` still means "leave unchanged" — the archive
+    // is what makes the previous prose recoverable, not this field.
+    expect(rotated.calibration_reasoning).toBe("Erste Begründung.");
+  });
+});

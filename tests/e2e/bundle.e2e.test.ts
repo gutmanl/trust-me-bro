@@ -208,41 +208,43 @@ describe("reviewer-triggered re-verification: bundle round-trip both ways", () =
         });
       });
 
-      // The capability that WRITES these fields arrives with the store change
-      // in 04-02. What 04-01 owns is the format: inject the two new fields
-      // directly, then re-seal through a real transaction so the chain's
-      // newest state_root covers them and commit-time zod validation sees
-      // the whole register. Only the newest state_root is verified, so this
-      // is exactly the state a future writer will leave behind.
+      // Both new fields are written through the PRODUCTION capabilities
+      // (04-02 replaced 04-01's direct-injection placeholder here): two
+      // ordinary `setCalibrationResult` calls, the second of which rotates
+      // the first outcome into `previous_calibrations` by itself, and the
+      // bracket pair through `recordReverificationRun`. The round-trip
+      // therefore proves the shape a real re-run actually leaves on disk,
+      // not a hand-built approximation of it.
       const registerPath = path.join(projectDir, "claims.json");
-      const register = JSON.parse(fs.readFileSync(registerPath, "utf8"));
-      register.claims[0].calibration_result = "weakened";
-      register.claims[0].calibration_reasoning =
-        "Der Auszug nennt die Richtung, nicht die Groessenordnung.";
-      register.claims[0].calibration_prompt_version = "1.1.0";
-      register.claims[0].previous_calibrations = [
-        {
-          support_degree: "supported",
-          calibration_result: "licensed",
-          calibration_reasoning: "Zahlenwert und Richtung stimmen ueberein.",
-          calibration_prompt_version: "1.0.0",
-          superseded_at: "2026-08-20T10:00:00Z",
-        },
-      ];
-      fs.writeFileSync(registerPath, JSON.stringify(register, null, 2));
-
       await store.transaction((tx) => {
-        tx.recordProjectEvent({
-          event: "reverification_run_started",
-          reason: "Erneute Pruefung von 1 Aussage angefordert.",
+        tx.setSupportDegree("clm_0001", "supported");
+        tx.setCalibrationResult(
+          "clm_0001",
+          "licensed",
+          "Zahlenwert und Richtung stimmen ueberein.",
+          "1.0.0",
+        );
+      });
+      await store.transaction((tx) => {
+        tx.setCalibrationResult(
+          "clm_0001",
+          "weakened",
+          "Der Auszug nennt die Richtung, nicht die Groessenordnung.",
+          "1.1.0",
+        );
+        tx.recordReverificationRun({
+          claim_ids: ["clm_0001"],
           actor: "human:lg",
-        });
-        tx.recordProjectEvent({
-          event: "reverification_run_completed",
-          reason: "Erneute Pruefung angefordert; 1 Aussage zurueckgesetzt.",
-          actor: "human:lg",
+          started_reason: "Erneute Pruefung von 1 Aussage angefordert.",
+          completed_reason:
+            "Erneute Pruefung angefordert; 1 Aussage zurueckgesetzt.",
         });
       });
+      const rotated = (await store.read()).claims[0];
+      expect(rotated.previous_calibrations).toHaveLength(1);
+      expect(rotated.previous_calibrations?.[0].calibration_result).toBe(
+        "licensed",
+      );
 
       // The directory verifies with the new fields in place.
       const dirReport = await runCli(projectDir, cliEnv);

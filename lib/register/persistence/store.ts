@@ -344,14 +344,48 @@ export interface RegisterTransaction {
   ): void;
   /** Sets the claim's aggregated support degree (stage 2 result). */
   setSupportDegree(claimId: string, degree: SupportDegree): void;
-  /** Sets the claim's stage-3 calibration outcome (SE-Evidenz-Rubrik).
+  /**
+   * Sets the claim's stage-3 calibration outcome (SE-Evidenz-Rubrik).
    * `reasoning` (verdict redesign) is stored structurally alongside it so
    * the UI shows the verifier's justification first-class instead of
-   * scraping history prose; omitted = left unchanged. */
+   * scraping history prose; omitted = left unchanged.
+   * `promptTemplateVersion` is the rubric TEMPLATE version that produced
+   * the prose being written — not the rule-set name.
+   *
+   * ARCHIVES BEFORE IT OVERWRITES (reviewer-triggered re-verification).
+   * When the claim already carries a `calibration_result`, the whole
+   * previous outcome — support degree, result, reasoning and its version
+   * stamp — is rotated into `previous_calibrations` first, with
+   * `superseded_at` set to the moment of rotation. A FIRST write archives
+   * nothing, with no conditional of its own: the array is built as
+   * `[...(previous ?? []), superseded]`, exactly as `reviseSource` and
+   * `reviseBriefing` build theirs.
+   *
+   * The rotation fires on EVERY overwrite, unconditionally. The store is
+   * told nothing about what caused the second pass, and that is precisely
+   * what makes it un-forgettable: no call site can opt out of it, and none
+   * has to remember to opt in.
+   *
+   * Scope, stated so the change is not mis-read as feature scaffolding:
+   * this repairs a PRE-EXISTING defect. `sweepSourceRecheck` (TMB-44) has
+   * driven a second `setCalibrationResult` through the source-revision path
+   * since it shipped, so the previous verdict has been destroyable in
+   * shipped code on any project that revised a source. The reviewer-
+   * triggered re-run makes that loss frequent, not possible.
+   *
+   * The version stamp is written HERE, beside the prose it describes, and
+   * never reconstructed when the entry is later archived: rotation happens
+   * when the NEW value is written, so stamping the archived entry from the
+   * project's current pin would label the OLD prose with the NEW vintage
+   * exactly whenever the reviewer moved the pin before re-running — the
+   * case this milestone creates. In an append-only register, wrong metadata
+   * is worse than absent metadata.
+   */
   setCalibrationResult(
     claimId: string,
     result: CalibrationResult,
     reasoning?: string,
+    promptTemplateVersion?: string,
   ): void;
 }
 
@@ -653,6 +687,32 @@ function createTransaction(
     }
     return claim;
   };
+
+  /**
+   * Every claim's calibration outcome as it stood when this transaction
+   * OPENED — what `setCalibrationResult` archives from.
+   *
+   * Reading the live draft instead would be order-dependent, and the one
+   * production caller writes in the losing order: the stage-3 site calls
+   * `setSupportDegree` immediately before `setCalibrationResult`, so a live
+   * read would file the NEW support degree beside the OLD verdict and
+   * produce an archived entry that never existed. A transaction is one
+   * commit point, so "the previous outcome" is the outcome at its start —
+   * pinning that here makes the rotation independent of statement order
+   * inside the mutator, which is what "no call site can forget it" has to
+   * mean in practice.
+   */
+  const outcomeAtOpen = new Map(
+    draft.claims.map((claim) => [
+      claim.id,
+      {
+        support_degree: claim.support_degree,
+        calibration_result: claim.calibration_result,
+        calibration_reasoning: claim.calibration_reasoning,
+        calibration_prompt_version: claim.calibration_prompt_version,
+      },
+    ]),
+  );
 
   const mutableEvidence = (claimId: string, evidenceId: string): Evidence => {
     const evidence = mutableClaim(claimId).evidence.find(
@@ -995,12 +1055,49 @@ function createTransaction(
     setSupportDegree(claimId, degree) {
       mutableClaim(claimId).support_degree = degree;
     },
-    setCalibrationResult(claimId, result, reasoning) {
+    setCalibrationResult(claimId, result, reasoning, promptTemplateVersion) {
       const claim = mutableClaim(claimId);
+      const previous = outcomeAtOpen.get(claimId);
+      if (previous?.calibration_result !== undefined) {
+        // Rotate the WHOLE previous outcome, not the reasoning alone:
+        // result and support degree are plain overwrites too, and reading
+        // any of it back out of the German history prose is not a
+        // supported reconstruction path.
+        claim.previous_calibrations = [
+          ...(claim.previous_calibrations ?? []),
+          {
+            ...(previous.support_degree !== undefined
+              ? { support_degree: previous.support_degree }
+              : {}),
+            calibration_result: previous.calibration_result,
+            ...(previous.calibration_reasoning !== undefined
+              ? { calibration_reasoning: previous.calibration_reasoning }
+              : {}),
+            ...(previous.calibration_prompt_version !== undefined
+              ? {
+                  calibration_prompt_version:
+                    previous.calibration_prompt_version,
+                }
+              : {}),
+            superseded_at: new Date().toISOString(),
+          },
+        ];
+      }
       claim.calibration_result = result;
       if (reasoning !== undefined) {
         claim.calibration_reasoning = reasoning;
       }
+      if (promptTemplateVersion !== undefined) {
+        claim.calibration_prompt_version = promptTemplateVersion;
+      }
+      // A second call inside the SAME transaction must supersede the value
+      // this one just wrote, not the one the transaction opened with.
+      outcomeAtOpen.set(claimId, {
+        support_degree: claim.support_degree,
+        calibration_result: claim.calibration_result,
+        calibration_reasoning: claim.calibration_reasoning,
+        calibration_prompt_version: claim.calibration_prompt_version,
+      });
     },
   };
 }

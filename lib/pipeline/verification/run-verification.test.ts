@@ -15,7 +15,7 @@ import type {
   ExtractionOutput,
   RubricOutput,
 } from "../../adapters";
-import { RegisterStore } from "../../register";
+import { RegisterStore, verifyChain } from "../../register";
 import type { ClaimsRegister, ProjectConfig } from "../../register";
 import { importBriefing } from "../briefing";
 import { VerificationPreconditionError } from "../errors";
@@ -24,6 +24,7 @@ import type { JobRunner } from "../runs/job-runner";
 import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { startSourceExtraction } from "../extraction/run-source-extraction";
+import { requestClaimRecheck } from "./request-recheck";
 import { getVerificationState, startVerification } from "./run-verification";
 
 const PROJECT = "proj_pruefung";
@@ -511,5 +512,61 @@ describe("cascading verification run", () => {
       }),
     ).rejects.toThrow(/läuft bereits/);
     await first.done;
+  });
+});
+
+describe("re-verification loop", () => {
+  it("archives the first pre-check outcome when a re-run reaches stage 3 again", async () => {
+    await createTestProject();
+    await extractClaims(extractionOutput([{ excerpt: IN_TEXT_EXCERPT }]));
+    await runVerification({
+      rubric: {
+        calibration_result: "licensed",
+        reasoning: "Der Beleg trägt die Aussage in dieser Stärke.",
+      },
+    });
+    const afterFirst = (await readRegister()).claims[0];
+    expect(afterFirst.calibration_result).toBe("licensed");
+    // The rule set pinned by this project resolves rubric template 1.0.0;
+    // the stamp describes the prose it sits beside, never a later pin.
+    expect(afterFirst.calibration_prompt_version).toBe("1.0.0");
+    expect(afterFirst.previous_calibrations).toBeUndefined();
+
+    const requested = await requestClaimRecheck({
+      projectId: PROJECT,
+      claimIds: [afterFirst.id],
+    });
+    expect(requested.moved).toEqual([afterFirst.id]);
+
+    await runVerification({
+      rubric: {
+        calibration_result: "weakened",
+        reasoning: "Jedoch: die Formulierung greift über den Beleg hinaus.",
+      },
+    });
+
+    const register = await readRegister();
+    const claim = register.claims[0];
+    // Two DIFFERENT verdicts, the second current, the first archived whole.
+    expect(claim.calibration_result).toBe("weakened");
+    expect(claim.previous_calibrations).toHaveLength(1);
+    expect(claim.previous_calibrations?.[0].calibration_result).toBe(
+      "licensed",
+    );
+    expect(claim.previous_calibrations?.[0].calibration_reasoning).toBe(
+      "Der Beleg trägt die Aussage in dieser Stärke.",
+    );
+    expect(claim.previous_calibrations?.[0].calibration_prompt_version).toBe(
+      "1.0.0",
+    );
+    // Chain validity is not content preservation — it held before this
+    // change too, while the previous reasoning was being destroyed. Both
+    // are asserted here because only together do they mean anything.
+    expect(verifyChain(register).ok).toBe(true);
+    expect(
+      register.project_events.filter((event) =>
+        event.event.startsWith("reverification_run"),
+      ),
+    ).toHaveLength(2);
   });
 });
