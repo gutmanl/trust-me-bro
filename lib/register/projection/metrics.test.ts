@@ -301,6 +301,23 @@ describe("computeProjectMetrics: first-pass counterparts (D-09)", () => {
     expect(row.first_pass_adjudication_duration_s).toBe(10);
   });
 
+  it("ignores a bracket event that carries no claim ids", () => {
+    const register = baseRegister();
+    register.claims = [
+      claimWith(register, "clm_0016", [
+        entry(40, { from_status: null, to_status: "captured" }),
+        decisionEntry(51, 90),
+      ]),
+    ];
+    const bracket = rerunStarted(50, []);
+    delete bracket.reverification_run;
+    register.project_events.push(bracket as never);
+    // The payload is schema-OPTIONAL. A bracket without it must leave the
+    // claim unwindowed rather than throw or silently window it to zero —
+    // a zero first-pass figure is a claim about the data, not an absence.
+    expect(rowOf(register, "clm_0016").first_pass_adjudication_count).toBe(1);
+  });
+
   it("windows only the claims the bracket names", () => {
     const register = baseRegister();
     register.claims = [
