@@ -11,7 +11,12 @@ import type {
   SupportDegree,
 } from "@/lib/register";
 import { formatTimestamp } from "../../status-labels";
-import { ClaimCard, RECHECK_COPY, SUPERSESSION_COPY } from "./ClaimCard";
+import {
+  ClaimCard,
+  offersRecheck,
+  RECHECK_COPY,
+  SUPERSESSION_COPY,
+} from "./ClaimCard";
 
 /**
  * The JSX half of surface 1, the per-claim re-run trigger.
@@ -168,6 +173,22 @@ function markup(
   );
 }
 
+function markupOf(claim: ClaimMarkerVM["claim"]): string {
+  return renderToStaticMarkup(
+    <ClaimCard
+      projectId="proj_test"
+      marker={{ claim, evidenceNumbers: [], anchorDrifted: false }}
+      routing={null}
+      selected
+      linked={false}
+      selectedEvidenceId={null}
+      evidenceDisplay={{}}
+      currentSeconds={() => 0}
+      onSelect={() => {}}
+    />,
+  );
+}
+
 describe("ClaimCard re-run trigger (surface 1)", () => {
   it("carries the Copywriting Contract's Surface 1 copy verbatim", () => {
     expect({
@@ -246,6 +267,69 @@ describe("ClaimCard re-run trigger (surface 1)", () => {
       "€",
     ]) {
       expect(html, `banned copy present: ${banned}`).not.toContain(banned);
+    }
+  });
+});
+
+/**
+ * The affordance mirror against the widened gate (RERUN-01).
+ *
+ * RERUN-01 says „including claims queued for adjudication", and 04-03
+ * widened the transition gate to admit them. Until this was covered, the
+ * card's four-status mirror silently excluded exactly the claims a reviewer
+ * is most likely to want re-checked — the ones the machine could not
+ * decide.
+ */
+describe("which claims offer a re-run", () => {
+  function queued(routing?: string): ClaimMarkerVM["claim"] {
+    const claim = claimAt("pending_adjudication");
+    return {
+      ...claim,
+      history: [
+        { ...claim.history[0], seq: 1, to_status: "prechecked" },
+        {
+          ...claim.history[0],
+          seq: 2,
+          to_status: "pending_adjudication",
+          ...(routing === undefined ? {} : { routing }),
+        },
+      ],
+    } as unknown as ClaimMarkerVM["claim"];
+  }
+
+  it("offers one on each of the four statuses the recheck set names", () => {
+    for (const status of [
+      "existence_checked",
+      "prechecked",
+      "auto_confirmed",
+      "confirmed",
+    ] as ClaimStatus[]) {
+      expect(offersRecheck(claimAt(status)), status).toBe(true);
+    }
+  });
+
+  it("offers one on a machine-parked claim awaiting adjudication", () => {
+    expect(offersRecheck(queued("existence_check_failed"))).toBe(true);
+    expect(markupOf(queued("existence_check_failed"))).toContain(
+      RECHECK_COPY.trigger,
+    );
+  });
+
+  it("offers none on a claim parked before the routing extension", () => {
+    // The gate's stated blind spot (P-20). Both sides reject it alike, so
+    // the mirror cannot be too generous here — and the sweep's itemisation
+    // counts the group by name so it reads as excluded, never as missing.
+    expect(offersRecheck(queued())).toBe(false);
+    expect(markupOf(queued())).not.toContain(RECHECK_COPY.trigger);
+  });
+
+  it("offers none on a terminal or in-repair claim", () => {
+    for (const status of [
+      "contested",
+      "discarded",
+      "captured",
+    ] as ClaimStatus[]) {
+      expect(offersRecheck(claimAt(status)), status).toBe(false);
     }
   });
 });

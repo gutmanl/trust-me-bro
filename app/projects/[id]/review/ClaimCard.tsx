@@ -516,6 +516,36 @@ const RECHECK_ELIGIBLE_STATUSES: ReadonlySet<ClaimStatus> = new Set([
   "confirmed",
 ]);
 
+/**
+ * Whether the expanded card offers „Prüfung erneut ausführen" (RERUN-01).
+ *
+ * The four statuses above mirror `RECHECK_STATUSES`. The fifth source
+ * status, `pending_adjudication`, was admitted when 04-03 widened the
+ * transition gate, and RERUN-01 names it explicitly: „including claims
+ * queued for adjudication". A claim the machine could not decide is the one
+ * a reviewer is MOST likely to want re-checked, so leaving it out left the
+ * requirement's own wording undelivered on this surface.
+ *
+ * The gate's condition is duplicated here rather than imported because this
+ * is a client component and `app/**` cannot runtime-import the pipeline
+ * barrel. That is safe in the direction it can fail: this predicate only
+ * decides whether a BUTTON is drawn. The server re-derives the real gate
+ * inside the transaction, so a mirror that is a shade too generous costs a
+ * verbatim German refusal in the confirm block, never a wrong write. The
+ * shade it can be too generous by is exactly the gate's stated blind spot —
+ * a claim parked before the routing extension existed carries no routing
+ * and both sides reject it alike.
+ */
+export function offersRecheck(claim: ClaimMarkerVM["claim"]): boolean {
+  if (RECHECK_ELIGIBLE_STATUSES.has(claim.status)) {
+    return true;
+  }
+  return (
+    claim.status === "pending_adjudication" &&
+    claim.history.at(-1)?.routing !== undefined
+  );
+}
+
 const initialRecheckState: RecheckFormState = { error: null };
 
 /**
@@ -579,7 +609,7 @@ function RecheckClaimControl({
   // the reviewer an avoidable RunActiveError instead of an explanation.
   const activity = useActivity();
 
-  if (!RECHECK_ELIGIBLE_STATUSES.has(claim.status)) {
+  if (!offersRecheck(claim)) {
     // Absent, not disabled-with-a-tooltip: ineligibility here is a property
     // of where the claim stands, not a temporary obstacle, and a control
     // that can never become pressable is noise on an already dense card.
