@@ -635,6 +635,31 @@ export async function requestClaimRecheck(
 
   const at = deps.at ?? new Date().toISOString();
   return store.transaction((tx) => {
+    // WR-06: re-assert the precondition INSIDE the lock.
+    //
+    // The check above is a precondition, not an error handler — asked after
+    // the transaction, the refusal would arrive having already moved
+    // claims. But it is also OUTSIDE the transaction's mutual exclusion,
+    // and the register lock cannot see the job runner, so a run submitted
+    // in that window proceeds. The sweep would then move claim X from
+    // `existence_checked` to `recheck_required` under a live run that had
+    // already cached X in its work set; stage 1 re-reads X and walks it to
+    // `captured`, but the run's later transition to `prechecked` is taken
+    // from a status that edge does not admit and is refused at the gate.
+    // The item fails and the reviewer sees an unexplained failure count.
+    //
+    // The race shape is inherited from reviseSource/correctSourceMetadata,
+    // but it is newly reachable from a button whose entire purpose is bulk
+    // status change. `runner.isRunning` is a synchronous in-process lookup
+    // on a processGlobal singleton, so re-asking costs nothing and narrows
+    // the window to the lock's own duration. Throwing inside the mutator
+    // aborts before any write, which is the behaviour wanted here.
+    if (runner.isRunning(input.projectId)) {
+      throw new RunActiveError(
+        input.projectId,
+        describeBlockingActivity(input.projectId),
+      );
+    }
     const moved: string[] = [];
     const excluded: RecheckExclusion[] = [...selection.exclusions];
     for (const candidate of selection.claims) {

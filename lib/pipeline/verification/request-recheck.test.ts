@@ -9,6 +9,7 @@ import type { ClaimsRegister } from "../../register";
 import { InvalidProjectInputError, RunActiveError } from "../errors";
 import { createProject } from "../projects";
 import { createJobRunner } from "../runs/job-runner";
+import type { JobRunner } from "../runs/job-runner";
 import { captureSource } from "../sources/capture";
 import { fakeFetcher } from "../sources/__fixtures__/fake-fetcher";
 import { addClaimWalkedTo } from "../__fixtures__/walk-claim";
@@ -540,6 +541,53 @@ describe("requestClaimRecheck", () => {
     expect(after.claims.map((claim) => claim.status)).toEqual(
       before.claims.map((claim) => claim.status),
     );
+  });
+});
+
+describe("a run that starts after the precondition passed (WR-06)", () => {
+  it("refuses inside the lock and writes nothing", async () => {
+    // The precondition is asked BEFORE store.read() and before
+    // store.transaction(...) — correctly, since asking after the mutation
+    // would refuse having already moved claims. But it is also outside the
+    // transaction's mutual exclusion, and the register lock cannot see the
+    // job runner, so a run submitted in that window proceeds. The sweep
+    // would then move a claim out from under a live run that had already
+    // cached it in its work set, and the run's later transition to
+    // `prechecked` would be refused at the gate — surfacing to the reviewer
+    // as an unexplained failure count.
+    const claimId = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "prechecked",
+    });
+    const before = await readRegister();
+
+    // A runner that reports idle for the precondition and busy from the
+    // transaction onwards — the window the real race opens, made
+    // deterministic. Anything else would depend on scheduling.
+    let asked = 0;
+    const runner = {
+      isRunning: () => {
+        asked += 1;
+        return asked > 1;
+      },
+    } as unknown as JobRunner;
+
+    await expect(
+      requestClaimRecheck({ projectId: PROJECT, scope: "all" }, { runner }),
+    ).rejects.toBeInstanceOf(RunActiveError);
+    expect(asked).toBeGreaterThan(1);
+
+    // Throwing inside the mutator aborts before any write: no transition,
+    // no bracket, and the chain is untouched.
+    const after = await readRegister();
+    expect(after.claims.find((c) => c.id === claimId)?.status).toBe(
+      "prechecked",
+    );
+    expect(bracketEvents(after)).toEqual([]);
+    expect(after.project_events.length).toBe(before.project_events.length);
+    expect(verifyChain(after).ok).toBe(true);
   });
 });
 
