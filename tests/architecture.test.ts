@@ -276,7 +276,7 @@ describe("public surface of lib/pipeline", () => {
     // shared eligible-status set stay internal — the app tier may ask for a
     // re-check, never re-implement who qualifies for one.
     expect(surface.requestClaimRecheck).toBeDefined();
-    expect(surface.isRecheckEligible).toBeUndefined();
+    expect(surface.classifyRecheckEligibility).toBeUndefined();
     expect(surface.selectRequestedClaims).toBeUndefined();
     expect(surface.RECHECK_STATUSES).toBeUndefined();
     // RERUN-02: the sweep's preview joins it — the confirmation dialog

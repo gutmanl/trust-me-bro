@@ -248,24 +248,9 @@ export interface RequestClaimRecheckDependencies {
 }
 
 /**
- * Whether a claim may be pulled back into `recheck_required` right now.
- *
- * Two sources, both read from their shipped homes so this file can never
- * select a claim the gate would refuse:
- * - `RECHECK_STATUSES`, shared with the source-revision and extraction
- *   writers and aligned edge-for-edge with the transition table;
- * - the transition table's OWN gate for the fifth source status,
- *   `pending_adjudication`, widened in 04-03. Calling the gate rather than
- *   restating its condition is what keeps "selected" and "takeable"
- *   identical by construction.
- */
-export function isRecheckEligible(claim: Claim): boolean {
-  return classifyRecheckEligibility(claim) === "eligible";
-}
-
-/**
- * Base eligibility, resolved to the REASON it failed so the caller can
- * itemise instead of counting (P-20).
+ * Whether a claim may be pulled back into `recheck_required` right now, and
+ * when not, the REASON — so the caller can itemise instead of counting
+ * (P-20).
  *
  * `null` means "never a candidate and not worth reporting" — `captured`,
  * `recheck_required`, `contested`, the repair statuses. The sweep was never
