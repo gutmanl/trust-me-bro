@@ -133,8 +133,13 @@ export function ClaimsOverviewBar({
   selectedClaimIsQueued: boolean;
   /** All three rungs in one payload (04-06), so a rung change recomputes the
    * itemisation with no round trip and the displayed count cannot drift
-   * from the count the submit acts on. */
-  recheckPreview: RecheckPreview;
+   * from the count the submit acts on.
+   *
+   * Null when the preview could not be computed. A confirmation that cannot
+   * itemise is worth less than no confirmation at all — the itemisation IS
+   * the mitigation — so the trigger is omitted rather than shown over a
+   * dialog that would fall back to a bare count. */
+  recheckPreview: RecheckPreview | null;
   /** D-16's two absolute counts. Never divided, here or anywhere. */
   reverification: ProjectMetrics["reverification"];
 }) {
@@ -253,7 +258,7 @@ export function ClaimsOverviewBar({
             per-claim action dozens of times, which is worse for both quota
             and attention. What keeps it behind the default is that it never
             executes on a single press. */}
-        {totalClaims > 0 ? (
+        {totalClaims > 0 && recheckPreview !== null ? (
           <button
             type="button"
             disabled={sweepBlockedBy !== null}
@@ -362,7 +367,7 @@ export function ClaimsOverviewBar({
 
       <ErrorBanner message={state.error} />
 
-      {sweepOpen ? (
+      {sweepOpen && recheckPreview !== null ? (
         <RecheckSweepDialog
           projectId={projectId}
           preview={recheckPreview}

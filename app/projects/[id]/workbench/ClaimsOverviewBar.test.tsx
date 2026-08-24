@@ -101,6 +101,7 @@ function renderBar(options: {
   reverification?: ProjectMetrics["reverification"];
   activity?: ProjectActivity | null;
   totalClaims?: number;
+  recheckPreview?: RecheckPreview | null;
 }): string {
   const verificationState: VerificationState = {
     status: "not_started",
@@ -134,7 +135,11 @@ function renderBar(options: {
         onJumpToNextOpen={() => {}}
         selectedClaimId={null}
         selectedClaimIsQueued={false}
-        recheckPreview={PREVIEW}
+        recheckPreview={
+          options.recheckPreview === undefined
+            ? PREVIEW
+            : options.recheckPreview
+        }
         reverification={options.reverification ?? NO_RECHECK}
       />
     </ProjectEventStreamContext.Provider>,
@@ -177,6 +182,18 @@ describe("the sweep trigger's placement", () => {
 
   it("is absent from a project with no claims", () => {
     expect(renderBar({ totalClaims: 0 })).not.toContain(SWEEP_COPY.trigger);
+  });
+
+  it("is absent when the preview could not be computed", () => {
+    // The itemisation IS the mitigation, so a dialog that cannot itemise is
+    // worth less than no dialog. What must never happen is the whole
+    // workbench page failing because one optional affordance could not
+    // resolve the project's rubric pin — see `loadRecheckPreview`.
+    expect(renderBar({ recheckPreview: null })).not.toContain(
+      SWEEP_COPY.trigger,
+    );
+    // And the rest of the bar still renders.
+    expect(renderBar({ recheckPreview: null })).toContain("KI-Prüfung starten");
   });
 
   it("is not the filled primary button", () => {

@@ -37,6 +37,7 @@ import {
   previewClaimRecheck,
   readProject,
 } from "@/lib/pipeline";
+import type { RecheckPreview } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
 import { DemoProjectNotice, IndependenceNotice } from "../../components/ui";
 import { formatTimestamp, SOURCE_TYPE_LABELS } from "../status-labels";
@@ -47,6 +48,34 @@ import type { SourceRowVM } from "./workbench/SourceRow";
 import { Workbench } from "./workbench/Workbench";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * The sweep's preview, or null when it cannot be computed for this project.
+ *
+ * WHY THIS IS CAUGHT RATHER THAN LEFT TO PROPAGATE. The preview resolves the
+ * project's OWN rubric pin through `loadRubricRuleSet`, which throws a plain
+ * `Error` — not a `PipelineError` — when the register names a rule file this
+ * installation does not ship, and whose rule directory is anchored at
+ * `process.cwd()` (TMB-48). Both are correct where the sweep is EXECUTED: an
+ * unprüfbare rubric version must never pass silently. But this call sits on
+ * the render path of the whole workbench, so letting it propagate turns a
+ * config error in one optional affordance into „Etwas ist schiefgelaufen"
+ * for the entire project page — including the case where the reviewer's only
+ * way to repair the pin is the settings link on that very page. That is a
+ * strictly worse outcome than not offering the sweep, so the bar omits the
+ * trigger and the server log keeps the cause visible.
+ *
+ * Regression found by `tests/browser/cold-start/first-contact.spec.ts`, whose
+ * server runs with a scratch cwd on purpose.
+ */
+async function loadRecheckPreview(id: string): Promise<RecheckPreview | null> {
+  try {
+    return await previewClaimRecheck({ projectId: id });
+  } catch (error) {
+    console.warn(`Nachprüfungs-Vorschau für "${id}" nicht verfügbar:`, error);
+    return null;
+  }
+}
 
 /** Identifier shape of a source's CURRENT identity, prefilling the
  * correction modal's kind tabs (source correction) — pure presentation
@@ -98,7 +127,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
       // state in `Workbench`, so the bar subtracts it from the displayed
       // counts and sends the id back with the request. Read-only and
       // un-gated — it takes no lock and starts nothing.
-      previewClaimRecheck({ projectId: id }),
+      loadRecheckPreview(id),
       getProjectMetrics(id),
     ]);
 

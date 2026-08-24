@@ -86,8 +86,12 @@ export function Workbench({
   referenceImport: ReferenceImportVM | null;
   /** Fetched WITHOUT any exclusion, because the claim to exclude is client
    * state below and changes with no round trip; the bar subtracts it from
-   * the displayed counts and sends the same id to the server action. */
-  recheckPreview: RecheckPreview;
+   * the displayed counts and sends the same id to the server action.
+   *
+   * Null when the project's rubric pin cannot be resolved — see
+   * `loadRecheckPreview` in `page.tsx`. The bar then omits the trigger
+   * rather than offering a dialog it cannot itemise. */
+  recheckPreview: RecheckPreview | null;
   reverification: ProjectMetrics["reverification"];
 }) {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
