@@ -11,6 +11,7 @@ import {
   proposeRepair,
   repairBriefingPassage,
   repairClaimAnchor,
+  requestClaimRecheck,
   RunActiveError,
   startVerification,
   VerificationPreconditionError,
@@ -214,4 +215,35 @@ export async function complainClaimAction(
   }
   revalidatePath(`/projects/${projectId}`);
   return { error: null, decided: true };
+}
+
+export interface RecheckFormState {
+  error: string | null;
+  requested?: boolean;
+}
+
+/**
+ * Reviewer-triggered re-verification of a single claim (RERUN-01): marks it
+ * for Nachprüfung. It starts no run — the reviewer's next „KI-Prüfung
+ * starten" is what re-checks it — so a success here means „vorgemerkt", not
+ * „geprüft", and the card's copy says exactly that.
+ *
+ * A live run makes the request impossible, and `RunActiveError`'s shipped
+ * message already names the blocking activity and its start time; it
+ * reaches the card verbatim through `runPipelineAction`.
+ */
+export async function requestClaimRecheckAction(
+  projectId: string,
+  claimId: string,
+  _previous: RecheckFormState,
+  _formData: FormData,
+): Promise<RecheckFormState> {
+  const result = await runPipelineAction(() =>
+    requestClaimRecheck({ projectId, claimIds: [claimId] }),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null, requested: true };
 }

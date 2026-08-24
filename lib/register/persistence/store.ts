@@ -228,6 +228,32 @@ export interface RegisterTransaction {
     at?: string;
   }): ProjectEvent;
   /**
+   * Records a reviewer-triggered re-check request as a CLOSED bracket
+   * (reviewer-triggered re-verification): appends
+   * `reverification_run_started` carrying the claim ids the caller actually
+   * transitioned, immediately followed by `reverification_run_completed`.
+   *
+   * One capability writes BOTH halves on purpose. The request starts no
+   * run — it only moves claims into `recheck_required` and leaves the run
+   * itself to the reviewer's next „KI-Prüfung starten" — so no later event
+   * would ever close an opening half written on its own. A capability that
+   * could append `started` alone would therefore make a permanently
+   * dangling bracket reachable, which is exactly what the same-transaction
+   * pair was chosen to rule out.
+   *
+   * `claim_ids` must be the transitions actually made, never the caller's
+   * requested selection: a claim raced out from under the request never
+   * moved, and a list that claimed otherwise would silently mis-bound every
+   * later projection that windows on this bracket.
+   */
+  recordReverificationRun(input: {
+    claim_ids: string[];
+    actor: ActorId;
+    started_reason: string;
+    completed_reason: string;
+    at?: string;
+  }): { started: ProjectEvent; completed: ProjectEvent };
+  /**
    * Rotates the briefing to a new revision (briefing revision workflow,
    * mirror of `reviseSource`): the current `briefing_import` moves to
    * `previous_briefings` (never lost), the new one becomes current with
@@ -843,6 +869,31 @@ function createTransaction(
       }) as ProjectEvent;
       draft.project_events.push(entry);
       return entry;
+    },
+    recordReverificationRun({
+      claim_ids,
+      actor,
+      started_reason,
+      completed_reason,
+      at,
+    }) {
+      const timestamp = at ?? new Date().toISOString();
+      const started = chain.append({
+        at: timestamp,
+        actor,
+        event: "reverification_run_started",
+        reason: started_reason,
+        reverification_run: { claim_ids: [...claim_ids] },
+      }) as ProjectEvent;
+      draft.project_events.push(started);
+      const completed = chain.append({
+        at: timestamp,
+        actor,
+        event: "reverification_run_completed",
+        reason: completed_reason,
+      }) as ProjectEvent;
+      draft.project_events.push(completed);
+      return { started, completed };
     },
     reviseBriefing({ sha256, blob_path, tool, actor, reason, at }) {
       const current = draft.project.briefing_import;

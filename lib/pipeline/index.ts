@@ -249,6 +249,18 @@ export {
   getOpenExistenceCheckCount,
   startExistenceCheck,
 } from "./verification/run-existence-check";
+// Reviewer-triggered re-verification: the request use-case is app-facing —
+// a server action calls it straight from the claim card. Its eligibility
+// predicate and the selection helper are details of that request and stay
+// internal, as does RECHECK_STATUSES, which the source-revision and
+// extraction writers share with it.
+export { requestClaimRecheck } from "./verification/request-recheck";
+export type {
+  RecheckExclusion,
+  RecheckExclusionReason,
+  RequestClaimRecheckInput,
+  RequestClaimRecheckResult,
+} from "./verification/request-recheck";
 // Workbench epic: the auto-chain drain queue — capture/revision app actions
 // enqueue here so "extract → existence-check" happens automatically and
 // strictly sequentially per project; enqueueReferenceScan starts the second

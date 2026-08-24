@@ -258,6 +258,14 @@ describe("public surface of lib/pipeline", () => {
     // Workbench epic: stage 1 as its own auto-runnable, LLM-free check.
     expect(surface.startExistenceCheck).toBeDefined();
     expect(surface.getOpenExistenceCheckCount).toBeDefined();
+    // Reviewer-triggered re-verification: only the request use-case is
+    // app-facing. Its eligibility predicate, its selection helper and the
+    // shared eligible-status set stay internal — the app tier may ask for a
+    // re-check, never re-implement who qualifies for one.
+    expect(surface.requestClaimRecheck).toBeDefined();
+    expect(surface.isRecheckEligible).toBeUndefined();
+    expect(surface.selectRequestedClaims).toBeUndefined();
+    expect(surface.RECHECK_STATUSES).toBeUndefined();
     // Workbench epic: the auto-chain drain queue's three app-facing
     // functions; the factory and the singleton-getter stay internal.
     expect(surface.enqueueSourceExtraction).toBeDefined();

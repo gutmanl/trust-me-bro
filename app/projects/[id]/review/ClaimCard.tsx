@@ -1,7 +1,10 @@
 "use client";
 
+import { useActionState } from "react";
+
+import { ErrorBanner } from "@/app/components/ui";
 import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
-import type { RoutingReason } from "@/lib/register";
+import type { ClaimStatus, RoutingReason } from "@/lib/register";
 import {
   classifyReasoningParagraph,
   reasoningRoleClassName,
@@ -27,6 +30,8 @@ import {
   relationBadgeClassName,
   verdictBadgeClassName,
 } from "../../verdict-labels";
+import type { RecheckFormState } from "./actions";
+import { requestClaimRecheckAction } from "./actions";
 import { ComplaintDialog } from "./ComplaintDialog";
 import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
@@ -278,6 +283,8 @@ export function ClaimCard({
               Prüfstufen in der nächsten KI-Prüfung.
             </p>
           ) : null}
+
+          <RecheckClaimControl projectId={projectId} claim={claim} />
         </div>
       ) : (
         <div className="px-3 pb-2">
@@ -305,6 +312,66 @@ export function ClaimCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Claim statuses on which the re-run trigger is offered.
+ *
+ * A display-tier mirror of the pipeline's `RECHECK_STATUSES`, which stays
+ * internal on purpose — the app tier may ASK for a re-check, never decide
+ * who qualifies for one. This list therefore governs only the affordance:
+ * `requestClaimRecheck` re-derives eligibility itself, inside the register
+ * transaction, and a claim that moved in between is skipped there. A drift
+ * between the two lists can hide or offer a button, never mis-move a claim.
+ */
+const RECHECK_ELIGIBLE_STATUSES: ReadonlySet<ClaimStatus> = new Set([
+  "existence_checked",
+  "prechecked",
+  "auto_confirmed",
+  "confirmed",
+]);
+
+const initialRecheckState: RecheckFormState = { error: null };
+
+/**
+ * Surface 1 of the re-verification contract: „Prüfung erneut ausführen" on
+ * the expanded card, as its last block and in the quiet secondary register.
+ *
+ * It is deliberately not in the collapsed header and deliberately not a
+ * filled button: for a claim awaiting adjudication the human decision must
+ * stay the visually first and heaviest action on the card.
+ */
+function RecheckClaimControl({
+  projectId,
+  claim,
+}: {
+  projectId: string;
+  claim: ClaimMarkerVM["claim"];
+}) {
+  const [state, formAction, pending] = useActionState(
+    requestClaimRecheckAction.bind(null, projectId, claim.id),
+    initialRecheckState,
+  );
+  if (!RECHECK_ELIGIBLE_STATUSES.has(claim.status)) {
+    // Absent, not disabled-with-a-tooltip: ineligibility here is a property
+    // of where the claim stands, not a temporary obstacle, and a control
+    // that can never become pressable is noise on an already dense card.
+    return null;
+  }
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3">
+      <form action={formAction}>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+        >
+          {pending ? "Wird vorgemerkt …" : "Prüfung erneut ausführen"}
+        </button>
+      </form>
+      <ErrorBanner message={state.error} />
     </div>
   );
 }
