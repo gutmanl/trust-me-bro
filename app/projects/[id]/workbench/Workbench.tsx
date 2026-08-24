@@ -9,7 +9,9 @@ import type {
   BriefingViewModel,
   EvidenceDisplay,
   ExtractionActivity,
+  ProjectMetrics,
   QueueEntry,
+  RecheckPreview,
   RepairActionVM,
   SourceWorkItemVM,
   VerificationState,
@@ -58,6 +60,8 @@ export function Workbench({
   pendingTriggers,
   extractionActivity,
   referenceImport,
+  recheckPreview,
+  reverification,
 }: {
   projectId: string;
   researchQuestion: string;
@@ -80,6 +84,11 @@ export function Workbench({
   pendingTriggers: number;
   extractionActivity: ExtractionActivity;
   referenceImport: ReferenceImportVM | null;
+  /** Fetched WITHOUT any exclusion, because the claim to exclude is client
+   * state below and changes with no round trip; the bar subtracts it from
+   * the displayed counts and sends the same id to the server action. */
+  recheckPreview: RecheckPreview;
+  reverification: ProjectMetrics["reverification"];
 }) {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
@@ -161,6 +170,14 @@ export function Workbench({
         verificationBlockedReason={verificationBlockedReason}
         runBarVisible={activeRun !== null}
         onJumpToNextOpen={jumpToNextOpen}
+        // RERUN-04, and the reason the sweep lives in this bar at all: the
+        // exclusion needs the workbench's selected-claim state, which no
+        // other route holds. A sweep launched from settings could not
+        // honour RERUN-04 at all.
+        selectedClaimId={selectedClaimId}
+        selectedClaimIsQueued={openClaimIds.includes(selectedClaimId ?? "")}
+        recheckPreview={recheckPreview}
+        reverification={reverification}
       />
 
       {activeRun !== null && connectionLost ? (

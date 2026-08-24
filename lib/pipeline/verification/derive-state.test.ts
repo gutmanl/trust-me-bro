@@ -101,3 +101,119 @@ describe("deriveVerificationState", () => {
     expect(state.status).toBe("not_started");
   });
 });
+
+/**
+ * The additive `precededByRecheck` field (D-16), which is what makes the
+ * bar's post-run summary one-time rather than standing furniture.
+ *
+ * The last case is the one that matters most: the `reverification_run_*`
+ * pair is a DISTINCT bracket, and a register carrying it must still be read
+ * by the interrupted branch exactly as before. That branch is pinned to two
+ * literal `verification_run_*` filters; if a future change folds the
+ * re-run bracket into either of them, a completed sweep starts reading as
+ * an interrupted verification run and RERUN-06 regresses silently.
+ */
+describe("deriveVerificationState — preceded by a re-run bracket", () => {
+  it("reports the flag when a bracket sits between the two runs", () => {
+    const state = deriveVerificationState(
+      makeRegister({
+        statuses: ["auto_confirmed"],
+        events: [
+          { event: "verification_run_started", seq: 1 },
+          { event: "verification_run_completed", seq: 2 },
+          { event: "reverification_run_started", seq: 3 },
+          { event: "reverification_run_completed", seq: 4 },
+          { event: "verification_run_started", seq: 5 },
+          { event: "verification_run_completed", seq: 6 },
+        ],
+      }),
+      false,
+    );
+    expect(state.status).toBe("completed");
+    expect(state.precededByRecheck).toBe(true);
+  });
+
+  it("does not report a bracket the previous run already carried", () => {
+    // The sweep happened before the FIRST completion, so the first run
+    // already reported it. A later run must not re-report it — that is the
+    // difference between a one-time summary and standing furniture.
+    const state = deriveVerificationState(
+      makeRegister({
+        statuses: ["auto_confirmed"],
+        events: [
+          { event: "reverification_run_started", seq: 1 },
+          { event: "reverification_run_completed", seq: 2 },
+          { event: "verification_run_started", seq: 3 },
+          { event: "verification_run_completed", seq: 4 },
+          { event: "verification_run_started", seq: 5 },
+          { event: "verification_run_completed", seq: 6 },
+        ],
+      }),
+      false,
+    );
+    expect(state.precededByRecheck).toBe(false);
+  });
+
+  it("reports a bracket before a project's very first run", () => {
+    const state = deriveVerificationState(
+      makeRegister({
+        statuses: ["auto_confirmed"],
+        events: [
+          { event: "reverification_run_started", seq: 1 },
+          { event: "reverification_run_completed", seq: 2 },
+          { event: "verification_run_started", seq: 3 },
+          { event: "verification_run_completed", seq: 4 },
+        ],
+      }),
+      false,
+    );
+    expect(state.precededByRecheck).toBe(true);
+  });
+
+  it("does not report the flag without any bracket", () => {
+    const state = deriveVerificationState(
+      makeRegister({
+        statuses: ["auto_confirmed"],
+        events: [
+          { event: "verification_run_started", seq: 1 },
+          { event: "verification_run_completed", seq: 2 },
+        ],
+      }),
+      false,
+    );
+    expect(state.precededByRecheck).toBe(false);
+  });
+
+  it("leaves interrupted detection byte-for-byte as it was", () => {
+    // A complete re-run bracket and no closing verification event: the
+    // opening bracket without a close is still the only thing that means
+    // „interrupted", and the re-run pair must be invisible to it.
+    const interrupted = deriveVerificationState(
+      makeRegister({
+        statuses: ["existence_checked"],
+        events: [
+          { event: "reverification_run_started", seq: 1 },
+          { event: "reverification_run_completed", seq: 2 },
+          { event: "verification_run_started", seq: 3 },
+        ],
+      }),
+      false,
+    );
+    expect(interrupted.status).toBe("interrupted");
+    expect(interrupted.precededByRecheck).toBe(true);
+
+    // And a re-run bracket with no verification run at all is not a run.
+    const notStarted = deriveVerificationState(
+      makeRegister({
+        statuses: ["existence_checked"],
+        events: [
+          { event: "reverification_run_started", seq: 1 },
+          { event: "reverification_run_completed", seq: 2 },
+        ],
+      }),
+      false,
+    );
+    expect(notStarted.status).toBe("not_started");
+    expect(notStarted.precededByRecheck).toBe(false);
+  });
+});

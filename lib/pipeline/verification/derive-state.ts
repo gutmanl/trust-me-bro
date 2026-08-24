@@ -21,6 +21,60 @@ export interface VerificationState {
   /** Claims still in captured/existence_checked. */
   openClaims: number;
   totalClaims: number;
+  /**
+   * Whether a reviewer asked for a re-verification between the previous run
+   * and the latest one (D-16) — i.e. whether the run this state describes
+   * was carrying re-checks rather than first passes.
+   *
+   * ADDITIVE ONLY. It is what makes the bar's one-time post-run summary
+   * transient: the summary is present for the most recently completed run
+   * that was preceded by a re-run bracket and gone as soon as any later run
+   * completes, which is exactly this flag going false again. Without it the
+   * only alternative would be a durable "we once re-ran" marker, and D-16
+   * rejected standing furniture.
+   *
+   * It is deliberately NOT wired into the interrupted-detection branch. The
+   * `reverification_run_*` pair is a DISTINCT bracket that opens and closes
+   * inside one transaction; folding it into the two literal
+   * `verification_run_*` filters above would let a completed sweep read as
+   * an interrupted verification run, which is the RERUN-06 regression those
+   * two filters are pinned byte-for-byte against.
+   */
+  precededByRecheck: boolean;
+}
+
+/**
+ * Did a reviewer request a re-verification in the window that ends at the
+ * latest verification run?
+ *
+ * The window opens at the verification run BEFORE the latest one, so a
+ * bracket that was already reported by the previous run's summary does not
+ * get reported a second time. With no previous completion the window opens
+ * at the start of the register, which is correct for a project whose very
+ * first run is a re-run.
+ */
+function recheckPrecededLatestRun(register: ClaimsRegister): boolean {
+  const startSeqs = register.project_events
+    .filter((event) => event.event === "verification_run_started")
+    .map((event) => event.seq);
+  const latestStart = startSeqs.at(-1);
+  if (latestStart === undefined) {
+    return false;
+  }
+  const previousCompletion = register.project_events
+    .filter(
+      (event) =>
+        event.event === "verification_run_completed" && event.seq < latestStart,
+    )
+    .map((event) => event.seq)
+    .at(-1);
+  const windowStart = previousCompletion ?? 0;
+  return register.project_events.some(
+    (event) =>
+      event.event === "reverification_run_started" &&
+      event.seq > windowStart &&
+      event.seq < latestStart,
+  );
 }
 
 export function deriveVerificationState(
@@ -37,6 +91,7 @@ export function deriveVerificationState(
   const lastCompleted = completed.at(-1);
   const openClaims = pickUnfinishedClaims(register).length;
   const totalClaims = register.claims.length;
+  const precededByRecheck = recheckPrecededLatestRun(register);
 
   if (hasActiveRun) {
     return {
@@ -44,6 +99,7 @@ export function deriveVerificationState(
       startedAt: lastStarted?.at,
       openClaims,
       totalClaims,
+      precededByRecheck,
     };
   }
   if (lastStarted && (!lastCompleted || lastCompleted.seq < lastStarted.seq)) {
@@ -55,6 +111,7 @@ export function deriveVerificationState(
       startedAt: lastStarted.at,
       openClaims,
       totalClaims,
+      precededByRecheck,
     };
   }
   if (lastCompleted) {
@@ -68,7 +125,13 @@ export function deriveVerificationState(
       reason: lastCompleted.reason,
       openClaims,
       totalClaims,
+      precededByRecheck,
     };
   }
-  return { status: "not_started", openClaims, totalClaims };
+  return {
+    status: "not_started",
+    openClaims,
+    totalClaims,
+    precededByRecheck,
+  };
 }

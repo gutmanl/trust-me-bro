@@ -24,6 +24,7 @@ import {
   getActiveRun,
   getBriefingViewModel,
   getOpenExistenceCheckCount,
+  getProjectMetrics,
   getProjectSummary,
   getReferenceCandidates,
   getReferenceScanState,
@@ -33,6 +34,7 @@ import {
   getUnpaywallSetting,
   getVerificationState,
   pendingTriggerCount,
+  previewClaimRecheck,
   readProject,
 } from "@/lib/pipeline";
 import type { SourceType } from "@/lib/register";
@@ -86,11 +88,19 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   const independence = getBriefingIndependence(register);
   const briefingImported = register.project.briefing_import !== undefined;
 
-  const [briefing, briefingContent, draft] = await Promise.all([
-    getBriefingViewModel(id),
-    getBriefing(id),
-    getBriefingDraft(id),
-  ]);
+  const [briefing, briefingContent, draft, recheckPreview, metrics] =
+    await Promise.all([
+      getBriefingViewModel(id),
+      getBriefing(id),
+      getBriefingDraft(id),
+      // All three rungs of the sweep's ladder in one read, and deliberately
+      // WITHOUT `excludeClaimIds`: the claim to exclude (RERUN-04) is client
+      // state in `Workbench`, so the bar subtracts it from the displayed
+      // counts and sends the id back with the request. Read-only and
+      // un-gated — it takes no lock and starts nothing.
+      previewClaimRecheck({ projectId: id }),
+      getProjectMetrics(id),
+    ]);
 
   const lifecycles = new Map(
     deriveSourceLifecycles(register).map((lifecycle) => [
@@ -261,6 +271,8 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
             getActiveRun(id)?.kind === "extraction",
           )}
           referenceImport={referenceImport}
+          recheckPreview={recheckPreview}
+          reverification={metrics.reverification}
         />
 
         <section className="rounded-md border border-slate-200 bg-white p-5">
