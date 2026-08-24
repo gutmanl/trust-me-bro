@@ -37,8 +37,10 @@ export function runKindLabel(kind: string | null): string {
   return (kind && RUN_KIND_LABELS[kind]) || "Lauf";
 }
 
-/** The activity's German name, whichever half it lives on. */
-function activityLabel(activity: ProjectActivity): string {
+/** The activity's German name, whichever half it lives on. Exported since
+ * the per-claim re-run trigger names the blocking activity in its own
+ * amber line rather than through `StartBlockedNotice`. */
+export function activityLabel(activity: ProjectActivity): string {
   return activity.source === "run"
     ? runKindLabel(activity.kind)
     : activity.description;

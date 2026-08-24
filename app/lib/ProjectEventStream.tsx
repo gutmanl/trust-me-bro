@@ -55,12 +55,22 @@ interface ProjectEventStreamValue {
   subscribe: (subscriber: Subscriber) => () => void;
 }
 
-const ProjectEventStreamContext = createContext<ProjectEventStreamValue>({
-  activity: null,
-  activeRun: null,
-  connectionLost: false,
-  subscribe: () => () => {},
-});
+/**
+ * Exported for the SSR test seam. Its default value is the UNBLOCKED state,
+ * so without the export a `renderToStaticMarkup` test can only ever assert
+ * the enabled rendering of a run-gated control — the blocked half would have
+ * to go to Playwright, where it is far more expensive and far less precise.
+ * `app/**`-internal, with no architecture-test implication: the pinned
+ * surfaces are the `lib/*` barrels, not this tier.
+ */
+export const ProjectEventStreamContext = createContext<ProjectEventStreamValue>(
+  {
+    activity: null,
+    activeRun: null,
+    connectionLost: false,
+    subscribe: () => () => {},
+  },
+);
 
 function isTerminal(type: unknown): boolean {
   return (

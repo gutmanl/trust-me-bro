@@ -2,7 +2,11 @@
 
 import { useActionState } from "react";
 
-import { compactButtonClass, ErrorBanner } from "@/app/components/ui";
+import {
+  compactButtonClass,
+  compactSecondaryButtonClass,
+  ErrorBanner,
+} from "@/app/components/ui";
 import type { VerificationState } from "@/lib/pipeline";
 import type { ClaimStatus } from "@/lib/register";
 import { STATUS_LABELS, STATUS_ORDER } from "../../status-labels";
@@ -121,7 +125,7 @@ export function ClaimsOverviewBar({
           <button
             type="button"
             onClick={onJumpToNextOpen}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            className={compactSecondaryButtonClass}
           >
             Nächste offene Aussage ↓
           </button>

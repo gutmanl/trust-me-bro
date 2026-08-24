@@ -1,8 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
-import { ErrorBanner } from "@/app/components/ui";
+import {
+  compactButtonClass,
+  compactSecondaryButtonClass,
+  ErrorBanner,
+} from "@/app/components/ui";
 import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
 import type { ClaimStatus, RoutingReason } from "@/lib/register";
 import {
@@ -32,6 +36,7 @@ import {
 } from "../../verdict-labels";
 import type { RecheckFormState } from "./actions";
 import { requestClaimRecheckAction } from "./actions";
+import { activityLabel, useActivity } from "../RunStatusProvider";
 import { ComplaintDialog } from "./ComplaintDialog";
 import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
@@ -336,12 +341,46 @@ const RECHECK_ELIGIBLE_STATUSES: ReadonlySet<ClaimStatus> = new Set([
 const initialRecheckState: RecheckFormState = { error: null };
 
 /**
+ * The Copywriting Contract's Surface 1 table, transcribed.
+ *
+ * As a named map rather than inline JSX strings so `ClaimCard.test.tsx` can
+ * assert the rendered markup against the same constants: a wording drift
+ * then fails a test instead of shipping silently.
+ */
+export const RECHECK_COPY = {
+  trigger: "Prüfung erneut ausführen",
+  confirmHeading: "Diese Aussage erneut prüfen?",
+  confirmBody1:
+    "Die Prüfung beginnt wieder bei der Zitatprüfung (Stufe 1) und " +
+    "durchläuft danach die KI-Prüfstufen erneut.",
+  confirmBody2:
+    "Die bisherige Bewertung und ihre Begründung werden überschrieben und " +
+    "archiviert – sie bleiben auf dieser Karte lesbar.",
+  confirmBodyConfirmed:
+    "Die Bestätigung entfällt dabei und muss danach erneut erfolgen.",
+  confirmBody4: "Das Ergebnis kann von der bisherigen Bewertung abweichen.",
+  cta: "Erneut prüfen",
+  ctaPending: "Wird vorgemerkt …",
+  cancel: "Abbrechen",
+  success:
+    "Zur Nachprüfung vorgemerkt – die Prüfung startet erst mit " +
+    "„KI-Prüfung starten“ oben.",
+  blocked: (activity: string) =>
+    `${activity} läuft gerade – eine erneute Prüfung ist erst danach möglich.`,
+} as const;
+
+/**
  * Surface 1 of the re-verification contract: „Prüfung erneut ausführen" on
  * the expanded card, as its last block and in the quiet secondary register.
  *
  * It is deliberately not in the collapsed header and deliberately not a
  * filled button: for a claim awaiting adjudication the human decision must
  * stay the visually first and heaviest action on the card.
+ *
+ * There is no typed forcing step here, on purpose. One claim, archived not
+ * destroyed, one press to undo by re-running again — friction spent where
+ * it buys nothing is what teaches a reviewer to type past it where it does.
+ * The forcing step is spent once, on the project-wide sweep.
  */
 function RecheckClaimControl({
   projectId,
@@ -350,28 +389,97 @@ function RecheckClaimControl({
   projectId: string;
   claim: ClaimMarkerVM["claim"];
 }) {
+  const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
     requestClaimRecheckAction.bind(null, projectId, claim.id),
     initialRecheckState,
   );
+  // Gated on the project's ACTIVITY, not on useStartGate("verification"):
+  // that hook reports blockedBy null for a run of its own kind by design,
+  // so gating on the verification kind would leave this trigger enabled
+  // during exactly the run that makes the request impossible — and hand
+  // the reviewer an avoidable RunActiveError instead of an explanation.
+  const activity = useActivity();
+
   if (!RECHECK_ELIGIBLE_STATUSES.has(claim.status)) {
     // Absent, not disabled-with-a-tooltip: ineligibility here is a property
     // of where the claim stands, not a temporary obstacle, and a control
     // that can never become pressable is noise on an already dense card.
     return null;
   }
-  return (
-    <div className="space-y-2 border-t border-slate-200 pt-3">
-      <form action={formAction}>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-        >
-          {pending ? "Wird vorgemerkt …" : "Prüfung erneut ausführen"}
+
+  if (state.requested === true) {
+    return (
+      <div className="border-t border-slate-200 pt-3">
+        <p className="text-xs text-slate-500">{RECHECK_COPY.success}</p>
+      </div>
+    );
+  }
+
+  if (activity) {
+    // The one case that IS rendered disabled rather than absent: it is
+    // temporary, so it has to be explained. Visible text, never a `title`
+    // alone — a tooltip only exists for a pointer that hovers it.
+    return (
+      <div className="space-y-1 border-t border-slate-200 pt-3">
+        <button type="button" disabled className={compactSecondaryButtonClass}>
+          {RECHECK_COPY.trigger}
         </button>
+        <p className="text-xs text-amber-700">
+          {RECHECK_COPY.blocked(activityLabel(activity))}
+        </p>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="border-t border-slate-200 pt-3">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={compactSecondaryButtonClass}
+        >
+          {RECHECK_COPY.trigger}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-slate-200 pt-3">
+      <form
+        action={formAction}
+        className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs"
+      >
+        <p className="font-medium text-slate-800">
+          {RECHECK_COPY.confirmHeading}
+        </p>
+        <p className="text-slate-600">{RECHECK_COPY.confirmBody1}</p>
+        <p className="text-slate-600">{RECHECK_COPY.confirmBody2}</p>
+        {claim.status === "confirmed" || claim.status === "auto_confirmed" ? (
+          <p className="text-slate-600">{RECHECK_COPY.confirmBodyConfirmed}</p>
+        ) : null}
+        <p className="text-slate-600">{RECHECK_COPY.confirmBody4}</p>
+        <ErrorBanner message={state.error} />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={pending}
+            className={compactButtonClass}
+          >
+            {pending ? RECHECK_COPY.ctaPending : RECHECK_COPY.cta}
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => setOpen(false)}
+            className={compactSecondaryButtonClass}
+          >
+            {RECHECK_COPY.cancel}
+          </button>
+        </div>
       </form>
-      <ErrorBanner message={state.error} />
     </div>
   );
 }

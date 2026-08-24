@@ -38,6 +38,21 @@ export const compactButtonClass =
   focusRingClass;
 
 /**
+ * Quiet outline variant of `compactButtonClass`, for a secondary action that
+ * must not compete with the primary one beside it.
+ *
+ * Lifted from a literal that had been copied into the workbench bar and was
+ * about to be copied three more times by the re-verification surfaces — the
+ * point at which duplication becomes drift. `focusRingClass` is added while
+ * lifting: the literal never had one, so every copy of it was invisible to
+ * keyboard focus.
+ */
+export const compactSecondaryButtonClass =
+  "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs " +
+  "font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 " +
+  focusRingClass;
+
+/**
  * Destructive actions (discard a claim, revert an identity). One treatment,
  * because there were two — an outline red and a solid red — sitting one click
  * apart inside the same claim card, which read as two different kinds of
