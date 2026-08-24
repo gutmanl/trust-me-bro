@@ -543,6 +543,83 @@ describe("requestClaimRecheck", () => {
   });
 });
 
+describe("an unresolvable rubric pin (WR-04)", () => {
+  /**
+   * `loadRubricRuleSet` throws a PLAIN Error when the project's pin names a
+   * rule file this installation does not ship — the cold-start
+   * `process.cwd()` case. `runPipelineAction` rethrows anything that is not
+   * a PipelineError by design, so any path that resolves the pin
+   * unconditionally hands the reviewer the generic error boundary.
+   *
+   * 04-07 fixed this for the SWEEP by guarding the page-level preview, but
+   * `RecheckClaimControl` takes no preview prop and is rendered purely from
+   * `offersRecheck(claim)`. So on exactly the project the page-level fix was
+   * written for, the reviewer saw no sweep button and „Prüfung erneut
+   * ausführen" on every eligible card — a button that could only fail.
+   */
+  async function breakTheRubricPin(): Promise<void> {
+    await RegisterStore.forProject(PROJECT).transaction((tx) => {
+      tx.updateConfig({
+        config: { ...tx.getConfig(), rubric_version: "nicht-vorhanden-v9" },
+        actor: "human:lg",
+        reason: "Test: Regelsatz-Pin zeigt ins Leere.",
+      });
+    });
+  }
+
+  it("does not stop the explicit per-claim path, which never consults the vintage", async () => {
+    const claimId = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "prechecked",
+    });
+    await breakTheRubricPin();
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      claimIds: [claimId],
+    });
+    expect(result.moved).toEqual([claimId]);
+  });
+
+  it("does not stop the `all` rung either", async () => {
+    const claimId = await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "prechecked",
+    });
+    await breakTheRubricPin();
+
+    const result = await requestClaimRecheck({
+      projectId: PROJECT,
+      scope: "all",
+    });
+    expect(result.moved).toEqual([claimId]);
+  });
+
+  it("still fails loudly on the stale rung, which cannot be answered without the pin", async () => {
+    await addClaimWalkedTo({
+      projectId: PROJECT,
+      claimNumber: 1,
+      sourceId,
+      status: "prechecked",
+    });
+    await breakTheRubricPin();
+
+    // Deliberately NOT softened: „which pre-checks are of the wrong
+    // vintage" has no answer when the vintage cannot be resolved, and an
+    // unprüfbare rubric version is a config error that must not pass
+    // silently. The sweep dialog is reached only through the page-level
+    // preview, which is guarded, so this throw does not surface as a
+    // button that can only fail.
+    await expect(
+      requestClaimRecheck({ projectId: PROJECT, scope: "stale" }),
+    ).rejects.toThrow(/nicht-vorhanden-v9/);
+  });
+});
+
 describe("the scope ladder", () => {
   it("nests three rungs, each a strict superset of the previous", async () => {
     const ids = await seedLadder();

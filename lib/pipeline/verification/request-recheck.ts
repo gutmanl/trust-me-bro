@@ -342,6 +342,14 @@ function currentPromptVersion(register: ClaimsRegister): string {
 export function classifyClaimForRecheck(
   claim: Claim,
   scope: RecheckScope,
+  /**
+   * Read ONLY under `scope === "stale"`, and that is a contract, not an
+   * accident (WR-04): `requestClaimRecheck` passes `""` on the other two
+   * rungs so it never has to resolve the project's rubric pin — a read that
+   * throws a plain Error out of a server action when the pin is
+   * unresolvable. A new reader outside the stale branch would compare
+   * against that sentinel; give it a real value first.
+   */
   promptVersion: string,
   excludeClaimIds: ReadonlySet<string>,
 ): "selected" | RecheckPreviewExclusionReason | null {
@@ -592,7 +600,25 @@ export async function requestClaimRecheck(
   const excludeClaimIds = new Set(input.excludeClaimIds ?? []);
   const restrictTo =
     input.claimIds === undefined ? undefined : new Set(input.claimIds);
-  const promptVersion = currentPromptVersion(register);
+  // WR-04: only the `stale` rung consults the vintage — the classifier
+  // reads `promptVersion` under `scope === "stale"` and nowhere else — so
+  // this read is lazy.
+  //
+  // It is not a micro-optimisation. `currentPromptVersion` goes through
+  // `loadRubricRuleSet`, which throws a PLAIN Error when the project's pin
+  // names a rule file this installation does not ship (the cold-start
+  // `process.cwd()` case in rubric-rules.ts). `runPipelineAction` rethrows
+  // anything that is not a PipelineError by design, so on exactly the
+  // project the page-level `loadRecheckPreview` guard was written for, the
+  // reviewer saw no sweep button but DID see „Prüfung erneut ausführen" on
+  // every eligible card — and pressing it produced the generic error
+  // boundary from an affordance whose whole surface is optional. The
+  // explicit per-claim path resolves to `all_including_confirmed`, so it
+  // now never reads the pin at all.
+  //
+  // The stale rung still fails loudly, and still as the config error it is:
+  // previewClaimRecheck builds all three rungs and keeps the eager read.
+  const promptVersion = scope === "stale" ? currentPromptVersion(register) : "";
   const selection = selectClaimsForScope(
     register,
     scope,
