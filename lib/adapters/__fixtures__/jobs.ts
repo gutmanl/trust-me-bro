@@ -73,6 +73,7 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
     claim: exampleClaim,
     evidence: [exampleEvidence],
     complaint: {
+      origin: "human",
       categories: ["claim_not_derivable"],
       reason: "Der Auszug trägt die Verallgemeinerung nicht.",
     },

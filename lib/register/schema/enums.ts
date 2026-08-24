@@ -91,6 +91,10 @@ export const TriggerKind = z.enum([
   "source_repair_evaluation",
   "anchor_repair",
   "briefing_substitution",
+  /** Verdict-driven repair: the per-claim generation of a repair
+   * suggestion from the machine's own critique (documented extension,
+   * additive). */
+  "claim_repair_evaluation",
 ]);
 export type TriggerKind = z.infer<typeof TriggerKind>;
 
@@ -261,5 +265,16 @@ export const ProjectEventType = z.enum([
    * opt-out (documented extension, additive). */
   "reverification_run_started",
   "reverification_run_completed",
+  /** Verdict-driven repair: the system generated a wording/excerpt repair
+   * suggestion for a machine-parked claim — the `claim_repair_suggestion`
+   * payload carries the proposal. Durable so pre-computed suggestions
+   * survive a restart, and auditable like the source-level repair actions
+   * (documented extension, additive). */
+  "claim_repair_suggestion",
+  /** Verdict-driven repair: a human dismissed an open claim-repair
+   * suggestion — names the claim via the event's `claim_id` scalar,
+   * mirroring `source_repair_action_dismissed`'s chain-order semantics
+   * (documented extension, additive). */
+  "claim_repair_suggestion_dismissed",
 ]);
 export type ProjectEventType = z.infer<typeof ProjectEventType>;

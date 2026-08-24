@@ -47,7 +47,14 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // so a project pinned to se-evidence-rubric-v1 keeps the v1.0.0 prompt.
   // This default only serves direct renderPromptForJob calls in tests.
   rubric: "1.0.0",
-  repair: "1.0.0",
+  // 1.1.0 (verdict-driven repair): the critique carries an origin (human
+  // complaint / machine verdict / failed quote), machine origins are framed
+  // as unconfirmed, and a stage-1 critique may return per-evidence
+  // corrected excerpts. Repair is deliberately NOT per-project pinned:
+  // proposals are never persisted as prose vintage — the accepted wording
+  // lands in the history with its own provenance — so the newest template
+  // is always the right one.
+  repair: "1.1.0",
   relevance: "1.0.0",
   // 1.1.0: the already-detected spans are reported too, with their title,
   // authors and year and the identifier echoed back. 1.0.0 told the model to

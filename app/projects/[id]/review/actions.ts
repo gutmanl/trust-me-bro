@@ -8,6 +8,8 @@ import {
   applyRepair,
   decideClaim,
   discardClaim,
+  dismissClaimRepairSuggestion,
+  enqueueClaimRepairEvaluations,
   proposeRepair,
   repairBriefingPassage,
   repairClaimAnchor,
@@ -82,6 +84,80 @@ export interface ApplyRepairFormState {
   reentryTarget?: string;
 }
 
+/** The accepted excerpt corrections, carried as one hidden JSON field
+ * (verdict-driven repair). The field is app-authored — the suggestion box
+ * serializes the suggestion's own `evidenceRepairs` — so a malformed value
+ * is a programming error and throws rather than silently dropping the
+ * corrections the reviewer believed they accepted. */
+function parseExcerptRepairs(
+  formData: FormData,
+): { evidenceId: string; correctedExcerpt: string }[] {
+  const raw = String(formData.get("excerpt_repairs") ?? "").trim();
+  if (raw === "") {
+    return [];
+  }
+  const parsed: unknown = JSON.parse(raw);
+  if (
+    !Array.isArray(parsed) ||
+    parsed.some(
+      (entry) =>
+        typeof entry !== "object" ||
+        entry === null ||
+        typeof (entry as { evidenceId?: unknown }).evidenceId !== "string" ||
+        typeof (entry as { correctedExcerpt?: unknown }).correctedExcerpt !==
+          "string",
+    )
+  ) {
+    throw new Error("excerpt_repairs: malformed hidden field");
+  }
+  return parsed as { evidenceId: string; correctedExcerpt: string }[];
+}
+
+export interface RepairSuggestionRequestState {
+  error: string | null;
+  queued?: number;
+}
+
+/** Verdict-driven repair: queues suggestion generation — for one claim
+ * (`claimId` set) or the whole eligible backlog of the project. The
+ * generation itself runs off the auto-chain; the card fills in via the
+ * trigger's terminal event and the stream's refresh. */
+export async function requestClaimRepairSuggestionsAction(
+  projectId: string,
+  claimId: string | null,
+  _previous: RepairSuggestionRequestState,
+  _formData: FormData,
+): Promise<RepairSuggestionRequestState> {
+  const result = await runPipelineAction(() =>
+    enqueueClaimRepairEvaluations(
+      projectId,
+      claimId === null ? undefined : [claimId],
+    ),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  return { error: null, queued: result.value };
+}
+
+/** Verdict-driven repair: the human judgment "this proposal is not it" —
+ * the suggestion disappears, the chain keeps it. */
+export async function dismissClaimRepairSuggestionAction(
+  projectId: string,
+  claimId: string,
+  _previous: DecisionFormState,
+  _formData: FormData,
+): Promise<DecisionFormState> {
+  const result = await runPipelineAction(() =>
+    dismissClaimRepairSuggestion(projectId, claimId),
+  );
+  if (result.error !== null) {
+    return { error: result.error };
+  }
+  revalidatePath(`/projects/${projectId}`);
+  return { error: null, decided: true };
+}
+
 /** Persists the accepted/adjusted wording and re-enters the affected
  * stages; a verification run is started opportunistically so the revised
  * claim is re-checked without a manual detour. */
@@ -95,8 +171,14 @@ export async function applyRepairAction(
   const source = String(formData.get("source") ?? "manuell") as
     "vorschlag_uebernommen" | "vorschlag_angepasst" | "manuell";
   const proposedText = String(formData.get("proposed_text") ?? "");
+  const excerptRepairs = parseExcerptRepairs(formData);
   const result = await runPipelineAction(() =>
-    applyRepair(projectId, claimId, { newText, source, proposedText }),
+    applyRepair(projectId, claimId, {
+      newText,
+      source,
+      proposedText,
+      ...(excerptRepairs.length > 0 ? { excerptRepairs } : {}),
+    }),
   );
   if (result.error !== null) {
     return { error: result.error };

@@ -69,6 +69,11 @@ describe("public surface of lib/register", () => {
     // rather than restating the exit edge's condition, because a claim that
     // fails it is stranded permanently once admitted.
     expect(surface.canLeaveRecheck).toBeDefined();
+    // Verdict-driven repair: the repair pipeline and the suggestion
+    // eligibility ask the same gate the direct repair edge re-checks at
+    // commit time, so no claim is ever offered a repair the transition
+    // would then refuse.
+    expect(surface.routedRepairable).toBeDefined();
     // TMB-5: anchor resolution/evidence numbering single-sourced for the
     // markdown projection AND the review UI.
     expect(surface.buildBriefingViewModel).toBeDefined();
@@ -340,6 +345,17 @@ describe("public surface of lib/pipeline", () => {
     expect(surface.proposeRepair).toBeDefined();
     expect(surface.applyRepair).toBeDefined();
     expect(surface.discardClaim).toBeDefined();
+    // Verdict-driven repair: suggestions (derive/dismiss) and the backfill
+    // enqueue are app-facing; the evaluator, the eligibility derivation and
+    // the shared critique/job builders run only off the auto-chain (or
+    // inside proposeRepair) and stay internal.
+    expect(surface.deriveOpenClaimRepairSuggestions).toBeDefined();
+    expect(surface.dismissClaimRepairSuggestion).toBeDefined();
+    expect(surface.enqueueClaimRepairEvaluations).toBeDefined();
+    expect(surface.evaluateClaimRepair).toBeUndefined();
+    expect(surface.claimsEligibleForRepairSuggestion).toBeUndefined();
+    expect(surface.buildRepairCritique).toBeUndefined();
+    expect(surface.buildRepairJob).toBeUndefined();
     // Workbench epic: the two manual anchor repairs; their paragraph
     // resolution helpers stay internal.
     expect(surface.repairClaimAnchor).toBeDefined();
@@ -796,6 +812,15 @@ describe("status model transition table", () => {
       },
       {
         from: "contested",
+        to: "revised",
+        actorKind: "human",
+        decision: null,
+      },
+      // Ratified with the verdict-driven repair: a machine-parked claim
+      // with a repairable routing takes the repair edge without a
+      // complaint (gate: routedRepairable); discard stays contested-only.
+      {
+        from: "pending_adjudication",
         to: "revised",
         actorKind: "human",
         decision: null,

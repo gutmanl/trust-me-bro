@@ -23,6 +23,7 @@ const RUN_KIND_LABELS: Record<string, string> = {
   source_repair_evaluation: "Automatische Reparatur (Quellenprüfung)",
   anchor_repair: "Anker-Reparatur",
   briefing_substitution: "Briefing-Angleichung",
+  claim_repair_evaluation: "Reparaturvorschlag (Aussage)",
 };
 
 export function runKindLabel(kind: string | null): string {

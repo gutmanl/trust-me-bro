@@ -28,6 +28,7 @@ import {
   getProjectSummary,
   getReferenceCandidates,
   getReferenceScanState,
+  deriveOpenClaimRepairSuggestions,
   deriveOpenRepairActions,
   deriveOpenChainTriggers,
   getSourceWorkItems,
@@ -211,6 +212,14 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   // Open auto-repair suggestions, joined onto failed work items and source
   // rows client-side by the rail.
   const repairSuggestions = deriveOpenRepairActions(register);
+  // Open verdict-driven claim-repair suggestions, joined per claim id by
+  // the briefing view's cards (verdict-driven repair).
+  const claimRepairSuggestions = Object.fromEntries(
+    deriveOpenClaimRepairSuggestions(register).map((entry) => [
+      entry.claimId,
+      entry,
+    ]),
+  );
 
   // The reference-import section only exists once there is a briefing to
   // scan. Keeping it gated matters beyond tidiness: getBackendsHealth spawns
@@ -280,6 +289,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
           draft={draft}
           queue={buildAdjudicationQueue(register)}
           evidenceDisplay={buildEvidenceDisplayMap(id, register)}
+          claimRepairSuggestions={claimRepairSuggestions}
           counts={summary.claim_counts}
           totalClaims={summary.total_claims}
           openExistenceCount={getOpenExistenceCheckCount(register)}

@@ -46,6 +46,7 @@ import type {
   CaptureFailure,
   CaptureFailureInput,
   HistoryEntry,
+  ClaimRepairSuggestion,
   RepairAction,
 } from "../schema/history";
 import {
@@ -86,6 +87,10 @@ export interface RegisterTransaction {
     actor: ActorId;
     source_id?: string;
     work_item_id?: string;
+    /** The claim a `claim_repair_suggestion_dismissed` event resolves
+     * (verdict-driven repair) — a plain scalar riding the generic
+     * appender, like `source_id` above. */
+    claim_id?: string;
     /** Bracket discriminator for chained work (run visibility) — see
      * TriggerKind in the schema. */
     trigger_kind?: TriggerKind;
@@ -120,6 +125,20 @@ export interface RegisterTransaction {
    */
   recordRepairAction(input: {
     action: RepairAction;
+    actor: ActorId;
+    reason: string;
+    at?: string;
+  }): ProjectEvent;
+  /**
+   * Records one verdict-driven claim-repair suggestion durably
+   * (verdict-driven repair): appends a `claim_repair_suggestion` event
+   * carrying the machine-generated proposal — pre-computed so it is
+   * already on the card when the reviewer opens the queue, and durable so
+   * it survives a restart. Mirrors `recordRepairAction`'s shape: one
+   * chain-linked event, no other mutation.
+   */
+  recordClaimRepairSuggestion(input: {
+    suggestion: ClaimRepairSuggestion;
     actor: ActorId;
     reason: string;
     at?: string;
@@ -323,6 +342,20 @@ export interface RegisterTransaction {
    * `contested → revised` transition's `revision` field.
    */
   reviseClaimText(claimId: string, newText: string): void;
+  /**
+   * Rewrites one evidence excerpt during the repair loop (verdict-driven
+   * repair). The previous excerpt is never lost: the caller records it in
+   * the accompanying `* → revised` transition's `excerpt_revisions` field.
+   * The evidence's existence check is CLEARED here, not left to the
+   * caller: the old check judged different wording, and a stale "passed"
+   * beside a new excerpt would let the re-entry gate route the revision
+   * past exactly the stage the change invalidated.
+   */
+  reviseEvidenceExcerpt(
+    claimId: string,
+    evidenceId: string,
+    newExcerpt: string,
+  ): void;
   /** Records the stage-1 existence result for one piece of evidence. */
   setExistenceCheck(
     claimId: string,
@@ -746,6 +779,7 @@ function createTransaction(
       actor,
       source_id,
       work_item_id,
+      claim_id,
       trigger_kind,
       capture_attempt,
       at,
@@ -757,6 +791,7 @@ function createTransaction(
         reason,
         ...(source_id !== undefined ? { source_id } : {}),
         ...(work_item_id !== undefined ? { work_item_id } : {}),
+        ...(claim_id !== undefined ? { claim_id } : {}),
         ...(trigger_kind !== undefined ? { trigger_kind } : {}),
         ...(capture_attempt !== undefined ? { capture_attempt } : {}),
       }) as ProjectEvent;
@@ -781,6 +816,17 @@ function createTransaction(
         event: "source_repair_action",
         reason,
         repair_action: structuredClone(action),
+      }) as ProjectEvent;
+      draft.project_events.push(entry);
+      return entry;
+    },
+    recordClaimRepairSuggestion({ suggestion, actor, reason, at }) {
+      const entry = chain.append({
+        at: at ?? new Date().toISOString(),
+        actor,
+        event: "claim_repair_suggestion",
+        reason,
+        claim_repair_suggestion: structuredClone(suggestion),
       }) as ProjectEvent;
       draft.project_events.push(entry);
       return entry;
@@ -1040,6 +1086,14 @@ function createTransaction(
     },
     reviseClaimText(claimId, newText) {
       mutableClaim(claimId).text = newText;
+    },
+    reviseEvidenceExcerpt(claimId, evidenceId, newExcerpt) {
+      const evidence = mutableEvidence(claimId, evidenceId);
+      evidence.verbatim_excerpt = newExcerpt;
+      // The old stage-1 result judged the OLD wording; keeping it would let
+      // allExistenceChecksPassed route the revision past the one stage the
+      // change invalidated. Absent, not wrong — stage 1 re-establishes it.
+      delete evidence.existence_check;
     },
     setExistenceCheck(claimId, evidenceId, result) {
       mutableEvidence(claimId, evidenceId).existence_check = { ...result };

@@ -100,7 +100,10 @@ export type OffRunnerTriggerKind =
   | "capture_failure_repair"
   | "source_repair_evaluation"
   | "anchor_repair"
-  | "briefing_substitution";
+  | "briefing_substitution"
+  // Verdict-driven repair: per-claim generation of a repair suggestion
+  // from the machine's own critique.
+  | "claim_repair_evaluation";
 
 /** Progress vocabulary of an off-runner trigger — the RunProgressEvent
  * shape one level down: a trigger has no items and no pause, so the

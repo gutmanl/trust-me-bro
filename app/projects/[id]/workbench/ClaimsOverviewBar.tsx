@@ -22,9 +22,12 @@ import {
 } from "../RunStatusProvider";
 import type { RunFormState } from "./actions";
 import { startVerificationAction } from "./actions";
+import type { RepairSuggestionRequestState } from "../review/actions";
+import { requestClaimRepairSuggestionsAction } from "../review/actions";
 import { RecheckSweepDialog, SWEEP_COPY } from "./RecheckSweepDialog";
 
 const initialState: RunFormState = { error: null };
+const suggestInitial: RepairSuggestionRequestState = { error: null };
 
 /**
  * The Copywriting Contract's bar-side copy: the sweep's success line
@@ -86,6 +89,7 @@ export function ClaimsOverviewBar({
   selectedClaimIsQueued,
   recheckPreview,
   reverification,
+  repairSuggestionCandidates,
 }: {
   projectId: string;
   counts: Record<ClaimStatus, number>;
@@ -142,6 +146,9 @@ export function ClaimsOverviewBar({
   recheckPreview: RecheckPreview | null;
   /** D-16's two absolute counts. Never divided, here or anywhere. */
   reverification: ProjectMetrics["reverification"];
+  /** Verdict-driven repair: queued claims that could get a suggestion but
+   * have none yet — 0 hides the backfill trigger entirely. */
+  repairSuggestionCandidates: number;
 }) {
   const [state, formAction, pending] = useActionState(
     startVerificationAction.bind(null, projectId),
@@ -149,6 +156,12 @@ export function ClaimsOverviewBar({
   );
   const { blockedBy } = useStartGate("verification");
   const [sweepOpen, setSweepOpen] = useState(false);
+  // Verdict-driven repair: the per-project backfill. Enqueue-only — the
+  // generation runs off the auto-chain between runs — so no activity gate.
+  const [suggestState, suggestAction, suggestPending] = useActionState(
+    requestClaimRepairSuggestionsAction.bind(null, projectId, null),
+    suggestInitial,
+  );
   const [sweepResult, setSweepResult] = useState<{
     moved: number;
     excluded: number;
@@ -267,6 +280,25 @@ export function ClaimsOverviewBar({
           >
             {SWEEP_COPY.trigger}
           </button>
+        ) : null}
+
+        {repairSuggestionCandidates > 0 ? (
+          <form action={suggestAction} className="contents">
+            <button
+              type="submit"
+              disabled={suggestPending || suggestState.queued !== undefined}
+              className={compactSecondaryButtonClass}
+            >
+              {suggestPending
+                ? "Wird eingereiht …"
+                : suggestState.queued !== undefined
+                  ? `${suggestState.queued} Reparaturvorschlag${
+                      suggestState.queued === 1 ? " wird" : "e werden"
+                    } erzeugt`
+                  : `Reparaturvorschläge erzeugen (${repairSuggestionCandidates})`}
+            </button>
+            <ErrorBanner message={suggestState.error} />
+          </form>
         ) : null}
       </div>
 

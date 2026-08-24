@@ -23,7 +23,11 @@ import type {
 } from "../sources/work-items/types";
 import { startExistenceCheck } from "../verification/run-existence-check";
 import { startVerification } from "../verification/run-verification";
-import { RunActiveError, VerificationPreconditionError } from "../errors";
+import {
+  RunActiveError,
+  UnknownProjectError,
+  VerificationPreconditionError,
+} from "../errors";
 import { getGlobalJobRunner } from "./job-runner";
 import type { JobRunner } from "./job-runner";
 import type {
@@ -48,7 +52,10 @@ type PendingTrigger =
   | { kind: "capture_failure_repair"; workItemId: string }
   | { kind: "source_repair_evaluation"; sourceId: string }
   | { kind: "anchor_repair" }
-  | { kind: "briefing_substitution"; sourceId: string };
+  | { kind: "briefing_substitution"; sourceId: string }
+  // Verdict-driven repair: one suggestion evaluation per eligible
+  // machine-parked claim, fanned out after a verification pass settles.
+  | { kind: "claim_repair_evaluation"; claimId: string };
 
 function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
   if (a.kind === "extraction" && b.kind === "extraction") {
@@ -77,6 +84,12 @@ function sameTrigger(a: PendingTrigger, b: PendingTrigger): boolean {
   ) {
     return a.sourceId === b.sourceId;
   }
+  if (
+    a.kind === "claim_repair_evaluation" &&
+    b.kind === "claim_repair_evaluation"
+  ) {
+    return a.claimId === b.claimId;
+  }
   return a.kind === b.kind;
 }
 
@@ -100,6 +113,8 @@ function describeTrigger(trigger: PendingTrigger): string {
       return "anchor repair sweep";
     case "briefing_substitution":
       return `briefing substitution (source "${trigger.sourceId}")`;
+    case "claim_repair_evaluation":
+      return `claim repair evaluation (claim "${trigger.claimId}")`;
   }
 }
 
@@ -130,6 +145,9 @@ export interface AutoChainDependencies {
   ) => Promise<void>;
   evaluateSourceRepair?: (projectId: string, sourceId: string) => Promise<void>;
   listRepairEvaluationSources?: (projectId: string) => Promise<string[]>;
+  // Verdict-driven repair seams, same lazy-resolution pattern.
+  evaluateClaimRepair?: (projectId: string, claimId: string) => Promise<void>;
+  listClaimRepairCandidates?: (projectId: string) => Promise<string[]>;
   runFuzzyReanchorSweep?: (projectId: string) => Promise<unknown>;
   runBriefingSubstitution?: (
     projectId: string,
@@ -157,6 +175,10 @@ export interface AutoChain {
    * the briefing-revision publish action; extraction passes chain it
    * automatically. Coalesces with itself. */
   enqueueAnchorRepair(projectId: string): void;
+  /** Verdict-driven repair: queues one suggestion evaluation for one
+   * machine-parked claim. Coalesces per claim id; eligibility is
+   * re-checked by the evaluator itself, so a stale enqueue is a no-op. */
+  enqueueClaimRepairEvaluation(projectId: string, claimId: string): void;
   /** Queues one capture work item (source work items): manual capture and
    * reference-import captures both enter here, so they serialize with each
    * other and with every other run of the project. */
@@ -291,6 +313,21 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     sourceRepair ??= (await import("../sources/auto-repair/evaluate-source"))
       .evaluateSourceRepair;
     return sourceRepair(projectId, id);
+  }
+  // Verdict-driven repair, lazily resolved for the same cycle reason: the
+  // suggestion evaluator pulls the adapter graph, and its module shares a
+  // directory with run-repair, whose apply path enqueues onto this chain
+  // indirectly through the verification it opportunistically starts.
+  let claimRepair = deps.evaluateClaimRepair;
+  async function runClaimRepairEvaluation(projectId: string, id: string) {
+    claimRepair ??= (await import("../repair/suggestions")).evaluateClaimRepair;
+    return claimRepair(projectId, id);
+  }
+  let claimRepairCandidates = deps.listClaimRepairCandidates;
+  async function computeClaimRepairCandidates(projectId: string) {
+    claimRepairCandidates ??= (await import("../repair/suggestions"))
+      .claimsNeedingRepairSuggestionForProject;
+    return claimRepairCandidates(projectId);
   }
   let listRepairSources = deps.listRepairEvaluationSources;
   async function computeRepairEvaluationSources(
@@ -646,6 +683,13 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
         { sourceId: trigger.sourceId, label: `Quelle "${trigger.sourceId}"` },
         () => runSourceRepairEvaluation(projectId, trigger.sourceId),
       );
+    } else if (trigger.kind === "claim_repair_evaluation") {
+      await runOffRunnerTrigger(
+        projectId,
+        "claim_repair_evaluation",
+        { label: `Aussage "${trigger.claimId}"` },
+        () => runClaimRepairEvaluation(projectId, trigger.claimId),
+      );
     } else if (trigger.kind === "anchor_repair") {
       await runOffRunnerTrigger(projectId, "anchor_repair", {}, () =>
         runAnchorRepairSweep(projectId),
@@ -675,6 +719,26 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
           !(error instanceof RunActiveError) &&
           !(error instanceof VerificationPreconditionError)
         ) {
+          throw error;
+        }
+      }
+      // Verdict-driven repair: freshly parked claims get their suggestion
+      // generated right away, so it is already on the card when the
+      // reviewer opens the queue (operator decision superseding REPAIR-03 —
+      // see lib/pipeline/repair/suggestions.ts). Runs whether or not the
+      // verification pass itself started: stage-1 failures are eligible
+      // even when stage 2/3 had nothing to do. Dedup per claim via
+      // sameTrigger; the evaluator re-checks eligibility under the lock.
+      try {
+        for (const claimId of await computeClaimRepairCandidates(projectId)) {
+          queue.push({ kind: "claim_repair_evaluation", claimId });
+        }
+      } catch (error) {
+        // A project that vanished mid-chain (or a test double that never
+        // had one on disk) ends the fan-out routinely, mirroring the
+        // verification swallow above; anything else is a real failure and
+        // surfaces through drain()'s catch.
+        if (!(error instanceof UnknownProjectError)) {
           throw error;
         }
       }
@@ -787,6 +851,9 @@ export function createAutoChain(deps: AutoChainDependencies = {}): AutoChain {
     enqueueAnchorRepair(projectId) {
       push(projectId, { kind: "anchor_repair" });
     },
+    enqueueClaimRepairEvaluation(projectId, claimId) {
+      push(projectId, { kind: "claim_repair_evaluation", claimId });
+    },
     enqueueSourceCapture(projectId, item) {
       push(projectId, { kind: "source_capture", item });
     },
@@ -875,6 +942,25 @@ export function enqueueReferenceScan(projectId: string): void {
  * beyond the exact remap's reach get their bounded fuzzy attempt. */
 export function enqueueAnchorRepair(projectId: string): void {
   getGlobalAutoChain().enqueueAnchorRepair(projectId);
+}
+
+/** Verdict-driven repair: queues one suggestion evaluation per eligible
+ * machine-parked claim — the per-project backfill ("erzeuge Vorschläge für
+ * die Warteschlange") and the per-claim request both enter here. Returns
+ * how many were queued, for the action's German feedback line. */
+export async function enqueueClaimRepairEvaluations(
+  projectId: string,
+  claimIds?: string[],
+): Promise<number> {
+  const targets =
+    claimIds ??
+    (await (
+      await import("../repair/suggestions")
+    ).claimsNeedingRepairSuggestionForProject(projectId));
+  for (const claimId of targets) {
+    getGlobalAutoChain().enqueueClaimRepairEvaluation(projectId, claimId);
+  }
+  return targets.length;
 }
 
 /** Queues one capture work item on the project's chain (source work items).

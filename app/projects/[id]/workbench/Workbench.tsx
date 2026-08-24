@@ -20,7 +20,7 @@ import type { BriefingImport, ClaimStatus } from "@/lib/register";
 import { useEffortTimer } from "../review/useEffortTimer";
 import { BriefingPane } from "./BriefingPane";
 import { ClaimsOverviewBar } from "./ClaimsOverviewBar";
-import type { OpenChainTrigger } from "@/lib/pipeline";
+import type { ClaimRepairSuggestionVM, OpenChainTrigger } from "@/lib/pipeline";
 import { SourcesRail, type ReferenceImportVM } from "./SourcesRail";
 import type { SourceRowVM } from "./SourceRow";
 import { useCollapsedRefresh } from "./use-collapsed-refresh";
@@ -47,6 +47,7 @@ export function Workbench({
   draft,
   queue,
   evidenceDisplay,
+  claimRepairSuggestions,
   counts,
   totalClaims,
   openExistenceCount,
@@ -71,6 +72,9 @@ export function Workbench({
   draft: BriefingDraft | null;
   queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
+  /** Open verdict-driven repair suggestions, keyed by claim id
+   * (verdict-driven repair). */
+  claimRepairSuggestions: Record<string, ClaimRepairSuggestionVM>;
   counts: Record<ClaimStatus, number>;
   totalClaims: number;
   openExistenceCount: number;
@@ -94,6 +98,16 @@ export function Workbench({
   recheckPreview: RecheckPreview | null;
   reverification: ProjectMetrics["reverification"];
 }) {
+  // Verdict-driven repair: how many queued claims could get a suggestion
+  // but have none yet — feeds the bar's backfill trigger, which covers a
+  // register populated before the automatic generation existed.
+  const repairSuggestionCandidates = queue.filter(
+    (entry) =>
+      (entry.routing === "negative_precheck" ||
+        entry.routing === "existence_check_failed") &&
+      entry.claim.status === "pending_adjudication" &&
+      claimRepairSuggestions[entry.claim.id] === undefined,
+  ).length;
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
     null,
@@ -166,6 +180,7 @@ export function Workbench({
         totalClaims={totalClaims}
         decided={everQueued - openCount}
         everQueued={everQueued}
+        repairSuggestionCandidates={repairSuggestionCandidates}
         openCount={openCount}
         openExistenceCount={openExistenceCount}
         existenceCheckRunning={activeRun?.kind === "existence_check"}
@@ -200,6 +215,7 @@ export function Workbench({
           draft={draft}
           queue={queue}
           evidenceDisplay={evidenceDisplay}
+          claimRepairSuggestions={claimRepairSuggestions}
           selectedClaimId={selectedClaimId}
           selectedEvidenceId={selectedEvidenceId}
           hoveredParagraph={hoveredParagraph}

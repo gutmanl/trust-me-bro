@@ -7,7 +7,12 @@ import {
   compactSecondaryButtonClass,
   ErrorBanner,
 } from "@/app/components/ui";
-import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
+import type {
+  ClaimMarkerVM,
+  ClaimRepairSuggestionVM,
+  Evidence,
+  EvidenceDisplay,
+} from "@/lib/pipeline";
 import type {
   CalibrationResult,
   CalibrationSnapshot,
@@ -43,6 +48,10 @@ import type { RecheckFormState } from "./actions";
 import { requestClaimRecheckAction } from "./actions";
 import { activityLabel, useActivity } from "../RunStatusProvider";
 import { deriveCalibrationSupersession } from "./calibration-supersession";
+import {
+  ClaimRepairSuggestionBox,
+  RequestClaimRepairSuggestion,
+} from "./ClaimRepairSuggestionBox";
 import { ComplaintDialog } from "./ComplaintDialog";
 import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
@@ -71,6 +80,7 @@ export function ClaimCard({
   showAnchor = false,
   paragraphs,
   anchoredParagraph,
+  repairSuggestion,
 }: {
   projectId: string;
   marker: ClaimMarkerVM;
@@ -88,6 +98,9 @@ export function ClaimCard({
   paragraphs?: ParagraphOption[];
   /** The paragraph this card sits beside, seeding the passage editor. */
   anchoredParagraph?: ParagraphOption;
+  /** Open machine-generated repair suggestion for this claim
+   * (verdict-driven repair) — rendered above the complaint dialog. */
+  repairSuggestion?: ClaimRepairSuggestionVM;
 }) {
   const { claim } = marker;
   // The repair panel is reachable for a contested claim (all three repairs)
@@ -283,6 +296,27 @@ export function ClaimCard({
               : substituteVerdictProse(lastReason, proseEvidence)}
           </p>
 
+          {/* Verdict-driven repair: the machine's proposal sits ABOVE the
+              complaint dialog — it answers the same question the reviewer is
+              about to decide — but never replaces it: confirm and complain
+              stay exactly where they were. */}
+          {claim.status === "pending_adjudication" &&
+          repairSuggestion !== undefined ? (
+            <ClaimRepairSuggestionBox
+              projectId={projectId}
+              claimId={claim.id}
+              suggestion={repairSuggestion}
+            />
+          ) : null}
+          {claim.status === "pending_adjudication" &&
+          repairSuggestion === undefined &&
+          (routing === "negative_precheck" ||
+            routing === "existence_check_failed") ? (
+            <RequestClaimRepairSuggestion
+              projectId={projectId}
+              claimId={claim.id}
+            />
+          ) : null}
           {claim.status === "pending_adjudication" ? (
             <ComplaintDialog
               projectId={projectId}

@@ -148,6 +148,7 @@ function renderBar(options: {
             : options.recheckPreview
         }
         reverification={options.reverification ?? NO_RECHECK}
+        repairSuggestionCandidates={0}
       />
     </ProjectEventStreamContext.Provider>,
   );

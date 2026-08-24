@@ -52,6 +52,11 @@ export {
   resolveEvidenceRelation,
 } from "./statemachine/divergence";
 export type { TransitionRequest } from "./statemachine/engine";
+// Verdict-driven repair: type-only — the store is the sole writer of the
+// suggestion events, the pipeline only builds typed payloads and reads the
+// history's excerpt revisions.
+export type { ClaimRepairSuggestion, ExcerptRevision } from "./schema/history";
+export { routedRepairable } from "./statemachine/transitions";
 export type { BriefingRenderContext } from "./projection/render-briefing";
 export { formatLocator, renderBriefing } from "./projection/render-briefing";
 export {

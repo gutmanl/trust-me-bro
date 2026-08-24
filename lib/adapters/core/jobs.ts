@@ -109,9 +109,15 @@ export interface RubricInput {
 export interface RepairInput {
   readonly claim: ClaimContext;
   readonly evidence: readonly EvidenceContext[];
-  /** The complaint that put the claim into contested — always at least one
-   * category (multi-select of the adjudication dialog, TMB-35). */
+  /** The critique driving the repair (verdict-driven repair): a human
+   * complaint (origin "human", always at least one category — the
+   * adjudication dialog's multi-select, TMB-35), or the machine's own
+   * verdict — a negative pre-check's reasoning or the stage-1 quote
+   * failure, whose `categories` may be empty because no human ever chose
+   * one. The origin travels to the template so machine critiques are
+   * framed as unconfirmed (P-14/P-15). */
   readonly complaint: {
+    readonly origin: "human" | "negative_precheck" | "existence_check_failed";
     readonly categories: readonly ComplaintCategory[];
     readonly reason: string;
   };

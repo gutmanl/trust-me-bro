@@ -2,7 +2,12 @@ import type { ActorId } from "../../identity/types";
 import type { ChainAppender } from "../chain/appender";
 import type { Claim } from "../schema/claim";
 import type { ClaimStatus, RoutingReason } from "../schema/enums";
-import type { Decision, HistoryEntry, Revision } from "../schema/history";
+import type {
+  Decision,
+  HistoryEntry,
+  ExcerptRevision,
+  Revision,
+} from "../schema/history";
 import { isAtomicClaimText } from "./atomicity";
 import {
   DecisionRequiredError,
@@ -23,6 +28,9 @@ export interface TransitionRequest {
   /** Text revision of the repair loop; only meaningful on the
    * `contested → revised` edge (TMB-37). */
   revision?: Revision;
+  /** Excerpt revisions of the repair loop; only meaningful on the
+   * `* → revised` edges (verdict-driven repair). */
+  excerpt_revisions?: ExcerptRevision[];
 }
 
 function actorKind(actor: ActorId): "system" | "human" {
@@ -120,6 +128,9 @@ export function applyTransition(
     ...(request.decision ? { decision: request.decision } : {}),
     ...(request.routing ? { routing: request.routing } : {}),
     ...(request.revision ? { revision: request.revision } : {}),
+    ...(request.excerpt_revisions && request.excerpt_revisions.length > 0
+      ? { excerpt_revisions: request.excerpt_revisions }
+      : {}),
   }) as HistoryEntry;
   claim.status = request.to;
   claim.history.push(entry);

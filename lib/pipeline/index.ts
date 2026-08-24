@@ -19,6 +19,15 @@ export type {
   RepairProposalOutcome,
 } from "./repair/run-repair";
 export type { ReEntryTarget } from "./repair/re-entry";
+// Verdict-driven repair: durable machine-generated suggestions the claim
+// card renders (derive/dismiss); generation itself runs only off the
+// auto-chain (plus the backfill enqueue exported beside the other chain
+// entry points below) and stays internal.
+export {
+  deriveOpenClaimRepairSuggestions,
+  dismissClaimRepairSuggestion,
+} from "./repair/suggestions";
+export type { ClaimRepairSuggestionVM } from "./repair/suggestions";
 // Workbench epic: the two manual anchor repairs the workbench offers beside
 // the wording repair — re-point the claim, or rewrite the passage it points
 // at. The paragraph resolution helpers stay internal.
@@ -286,6 +295,7 @@ export type {
 // doc comment on pendingTriggerCount itself for the full contract).
 export {
   enqueueAnchorRepair,
+  enqueueClaimRepairEvaluations,
   enqueueExistenceCheck,
   enqueueReferenceScan,
   enqueueSourceExtraction,

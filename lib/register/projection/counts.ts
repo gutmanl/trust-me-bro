@@ -22,13 +22,16 @@ export function countClaimsByStatus(
  * Repair cycles of a claim, derived from the history instead of a stored
  * counter (a second source of truth could desync from the chain it
  * summarizes — same discipline as the sample population and the TMB-45
- * metrics). One cycle = one accepted revision (`contested →
- * revised`). Relocated here from the repair pipeline with TMB-45: it
- * is a pure history derivation shared by re-entry and metrics.
+ * metrics). One cycle = one accepted revision, through EITHER door
+ * (REPAIR-04): the complaint loop's `contested → revised` and the
+ * verdict-driven direct edge `pending_adjudication → revised` both count,
+ * so the cycle budget binds regardless of how a cycle was entered.
+ * Filtering on `to_status` alone is exact — no other edge targets
+ * `revised`. Note this deliberately broadens a number the thesis
+ * manuscript reports (flagged in the roadmap's Phase-05 entry).
+ * Relocated here from the repair pipeline with TMB-45: it is a pure
+ * history derivation shared by re-entry and metrics.
  */
 export function countRepairCycles(claim: Claim): number {
-  return claim.history.filter(
-    (entry) =>
-      entry.from_status === "contested" && entry.to_status === "revised",
-  ).length;
+  return claim.history.filter((entry) => entry.to_status === "revised").length;
 }

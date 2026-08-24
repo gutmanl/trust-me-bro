@@ -10,6 +10,7 @@ import {
   primaryButtonClass,
 } from "@/app/components/ui";
 import type {
+  ClaimRepairSuggestionVM,
   BriefingDraft,
   BriefingViewModel,
   CitationRewriteReport,
@@ -44,6 +45,7 @@ export function BriefingPane({
   draft,
   queue,
   evidenceDisplay,
+  claimRepairSuggestions,
   selectedClaimId,
   selectedEvidenceId,
   hoveredParagraph,
@@ -61,6 +63,7 @@ export function BriefingPane({
   draft: BriefingDraft | null;
   queue: QueueEntry[];
   evidenceDisplay: Record<string, EvidenceDisplay>;
+  claimRepairSuggestions: Record<string, ClaimRepairSuggestionVM>;
   selectedClaimId: string | null;
   selectedEvidenceId: string | null;
   hoveredParagraph: number | null;
@@ -141,6 +144,7 @@ export function BriefingPane({
             briefing={briefing}
             queue={queue}
             evidenceDisplay={evidenceDisplay}
+            claimRepairSuggestions={claimRepairSuggestions}
             selectedClaimId={selectedClaimId}
             selectedEvidenceId={selectedEvidenceId}
             hoveredParagraph={hoveredParagraph}

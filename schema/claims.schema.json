@@ -334,6 +334,13 @@
           ],
           "type": "object"
         },
+        "excerpt_revisions": {
+          "items": {
+            "$ref": "#/$defs/__schema32"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
         "from_status": {
           "anyOf": [
             {
@@ -388,7 +395,7 @@
           "$ref": "#/$defs/__schema30"
         },
         "state_root": {
-          "$ref": "#/$defs/__schema32"
+          "$ref": "#/$defs/__schema33"
         },
         "to_status": {
           "$ref": "#/$defs/__schema24"
@@ -420,9 +427,31 @@
       "type": "string"
     },
     "__schema32": {
-      "$ref": "#/$defs/__schema3"
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/__schema27"
+        },
+        "new_excerpt": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "previous_excerpt": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "previous_excerpt",
+        "new_excerpt"
+      ],
+      "type": "object"
     },
     "__schema33": {
+      "$ref": "#/$defs/__schema3"
+    },
+    "__schema34": {
       "additionalProperties": false,
       "properties": {
         "input": {
@@ -521,6 +550,23 @@
         "work_item_id",
         "origin",
         "input"
+      ],
+      "type": "object"
+    },
+    "__schema35": {
+      "additionalProperties": false,
+      "properties": {
+        "corrected_excerpt": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/__schema27"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "corrected_excerpt"
       ],
       "type": "object"
     },
@@ -939,10 +985,66 @@
             "$ref": "#/$defs/__schema1"
           },
           "capture_attempt": {
-            "$ref": "#/$defs/__schema33"
+            "$ref": "#/$defs/__schema34"
           },
           "capture_failure": {
-            "$ref": "#/$defs/__schema33"
+            "$ref": "#/$defs/__schema34"
+          },
+          "claim_id": {
+            "$ref": "#/$defs/__schema23"
+          },
+          "claim_repair_suggestion": {
+            "additionalProperties": false,
+            "properties": {
+              "backend": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "claim_id": {
+                "$ref": "#/$defs/__schema23"
+              },
+              "evidence_repairs": {
+                "items": {
+                  "$ref": "#/$defs/__schema35"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "history_length": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "origin": {
+                "enum": [
+                  "negative_precheck",
+                  "existence_check_failed"
+                ],
+                "type": "string"
+              },
+              "prompt_version": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "reasoning": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "suggested_text": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "claim_id",
+              "origin",
+              "suggested_text",
+              "reasoning",
+              "prompt_version",
+              "backend",
+              "history_length"
+            ],
+            "type": "object"
           },
           "config_change": {
             "additionalProperties": false,
@@ -986,7 +1088,9 @@
               "source_repair_action",
               "source_repair_action_dismissed",
               "reverification_run_started",
-              "reverification_run_completed"
+              "reverification_run_completed",
+              "claim_repair_suggestion",
+              "claim_repair_suggestion_dismissed"
             ],
             "type": "string"
           },
@@ -1204,7 +1308,7 @@
             "$ref": "#/$defs/__schema12"
           },
           "state_root": {
-            "$ref": "#/$defs/__schema32"
+            "$ref": "#/$defs/__schema33"
           },
           "trigger_kind": {
             "enum": [
@@ -1212,7 +1316,8 @@
               "capture_failure_repair",
               "source_repair_evaluation",
               "anchor_repair",
-              "briefing_substitution"
+              "briefing_substitution",
+              "claim_repair_evaluation"
             ],
             "type": "string"
           },

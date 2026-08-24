@@ -280,6 +280,29 @@ const machineParkedAndReturnable: Gate = (claim) => {
 };
 
 /**
+ * Verdict-driven repair (REPAIR-01/REPAIR-06): the machine routings whose
+ * parked claims may take the direct repair edge out of adjudication without
+ * a complaint. Deliberately NARROWER than `machineParkedInAdjudication`: a
+ * repair proposal needs a machine critique to answer (`negative_precheck`)
+ * or a failed quote to correct (`existence_check_failed`) — a spot check or
+ * a divergence parks a claim for a HUMAN judgment call, `no_evidence`
+ * leaves nothing to ground a repair in, and `escalated` claims are in the
+ * queue precisely BECAUSE repair cycles ran out. Widened from the roadmap's
+ * negative_precheck-only scope by operator decision (2026-08-24): a failed
+ * quote is the most mechanically repairable class once excerpts can be
+ * revised (`excerpt_revisions`).
+ */
+export const routedRepairable: Gate = (claim) => {
+  const routing = claim.history.at(-1)?.routing;
+  return routing === "negative_precheck" || routing === "existence_check_failed"
+    ? ok
+    : fail(
+        "claim's latest routing is not repairable without a complaint " +
+          `(routing: ${routing ?? "none"})`,
+      );
+};
+
+/**
  * Adoption edges of the warm run (TMB-43) are only takeable by claims that
  * actually carry adoption provenance — a structural, self-enforcing check:
  * normal extraction can never mint a pre-confirmed claim because its claims
@@ -391,6 +414,18 @@ export const TRANSITIONS: TransitionDef[] = [
     to: "revised",
     actorKind: "human",
     gate: always,
+  },
+  // Verdict-driven repair: the reviewer accepts a machine-critique-driven
+  // proposal WITHOUT first authoring a complaint. The human actor keeps the
+  // decision human (no code path forges a contested decision — P-16), the
+  // gate keeps the door scoped to repairable routings, and discarded stays
+  // unreachable from here: contested remains the only route to discarding
+  // (REPAIR-06).
+  {
+    from: "pending_adjudication",
+    to: "revised",
+    actorKind: "human",
+    gate: routedRepairable,
   },
   {
     from: "contested",

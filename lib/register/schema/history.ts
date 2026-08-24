@@ -62,6 +62,23 @@ export const Revision = z.strictObject({
 export type Revision = z.infer<typeof Revision>;
 
 /**
+ * Excerpt revision of the repair loop (verdict-driven repair): carried by a
+ * `* → revised` history entry when a repair corrected one or more verbatim
+ * excerpts alongside (or instead of) the wording — the same full-snapshot
+ * idiom as `Revision`, so every previous excerpt stays reconstructable from
+ * the chain alone. A corrected excerpt re-enters stage 1: the store clears
+ * the evidence's existence check when the excerpt changes, and the re-entry
+ * gate then routes the claim through the full cascade (documented
+ * extension, additive).
+ */
+export const ExcerptRevision = z.strictObject({
+  evidence_id: EvidenceId,
+  previous_excerpt: z.string().min(1),
+  new_excerpt: z.string().min(1),
+});
+export type ExcerptRevision = z.infer<typeof ExcerptRevision>;
+
+/**
  * One status transition of a claim, appended by the status machine.
  * `from_status` is null exactly for the creating entry.
  */
@@ -75,6 +92,10 @@ export const HistoryEntry = z.strictObject({
   decision: Decision.optional(),
   routing: RoutingReason.optional(),
   revision: Revision.optional(),
+  /** Excerpt corrections of a repair (verdict-driven repair); only
+   * meaningful on the `* → revised` edges (documented extension,
+   * additive). */
+  excerpt_revisions: z.array(ExcerptRevision).min(1).optional(),
   prev_hash: ChainFields.shape.prev_hash,
   hash: ChainFields.shape.hash,
   state_root: ChainFields.shape.state_root,
@@ -225,6 +246,38 @@ export const RepairAction = z.strictObject({
 export type RepairAction = z.infer<typeof RepairAction>;
 
 /**
+ * Payload of a `claim_repair_suggestion` event (verdict-driven repair): the
+ * machine-generated, unconfirmed repair proposal for a claim a machine
+ * parked in adjudication — the wording the backend suggests, its German
+ * reasoning, optional per-evidence excerpt corrections (the meaningful
+ * repair for a failed quote), and the provenance an auditor needs: which
+ * routing drove it, which prompt version and backend produced it.
+ * `history_length` snapshots `claim.history.length` at generation time: any
+ * later transition supersedes the suggestion, and comparing lengths is how
+ * the derivation tells without re-reading prose (documented extension,
+ * additive).
+ */
+export const ClaimRepairSuggestion = z.strictObject({
+  claim_id: ClaimId,
+  origin: z.enum(["negative_precheck", "existence_check_failed"]),
+  suggested_text: z.string().min(1),
+  reasoning: z.string().min(1),
+  evidence_repairs: z
+    .array(
+      z.strictObject({
+        evidence_id: EvidenceId,
+        corrected_excerpt: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .optional(),
+  prompt_version: z.string().min(1),
+  backend: z.string().min(1),
+  history_length: z.int().min(1),
+});
+export type ClaimRepairSuggestion = z.infer<typeof ClaimRepairSuggestion>;
+
+/**
  * Payload of a `source_identity_corrected` event (source correction): the
  * complete before/after bibliographic core, following the full-snapshot
  * idiom of `Revision`/`ConfigChange`/`AnchorChange` — an auditor reads the
@@ -283,6 +336,15 @@ export const ProjectEvent = z.strictObject({
   /** Only on `reverification_run_started` events (reviewer-triggered
    * re-verification, documented extension, additive). */
   reverification_run: ReverificationRun.optional(),
+  /** Only on `claim_repair_suggestion` events (verdict-driven repair,
+   * documented extension, additive). */
+  claim_repair_suggestion: ClaimRepairSuggestion.optional(),
+  /** The claim a `claim_repair_suggestion_dismissed` event resolves
+   * (verdict-driven repair) — a plain scalar like `source_id` and
+   * `work_item_id` above, because the suggestion being dismissed already
+   * carries its full payload in its own event (documented extension,
+   * additive). */
+  claim_id: ClaimId.optional(),
   /** The single source an extraction bracket event targeted: set on
    * `batch_run_started`/`batch_run_completed` for per-source passes, absent
    * for the project-wide sweep and for events from before this extension —
