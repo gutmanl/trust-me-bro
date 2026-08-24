@@ -8,7 +8,12 @@ import {
   ErrorBanner,
 } from "@/app/components/ui";
 import type { ClaimMarkerVM, Evidence, EvidenceDisplay } from "@/lib/pipeline";
-import type { ClaimStatus, RoutingReason } from "@/lib/register";
+import type {
+  CalibrationResult,
+  CalibrationSnapshot,
+  ClaimStatus,
+  RoutingReason,
+} from "@/lib/register";
 import {
   classifyReasoningParagraph,
   reasoningRoleClassName,
@@ -37,6 +42,7 @@ import {
 import type { RecheckFormState } from "./actions";
 import { requestClaimRecheckAction } from "./actions";
 import { activityLabel, useActivity } from "../RunStatusProvider";
+import { deriveCalibrationSupersession } from "./calibration-supersession";
 import { ComplaintDialog } from "./ComplaintDialog";
 import { deriveSupersededJudgments } from "./judgment-supersession";
 import { RepairPanel, type ParagraphOption } from "./RepairPanel";
@@ -240,6 +246,18 @@ export function ClaimCard({
                   </div>
                 ) : null}
               </dl>
+              {/* Between the enum rows and the CURRENT reasoning, never in
+                  the header row above: the header is where the status,
+                  verdict, routing and anchor chips live, and this must never
+                  sit on one line with them. It is a paragraph in the
+                  subordinate slate register, not a chip — a redundant
+                  claim-card chip was deliberately removed on 2026-08-20 and
+                  re-adding one here would undo that. */}
+              <CalibrationSupersededNote
+                previousCalibrations={claim.previous_calibrations}
+                currentResult={claim.calibration_result}
+                proseEvidence={proseEvidence}
+              />
               {claim.calibration_reasoning ? (
                 <div className="space-y-1 border-t border-slate-100 px-3 py-2 text-xs text-slate-600">
                   <ReasoningProse
@@ -317,6 +335,166 @@ export function ClaimCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The subordinate register Phase 02 established for „a machine changed its
+ * mind here": a slate left rule, small text, no fill, no icon, no bold.
+ *
+ * Single-sourced rather than repeated inline because two notes now use it —
+ * the per-backend judgment note in `EvidenceCard` and the per-claim
+ * calibration note below. They must stay visually identical: the whole
+ * reason this register works is that it reads as an aside everywhere it
+ * appears. A copy of the string that drifts turns one of them into a
+ * different kind of thing.
+ */
+const SUBORDINATE_NOTE_CLASS =
+  "mt-2 border-l-2 border-slate-200 pl-2 text-xs text-slate-500";
+
+/**
+ * The Copywriting Contract's Surface 4 table, transcribed. Same reason as
+ * `RECHECK_COPY`: named so the test can assert rendered markup against an
+ * independent transcription of the same approved table.
+ *
+ * `line2` needs no singular/plural ternary, and its absence is not an
+ * oversight: the depth line renders only at two or more archived entries and
+ * two or more distinct results, so `preCheckCount` is at least 3 and
+ * `distinctResultCount` at least 2 by construction. A dead ternary would
+ * suggest a reachable singular that does not exist.
+ */
+export const SUPERSESSION_COPY = {
+  line1: (previousVerdictPhrase: string, formattedDate: string) =>
+    "Die Vorprüfung kommt jetzt zu einem anderen Ergebnis – zuvor " +
+    `„${previousVerdictPhrase}“ am ${formattedDate}.`,
+  line2: (preCheckCount: number, distinctResultCount: number) =>
+    `Diese Aussage wurde ${preCheckCount}-mal vorgeprüft; dabei sind ` +
+    `${distinctResultCount} unterschiedliche Ergebnisse entstanden.`,
+  disclosureSummary: "Was stand in der vorherigen Begründung?",
+  vintagePresent: (version: string) =>
+    `Erstellt unter Fassung ${version} des Bewertungsschemas.`,
+  vintageAbsent:
+    "Fassung des Bewertungsschemas nicht vermerkt – die Begründung stammt " +
+    "aus der Zeit vor dieser Aufzeichnung.",
+} as const;
+
+/**
+ * Surface 4 (RERUN-05, D-14): when this claim's pre-check has reached a
+ * different conclusion than it did before, say so — naming the previous
+ * verdict and the date it was superseded, with the archived justification
+ * one question away.
+ *
+ * What it deliberately does NOT do: quantify. Re-running an identical prompt
+ * over a borderline claim reaches a different verdict a measurable fraction
+ * of the time, so a „verdict changed" note can fire with no new information
+ * behind it. The honest answer to that is the depth line — a plain count of
+ * how often THIS claim has moved, which is per-claim evidence a reviewer can
+ * act on — and NOT a rate. A standing percentage on the card would be the
+ * strongest form of the overreliance risk the anti-features table exists to
+ * refuse, and the measured figure is a borderline-corpus upper bound under
+ * templates no project runs. It belongs in the thesis prose. Nothing here
+ * states how much to trust anything.
+ *
+ * Nor is there a standing „this may not reproduce" caveat on every changed
+ * verdict: D-14 rejects it explicitly — it edges into trust signalling and
+ * becomes wallpaper. The depth line is the per-claim mechanism; the general
+ * statement lives in the transient post-run summary.
+ */
+function CalibrationSupersededNote({
+  previousCalibrations,
+  currentResult,
+  proseEvidence,
+}: {
+  previousCalibrations: readonly CalibrationSnapshot[] | undefined;
+  currentResult: CalibrationResult | undefined;
+  proseEvidence: readonly VerdictProseEvidence[];
+}) {
+  const superseded = deriveCalibrationSupersession(
+    previousCalibrations,
+    currentResult,
+  );
+  if (superseded === null) {
+    // No archive, or a re-run that reached the same conclusion: nothing at
+    // all. No placeholder, no „unverändert" line, no zero state.
+    return null;
+  }
+  const { previous } = superseded;
+  // The previous verdict in the words the chip used when it WAS the verdict
+  // — anything else would give the reviewer two vocabularies for one thing.
+  // `divergent` is false because divergence is not archived: it is derived
+  // per render from the evidence-level judgments and has no snapshot field.
+  // When the archived entry carries no support degree, deriveVerdict would
+  // degrade to „Vorprüfung unvollständig", which is a statement about the
+  // DATA, not the old verdict — so the raw calibration label is the honest
+  // fallback there.
+  const previousPhrase =
+    previous.support_degree === undefined
+      ? CALIBRATION_LABELS[previous.calibration_result]
+      : (deriveVerdict(
+          previous.support_degree,
+          previous.calibration_result,
+          false,
+        )?.phrase ?? CALIBRATION_LABELS[previous.calibration_result]);
+  return (
+    <div className="px-3 pb-1">
+      {superseded.changed ? (
+        <p className={SUBORDINATE_NOTE_CLASS}>
+          {SUPERSESSION_COPY.line1(
+            previousPhrase,
+            formatTimestamp(previous.superseded_at),
+          )}
+        </p>
+      ) : null}
+      {superseded.showDepth ? (
+        <p className={SUBORDINATE_NOTE_CLASS}>
+          {SUPERSESSION_COPY.line2(
+            superseded.preCheckCount,
+            superseded.distinctResultCount,
+          )}
+        </p>
+      ) : null}
+      {previous.calibration_reasoning ? (
+        // RECORDED, not silently accepted: this is the phase's one
+        // second-level disclosure, and it stands against Phase 02's rule
+        // that the technical justification is never more than one
+        // disclosure level deep. The argument for it is that the rule
+        // governs the CURRENT justification — which is unaffected, still
+        // exactly one level down — while this prose is historical, and the
+        // alternative of rendering it inline beside the current reasoning
+        // puts two machine opinions in one slot competing for the same
+        // reading. That argument is sound but it is an interpretation, not
+        // a shipped rule. The overturn path if it is rejected: move the
+        // archived prose to the Verlauf page, at the cost of D-14's
+        // „reachable from the card", which is what makes „what would
+        // overturn this verdict" answerable without leaving the card.
+        //
+        // Summary phrased as the question it answers, per this file's own
+        // rule a few blocks up — „Details" would tell the reviewer nothing.
+        <details className="mt-2 border-l-2 border-slate-200 pl-2">
+          <summary className="cursor-pointer text-xs text-slate-500">
+            {SUPERSESSION_COPY.disclosureSummary}
+          </summary>
+          <div className="mt-1 space-y-1 text-xs break-words text-slate-600">
+            {/* Through the SAME renderer as the current reasoning, so the
+                glossary substitution and evidence-id resolution apply to
+                the archived prose too. Never clamped and never truncated:
+                a justification the reviewer cannot read in full is worth
+                less than the click it cost. */}
+            <ReasoningProse
+              reasoning={previous.calibration_reasoning}
+              evidence={proseEvidence}
+            />
+            <p className="text-slate-400">
+              {previous.calibration_prompt_version === undefined
+                ? SUPERSESSION_COPY.vintageAbsent
+                : SUPERSESSION_COPY.vintagePresent(
+                    previous.calibration_prompt_version,
+                  )}
+            </p>
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -628,7 +806,7 @@ function EvidenceCard({
           {deriveSupersededJudgments(evidence.judgments).map((superseded) => (
             <p
               key={`${superseded.backend}-${superseded.previousAt}`}
-              className="mt-2 border-l-2 border-slate-200 pl-2 text-xs text-slate-500"
+              className={SUBORDINATE_NOTE_CLASS}
             >
               {superseded.backend} hat das Urteil geändert – zuvor „
               {RELATION_LABELS[superseded.previousRelation]}“ am{" "}
