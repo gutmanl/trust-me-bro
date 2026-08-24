@@ -132,18 +132,48 @@ const notAutoConfirmable: Gate = (claim) =>
 const always: Gate = () => ok;
 
 /**
- * Structural signal a source correction can act on: was this claim's LATEST
- * transition specifically a routing into adjudication because its existence
- * check failed? Mirrors someExistenceCheckFailed/isAdopted — the gate only
- * checks shape; WHICH claims are readmitted (those citing the corrected
- * source) is the correction use-case's decision, like every other
- * system-only edge here.
+ * Structural signal that a MACHINE parked this claim in the adjudication
+ * queue and that nothing human has happened to it since: the claim's LATEST
+ * history entry carries a structured `routing` reason.
+ *
+ * Why the predicate is sound. No human edge targets `pending_adjudication`:
+ * all seven edges into it (from `null`, `captured`, `existence_checked`,
+ * `prechecked`, `auto_confirmed`, `revised` and `confirmed`) are declared
+ * `actorKind: "system"`, and `routing` is only ever set on a transition into
+ * the queue. So "the latest transition carries a routing reason" precisely
+ * means "a machine parked this claim, and no human has acted since" — the
+ * moment a reviewer confirms, contests or repairs, their entry becomes the
+ * latest one and carries no routing, and this gate refuses.
+ *
+ * What this gate NO LONGER guarantees. It was `routedByFailedExistenceCheck`
+ * and admitted only `existence_check_failed` routings, so the "source
+ * correction only" scope survived by construction. Widened for the
+ * reviewer-triggered re-verification, it admits any machine routing — a
+ * rubric complaint, a divergence, a spot check — and WHICH claims a caller
+ * readmits is now the caller's decision, like every other system-only edge
+ * here. `sweepSourceRecheck` in `lib/pipeline/sources/recheck.ts` keeps its
+ * narrow `existence_check_failed` scope through its OWN filter, not through
+ * this gate; `lib/pipeline/sources/recheck.test.ts` pins that filter,
+ * because pinning it is what replaces the guarantee this gate stopped
+ * making.
+ *
+ * Its blind spot, stated out loud. `RoutingReason` is itself a documented,
+ * additive extension (see `../schema/enums.ts`), and history entries written
+ * before it simply lack the field. A claim a machine parked BEFORE the
+ * extension therefore carries no routing and this gate rejects it. The
+ * honest name of the predicate is not "a machine parked this" but "a machine
+ * parked this WITH A STRUCTURED ROUTING REASON, and no human has acted
+ * since". A caller that itemises what a re-check will cover must therefore
+ * count that group explicitly, so a legacy claim reads to the reviewer as
+ * excluded rather than as silently missing from a total nobody can
+ * reconcile.
  */
-const routedByFailedExistenceCheck: Gate = (claim) =>
-  claim.history.at(-1)?.routing === "existence_check_failed"
+const machineParkedInAdjudication: Gate = (claim) =>
+  claim.history.at(-1)?.routing !== undefined
     ? ok
     : fail(
-        "claim's latest transition was not routed via existence_check_failed",
+        "claim's latest transition carries no structured routing reason " +
+          "(not machine-parked, or parked before the routing extension)",
       );
 
 /**
@@ -344,19 +374,22 @@ export const TRANSITIONS: TransitionDef[] = [
     actorKind: "system",
     gate: always,
   },
-  // Source correction (Korrektur der Quellenkennung): a claim stuck in
-  // adjudication ONLY because stage 1 could not verify its wording against a
-  // wrongly identified source was never a human-workflow case — the source,
-  // not the claim, was at fault. Once the identity is corrected, the claim
-  // is withdrawn back into the cascade like the settled statuses above. The
-  // gate self-enforces the "only existence-check routings" scope from the
-  // claim's own history; a rubric complaint or spot-check routing can never
-  // take this edge.
+  // Machine-parked claims (source correction, then reviewer-triggered
+  // re-verification): a claim a MACHINE put into the queue was never a
+  // human-workflow case, so it can be withdrawn back into the cascade like
+  // the settled statuses above. Originally scoped to existence-check
+  // routings — the source, not the claim, was at fault — and widened so a
+  // reviewer's re-check request also reaches claims parked by a rubric
+  // complaint, a divergence or a spot check. The gate therefore no longer
+  // self-enforces the narrower scope: WHICH claims are readmitted is the
+  // caller's decision, mirroring the sample-draw edge. See the gate's own
+  // comment, and sweepSourceRecheck's filter in
+  // lib/pipeline/sources/recheck.ts, which keeps the correction path narrow.
   {
     from: "pending_adjudication",
     to: "recheck_required",
     actorKind: "system",
-    gate: routedByFailedExistenceCheck,
+    gate: machineParkedInAdjudication,
   },
   // Re-entry after recheck: always the full cascade from stage 1 —
   // the revised source text can invalidate any stage's determination, and

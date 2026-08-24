@@ -654,7 +654,7 @@ describe("invalid transitions have zero side effects", () => {
   });
 });
 
-describe("source-correction readmission edge (pending_adjudication → recheck_required)", () => {
+describe("machine-parked readmission edge (pending_adjudication → recheck_required)", () => {
   it("readmits a claim whose LATEST transition was routed via existence_check_failed", async () => {
     await store.transaction((tx) => {
       tx.addClaim({
@@ -683,7 +683,13 @@ describe("source-correction readmission edge (pending_adjudication → recheck_r
     });
   });
 
-  it("rejects a claim whose adjudication has a different routing", async () => {
+  it("readmits a claim parked under ANY machine routing (widened gate)", async () => {
+    // Was pinned as a REJECTION while the gate read
+    // `routing === "existence_check_failed"`. The reviewer-triggered
+    // re-verification widened it to `routing !== undefined`, so an
+    // adapter-failure escalation is now readmissible too — the scope that
+    // keeps the CORRECTION path narrow moved into sweepSourceRecheck's own
+    // filter (pinned in lib/pipeline/sources/recheck.test.ts).
     await store.transaction((tx) => {
       tx.addClaim({
         claim: newClaim("clm_eskaliert"),
@@ -706,12 +712,48 @@ describe("source-correction readmission edge (pending_adjudication → recheck_r
         routing: "escalated",
       });
     });
+    await store.transaction((tx) => {
+      const entry = tx.transitionClaim("clm_eskaliert", {
+        to: "recheck_required",
+        actor: "system:recheck_request",
+        reason: "Erneute Prüfung angefordert.",
+      });
+      expect(entry.to_status).toBe("recheck_required");
+    });
+  });
+
+  it("rejects a claim whose latest entry carries no routing at all (P-20)", async () => {
+    // The gate's stated blind spot, walked through the real store: a
+    // machine parked this claim, but before the RoutingReason extension no
+    // entry carried the field, so the gate cannot recognise it and the
+    // re-check silently skips exactly the oldest claims.
+    await store.transaction((tx) => {
+      tx.addClaim({
+        claim: newClaim("clm_altbestand"),
+        actor: "system:extraction",
+        reason: "Extrahiert.",
+      });
+      tx.setExistenceCheck("clm_altbestand", "ev_0001", {
+        status: "passed",
+        at: "2026-08-06T09:00:00Z",
+      });
+      tx.transitionClaim("clm_altbestand", {
+        to: "existence_checked",
+        actor: "system:existence_check",
+        reason: "Zitat nachgewiesen.",
+      });
+      tx.transitionClaim("clm_altbestand", {
+        to: "pending_adjudication",
+        actor: "system:verification",
+        reason: "Adapterfehler (ohne strukturierten Routing-Grund).",
+      });
+    });
     await expect(
       store.transaction((tx) => {
-        tx.transitionClaim("clm_eskaliert", {
+        tx.transitionClaim("clm_altbestand", {
           to: "recheck_required",
-          actor: "system:source_correction",
-          reason: "Quellenkennung korrigiert.",
+          actor: "system:recheck_request",
+          reason: "Erneute Prüfung angefordert.",
         });
       }),
     ).rejects.toBeInstanceOf(GateRejectedError);
