@@ -279,7 +279,7 @@ export async function applyRepair(
   // immediately) rather than routing a knowingly invalid wording onward.
   if (!isAtomicClaimText(newText)) {
     throw new RepairPreconditionError(
-      "Die überarbeitete Fassung bündelt mehrere Aussagen – bitte genau " +
+      "Die überarbeitete Fassung bündelt mehrere Aussagen – bitte " +
         "genau eine Aussage formulieren.",
     );
   }

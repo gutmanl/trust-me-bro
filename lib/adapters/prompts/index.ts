@@ -58,7 +58,12 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // may return `briefing_repair`, a rewrite of that one passage carrying
   // the repaired assertion — accepted only ever as an audited briefing
   // revision, never applied silently.
-  repair: "1.2.0",
+  // 1.2.1: pins the atomicity rule — `suggested_text` is exactly one
+  // declarative sentence, meta-commentary goes into `reasoning`. 1.2.0
+  // proposals could bundle a second sentence, which the apply gate
+  // (`isAtomicClaimText`) then rejected — a suggestion that can never
+  // be accepted.
+  repair: "1.2.1",
   relevance: "1.0.0",
   // 1.1.0: the already-detected spans are reported too, with their title,
   // authors and year and the identifier echoed back. 1.0.0 told the model to

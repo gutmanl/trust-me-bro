@@ -176,7 +176,7 @@ describe("evaluateClaimRepair", () => {
       claimId: "clm_0001",
       origin: "negative_precheck",
       suggestedText: "Reviews können die Fehlerdichte reduzieren.",
-      promptVersion: "1.2.0",
+      promptVersion: "1.2.1",
       backend: "claude",
     });
     expect((await store.verify()).ok).toBe(true);
