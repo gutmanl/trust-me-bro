@@ -93,6 +93,23 @@ export function ClaimRepairSuggestionBox({
           </p>
         </div>
       ) : null}
+      {suggestion.scrutiny !== undefined ? (
+        suggestion.scrutiny.calibrationResult === "licensed" ? (
+          <p className="mt-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-emerald-900">
+            KI-Gegenprüfung bestanden: Die korrigierte Fassung gilt nach den
+            Prüfstufen 2/3 als vom Belegbestand getragen
+            {suggestion.scrutiny.attempts > 1
+              ? ` (${suggestion.scrutiny.attempts}. Entwurf)`
+              : ""}
+            .
+          </p>
+        ) : (
+          <p className="mt-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-900">
+            KI-Gegenprüfung: Das Urteil zur korrigierten Fassung bliebe
+            voraussichtlich eingeschränkt – {suggestion.scrutiny.reasoning}
+          </p>
+        )
+      ) : null}
       {suggestion.outdated ? (
         <form
           action={refreshAction}

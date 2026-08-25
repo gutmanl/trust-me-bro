@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 import {
+  CalibrationResult,
   ClaimStatus,
   ComplaintCategory,
   ProjectEventType,
   RoutingReason,
   SourceType,
+  SupportDegree,
   TriggerKind,
 } from "./enums";
 import {
@@ -275,6 +277,22 @@ export const ClaimRepairSuggestion = z.strictObject({
    * (verdict-driven repair); applied only ever as an audited briefing
    * revision on the reviewer's accept (documented extension, additive). */
   briefing_repair: z.string().min(1).optional(),
+  /** Generation-time counter-check (scrutiny loop): the verdict stages 2/3
+   * would assign the SUGGESTED wording against the existing evidence,
+   * judged BEFORE recording over up to three generation rounds. Absent
+   * when the check was skipped (mechanically capped claim) or unavailable
+   * (backend paused/exhausted, unresolvable rubric pin) — an absent field
+   * makes no statement about the proposal's quality (documented extension,
+   * additive). */
+  scrutiny: z
+    .strictObject({
+      calibration_result: CalibrationResult,
+      support_degree: SupportDegree,
+      reasoning: z.string().min(1),
+      /** Which generation round produced the recorded proposal (1-based). */
+      attempts: z.int().min(1),
+    })
+    .optional(),
   prompt_version: z.string().min(1),
   backend: z.string().min(1),
   history_length: z.int().min(1),

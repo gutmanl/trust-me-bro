@@ -2,14 +2,16 @@ import {
   createProjectOrchestrator,
   CURRENT_PROMPT_VERSION,
 } from "../../adapters";
-import type { Orchestrator } from "../../adapters";
+import type { Orchestrator, RepairInput, RepairOutput } from "../../adapters";
 import { getCurrentActor } from "../../identity";
 import type {
+  CalibrationResult,
   Claim,
   ClaimRepairSuggestion,
   ClaimsRegister,
+  SupportDegree,
 } from "../../register";
-import { routedRepairable } from "../../register";
+import { isAtomicClaimText, routedRepairable } from "../../register";
 import { PipelineError } from "../errors";
 import { requireProjectStore } from "../projects";
 import { deriveMechanicalCaps } from "../verification/mechanical-cap";
@@ -18,6 +20,7 @@ import {
   buildRepairCritique,
   buildRepairJob,
 } from "./run-repair";
+import { scrutinizeSuggestion } from "./scrutiny";
 
 /**
  * Verdict-driven repair suggestions: durable, machine-generated repair
@@ -42,6 +45,15 @@ export interface ClaimRepairSuggestionVM {
   evidenceRepairs?: { evidenceId: string; correctedExcerpt: string }[];
   /** Rewritten briefing paragraph carrying the repaired assertion. */
   briefingRepair?: string;
+  /** Generation-time counter-check verdict (scrutiny loop); absent when
+   * the check was skipped (mechanical cap) or unavailable. */
+  scrutiny?: {
+    calibrationResult: CalibrationResult;
+    supportDegree: SupportDegree;
+    reasoning: string;
+    /** Which generation round produced the recorded proposal (1-based). */
+    attempts: number;
+  };
   /**
    * The suggestion was generated with an older repair prompt than the
    * current one — e.g. a pre-1.2.0 suggestion that carries no briefing
@@ -121,6 +133,16 @@ export function deriveOpenClaimRepairSuggestions(
       ...(payload.briefing_repair !== undefined
         ? { briefingRepair: payload.briefing_repair }
         : {}),
+      ...(payload.scrutiny !== undefined
+        ? {
+            scrutiny: {
+              calibrationResult: payload.scrutiny.calibration_result,
+              supportDegree: payload.scrutiny.support_degree,
+              reasoning: payload.scrutiny.reasoning,
+              attempts: payload.scrutiny.attempts,
+            },
+          }
+        : {}),
       outdated: payload.prompt_version !== CURRENT_PROMPT_VERSION.repair,
       promptVersion: payload.prompt_version,
       backend: payload.backend,
@@ -184,14 +206,43 @@ export interface ClaimRepairEvaluationDeps {
   orchestrator?: Orchestrator;
 }
 
+/** Generation budget of the scrutiny loop: the initial proposal plus up to
+ * two refinement rounds. Each refinement means one repair call plus one
+ * counter-check (per-evidence attribution + rubric), so the worst case per
+ * claim is bounded and small. */
+const MAX_SUGGESTION_GENERATIONS = 3;
+
+/** Ordering of counter-check verdicts for the best-attempt pick: a fully
+ * licensed wording beats one the rubric routes to the human, which beats a
+ * weakened one; `undefined` (no verdict) never wins. */
+const calibrationRank = (result?: CalibrationResult): number =>
+  result === "licensed"
+    ? 2
+    : result === "pending_adjudication"
+      ? 1
+      : result === "weakened"
+        ? 0
+        : -1;
+
 /**
- * The `claim_repair_evaluation` trigger's work: generate ONE repair
- * suggestion for one eligible claim and record it durably. Ineligibility at
- * run time (the claim was decided, re-run or already has a suggestion) is a
- * routine no-op, not an error — triggers are enqueued from a snapshot the
- * world may have moved past. A paused (rate-limited) or exhausted backend
- * records nothing: the per-claim button and the next chain pass simply try
- * again, and the trigger bracket keeps the attempt visible.
+ * The `claim_repair_evaluation` trigger's work: generate a repair
+ * suggestion for one eligible claim and record it durably — since the
+ * scrutiny loop, over up to `MAX_SUGGESTION_GENERATIONS` rounds: each
+ * proposal faces the generation-time counter-check
+ * (`scrutinizeSuggestion`, the same stages 2/3 a later re-verification
+ * runs), a rejected round feeds the next one as `previous_attempt`, and
+ * the loop stops early on a fully licensed wording. When no round passes,
+ * the BEST attempt is recorded together with its verdict — an honestly
+ * labelled proposal beats silence. Mechanically capped claims skip the
+ * counter-check entirely: their verdict cap is wording-independent, so the
+ * licensed bar is unreachable and the forecast would only prove it.
+ *
+ * Ineligibility at run time (the claim was decided, re-run or already has
+ * a suggestion) is a routine no-op, not an error — triggers are enqueued
+ * from a snapshot the world may have moved past. A paused (rate-limited)
+ * or exhausted backend on the FIRST round records nothing (the per-claim
+ * button and the next chain pass simply try again); on a later round the
+ * best earlier attempt is recorded instead of being thrown away.
  */
 export async function evaluateClaimRepair(
   projectId: string,
@@ -217,43 +268,128 @@ export async function evaluateClaimRepair(
   const sourcesById = new Map(
     register.sources.map((source) => [source.id, source]),
   );
-  const job = buildRepairJob(
-    store.projectDir,
-    claim,
-    (sourceId) => sourcesById.get(sourceId)?.custom.source_type,
-    anchoredBriefingParagraph(projectId, register, claimId),
-  );
   const orchestrator =
     deps.orchestrator ?? createProjectOrchestrator(register.config);
-  const outcome = await orchestrator.run(
-    register.config.backends.primary.cli,
-    job,
+  const skipScrutiny = deriveMechanicalCaps(register)[claimId] !== undefined;
+  const briefingParagraph = anchoredBriefingParagraph(
+    projectId,
+    register,
+    claimId,
   );
-  if (outcome.status !== "ok") {
+
+  let previousAttempt: RepairInput["previous_attempt"] = null;
+  let best: {
+    output: RepairOutput;
+    scrutiny?: ClaimRepairSuggestion["scrutiny"];
+  } | null = null;
+  let attempts = 0;
+  while (attempts < MAX_SUGGESTION_GENERATIONS) {
+    const job = buildRepairJob(
+      store.projectDir,
+      claim,
+      (sourceId) => sourcesById.get(sourceId)?.custom.source_type,
+      briefingParagraph,
+      previousAttempt,
+    );
+    const outcome = await orchestrator.run(
+      register.config.backends.primary.cli,
+      job,
+    );
+    if (outcome.status !== "ok") {
+      if (best === null) {
+        console.warn(
+          `claim repair suggestion for "${claimId}" not recorded: ` +
+            `backend ${outcome.status}`,
+        );
+        return;
+      }
+      break;
+    }
+    attempts += 1;
+    const output = outcome.output;
+    if (!isAtomicClaimText(output.suggested_text)) {
+      // The apply gate would reject this wording outright — never a
+      // candidate, but a cheap rejection to learn from (no counter-check
+      // spent on it).
+      previousAttempt = {
+        suggested_text: output.suggested_text,
+        rejection:
+          "Die Formulierung bündelt mehrere Aussagen – zulässig ist genau " +
+          "ein Aussagesatz; Einordnungen gehören in die Begründung.",
+      };
+      continue;
+    }
+    if (skipScrutiny) {
+      best = { output };
+      break;
+    }
+    const scrutiny = await scrutinizeSuggestion(
+      register,
+      store.projectDir,
+      orchestrator,
+      claim,
+      output,
+    );
+    if (scrutiny.status === "unavailable") {
+      // No forecast is obtainable (paused backend, unresolvable rubric
+      // pin): record the proposal without a verdict rather than losing it.
+      console.warn(`scrutiny for "${claimId}" unavailable: ${scrutiny.reason}`);
+      if (best === null) {
+        best = { output };
+      }
+      break;
+    }
+    const candidate = {
+      output,
+      scrutiny: {
+        calibration_result: scrutiny.verdict.calibrationResult,
+        support_degree: scrutiny.verdict.supportDegree,
+        reasoning: scrutiny.verdict.reasoning,
+        attempts,
+      },
+    };
+    if (
+      best === null ||
+      calibrationRank(candidate.scrutiny.calibration_result) >
+        calibrationRank(best.scrutiny?.calibration_result)
+    ) {
+      best = candidate;
+    }
+    if (scrutiny.verdict.calibrationResult === "licensed") {
+      break;
+    }
+    previousAttempt = {
+      suggested_text: output.suggested_text,
+      rejection: scrutiny.verdict.reasoning,
+    };
+  }
+  if (best === null) {
     console.warn(
-      `claim repair suggestion for "${claimId}" not recorded: ` +
-        `backend ${outcome.status}`,
+      `claim repair suggestion for "${claimId}" not recorded: no atomic ` +
+        `formulation in ${MAX_SUGGESTION_GENERATIONS} attempts`,
     );
     return;
   }
+  const chosen = best;
   const suggestion: ClaimRepairSuggestion = {
     claim_id: claimId,
     origin: critique.origin,
-    suggested_text: outcome.output.suggested_text,
-    reasoning: outcome.output.reasoning,
-    ...(outcome.output.evidence_repairs !== undefined &&
-    outcome.output.evidence_repairs.length > 0
+    suggested_text: chosen.output.suggested_text,
+    reasoning: chosen.output.reasoning,
+    ...(chosen.output.evidence_repairs !== undefined &&
+    chosen.output.evidence_repairs.length > 0
       ? {
-          evidence_repairs: outcome.output.evidence_repairs.map((repair) => ({
+          evidence_repairs: chosen.output.evidence_repairs.map((repair) => ({
             evidence_id: repair.evidence_id,
             corrected_excerpt: repair.corrected_excerpt,
           })),
         }
       : {}),
-    ...(outcome.output.briefing_repair !== undefined
-      ? { briefing_repair: outcome.output.briefing_repair }
+    ...(chosen.output.briefing_repair !== undefined
+      ? { briefing_repair: chosen.output.briefing_repair }
       : {}),
-    prompt_version: job.prompt.version,
+    ...(chosen.scrutiny !== undefined ? { scrutiny: chosen.scrutiny } : {}),
+    prompt_version: CURRENT_PROMPT_VERSION.repair,
     backend: register.config.backends.primary.cli,
     history_length: historyLength,
   };

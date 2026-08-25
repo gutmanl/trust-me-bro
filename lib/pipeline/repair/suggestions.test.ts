@@ -39,7 +39,11 @@ afterEach(() => {
 
 const PROJECT_ID = "proj_vorschlag";
 
-function evidence(id: string, passed: boolean | null): Evidence {
+function evidence(
+  id: string,
+  passed: boolean | null,
+  relation?: "supports",
+): Evidence {
   return {
     id,
     source_id: "src_0001",
@@ -53,6 +57,7 @@ function evidence(id: string, passed: boolean | null): Evidence {
             at: "2026-08-08T09:00:00Z",
           },
         }),
+    ...(relation === undefined ? {} : { relation_type: relation }),
     judgments: [],
   } as Evidence;
 }
@@ -65,6 +70,12 @@ function evidence(id: string, passed: boolean | null): Evidence {
  */
 async function projectWithParkedClaim(
   routing: "negative_precheck" | "existence_check_failed" | "spot_check",
+  options: {
+    /** Persist a supporting relation on the evidence, so the claim's one
+     * pertinent source satisfies the effectiveness_statement rule and the
+     * mechanical cap does NOT apply (scrutiny loop active). */
+    pertinent?: boolean;
+  } = {},
 ): Promise<RegisterStore> {
   await createProject({
     id: PROJECT_ID,
@@ -92,7 +103,13 @@ async function projectWithParkedClaim(
           extracted_at: "2026-08-08T09:00:00Z",
           search_path: "briefing",
         },
-        evidence: [evidence("ev_0001", !failedQuote)],
+        evidence: [
+          evidence(
+            "ev_0001",
+            !failedQuote,
+            options.pertinent ? "supports" : undefined,
+          ),
+        ],
       } as Omit<Claim, "status" | "history">,
       actor: "system:extraction",
       reason: "Extrahiert.",
@@ -176,7 +193,7 @@ describe("evaluateClaimRepair", () => {
       claimId: "clm_0001",
       origin: "negative_precheck",
       suggestedText: "Reviews können die Fehlerdichte reduzieren.",
-      promptVersion: "1.2.1",
+      promptVersion: "1.3.0",
       backend: "claude",
     });
     expect((await store.verify()).ok).toBe(true);
@@ -417,5 +434,165 @@ describe("briefing repair passthrough", () => {
       "Der Absatz, neu formuliert um die Abschwächung.",
     );
     expect((await store.verify()).ok).toBe(true);
+  });
+});
+
+/**
+ * Orchestrator over a hand-rolled backend for the scrutiny-loop tests: the
+ * mock backend's overrides are static per kind, but the loop needs a
+ * DIFFERENT repair output per round. Attribution answers "supports" and the
+ * rubric answers `rubric` (default licensed) on every call; repair outputs
+ * are consumed in sequence (the last one repeats).
+ */
+function scriptedRepairOrchestrator(options: {
+  repairs: RepairOutput[];
+  rubric?: { calibration_result: string; reasoning: string };
+}): { orchestrator: Orchestrator; jobs: () => JobRequest[] } {
+  const calls: JobRequest[] = [];
+  let repairIndex = 0;
+  const backend = {
+    id: "claude",
+    async invoke(job: JobRequest) {
+      calls.push(job);
+      if (job.kind === "repair") {
+        const output =
+          options.repairs[Math.min(repairIndex, options.repairs.length - 1)];
+        repairIndex += 1;
+        return { output, model: "claude-sonnet-5" };
+      }
+      if (job.kind === "attribution") {
+        return {
+          output: {
+            relation_type: "supports",
+            confidence: 0.9,
+            reasoning: "Testurteil: Der Auszug trägt die Aussage.",
+          },
+          model: "claude-sonnet-5",
+        };
+      }
+      if (job.kind === "rubric") {
+        return {
+          output: options.rubric ?? {
+            calibration_result: "licensed",
+            reasoning: "Testbewertung: Formulierung vom Beleg getragen.",
+          },
+          model: "claude-sonnet-5",
+        };
+      }
+      throw new Error(`unexpected job kind ${job.kind}`);
+    },
+    // The loose returns above are narrowed per call site by the
+    // orchestrator's own re-validation; the cast keeps the helper readable.
+  } as unknown as import("../../adapters").Backend;
+  return {
+    orchestrator: new Orchestrator({
+      backends: [backend],
+      traceSink: { write: async () => {} },
+      gate: { run: (fn) => fn() },
+      policy: { maxAttempts: 2, retryBaseDelayMs: 1 },
+      sleep: async () => {},
+    }),
+    jobs: () => calls,
+  };
+}
+
+describe("scrutiny loop", () => {
+  const proposal = (n: number): RepairOutput => ({
+    suggested_text: `Reviews können die Fehlerdichte senken (Fassung ${n}).`,
+    reasoning: `Abschwächung, Entwurf ${n}.`,
+  });
+
+  it("records the first proposal when the counter-check licenses it", async () => {
+    const store = await projectWithParkedClaim("negative_precheck", {
+      pertinent: true,
+    });
+    const { orchestrator, jobs } = scriptedRepairOrchestrator({
+      repairs: [proposal(1)],
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open).toHaveLength(1);
+    expect(open[0].suggestedText).toBe(proposal(1).suggested_text);
+    expect(open[0].scrutiny).toMatchObject({
+      calibrationResult: "licensed",
+      supportDegree: "supported",
+      attempts: 1,
+    });
+    const repairJobs = jobs().filter((job) => job.kind === "repair");
+    expect(repairJobs).toHaveLength(1);
+    expect(
+      (repairJobs[0].input as { previous_attempt: unknown }).previous_attempt,
+    ).toBeNull();
+  });
+
+  it("feeds each rejection into the next round and records the best attempt", async () => {
+    const store = await projectWithParkedClaim("negative_precheck", {
+      pertinent: true,
+    });
+    const { orchestrator, jobs } = scriptedRepairOrchestrator({
+      repairs: [proposal(1), proposal(2), proposal(3)],
+      rubric: {
+        calibration_result: "weakened",
+        reasoning: "Zu stark formuliert.",
+      },
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    const repairJobs = jobs().filter((job) => job.kind === "repair");
+    expect(repairJobs).toHaveLength(3);
+    const previousOf = (index: number) =>
+      (
+        repairJobs[index].input as {
+          previous_attempt: { suggested_text: string; rejection: string };
+        }
+      ).previous_attempt;
+    expect(previousOf(1)).toEqual({
+      suggested_text: proposal(1).suggested_text,
+      rejection: "Zu stark formuliert.",
+    });
+    expect(previousOf(2).suggested_text).toBe(proposal(2).suggested_text);
+    // Every round scored the same; the FIRST keeps the best slot.
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open[0].suggestedText).toBe(proposal(1).suggested_text);
+    expect(open[0].scrutiny).toMatchObject({
+      calibrationResult: "weakened",
+      attempts: 1,
+    });
+  });
+
+  it("retries a non-atomic proposal without spending a counter-check", async () => {
+    const store = await projectWithParkedClaim("negative_precheck", {
+      pertinent: true,
+    });
+    const bundled: RepairOutput = {
+      suggested_text: "Erster Satz. Zweiter Satz obendrauf.",
+      reasoning: "Gebündelt.",
+    };
+    const { orchestrator, jobs } = scriptedRepairOrchestrator({
+      repairs: [bundled, proposal(2)],
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    // Round 1 never reached the counter-check: exactly ONE attribution
+    // pass (round 2), and the rejection names the atomicity rule.
+    expect(jobs().filter((job) => job.kind === "attribution")).toHaveLength(1);
+    const secondRepair = jobs().filter((job) => job.kind === "repair")[1];
+    expect(
+      (secondRepair.input as { previous_attempt: { rejection: string } })
+        .previous_attempt.rejection,
+    ).toContain("bündelt");
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open[0].suggestedText).toBe(proposal(2).suggested_text);
+    expect(open[0].scrutiny).toMatchObject({ attempts: 2 });
+  });
+
+  it("skips the counter-check entirely for a mechanically capped claim", async () => {
+    const store = await projectWithParkedClaim("negative_precheck");
+    const { orchestrator, jobs } = scriptedRepairOrchestrator({
+      repairs: [proposal(1)],
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    expect(jobs().filter((job) => job.kind !== "repair")).toHaveLength(0);
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open).toHaveLength(1);
+    expect(open[0].scrutiny).toBeUndefined();
   });
 });

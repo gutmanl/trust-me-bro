@@ -63,7 +63,11 @@ export const CURRENT_PROMPT_VERSION: Record<JobKind, string> = {
   // proposals could bundle a second sentence, which the apply gate
   // (`isAtomicClaimText`) then rejected — a suggestion that can never
   // be accepted.
-  repair: "1.2.1",
+  // 1.3.0 (scrutiny loop): the input carries `previous_attempt` — an
+  // earlier proposal the generation-time counter-check rejected, plus the
+  // rejection reasoning — and the template instructs the model to resolve
+  // the rejection in its next formulation.
+  repair: "1.3.0",
   relevance: "1.0.0",
   // 1.1.0: the already-detected spans are reported too, with their title,
   // authors and year and the identifier echoed back. 1.0.0 told the model to
@@ -120,6 +124,7 @@ function buildVars(kind: JobKind, input: unknown): Record<string, string> {
         evidence_json: json(typed.evidence),
         complaint_json: json(typed.complaint),
         briefing_paragraph_json: json(typed.briefing_paragraph),
+        previous_attempt_json: json(typed.previous_attempt),
       };
     }
     case "relevance": {

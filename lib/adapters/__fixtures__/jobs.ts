@@ -78,6 +78,7 @@ export const exampleInputs: { [K in JobKind]: JobIO[K]["input"] } = {
       categories: ["claim_not_derivable"],
       reason: "Der Auszug trägt die Verallgemeinerung nicht.",
     },
+    previous_attempt: null,
   } satisfies RepairInput,
   relevance: {
     research_question:

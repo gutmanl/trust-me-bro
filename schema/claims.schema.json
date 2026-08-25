@@ -1034,6 +1034,33 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "scrutiny": {
+                "additionalProperties": false,
+                "properties": {
+                  "attempts": {
+                    "maximum": 9007199254740991,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "calibration_result": {
+                    "$ref": "#/$defs/__schema26"
+                  },
+                  "reasoning": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "support_degree": {
+                    "$ref": "#/$defs/__schema25"
+                  }
+                },
+                "required": [
+                  "calibration_result",
+                  "support_degree",
+                  "reasoning",
+                  "attempts"
+                ],
+                "type": "object"
+              },
               "suggested_text": {
                 "minLength": 1,
                 "type": "string"

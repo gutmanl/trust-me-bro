@@ -177,6 +177,7 @@ export function buildRepairJob(
   claim: Claim,
   sourceTypeOf: (sourceId: string) => string | undefined,
   briefingParagraph: string | null,
+  previousAttempt: RepairInput["previous_attempt"] = null,
 ): JobRequest<"repair"> {
   const input: RepairInput = {
     claim: {
@@ -195,6 +196,7 @@ export function buildRepairJob(
     })),
     briefing_paragraph: briefingParagraph,
     complaint: buildRepairCritique(claim),
+    previous_attempt: previousAttempt,
   };
   return {
     kind: "repair",

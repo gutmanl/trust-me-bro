@@ -125,6 +125,14 @@ export interface RepairInput {
     readonly categories: readonly ComplaintCategory[];
     readonly reason: string;
   };
+  /** An earlier proposal of this SAME repair that the generation-time
+   * counter-check rejected (scrutiny loop, prompt v1.3.0), plus the
+   * rejection reasoning — the model must resolve the rejection in its next
+   * formulation. Null on the first round. */
+  readonly previous_attempt: {
+    readonly suggested_text: string;
+    readonly rejection: string;
+  } | null;
 }
 
 /** Relevance check of a warm run (TMB-43): only the claim's bearing on the

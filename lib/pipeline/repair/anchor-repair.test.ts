@@ -209,17 +209,22 @@ describe("repairBriefingPassage", () => {
       "project_created",
       "briefing_imported",
       "briefing_revised",
+      // The rewrite destroyed the driving claim's own quote, so its anchor
+      // is re-bound to the corrected wording as an AUDITED event (quote
+      // refresh) — the silent remap covers only quotes that survived.
+      "claim_anchor_revised",
     ]);
-    // The silent re-anchor pass covers the anchor consequences — no extra
-    // audited anchor event is written here.
-    expect(events).not.toContain("claim_anchor_revised");
-    expect(after.project_events.at(-1)?.reason).toContain(claimId);
+    expect(
+      after.project_events.find((event) => event.event === "briefing_revised")
+        ?.reason,
+    ).toContain(claimId);
 
-    // The claim's own quote is gone from the revised text, so its anchor
-    // stays put (stale-over-guess) — and its status is untouched, leaving it
-    // to proceed through its normal repair re-entry.
+    // The claim stays on its paragraph, now bound to the corrected wording
+    // — and its status is untouched, leaving it to proceed through its
+    // normal repair re-entry.
     const claim = after.claims.find((candidate) => candidate.id === claimId);
     expect(claim?.briefing_anchor).toBe("p2");
+    expect(claim?.anchor_quote).toBe(corrected);
     expect(claim?.status).toBe("pending_adjudication");
 
     expect((await store.verify()).ok).toBe(true);

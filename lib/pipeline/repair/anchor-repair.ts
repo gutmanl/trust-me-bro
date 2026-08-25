@@ -2,6 +2,7 @@ import { getCurrentActor } from "../../identity";
 import {
   buildBriefingViewModel,
   containsNormalized,
+  quoteContainmentScore,
   splitBriefingParagraphs,
 } from "../../register";
 import type { BriefingImport, ClaimsRegister } from "../../register";
@@ -152,11 +153,18 @@ export async function repairClaimAnchor(
  * instead of guessing; the check runs before anything else, so nothing is
  * written on that path.
  *
- * Deliberately no `tx.reviseClaimAnchor` here: `publishBriefingRevision`'s
- * silent re-anchor pass already remaps every claim whose quote moved in the
- * rewritten text, and an extra audited anchor event would double-record the
- * same mechanical consequence of one authored change. The revision event's
- * reason names the claim, so the correction stays traceable to it.
+ * Anchor bookkeeping happens on two paths. Claims whose quote still occurs
+ * in the revised text are covered by `publishBriefingRevision`'s silent
+ * re-anchor pass — mechanical consequence, no event of its own. The DRIVING
+ * claim is different: the rewrite usually destroys its own `anchor_quote`
+ * (that passage was rewritten precisely because it carried the claim), and
+ * a destroyed quote can never be remapped — the claim would wear the
+ * "Textstelle verschoben" badge forever even though its anchor is exactly
+ * right. So when the old quote no longer occurs in the corrected passage,
+ * the claim is re-bound to the best-matching sentence of the new wording as
+ * an AUDITED `claim_anchor_revised` event: unlike the silent remap this is
+ * a judgment call (which fragment now carries the claim), so it belongs in
+ * the chain.
  *
  * A contested claim is NOT transitioned here either — it proceeds through
  * its normal repair re-entry afterwards.
@@ -193,10 +201,63 @@ export async function repairBriefingPassage(
     );
   }
 
+  const trimmed = newParagraphText.trim();
   const revised = [...paragraphs];
-  revised[paragraph.index] = newParagraphText.trim();
+  revised[paragraph.index] = trimmed;
   await publishBriefingRevision(projectId, {
     text: revised.join("\n\n"),
     reason: `Briefing-Passage zu Aussage ${claimId} korrigiert (Arbeitsbereich).`,
   });
+
+  // Quote refresh for the driving claim (see the doc comment above). Runs
+  // AFTER the revision so the fuzzy sweep a caller may enqueue later finds
+  // the refreshed quote resolving verbatim and stays a no-op.
+  const oldQuote = register.claims
+    .find((candidate) => candidate.id === claimId)
+    ?.anchor_quote?.trim();
+  if (oldQuote !== undefined && !containsNormalized(trimmed, oldQuote)) {
+    const refreshed = bestMatchingSentence(trimmed, oldQuote);
+    // The replacement text may itself contain blank lines and split into
+    // several paragraphs — locate the chosen sentence in the re-split text
+    // instead of assuming the original index.
+    const index = splitBriefingParagraphs(revised.join("\n\n")).findIndex(
+      (candidate) => containsNormalized(candidate, refreshed),
+    );
+    if (index !== -1) {
+      await requireProjectStore(projectId).transaction((tx) => {
+        tx.reviseClaimAnchor(claimId, {
+          new_anchor: `p${index + 1}`,
+          new_quote: refreshed,
+          actor: getCurrentActor(),
+          reason:
+            "Textstelle nach Passagen-Korrektur neu gebunden: der bisherige " +
+            "Wortlaut kommt in der korrigierten Passage nicht mehr vor.",
+        });
+      });
+    }
+  }
+}
+
+/**
+ * The sentence of the corrected passage that carries the most of the old
+ * anchor quote's wording (`quoteContainmentScore`, the fuzzy sweep's own
+ * measure) — the fragment the claim's anchor re-binds to. Falls back to the
+ * whole passage when no sentence boundary is found. Local on purpose: this
+ * is anchor bookkeeping, not a text API.
+ */
+function bestMatchingSentence(passage: string, oldQuote: string): string {
+  const sentences = passage
+    .split(/(?<=[.!?])\s+(?=[\p{Lu}\d„"])/u)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0);
+  let best = passage;
+  let bestScore = -1;
+  for (const sentence of sentences) {
+    const score = quoteContainmentScore(oldQuote, sentence);
+    if (score > bestScore) {
+      bestScore = score;
+      best = sentence;
+    }
+  }
+  return best;
 }
