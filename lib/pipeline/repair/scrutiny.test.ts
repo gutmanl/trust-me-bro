@@ -38,11 +38,12 @@ const PROJECT_ID = "proj_gegenpruefung";
 /** One machine-parked claim whose single evidence carries an OLD judgment
  * contradicting the wording — proving the counter-check judges the proposal
  * fresh instead of folding stale judgments into the relation. */
-async function projectWithClaim(): Promise<RegisterStore> {
+async function projectWithClaim(secondary = false): Promise<RegisterStore> {
   await createProject({
     id: PROJECT_ID,
     research_question: "Frage?",
     primaryCli: "claude",
+    ...(secondary ? { secondaryCli: "codex" as const } : {}),
   });
   const store = RegisterStore.forProject(PROJECT_ID);
   await store.transaction((tx) => {
@@ -214,5 +215,92 @@ describe("scrutinizeSuggestion", () => {
       PROPOSAL,
     );
     expect(outcome.status).toBe("unavailable");
+  });
+});
+
+/** Two hand-rolled backends for the divergence tests: claude's judgment is
+ * fixed per test (low confidence arms the second opinion), codex answers
+ * its own fixed judgment and counts its calls. */
+function twoBackendOrchestrator(options: {
+  claude: { relation_type: string; confidence: number };
+  codex: { relation_type: string; confidence: number };
+}): { orchestrator: Orchestrator; codexCalls: () => number } {
+  let codexCalls = 0;
+  const attribution = (spec: {
+    relation_type: string;
+    confidence: number;
+  }) => ({ output: { ...spec, reasoning: "Testurteil." }, model: "test" });
+  const backend = (id: "claude" | "codex") =>
+    ({
+      id,
+      async invoke(job: JobRequest) {
+        if (id === "codex") {
+          codexCalls += 1;
+        }
+        if (job.kind === "attribution") {
+          return attribution(id === "claude" ? options.claude : options.codex);
+        }
+        if (job.kind === "rubric") {
+          return {
+            output: {
+              calibration_result: "licensed",
+              reasoning: "Testbewertung.",
+            },
+            model: "test",
+          };
+        }
+        throw new Error(`unexpected job kind ${job.kind}`);
+      },
+    }) as unknown as import("../../adapters").Backend;
+  return {
+    orchestrator: new Orchestrator({
+      backends: [backend("claude"), backend("codex")],
+      traceSink: { write: async () => {} },
+      gate: { run: (fn) => fn() },
+      policy: { maxAttempts: 2, retryBaseDelayMs: 1 },
+      sleep: async () => {},
+    }),
+    codexCalls: () => codexCalls,
+  };
+}
+
+describe("scrutiny with a secondary backend", () => {
+  it("reports 'diverged' when the two backends disagree on a relation", async () => {
+    await projectWithClaim(true);
+    const { register, projectDir, claim } = await context();
+    const { orchestrator, codexCalls } = twoBackendOrchestrator({
+      claude: { relation_type: "partially_supports", confidence: 0.7 },
+      codex: { relation_type: "supports", confidence: 0.95 },
+    });
+    const outcome = await scrutinizeSuggestion(
+      register,
+      projectDir,
+      orchestrator,
+      claim,
+      PROPOSAL,
+    );
+    expect(outcome.status).toBe("diverged");
+    expect(codexCalls()).toBe(1);
+  });
+
+  it("skips the second opinion for a confident 'supports' and licenses", async () => {
+    await projectWithClaim(true);
+    const { register, projectDir, claim } = await context();
+    const { orchestrator, codexCalls } = twoBackendOrchestrator({
+      claude: { relation_type: "supports", confidence: 0.95 },
+      codex: { relation_type: "contradicts", confidence: 0.95 },
+    });
+    const outcome = await scrutinizeSuggestion(
+      register,
+      projectDir,
+      orchestrator,
+      claim,
+      PROPOSAL,
+    );
+    expect(outcome).toMatchObject({
+      status: "ok",
+      verdict: { calibrationResult: "licensed" },
+    });
+    expect(codexCalls()).toBe(0);
   });
 });

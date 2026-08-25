@@ -75,12 +75,15 @@ async function projectWithParkedClaim(
      * pertinent source satisfies the effectiveness_statement rule and the
      * mechanical cap does NOT apply (scrutiny loop active). */
     pertinent?: boolean;
+    /** Configure codex as secondary backend (second-opinion rule armed). */
+    secondary?: boolean;
   } = {},
 ): Promise<RegisterStore> {
   await createProject({
     id: PROJECT_ID,
     research_question: "Frage?",
     primaryCli: "claude",
+    ...(options.secondary ? { secondaryCli: "codex" as const } : {}),
   });
   const store = RegisterStore.forProject(PROJECT_ID);
   const failedQuote = routing === "existence_check_failed";
@@ -594,5 +597,116 @@ describe("scrutiny loop", () => {
     const open = deriveOpenClaimRepairSuggestions(await store.read());
     expect(open).toHaveLength(1);
     expect(open[0].scrutiny).toBeUndefined();
+  });
+});
+
+/** Claude with SEQUENCED attribution judgments plus a codex that always
+ * answers "supports": lets a round diverge and the next one resolve. */
+function divergingOrchestrator(options: {
+  repairs: RepairOutput[];
+  claudeAttributions: { relation_type: string; confidence: number }[];
+}): { orchestrator: Orchestrator; jobs: () => JobRequest[] } {
+  const calls: JobRequest[] = [];
+  let repairIndex = 0;
+  let attributionIndex = 0;
+  const claude = {
+    id: "claude",
+    async invoke(job: JobRequest) {
+      calls.push(job);
+      if (job.kind === "repair") {
+        const output =
+          options.repairs[Math.min(repairIndex, options.repairs.length - 1)];
+        repairIndex += 1;
+        return { output, model: "claude-sonnet-5" };
+      }
+      if (job.kind === "attribution") {
+        const spec =
+          options.claudeAttributions[
+            Math.min(attributionIndex, options.claudeAttributions.length - 1)
+          ];
+        attributionIndex += 1;
+        return {
+          output: { ...spec, reasoning: "Testurteil." },
+          model: "claude-sonnet-5",
+        };
+      }
+      if (job.kind === "rubric") {
+        return {
+          output: {
+            calibration_result: "licensed",
+            reasoning: "Testbewertung.",
+          },
+          model: "claude-sonnet-5",
+        };
+      }
+      throw new Error(`unexpected job kind ${job.kind}`);
+    },
+  } as unknown as import("../../adapters").Backend;
+  const codex = {
+    id: "codex",
+    async invoke(job: JobRequest) {
+      calls.push(job);
+      return {
+        output: {
+          relation_type: "supports",
+          confidence: 0.9,
+          reasoning: "Zweiturteil.",
+        },
+        model: "gpt-test",
+      };
+    },
+  } as unknown as import("../../adapters").Backend;
+  return {
+    orchestrator: new Orchestrator({
+      backends: [claude, codex],
+      traceSink: { write: async () => {} },
+      gate: { run: (fn) => fn() },
+      policy: { maxAttempts: 2, retryBaseDelayMs: 1 },
+      sleep: async () => {},
+    }),
+    jobs: () => calls,
+  };
+}
+
+describe("scrutiny loop under the divergence rule", () => {
+  it("treats divergence as a rejection and records the reformulation that resolves it", async () => {
+    const store = await projectWithParkedClaim("negative_precheck", {
+      pertinent: true,
+      secondary: true,
+    });
+    const wordings: RepairOutput[] = [
+      {
+        suggested_text: "Reviews können die Fehlerdichte senken (mehrdeutig).",
+        reasoning: "Erster Entwurf.",
+      },
+      {
+        suggested_text:
+          "Reviews senkten die Fehlerdichte in der Studie um 12 %.",
+        reasoning: "Eindeutiger gefasst.",
+      },
+    ];
+    const { orchestrator, jobs } = divergingOrchestrator({
+      repairs: wordings,
+      // Round 1: low-confidence partial arms the second opinion, codex says
+      // supports — divergence. Round 2: confident supports, no second
+      // opinion, rubric licenses.
+      claudeAttributions: [
+        { relation_type: "partially_supports", confidence: 0.7 },
+        { relation_type: "supports", confidence: 0.95 },
+      ],
+    });
+    await evaluateClaimRepair(PROJECT_ID, "clm_0001", { orchestrator });
+    const repairJobs = jobs().filter((job) => job.kind === "repair");
+    expect(repairJobs).toHaveLength(2);
+    expect(
+      (repairJobs[1].input as { previous_attempt: { rejection: string } })
+        .previous_attempt.rejection,
+    ).toContain("einheitlichen Urteil");
+    const open = deriveOpenClaimRepairSuggestions(await store.read());
+    expect(open[0].suggestedText).toBe(wordings[1].suggested_text);
+    expect(open[0].scrutiny).toMatchObject({
+      calibrationResult: "licensed",
+      attempts: 2,
+    });
   });
 });

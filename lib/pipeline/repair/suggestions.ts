@@ -282,6 +282,9 @@ export async function evaluateClaimRepair(
     output: RepairOutput;
     scrutiny?: ClaimRepairSuggestion["scrutiny"];
   } | null = null;
+  // Latest atomic proposal regardless of verdict — recorded when no round
+  // earns one (the backends diverged in every round).
+  let fallback: RepairOutput | null = null;
   let attempts = 0;
   while (attempts < MAX_SUGGESTION_GENERATIONS) {
     const job = buildRepairJob(
@@ -319,6 +322,7 @@ export async function evaluateClaimRepair(
       };
       continue;
     }
+    fallback = output;
     if (skipScrutiny) {
       best = { output };
       break;
@@ -338,6 +342,17 @@ export async function evaluateClaimRepair(
         best = { output };
       }
       break;
+    }
+    if (scrutiny.status === "diverged") {
+      previousAttempt = {
+        suggested_text: output.suggested_text,
+        rejection:
+          "Die beiden Prüf-Backends kamen zu keinem einheitlichen Urteil, " +
+          "ob die Belege diese Formulierung voll oder nur teilweise " +
+          "tragen – bitte so umformulieren, dass die Beziehung zwischen " +
+          "Beleg und Aussage eindeutig ist.",
+      };
+      continue;
     }
     const candidate = {
       output,
@@ -363,14 +378,14 @@ export async function evaluateClaimRepair(
       rejection: scrutiny.verdict.reasoning,
     };
   }
-  if (best === null) {
+  const chosen = best ?? (fallback !== null ? { output: fallback } : null);
+  if (chosen === null) {
     console.warn(
       `claim repair suggestion for "${claimId}" not recorded: no atomic ` +
         `formulation in ${MAX_SUGGESTION_GENERATIONS} attempts`,
     );
     return;
   }
-  const chosen = best;
   const suggestion: ClaimRepairSuggestion = {
     claim_id: claimId,
     origin: critique.origin,

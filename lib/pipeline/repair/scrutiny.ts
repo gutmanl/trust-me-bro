@@ -18,11 +18,13 @@ import { runAttributionAndRubric } from "../verification/stage2/attribution-rubr
  * loop can regenerate instead of shipping a proposal that verification
  * would immediately park again.
  *
- * A forecast, not the verification protocol: primary backend only (no
- * second opinion, so no divergence), nothing persisted, no claim touched.
- * The rule set, prompt vintages and calibration combinator are the SAME
- * ones a later re-verification will use (`runAttributionAndRubric`), which
- * is what makes the forecast meaningful.
+ * A forecast, not a verification run: nothing persisted, no claim
+ * touched. Everything else mirrors the real protocol — rule set, prompt
+ * vintages, calibration combinator AND the second-opinion/divergence rule
+ * with the configured secondary backend (`runAttributionAndRubric`). The
+ * mirroring is the point: an earlier primary-only variant licensed
+ * wordings the real re-run then parked as "Backend-Urteile
+ * widersprüchlich".
  */
 
 export interface ScrutinyVerdict {
@@ -33,6 +35,11 @@ export interface ScrutinyVerdict {
 
 export type ScrutinyOutcome =
   | { status: "ok"; verdict: ScrutinyVerdict }
+  /** The two backends disagreed on an evidence relation for the proposed
+   * wording — the situation the real run routes to the human. The loop
+   * treats it as a rejection: an ambiguous wording is exactly what a
+   * reformulation can fix. */
+  | { status: "diverged" }
   /** The check could not run to a verdict (backend paused/exhausted,
    * unresolvable rubric pin). Says nothing about the proposal's quality. */
   | { status: "unavailable"; reason: string };
@@ -84,10 +91,11 @@ export async function scrutinizeSuggestion(
     {
       orchestrator,
       primaryBackendId: register.config.backends.primary.cli,
+      ...(register.config.backends.secondary !== undefined
+        ? { secondaryBackendId: register.config.backends.secondary.cli }
+        : {}),
       projectDir,
       timeoutMs: loadAdapterConfig().timeoutMs,
-      // Irrelevant without a secondary backend, but the dependency is
-      // required — resolved the same way the verification run resolves it.
       secondOpinion: register.config.second_opinion ?? DEFAULT_SECOND_OPINION,
       rubricVersion: register.config.rubric_version,
       ruleSet,
@@ -103,10 +111,10 @@ export async function scrutinizeSuggestion(
     return { status: "unavailable", reason: outcome.message };
   }
   if (outcome.supportDegree === null || outcome.calibration === null) {
-    // Structurally unreachable with a single backend and emptied judgments
-    // (divergence needs two backends); guarded so a future change degrades
-    // to "no forecast" instead of a crash.
-    return { status: "unavailable", reason: "relation unresolved" };
+    // The two backends disagreed on at least one relation — exactly what
+    // the real run would park for the human ("Backend-Urteile
+    // widersprüchlich").
+    return { status: "diverged" };
   }
   return {
     status: "ok",
