@@ -35,6 +35,7 @@ function registerWith(overrides: {
     ],
     claims: [
       {
+        history: [],
         id: "clm_0001",
         evidence: [
           {

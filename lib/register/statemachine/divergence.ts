@@ -1,5 +1,6 @@
 import type { RelationType } from "../schema/enums";
 import type { Judgment } from "../schema/evidence";
+import type { HistoryEntry } from "../schema/history";
 
 /**
  * The divergence rule's core question, extracted as the single source of
@@ -23,6 +24,37 @@ export function latestJudgmentPerBackend(
     }
   }
   return latest;
+}
+
+/**
+ * The judgments authoritative for the claim's CURRENT wording: a judgment
+ * recorded before the claim's last `revised` transition judged a superseded
+ * text and must not gate the new one. Without this, a repair produced
+ * phantom divergence: the primary backend confidently re-judged the revised
+ * wording, the second opinion therefore never armed, and the secondary
+ * backend's stale judgment of the OLD text read as disagreement — parking a
+ * cleanly repaired claim as "Backend-Urteile widersprüchlich". The audit
+ * trail keeps every judgment; only the resolution ignores superseded ones.
+ * Claims never revised keep all judgments (no behaviour change).
+ */
+export function judgmentsForCurrentWording(
+  claim: { history: readonly Pick<HistoryEntry, "to_status" | "at">[] },
+  judgments: readonly Judgment[],
+): Judgment[] {
+  // Backwards loop instead of findLast: this file is compiled by the CLI
+  // build too (tsconfig.cli.json, target ES2022), which predates findLast.
+  let lastRevision: string | undefined;
+  for (let index = claim.history.length - 1; index >= 0; index -= 1) {
+    if (claim.history[index].to_status === "revised") {
+      lastRevision = claim.history[index].at;
+      break;
+    }
+  }
+  if (lastRevision === undefined) {
+    return [...judgments];
+  }
+  const cutoff = Date.parse(lastRevision);
+  return judgments.filter((judgment) => Date.parse(judgment.at) >= cutoff);
 }
 
 /**

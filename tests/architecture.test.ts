@@ -56,6 +56,10 @@ describe("public surface of lib/register", () => {
     expect(surface.evaluateAutoConfirmation).toBeDefined();
     expect(surface.resolveEvidenceRelation).toBeDefined();
     expect(surface.latestJudgmentPerBackend).toBeDefined();
+    // Wording-revision cutoff of the divergence rule: pipeline resolution,
+    // the auto-confirmation gate and the divergence display all exclude
+    // judgments of a superseded wording through this one helper.
+    expect(surface.judgmentsForCurrentWording).toBeDefined();
     // TMB-5: the repair pipeline decides the re-entry edge with the same
     // predicate the gate re-checks at commit time.
     expect(surface.allExistenceChecksPassed).toBeDefined();

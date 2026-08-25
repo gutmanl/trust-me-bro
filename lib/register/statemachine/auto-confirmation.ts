@@ -1,5 +1,8 @@
 import type { Claim } from "../schema/claim";
-import { latestJudgmentPerBackend } from "./divergence";
+import {
+  judgmentsForCurrentWording,
+  latestJudgmentPerBackend,
+} from "./divergence";
 import type { GateResult } from "./transitions";
 
 /**
@@ -23,7 +26,12 @@ export function evaluateAutoConfirmation(claim: Claim): GateResult {
     };
   }
   const divergent = claim.evidence.some((evidence) => {
-    const latest = latestJudgmentPerBackend(evidence.judgments);
+    // Superseded-wording judgments are excluded here for the same reason
+    // the pipeline excludes them when resolving the relation — see
+    // `judgmentsForCurrentWording`.
+    const latest = latestJudgmentPerBackend(
+      judgmentsForCurrentWording(claim, evidence.judgments),
+    );
     return (
       new Set([...latest.values()].map((judgment) => judgment.relation_type))
         .size > 1

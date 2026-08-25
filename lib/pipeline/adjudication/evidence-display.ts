@@ -1,5 +1,9 @@
 import type { ClaimsRegister } from "../../register";
-import { formatLocator, resolveEvidenceRelation } from "../../register";
+import {
+  formatLocator,
+  judgmentsForCurrentWording,
+  resolveEvidenceRelation,
+} from "../../register";
 import { formatCitation } from "../sources/csl";
 
 /**
@@ -62,7 +66,9 @@ export function buildEvidenceDisplayMap(
         divergent:
           evidence.judgments.length > 0 &&
           evidence.relation_type === undefined &&
-          resolveEvidenceRelation(evidence.judgments) === null,
+          resolveEvidenceRelation(
+            judgmentsForCurrentWording(claim, evidence.judgments),
+          ) === null,
       };
     }
   }

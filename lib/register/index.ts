@@ -48,6 +48,7 @@ export { machineParkedInAdjudication } from "./statemachine/transitions";
 // fails this gate has zero outgoing edges once admitted, permanently.
 export { canLeaveRecheck } from "./statemachine/transitions";
 export {
+  judgmentsForCurrentWording,
   latestJudgmentPerBackend,
   resolveEvidenceRelation,
 } from "./statemachine/divergence";

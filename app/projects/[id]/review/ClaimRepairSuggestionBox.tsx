@@ -148,6 +148,13 @@ export function ClaimRepairSuggestionBox({
             disabled={pending}
             className="w-full rounded-md border border-indigo-300 bg-white px-2 py-1.5 text-xs text-slate-900"
           />
+          {suggestion.scrutiny?.calibrationResult === "licensed" &&
+          text !== suggestion.suggestedText ? (
+            <p className="text-amber-800">
+              Hinweis: Die KI-Gegenprüfung galt der vorgeschlagenen Fassung –
+              Ihre angepasste Formulierung ist nicht gegengeprüft.
+            </p>
+          ) : null}
           <input type="hidden" name="source" value={source} />
           <input
             type="hidden"

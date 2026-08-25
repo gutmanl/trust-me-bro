@@ -17,7 +17,10 @@ import type {
   SourceType,
   SupportDegree,
 } from "../../../register";
-import { resolveEvidenceRelation } from "../../../register";
+import {
+  judgmentsForCurrentWording,
+  resolveEvidenceRelation,
+} from "../../../register";
 import { aggregateSupportDegree } from "../aggregate-support";
 import type { RubricRuleSet } from "../rubric-rules";
 import {
@@ -132,7 +135,9 @@ export async function runAttributionAndRubric(
       evidenceId: evidence.id,
       newJudgments,
       resolvedRelation: resolveEvidenceRelation([
-        ...evidence.judgments,
+        // Judgments of a superseded wording do not count (phantom
+        // divergence after repairs) — see `judgmentsForCurrentWording`.
+        ...judgmentsForCurrentWording(claim, evidence.judgments),
         ...newJudgments,
       ]),
     });
