@@ -47,8 +47,15 @@ next-env.d.ts
 # npm pack output (TMB-48 distribution tarball)
 *.tgz
 
-# Claude Code personal overrides (never commit)
-.claude/settings.local.json
+# Claude Code personal overrides und Sandbox-Masken (never commit). Allow-Liste
+# statt Aufzaehlung: gesperrte Pfade erscheinen im Arbeitsbaum als ueber
+# /dev/null gemountete Geraeteknoten, und ihre Menge waechst mit jeder Version.
+.claude/*
+!.claude/README.md
+!.claude/agents/
+!.claude/commands/
+!.claude/settings.json
+.mcp.json
 
 # compiled tmb CLI (built at pack time)
 /dist/
