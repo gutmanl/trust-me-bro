@@ -74,11 +74,11 @@ server and the `tmb` command with it.
 Then, on the target machine, in any directory:
 
 ```sh
-npm install -g ./trustmebro-0.1.0.tgz
+npm install -g ./trustmebro-<version>.tgz
 trustmebro
 ```
 
-Or without a global install: `npx ./trustmebro-0.1.0.tgz`.
+Or without a global install: `npx ./trustmebro-<version>.tgz`.
 
 ### First start
 
@@ -237,3 +237,14 @@ from `app/`, and only `lib/identity` reads the environment. The full seam
 documentation lives in [ARCHITECTURE.md](ARCHITECTURE.md); the CLI
 error-class and reaction table in
 [lib/adapters/README.md](lib/adapters/README.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and the rules the build
+enforces, and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+
+## License
+
+[MIT](LICENSE) © 2026 Leonid Gutman. `"private": true` in `package.json` only
+keeps the package from being published to the npm registry by accident; it
+says nothing about the licence.

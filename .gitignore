@@ -69,3 +69,6 @@ tests/corpus/documents/
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# IDE state
+/.idea/
