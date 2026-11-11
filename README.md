@@ -16,6 +16,20 @@ or does not exist at all. The first verification stage is deterministic and
 model-independent for exactly that reason — it compares quoted wording
 against the frozen document, byte by byte.
 
+## Who it is for
+
+Anyone who has to stand behind a briefing they did not research line by
+line themselves: students and researchers working with deep-research tools,
+reviewers who are handed an LLM-written literature summary, and anyone who
+needs to show a third party afterwards what was checked, by whom and against
+which document.
+
+## Built with
+
+TypeScript (strict) on Node.js, Next.js 16 with the App Router and React 19
+for the web interface, zod for the schema, Tailwind CSS for styling, Vitest
+and Playwright for the tests. It runs locally as a single-user application.
+
 ## What it does
 
 - **Import and freeze.** A briefing is stored verbatim and hashed. Its
@@ -237,6 +251,10 @@ from `app/`, and only `lib/identity` reads the environment. The full seam
 documentation lives in [ARCHITECTURE.md](ARCHITECTURE.md); the CLI
 error-class and reaction table in
 [lib/adapters/README.md](lib/adapters/README.md).
+
+## Roadmap
+
+Planned work is listed in [ROADMAP.md](ROADMAP.md).
 
 ## Contributing
 
