@@ -1,6 +1,13 @@
 {
   "name": "trustmebro",
   "version": "0.4.0",
+  "description": "A verification workshop for LLM-researched briefings: claims, frozen sources and a hash-chained, independently verifiable history.",
+  "license": "MIT",
+  "author": "Leonid Gutman",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gutmanl/trust-me-bro.git"
+  },
   "private": true,
   "bin": {
     "trustmebro": "bin/trustmebro.mjs",
@@ -11,7 +18,8 @@
     "dist/cli",
     "dist/lib",
     ".next/standalone",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20.9"
